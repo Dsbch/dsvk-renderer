@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "logger.h"
 
-std::shared_ptr<spdlog::logger> logger::mLogger;
+std::shared_ptr<spdlog::logger> core::logger::mLogger;
 
-std::shared_ptr<spdlog::logger> logger::log()
+std::shared_ptr<spdlog::logger> core::logger::log()
 {
 	if (!mLogger)
 	{

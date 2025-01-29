@@ -18,9 +18,9 @@
 #include "profiling.h"
 
 #ifdef DEBUG
-	GoogleProfiler InstrumentationTimer::mProfiler;
+	core::GoogleProfiler core::InstrumentationTimer::mProfiler;
 
-	void GoogleProfiler::WriteProfile(const ProfileResult& result)
+	void core::GoogleProfiler::WriteProfile(const ProfileResult& result)
 	{
 		std::lock_guard<std::mutex> guard(mU);
 
@@ -37,23 +37,23 @@
 			);
 	}
 
-	std::string GoogleProfiler::Dump()
+	std::string core::GoogleProfiler::Dump()
 	{
 		return mJson.dump();
 	}
 
-	InstrumentationTimer::InstrumentationTimer(const char* name)
+	core::InstrumentationTimer::InstrumentationTimer(const char* name)
 		: mName(name)
 	{
 		mStartTimepoint = std::chrono::high_resolution_clock::now();
 	}
 
-	InstrumentationTimer::~InstrumentationTimer()
+	core::InstrumentationTimer::~InstrumentationTimer()
 	{
 		Stop();
 	}
 
-	void InstrumentationTimer::Stop()
+	void core::InstrumentationTimer::Stop()
 	{
 		auto endTimepoint = std::chrono::high_resolution_clock::now();
 
@@ -63,7 +63,7 @@
 		mProfiler.WriteProfile({ mName, start, end, threadID });
 	}
 
-	void InstrumentationTimer::Dump(const std::string& fileName)
+	void core::InstrumentationTimer::Dump(const std::string& fileName)
 	{
 		std::ofstream f{ fileName };
 		f << mProfiler.Dump();
