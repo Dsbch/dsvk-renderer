@@ -17,7 +17,7 @@
 #include <pch.h>
 #include <json.h>
 
-namespace core {
+namespace Core {
 #ifdef DEBUG
 	struct ProfileResult
 	{
@@ -54,12 +54,11 @@ namespace core {
 
 		static void Dump(const std::string& fileName);
 	};
-	
-	#define PROFILE_FUNC() InstrumentationTimer timer{__FUNCSIG__};
-	#define DUMP_PROFILING(fileName) InstrumentationTimer::Dump(fileName);
-	#else
-	#define PROFILE_FUNC()
-	#define DUMP_PROFILING(fileName)
-	#endif // DEBUG
 }
 
+#define PROFILE_FUNC() Core::InstrumentationTimer timer{__FUNCSIG__};
+#define DUMP_PROFILING(fileName) Core::InstrumentationTimer::Dump(fileName);
+#else
+#define PROFILE_FUNC()
+#define DUMP_PROFILING(fileName)
+#endif // DEBUG

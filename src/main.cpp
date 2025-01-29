@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tchar.h>
-#include "events/dispatcher.h"
-#include "events/events.h"
+#include "engine/events/dispatcher.h"
+#include "engine/events/events.h"
 
 // Global variables
 
@@ -22,7 +22,7 @@ HINSTANCE hInst;
 // Forward declarations of functions included in this code module:
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-void resize(const WindowResizeEvent& e)
+void resize(const Engine::WindowResizeEvent& e)
 {
     LOGINFO("New width {}, new height {}", e.Width(), e.Height());
 }
@@ -43,14 +43,13 @@ int WINAPI WinMain(
         return -1; // Exit if console setup fails
     }
 #endif // DEBUG
-    EventDispatcher dispatcher = EventDispatcher{};
+    Engine::EventDispatcher dispatcher = Engine::EventDispatcher{};
 
-    WindowResizeEvent e{12, 12};
+    Engine::WindowResizeEvent e{12, 12};
 
+    dispatcher.Register<Engine::WindowResizeEvent>(e, resize);
 
-    dispatcher.Register<WindowResizeEvent>(e, resize);
-
-    dispatcher.Dispatch<WindowResizeEvent>(e);
+    dispatcher.Dispatch<Engine::WindowResizeEvent>(e);
 
     WNDCLASSEX wcex;
 
