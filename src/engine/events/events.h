@@ -2,30 +2,30 @@
 
 #include <pch.h>
 
-namespace Engine {
-	enum EventType {
-		ButtonUp,
-		ButtonDown,
-		WindowResize,
+namespace engine {
+	enum eventType {
+		buttonUp,
+		buttonDown,
+		windowResize,
 	};
 
-	class BaseEvent {
+	class baseEvent {
 	protected:
-		EventType mType;
+		eventType mType;
 	public:
-		virtual ~BaseEvent() = default;
-		BaseEvent(EventType type);
-		virtual std::string EventIdentifier() const = 0;
+		virtual ~baseEvent() = default;
+		baseEvent(eventType type);
+		virtual std::string eventIdentifier() const = 0;
 	};
 
-	class WindowResizeEvent : public BaseEvent {
+	class windowResizeEvent : public baseEvent {
 	private:
 		uint32_t mWidth, mHeight;
 	public:
-		WindowResizeEvent(uint32_t, uint32_t);
-		virtual std::string EventIdentifier() const override;
-		uint32_t Width() const;
-		uint32_t Height() const;
+		windowResizeEvent(uint32_t, uint32_t);
+		virtual std::string eventIdentifier() const override;
+		uint32_t width() const;
+		uint32_t height() const;
 	};
 
 }

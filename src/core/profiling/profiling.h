@@ -17,47 +17,47 @@
 #include <pch.h>
 #include <json.h>
 
-namespace Core {
+namespace core {
 #ifdef DEBUG
-	struct ProfileResult
+	struct profileResult
 	{
-		std::string Name;
-		long long Start, End;
-		uint32_t ThreadID;
+		std::string name;
+		long long start, end;
+		uint32_t threadID;
 	};
 
-	class GoogleProfiler
+	class googleProfiler
 	{
 	private:
 		std::mutex mU;
 		nlohmann::json mJson;
 	public:
-		GoogleProfiler() : mU() {}
+		googleProfiler() : mU() {}
 
-		void WriteProfile(const ProfileResult& result);
+		void writeProfile(const profileResult& result);
 
-		std::string Dump();
+		std::string dump();
 	};
 
-	class InstrumentationTimer
+	class instrumentationTimer
 	{
 	private:
 		const char* mName;
 		std::chrono::time_point<std::chrono::high_resolution_clock> mStartTimepoint;
-		static GoogleProfiler mProfiler;
+		static googleProfiler mProfiler;
 	public:
-		InstrumentationTimer(const char* name);
+		instrumentationTimer(const char* name);
 
-		~InstrumentationTimer();
+		~instrumentationTimer();
 
-		void Stop();
+		void stop();
 
-		static void Dump(const std::string& fileName);
+		static void dump(const std::string& fileName);
 	};
 }
 
-#define PROFILE_FUNC() Core::InstrumentationTimer timer{__FUNCSIG__};
-#define DUMP_PROFILING(fileName) Core::InstrumentationTimer::Dump(fileName);
+#define PROFILE_FUNC() core::instrumentationTimer timer{__FUNCSIG__};
+#define DUMP_PROFILING(fileName) core::instrumentationTimer::dump(fileName);
 #else
 #define PROFILE_FUNC()
 #define DUMP_PROFILING(fileName)

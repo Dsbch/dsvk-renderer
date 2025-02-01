@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "logger.h"
 
-std::shared_ptr<spdlog::logger> Core::logger::mLogger;
+std::shared_ptr<spdlog::logger> core::logger::mLogger;
 
-std::shared_ptr<spdlog::logger> Core::logger::log()
+std::shared_ptr <spdlog::logger > core::logger::log()
 {
 	if (!mLogger)
 	{
@@ -13,7 +13,7 @@ std::shared_ptr<spdlog::logger> Core::logger::log()
 	return mLogger;
 }
 
-void Core::logger::initLogger(const std::string& app_name, spdlog::level::level_enum level, const std::string& pattern)
+void core::logger::InitLogger(const std::string& app_name, spdlog::level::level_enum level, const std::string& pattern)
 {
 	mLogger = spdlog::stdout_color_mt(app_name);
 	mLogger->set_level(level);

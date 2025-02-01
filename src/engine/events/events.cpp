@@ -1,41 +1,41 @@
 #include <pch.h>
 #include "events.h"
 
-static std::string EventTypeToStr(Engine::EventType e)
+static std::string EventTypeToStr(engine::eventType e)
 {
 	PROFILE_FUNC();
 	switch (e)
 	{
-	case Engine::EventType::WindowResize:
+	case engine::eventType::windowResize:
 		return "EventType::WindowResize";
-	case Engine::EventType::ButtonDown:
+	case engine::eventType::buttonDown:
 		return "EventType::ButtonDown";
-	case Engine::EventType::ButtonUp:
+	case engine::eventType::buttonUp:
 		return "EventType::ButtonUp";
 	default:
 		return "EventType::Undefined";
 	}
 }
 
-Engine::BaseEvent::BaseEvent(Engine::EventType type) : mType(type)
+engine::baseEvent::baseEvent(engine::eventType type) : mType(type)
 {
 }
 
-Engine::WindowResizeEvent::WindowResizeEvent(uint32_t width, uint32_t height) : mWidth(width), mHeight(height), BaseEvent(EventType::WindowResize)
+engine::windowResizeEvent::windowResizeEvent(uint32_t width, uint32_t height) : mWidth(width), mHeight(height), baseEvent(eventType::windowResize)
 {
 }
 
-std::string Engine::WindowResizeEvent::EventIdentifier() const
+std::string engine::windowResizeEvent::eventIdentifier() const
 {
 	return EventTypeToStr(mType);
 }
 
-uint32_t Engine::WindowResizeEvent::Width() const
+uint32_t engine::windowResizeEvent::width() const
 {
 	return mWidth;
 }
 
-uint32_t Engine::WindowResizeEvent::Height() const
+uint32_t engine::windowResizeEvent::height() const
 {
 	return mHeight;
 }

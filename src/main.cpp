@@ -7,6 +7,8 @@
 #include <tchar.h>
 #include "engine/events/dispatcher.h"
 #include "engine/events/events.h"
+#include "../core/console/console.h"
+#include "../core/errors/errors.h"
 
 // Global variables
 
@@ -22,9 +24,9 @@ HINSTANCE hInst;
 // Forward declarations of functions included in this code module:
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-void resize(const Engine::WindowResizeEvent& e)
+void resize(const engine::windowResizeEvent& e)
 {
-    LOGINFO("New width {}, new height {}", e.Width(), e.Height());
+    LOGINFO("New width {}, new height {}", e.width(), e.height());
 }
 
 int WINAPI WinMain(
@@ -35,38 +37,42 @@ int WINAPI WinMain(
 )
 {
 #ifdef DEBUG
-    AllocConsole();
-    
-    FILE* f;
-    if (freopen_s(&f, "CONOUT$", "w", stdout) != 0) {
-        FreeConsole();
-        return -1; // Exit if console setup fails
-    }
+    auto c = core::createConsole();
 #endif // DEBUG
-    Engine::EventDispatcher dispatcher = Engine::EventDispatcher{};
 
-    Engine::WindowResizeEvent e{12, 12};
+    engine::eventDispatcher dispatcher = engine::eventDispatcher{};
 
-    dispatcher.Register<Engine::WindowResizeEvent>(e, resize);
+    engine::windowResizeEvent e{12, 12};
 
-    dispatcher.Dispatch<Engine::WindowResizeEvent>(e);
+    dispatcher.addHandler<engine::windowResizeEvent>(e, resize);
 
-    WNDCLASSEX wcex;
+    dispatcher.dispatch<engine::windowResizeEvent>(e);
 
-    wcex.cbSize = sizeof(WNDCLASSEX);
-    wcex.style = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc = WndProc;
-    wcex.cbClsExtra = 0;
-    wcex.cbWndExtra = 0;
-    wcex.hInstance = hInstance;
-    wcex.hIcon = LoadIcon(wcex.hInstance, IDI_APPLICATION);
-    wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wcex.lpszMenuName = NULL;
-    wcex.lpszClassName = szWindowClass;
-    wcex.hIconSm = LoadIcon(wcex.hInstance, IDI_APPLICATION);
+    WNDCLASSEX wcx;
+    // Fill in the window class structure with parameters 
+    // that describe the main window. 
+    wcx.cbSize = sizeof(wcx);          // size of structure 
+    wcx.style = CS_HREDRAW |
+        CS_VREDRAW;                    // redraw if size changes 
+    wcx.lpfnWndProc = WndProc;     // points to window procedure 
+    wcx.cbClsExtra = 0;                // no extra class memory 
+    wcx.cbWndExtra = 0;                // no extra window memory 
+    wcx.hInstance = hInstance;         // handle to instance 
+    wcx.hIcon = LoadIcon(NULL,
+        IDI_APPLICATION);              // predefined app. icon 
+    wcx.hCursor = LoadCursor(NULL,
+        IDC_ARROW);                    // predefined arrow 
+    wcx.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH); // white background brush 
+    wcx.lpszMenuName = NULL;    // name of menu resource 
+    wcx.lpszClassName = szWindowClass;  // name of window class 
+    wcx.hIconSm = (HICON)LoadImage(hInstance, // small class icon 
+        MAKEINTRESOURCE(5),
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON),
+        GetSystemMetrics(SM_CYSMICON),
+        LR_DEFAULTCOLOR);
 
-    if (!RegisterClassEx(&wcex))
+    if (!RegisterClassEx(&wcx))
     {
         MessageBox(NULL,
             _T("Call to RegisterClassEx failed!"),
@@ -154,8 +160,10 @@ int WINAPI WinMain(
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-
+  
+#ifdef DEBUG
     DUMP_PROFILING("prof.json");
+#endif // !DEBUG
 
     return (int)msg.wParam;
 }

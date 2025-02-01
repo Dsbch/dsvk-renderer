@@ -2,6 +2,7 @@ project "application"
    kind "WindowedApp"
    language "C++"
    architecture "x64"
+   cppdialect "C++17"
 
    targetdir "bin/%{cfg.buildcfg}"
    objdir "bin-int/%{cfg.buildcfg}"

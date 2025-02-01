@@ -2,11 +2,11 @@
 #include "dispatcher.h"
 #include "events.h"
 
-Engine::EventDispatcher::EventDispatcher(const EventDispatcher& other) : mU()
+engine::eventDispatcher::eventDispatcher(const eventDispatcher& other) : mU()
 {
 }
 
-Engine::EventDispatcher& Engine::EventDispatcher::operator=(const EventDispatcher& other)
+engine::eventDispatcher& engine::eventDispatcher::operator=(const eventDispatcher& other)
 {
 	if (this != &other)
 	{

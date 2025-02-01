@@ -5,11 +5,9 @@
 namespace engine {
 	class window {
 	protected:
-		std::string mApplicationName;
-		std::string mName;
+		std::string m_name;
 	public:
 		window(const std::string& name);
-		 //createWindow()
 		virtual ~window();
 	};
 }

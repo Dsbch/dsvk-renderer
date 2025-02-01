@@ -3,43 +3,43 @@
 #include <pch.h>
 #include "events.h"
 
-namespace Engine {
-	class EventDispatcher {
+namespace engine {
+	class eventDispatcher {
 	private:
 		std::mutex mU;
-		template <typename Event>
-		static std::map<std::string, std::vector<std::function<void(const Event&)>>> mEventMap;
+		template <typename event>
+		static std::map<std::string, std::vector<std::function<void(const event&)>>> mEventMap;
 	public:
-		EventDispatcher() = default;
-		~EventDispatcher() = default;
-		EventDispatcher(const EventDispatcher& other);
-		EventDispatcher& operator=(const EventDispatcher&);
-		EventDispatcher(EventDispatcher&& other) = default;
-		EventDispatcher& operator=(EventDispatcher&&) = default;
-		template<class Event>
-		void Register(const Event& e, std::function<void(const Event&)>);
-		template<class Event>
-		void Dispatch(const Event&);
+		eventDispatcher() = default;
+		~eventDispatcher() = default;
+		eventDispatcher(const eventDispatcher& other);
+		eventDispatcher& operator=(const eventDispatcher&);
+		eventDispatcher(eventDispatcher&& other) = default;
+		eventDispatcher& operator=(eventDispatcher&&) = default;
+		template<class event>
+		void addHandler(const event& e, std::function<void(const event&)>);
+		template<class event>
+		void dispatch(const event&);
 	};
 
-	template <class Event>
-	std::map<std::string, std::vector<std::function<void(const Event&)>>> EventDispatcher::mEventMap;
+	template <class event>
+	std::map<std::string, std::vector<std::function<void(const event&)>>> eventDispatcher::mEventMap;
 
-	template<class Event>
-	inline void EventDispatcher::Register(const Event& e, std::function<void(const Event&)> handler)
+	template<class event>
+	inline void eventDispatcher::addHandler(const event& e, std::function<void(const event&)> handler)
 	{
 		std::lock_guard<std::mutex> lock(mU);
 
-		mEventMap<Event>[e.EventIdentifier()].push_back(handler);
+		mEventMap<event>[e.eventIdentifier()].push_back(handler);
 	}
 
-	template<class Event>
-	inline void EventDispatcher::Dispatch(const Event& e)
+	template<class event>
+	inline void eventDispatcher::dispatch(const event& e)
 	{
 		std::lock_guard<std::mutex> lock(mU);
 
-		auto& handlers = mEventMap<Event>;
-		auto it = handlers.find(e.EventIdentifier());
+		auto& handlers = mEventMap<event>;
+		auto it = handlers.find(e.eventIdentifier());
 		if (it == handlers.end()) return;
 
 		for (auto& handler : it->second) {

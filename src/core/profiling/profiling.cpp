@@ -18,55 +18,55 @@
 #include "profiling.h"
 
 #ifdef DEBUG
-	Core::GoogleProfiler Core::InstrumentationTimer::mProfiler;
+	core::googleProfiler core::instrumentationTimer::mProfiler;
 
-	void Core::GoogleProfiler::WriteProfile(const ProfileResult& result)
+	void core::googleProfiler::writeProfile(const profileResult& result)
 	{
 		std::lock_guard<std::mutex> guard(mU);
 
 		mJson["traceEvents"].push_back(
 			{
 				{"cat", "function"},
-				{"dur", (result.End - result.Start)},
-				{"name", result.Name},
+				{"dur", (result.end - result.start)},
+				{"name", result.name},
 				{"ph", "X"},
 				{"pid", 0},
-				{"tid", result.ThreadID},
-				{"ts", result.Start},
+				{"tid", result.threadID},
+				{"ts", result.start},
 			}
 			);
 	}
 
-	std::string Core::GoogleProfiler::Dump()
+	std::string core::googleProfiler::dump()
 	{
 		return mJson.dump();
 	}
 
-	Core::InstrumentationTimer::InstrumentationTimer(const char* name)
+	core::instrumentationTimer::instrumentationTimer(const char* name)
 		: mName(name)
 	{
 		mStartTimepoint = std::chrono::high_resolution_clock::now();
 	}
 
-	Core::InstrumentationTimer::~InstrumentationTimer()
+	core::instrumentationTimer::~instrumentationTimer()
 	{
-		Stop();
+		stop();
 	}
 
-	void Core::InstrumentationTimer::Stop()
+	void core::instrumentationTimer::stop()
 	{
 		auto endTimepoint = std::chrono::high_resolution_clock::now();
 
 		long long start = std::chrono::time_point_cast<std::chrono::microseconds>(mStartTimepoint).time_since_epoch().count();
 		long long end = std::chrono::time_point_cast<std::chrono::microseconds>(endTimepoint).time_since_epoch().count();
 		uint32_t threadID = std::hash<std::thread::id>{}(std::this_thread::get_id());
-		mProfiler.WriteProfile({ mName, start, end, threadID });
+		mProfiler.writeProfile({ mName, start, end, threadID });
 	}
 
-	void Core::InstrumentationTimer::Dump(const std::string& fileName)
+	void core::instrumentationTimer::dump(const std::string& fileName)
 	{
 		std::ofstream f{ fileName };
-		f << mProfiler.Dump();
+		f << mProfiler.dump();
 		f.close();
 	}
 #endif // DEBUG
