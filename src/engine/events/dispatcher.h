@@ -6,20 +6,17 @@
 namespace engine {
 	class eventDispatcher {
 	private:
-		std::mutex mU;
+		static std::mutex mU;
 		template <typename event>
 		static std::map<std::string, std::vector<std::function<void(const event&)>>> mEventMap;
 	public:
-		eventDispatcher() = default;
-		~eventDispatcher() = default;
-		eventDispatcher(const eventDispatcher& other);
-		eventDispatcher& operator=(const eventDispatcher&);
-		eventDispatcher(eventDispatcher&& other) = default;
-		eventDispatcher& operator=(eventDispatcher&&) = default;
+		eventDispatcher() = delete;
+		
 		template<class event>
-		void addHandler(const event& e, std::function<void(const event&)>);
+		static void addHandler(const event& e, std::function<void(const event&)>);
+		
 		template<class event>
-		void dispatch(const event&);
+		static void dispatch(const event&);
 	};
 
 	template <class event>

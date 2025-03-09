@@ -27,3 +27,8 @@ std::string core::error::err() const
 {
 	return mValue;
 }
+
+core::error::operator bool() const
+{
+	return err().size() != 0;
+}

@@ -5,8 +5,8 @@
 namespace core {
 	class error {
 	private:
-	public:
 		std::string mValue;
+	public:
 		template <typename... T>
 		error(const std::string& fmtStr, T&&... args);
 
@@ -16,8 +16,9 @@ namespace core {
 		error(error&& e) noexcept;
 		~error() = default;
 		error(const error&) = default;
-		
+
 		std::string err() const;
+		operator bool() const;
 	};
 
 

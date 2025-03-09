@@ -17,8 +17,8 @@
 #include <pch.h>
 #include <json.h>
 
-namespace core {
 #ifdef DEBUG
+namespace core {
 	struct profileResult
 	{
 		std::string name;

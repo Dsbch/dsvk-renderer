@@ -30,6 +30,7 @@ project "application"
       "glad", 
       "spdlog",
       "glm",
+      "opengl32.lib",
    }
 
    filter "configurations:Debug"

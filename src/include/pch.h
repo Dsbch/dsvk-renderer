@@ -12,3 +12,4 @@
 #include <inttypes.h>
 #include "../core/logger/logger.h"
 #include "../core/profiling/profiling.h"
+#include "../core/errors/errors.h"

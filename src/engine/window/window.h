@@ -5,11 +5,20 @@
 namespace engine {
 	class window {
 	protected:
-		std::string mApplicationName;
 		std::string mName;
+		std::uint32_t mWidth, mHeight;
+		core::error mErr;
+		bool mIsFullscreen;
 	public:
-		window(const std::string& name);
-		 //createWindow()
-		virtual ~window();
+		window(const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen);
+		virtual core::error checkError();
+		
+		virtual ~window() = default;
+		virtual core::error makeOpenglContext();
+		window(const window& other) = default;
+		window(window&& other) noexcept;
+		window& operator=(const window& other);
+		window& operator=(window&& other) noexcept;
+		virtual void updateWindowState();
 	};
 }
