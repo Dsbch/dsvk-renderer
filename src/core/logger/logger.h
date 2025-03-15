@@ -1,12 +1,22 @@
 #pragma once
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include "spdlog/sinks/basic_file_sink.h"
+
 
 namespace core {
 	class logger
 	{
 	public:
-		static void InitLogger(const std::string& app_name, spdlog::level::level_enum level, const std::string& pattern);
+		enum level {
+			debug = spdlog::level::debug,
+			trace = spdlog::level::trace,
+			info = spdlog::level::info,
+			warn = spdlog::level::warn,
+			error = spdlog::level::err,
+			critical = spdlog::level::critical,
+		};
+
+		static void initLogger(const std::string& app_name, const std::string& outputFile, const std::string& pattern, core::logger::level level);
 		static std::shared_ptr<spdlog::logger> log();
 	private:
 		static std::shared_ptr<spdlog::logger> mLogger;

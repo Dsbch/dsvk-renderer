@@ -13,9 +13,9 @@ std::shared_ptr <spdlog::logger > core::logger::log()
 	return mLogger;
 }
 
-void core::logger::InitLogger(const std::string& app_name, spdlog::level::level_enum level, const std::string& pattern)
+void core::logger::initLogger(const std::string& app_name, const std::string& outputFile, const std::string& pattern, core::logger::level level)
 {
-	mLogger = spdlog::stdout_color_mt(app_name);
-	mLogger->set_level(level);
+	mLogger = spdlog::basic_logger_mt(app_name, outputFile);
+	mLogger->set_level(spdlog::level::level_enum(level));
 	mLogger->set_pattern(pattern);
 }
