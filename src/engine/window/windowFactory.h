@@ -1,7 +1,7 @@
 #pragma once
 
 #include <pch.h>
-#include "winApiWindow.h"
+#include "win32/window.h"
 
 namespace engine {
 	class windowFactory {

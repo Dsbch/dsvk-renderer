@@ -4,6 +4,7 @@
 #include "engine/events/events.h"
 #include "engine/window/windowFactory.h"
 #include "../core/console/console.h"
+#include "engine/renderer/rendererFactory.h"
 
 void resize(const engine::windowResizeEvent& e)
 {
@@ -24,7 +25,7 @@ int WINAPI WinMain(
     engine::windowResizeEvent e{12, 12};
     engine::eventDispatcher::addHandler<engine::windowResizeEvent>(e, resize);
 
-    auto f = engine::windowFactory::createWindow("test", 1920, 1080, true , "flex", nCmdShow);
+    auto f = engine::windowFactory::createWindow("test", 1920, 1080, true, "flex", nCmdShow);
     if (f->checkError())
     {
         LOGERROR(f->checkError().err());
@@ -38,13 +39,16 @@ int WINAPI WinMain(
         return -1;
     }
 
-    int version = gladLoadGL();
-    if (version == 0) {
-        printf("Failed to initialize OpenGL context\n");
+    auto renderer = engine::rendererFactory::createRenderer();
+    if (auto err = renderer->check(); err)
+    {
+        LOGERROR(err.err());
         return -1;
     }
 
-    LOGINFO("OpenGL version: {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+    LOGINFO(renderer->getVersion());
+
+    //LOGINFO("OpenGL version: {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
     f->updateWindowState();
 
