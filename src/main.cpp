@@ -48,8 +48,6 @@ int WINAPI WinMain(
 
     LOGINFO(renderer->getVersion());
 
-    //LOGINFO("OpenGL version: {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-
     f->updateWindowState();
 
 #ifdef DEBUG

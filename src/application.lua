@@ -24,6 +24,8 @@ project "application"
       "../vendor/glm",
       "../vendor/stb/stb_image/include",
       "../vendor/json",
+      "../vendor/json/single_include",
+      "stb/**.h",
    }
 
    links { 

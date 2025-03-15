@@ -8,10 +8,10 @@ namespace engine {
 	public:
 		static std::unique_ptr<engine::renderer> createRenderer()
 		{
+			return std::make_unique<engine::openglRenderer>();
 #ifdef OPENGL
-			return std::make_unique<engine::openglRednerer>();
-#endif // OPENGL
 			return std::make_unique<engine::renderer>();
+#endif // OPENGL
 		}
 	};
 }

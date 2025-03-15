@@ -15,7 +15,7 @@
 #pragma once
 
 #include <pch.h>
-#include <json.h>
+#include <nlohmann/json.hpp>
 
 #ifdef DEBUG
 namespace core {
