@@ -11,13 +11,13 @@ namespace engine {
 		template <class event>
 		static std::map<std::type_index, std::vector<std::function<void(const event&)>>> mEventMap;
 	public:
-		eventDispatcher() = delete;
+		eventDispatcher() = default;
 		
 		template<class event>
-		static void addHandler(std::function<void(const event&)>);
+		void addHandler(std::function<void(const event&)>);
 		
 		template<class event>
-		static void dispatch(const event&);
+		void dispatch(const event&);
 	};
 
 	template <class event>

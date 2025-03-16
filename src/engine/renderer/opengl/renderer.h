@@ -16,5 +16,7 @@ namespace engine {
 		openglRenderer();
 		std::string getVersion() const;
 		core::error check() const;
+		void changeViewPort(const engine::windowResizeEvent& e) const;
+		void render() const;
 	};
 }

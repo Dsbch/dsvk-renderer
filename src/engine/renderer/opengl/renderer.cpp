@@ -37,3 +37,14 @@ core::error engine::openglRenderer::check() const
 {
 	return mErr;
 }
+
+void engine::openglRenderer::changeViewPort(const engine::windowResizeEvent& e) const
+{
+	glViewport(0, 0, e.width(), e.height());
+}
+
+void engine::openglRenderer::render() const
+{
+	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}

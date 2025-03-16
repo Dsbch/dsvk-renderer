@@ -2,7 +2,7 @@
 #include "window.h"
 
 engine::window::window(const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen)
-	: mName(name), mWidth(width), mHeight(heigth), mErr(), mIsFullscreen(isFullscreen)
+	: mName(name), mWidth(width), mHeight(heigth), mErr(), mIsFullscreen(isFullscreen), mDispatcher()
 {
 }
 

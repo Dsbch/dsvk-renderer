@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pch.h>
+#include "../events/dispatcher.h"
 
 namespace engine {
 	class window {
@@ -9,8 +10,13 @@ namespace engine {
 		std::uint32_t mWidth, mHeight;
 		core::error mErr;
 		bool mIsFullscreen;
+		engine::eventDispatcher mDispatcher;
 	public:
-		window(const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen);
+		window(
+			const std::string& name, 
+			std::uint32_t width, 
+			std::uint32_t heigth, 
+			bool isFullscreen);
 		virtual core::error checkError();
 		
 		virtual ~window() = default;

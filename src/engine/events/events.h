@@ -7,6 +7,7 @@ namespace engine {
 		buttonUp,
 		buttonDown,
 		windowResize,
+		close,
 	};
 
 	class baseEvent {
@@ -26,4 +27,8 @@ namespace engine {
 		uint32_t height() const;
 	};
 
+	class closeEvent : public baseEvent {
+	public:
+		closeEvent() : baseEvent(eventType::close) {};
+	};
 }
