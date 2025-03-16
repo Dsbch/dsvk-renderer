@@ -39,7 +39,7 @@
 
 	std::string core::googleProfiler::dump()
 	{
-		return mJson.dump();
+		return mJson.dump(4);
 	}
 
 	core::instrumentationTimer::instrumentationTimer(const char* name)

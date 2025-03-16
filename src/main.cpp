@@ -4,14 +4,19 @@
 #include "engine/events/events.h"
 #include "engine/window/windowFactory.h"
 #include "engine/renderer/rendererFactory.h"
+#include "../core/config/config.h"
 
 int run()
 {
     try
     {
-        core::logger::initLogger("asd", "logs.log", "[%H:%M:%S] [%^%l%$] %v", core::logger::debug);
+        core::cfg config{"config.json"};
+        auto cfg = config.getCfg();
 
-        auto f = engine::windowFactory::createWindow("test", 1920, 1080, true, "flex");
+        core::logger::initLogger(cfg.app.name, cfg.log.file, cfg.log.pattern, cfg.log.level);
+
+
+        auto f = engine::windowFactory::createWindow(cfg.wnd.name, cfg.wnd.width, cfg.wnd.height, cfg.wnd.isFullscreen, cfg.app.name);
         if (f->checkError())
         {
             LOGERROR(f->checkError().err());
@@ -49,10 +54,13 @@ int run()
             renderer->render();
         }
 
-
 #ifdef DEBUG
         DUMP_PROFILING("prof.json");
 #endif // !DEBUG
+    }
+    catch (const std::exception& exc)
+    {
+        LOGERROR("exception was caught in run std::exception: {}", exc.what());
     }
     catch (...)
     {
