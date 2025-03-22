@@ -2,6 +2,22 @@
 #include "config.h"
 
 namespace config {
+	void to_json(nlohmann::json& j, const gameLoop& p)
+	{
+		j = nlohmann::json{
+			{"fps", p.fps},
+			{"gups", p.gups},
+			{"minimumFps", p.minimumFps},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, gameLoop& p)
+	{
+		j.at("fps").get_to(p.fps);
+		j.at("gups").get_to(p.gups);
+		j.at("minimumFps").get_to(p.minimumFps);
+	}
+	
 	void to_json(nlohmann::json& j, const application& p)
 	{
 		j = nlohmann::json{
@@ -54,6 +70,7 @@ namespace config {
 			{"application", p.app},
 			{"logger", p.log},
 			{"window", p.wnd},
+			{"gameLoop", p.gameLoop},
 		};
 	}
 
@@ -62,6 +79,7 @@ namespace config {
 		j.at("application").get_to(p.app);
 		j.at("logger").get_to(p.log);
 		j.at("window").get_to(p.wnd);
+		j.at("gameLoop").get_to(p.gameLoop);
 	}
 }
 

@@ -51,3 +51,8 @@ void engine::window::updateWindowState()
 {
 	return;
 }
+
+void engine::window::swapBuffers() const
+{
+	return;
+}

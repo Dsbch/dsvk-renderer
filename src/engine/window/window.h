@@ -26,5 +26,6 @@ namespace engine {
 		window& operator=(const window& other);
 		window& operator=(window&& other) noexcept;
 		virtual void updateWindowState();
+		virtual void swapBuffers() const;
 	};
 }
