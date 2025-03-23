@@ -25,9 +25,10 @@ namespace config {
 
 	struct window 
 {
-		uint32_t width = 680;
-		uint32_t height = 460;
-		bool isFullscreen = true;
+		uint32_t width = 1920;
+		uint32_t height = 1080;
+		bool isFullscreen = false;
+		bool showCursor = true;
 		std::string name = "engine";
 	};
 

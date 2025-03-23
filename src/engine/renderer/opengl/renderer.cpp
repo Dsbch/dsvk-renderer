@@ -87,12 +87,24 @@ core::error engine::openglRenderer::check() const
 
 void engine::openglRenderer::changeViewPort(const engine::windowResizeEvent& e) const
 {
+	PROFILE_FUNC();
+
 	glViewport(0, 0, e.width(), e.height());
 }
 
 void engine::openglRenderer::render() const
 {
 	PROFILE_FUNC();
+
 	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void engine::openglRenderer::render(const vertexBufferObject& vao) const
+{
+	PROFILE_FUNC();
+
+	vao.bind();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDrawElements(GL_TRIANGLES, vao.getElementCount(), GL_UNSIGNED_INT, nullptr);
 }

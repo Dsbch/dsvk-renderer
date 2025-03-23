@@ -10,22 +10,24 @@ namespace engine {
 		std::uint32_t mWidth, mHeight;
 		core::error mErr;
 		bool mIsFullscreen;
+		bool mShowCursor;
 		engine::eventDispatcher mDispatcher;
 	public:
 		window(
-			const std::string& name, 
-			std::uint32_t width, 
-			std::uint32_t heigth, 
-			bool isFullscreen);
-		virtual core::error checkError();
+			const std::string& name,
+			std::uint32_t width,
+			std::uint32_t heigth,
+			bool isFullscreen,
+			bool showCuresor);
 		
 		virtual ~window() = default;
-		virtual core::error makeOpenglContext();
 		window(const window& other) = default;
 		window(window&& other) noexcept;
-		window& operator=(const window& other);
 		window& operator=(window&& other) noexcept;
-		virtual void updateWindowState();
-		virtual void swapBuffers() const;
+		virtual core::error makeOpenglContext() = 0;
+		virtual void swapBuffers() const = 0;
+		virtual void updateWindowState() = 0;
+		virtual core::error checkError() = 0;
+		virtual void toggleCursor() = 0;
 	};
 }

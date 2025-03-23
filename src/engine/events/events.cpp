@@ -1,18 +1,68 @@
 #include <pch.h>
 #include "events.h"
 
-engine::baseEvent::baseEvent(engine::eventType type) : mType(type) { }
-
-engine::windowResizeEvent::windowResizeEvent(uint32_t width, uint32_t height) : baseEvent(eventType::windowResize), mWidth(width), mHeight(height)
+engine::key engine::fromWinApiKey(int vkCode, int msg)
 {
-}
+	switch (msg)
+	{
+	case WM_LBUTTONUP: return mouse1;
+	case WM_RBUTTONUP: return mouse2;
+	case WM_MBUTTONUP: return mouse3;
+	case WM_MBUTTONDOWN: return mouse3;
+	}
 
-uint32_t engine::windowResizeEvent::width() const
-{
-	return mWidth;
-}
+	switch (vkCode) {
+	case VK_LBUTTON: return mouse1;
+	case VK_RBUTTON: return mouse2;
+	case VK_MBUTTON: return mouse3;
+	case VK_ESCAPE:  return escape;
+	case VK_RETURN:  return enter;
+	case VK_SPACE:   return space;
+	case VK_LEFT:    return left;
+	case VK_RIGHT:   return right;
+	case VK_UP:      return up;
+	case VK_DOWN:    return down;
 
-uint32_t engine::windowResizeEvent::height() const
-{
-	return mHeight;
+		// Letters
+	case 'A': return a;
+	case 'B': return b;
+	case 'C': return c;
+	case 'D': return d;
+	case 'E': return e;
+	case 'F': return f;
+	case 'G': return g;
+	case 'H': return h;
+	case 'I': return i;
+	case 'J': return j;
+	case 'K': return k;
+	case 'L': return l;
+	case 'M': return m;
+	case 'N': return n;
+	case 'O': return o;
+	case 'P': return p;
+	case 'Q': return q;
+	case 'R': return r;
+	case 'S': return s;
+	case 'T': return t;
+	case 'U': return u;
+	case 'V': return v;
+	case 'W': return w;
+	case 'X': return x;
+	case 'Y': return y;
+	case 'Z': return z;
+
+	// Numbers
+	case '0': return zero;
+	case '1': return one;
+	case '2': return two;
+	case '3': return three;
+	case '4': return four;
+	case '5': return five;
+	case '6': return six;
+	case '7': return seven;
+	case '8': return eight;
+	case '9': return nine;
+
+	default: return unknown; 
+	}
 }

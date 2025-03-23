@@ -38,7 +38,11 @@ namespace engine {
 
 		auto& handlers = mEventMap<event>;
 		auto it = handlers.find(std::type_index(typeid(event)));
-		if (it == handlers.end()) return;
+		if (it == handlers.end())
+		{
+			LOGERROR("attempt to dispatch event without handler.");
+			return;
+		}
 
 		for (auto& handler : it->second) {
 			handler(e);

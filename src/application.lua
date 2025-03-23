@@ -22,10 +22,9 @@ project "application"
       "../vendor/spdlog/include", 
       "../vendor/glad/include",
       "../vendor/glm",
-      "../vendor/stb/stb_image/include",
       "../vendor/json",
       "../vendor/json/single_include",
-      "stb/**.h",
+      "../vendor/stb",
    }
 
    links { 
@@ -34,6 +33,11 @@ project "application"
       "glm",
       "opengl32.lib",
    }
+
+   postbuildcommands {
+      "{copy} ../assets ."
+   }
+
 
    filter "configurations:Debug"
       defines { "DEBUG" }

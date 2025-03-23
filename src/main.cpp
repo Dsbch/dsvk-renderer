@@ -2,8 +2,11 @@
 #include <glad/glad.h>
 #include "engine/events/dispatcher.h"
 #include "engine/events/events.h"
+#include "engine/renderer/opengl/renderer.h"
+#include "engine/renderer/opengl/arrayObject.h"
 #include "engine/window/windowFactory.h"
-#include "engine/renderer/rendererFactory.h"
+#include "engine/renderer/vertex.h"
+#include "engine/amanager/assetManager.h"
 #include "../core/config/config.h"
 
 static auto getStartTimer()
@@ -27,8 +30,7 @@ void run()
 
 	core::logger::initLogger(cfg.app.name, cfg.log.file, cfg.log.pattern, cfg.log.level);
 
-
-	auto f = engine::windowFactory::createWindow(cfg.wnd.name, cfg.wnd.width, cfg.wnd.height, cfg.wnd.isFullscreen, cfg.app.name);
+	auto f = engine::windowFactory::createWindow(cfg.wnd.name, cfg.wnd.width, cfg.wnd.height, cfg.wnd.isFullscreen, cfg.app.name, cfg.wnd.showCursor);
 	if (f->checkError())
 	{
 		LOGERROR(f->checkError().err());
@@ -42,7 +44,7 @@ void run()
 		return;
 	}
 
-	auto renderer = engine::rendererFactory::createRenderer();
+	auto renderer = std::make_unique<engine::openglRenderer>();
 	if (auto err = renderer->check(); err)
 	{
 		LOGERROR(err.err());
@@ -50,14 +52,58 @@ void run()
 	}
 
 	engine::eventDispatcher d;
-	d.template addHandler<engine::windowResizeEvent>([&renderer](const engine::windowResizeEvent& e) {renderer->changeViewPort(e); });
+	d.template addHandler<engine::windowResizeEvent>([&renderer](const engine::windowResizeEvent& e) { renderer->changeViewPort(e); });
+	
+	d.template addHandler<engine::keyDownEvent>([](const engine::keyDownEvent& e) { LOGINFO("key: {}, x: {}, y: {}", static_cast<int>(e.getKey()), e.getMousePosition().x, e.getMousePosition().y); });
+	d.template addHandler<engine::keyUpEvent>([](const engine::keyUpEvent& e) { LOGINFO("key: {}, x: {}, y: {}", static_cast<int>(e.getKey()), e.getMousePosition().x, e.getMousePosition().y); });
 
 	LOGINFO(renderer->getVersion());
 
-	// handle close, it's bad but works for now.
-
 	bool appShouldStop = false;
 	d.addHandler<engine::closeEvent>([&appShouldStop](const engine::closeEvent& e) { appShouldStop = true; LOGINFO("app is closing."); });
+
+	std::vector<engine::vertex> vboData = {
+		{
+			{1.0f, 1.0f, 0},
+			{1.0f, 1.0f},
+			0,
+		},
+		{
+			{1.0f, -1.0f, 0},
+			{1.0f, -1.0f},
+			0,
+		},
+		{
+			{-1.0f, -1.0f, 0},
+			{-1.0f, -1.0f},
+			0,
+		},
+		{
+			{-1.0f, 1.0f, 0},
+			{-1.0f, 1.0f},
+			0,
+		}
+	};
+	std::vector<uint32_t> eboData = {
+		0, 1, 2, 3, 0, 2
+	};
+
+	engine::arrayObject vbo = { uint32_t(sizeof(engine::vertex)* vboData.size()), vboData.data() };
+	engine::arrayObject ebo = { uint32_t(sizeof(uint32_t)* eboData.size()), eboData.data() };
+	engine::vertexBufferObject vao = {};
+
+	vao.setElementBuffer(ebo.getSize(), ebo.getID());
+	vao.setAttribs(engine::vertexDescriber(vbo.getID()));
+
+	engine::assetManager am = {};
+	auto cmpRes = am.loadAndCompileShader("shaders/vertex.glsl", "shaders/fragment.glsl");
+	if (cmpRes.second)
+	{
+		LOGERROR(cmpRes.second.err());
+		return;
+	}
+
+	cmpRes.first->bind();
 
 #ifndef TO_MS
 #define TO_MS std::chrono::duration_cast<std::chrono::milliseconds>
@@ -83,8 +129,8 @@ void run()
 		// draw call.
 		if (TO_MS(getDurationSinceStart()) >= nextRender)
 		{
+			renderer->render(vao);
 			f->swapBuffers();
-			renderer->render();
 			nextRender += renderShift;
 		}
 	}

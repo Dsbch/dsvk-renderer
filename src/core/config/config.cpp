@@ -53,6 +53,7 @@ namespace config {
 			{"height", p.height},
 			{"isFullscreen", p.isFullscreen},
 			{"name", p.name},
+			{"showCursor", p.showCursor},
 		};
 	}
 
@@ -62,6 +63,7 @@ namespace config {
 		j.at("height").get_to(p.height);
 		j.at("isFullscreen").get_to(p.isFullscreen);
 		j.at("name").get_to(p.name);
+		j.at("showCursor").get_to(p.showCursor);
 	}
 
 	void to_json(nlohmann::json& j, const main& p)
