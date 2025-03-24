@@ -19,7 +19,7 @@ namespace config {
 	struct logger 
 	{
 		std::string file = "logs.log";
-		std::string pattern = "[%H:%M:%S] [%^%l%$] %v";
+		std::string pattern = "[%H:%M:%S.%e] [%^%l%$] %v";
 		core::logger::level level = core::logger::level::debug;
 	};
 

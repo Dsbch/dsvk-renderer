@@ -34,11 +34,6 @@ project "application"
       "opengl32.lib",
    }
 
-   postbuildcommands {
-      "{copy} ../assets ."
-   }
-
-
    filter "configurations:Debug"
       defines { "DEBUG" }
       symbols "On"

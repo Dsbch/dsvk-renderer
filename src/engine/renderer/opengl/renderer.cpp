@@ -89,7 +89,7 @@ void engine::openglRenderer::changeViewPort(const engine::windowResizeEvent& e) 
 {
 	PROFILE_FUNC();
 
-	glViewport(0, 0, e.width(), e.height());
+	glViewport(0, 0, e.getWidth(), e.getHeight());
 }
 
 void engine::openglRenderer::render() const

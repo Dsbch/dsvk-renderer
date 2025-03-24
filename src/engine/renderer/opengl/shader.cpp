@@ -44,7 +44,7 @@ uint32_t engine::shaderProgram::getID() const
 	return mID;
 }
 
-core::error engine::shaderProgram::setUniformInt(const std::string& name, const int* data, uint32_t count = 1) const
+core::error engine::shaderProgram::setUnifromVec3(const std::string& name, const float* data, uint32_t count) const
 {
 	bind();
 	auto elem = mActiveUniforms.find(name);
@@ -54,7 +54,7 @@ core::error engine::shaderProgram::setUniformInt(const std::string& name, const 
 	}
 
 	GLuint location = glGetUniformLocation(mID, name.c_str());
-	glUniform1iv(location, count, data);
+	glUniform3fv(location, count, data);
 
 	return {};
 }

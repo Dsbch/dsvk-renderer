@@ -6,6 +6,7 @@ namespace engine {
 	enum eventType {
 		keyUp,
 		keyDown,
+		mouseMove,
 		windowResize,
 		close,
 	};
@@ -32,7 +33,8 @@ namespace engine {
 		int y;
 	};
 
-	key fromWinApiKey(int vkCode, int msg);
+	key fromWinApiMouse(int msg);
+	key fromWinApiKey(int vkCode);
 
 	class baseEvent {
 	protected:
@@ -47,8 +49,8 @@ namespace engine {
 		uint32_t mWidth, mHeight;
 	public:
 		windowResizeEvent(uint32_t width, uint32_t height) : baseEvent(eventType::windowResize), mWidth(width), mHeight(height) {};
-		uint32_t width() const { return mWidth; };
-		uint32_t height() const { return mHeight; };
+		uint32_t getWidth() const { return mWidth; };
+		uint32_t getHeight() const { return mHeight; };
 	};
 
 	class closeEvent : public baseEvent {
@@ -73,6 +75,14 @@ namespace engine {
 		mousePosition getMousePosition() const { return mMpos; };
 	private:
 		key mKey;
+		mousePosition mMpos;
+	};
+
+	class mouseMoveEvent : public baseEvent {
+	public:
+		mouseMoveEvent(mousePosition mPos) : baseEvent(eventType::mouseMove), mMpos(mPos) {};
+		mousePosition getMousePosition() const { return mMpos; };
+	private:
 		mousePosition mMpos;
 	};
 }

@@ -1,20 +1,23 @@
 #include <pch.h>
 #include "events.h"
 
-engine::key engine::fromWinApiKey(int vkCode, int msg)
+engine::key engine::fromWinApiMouse(int msg)
 {
 	switch (msg)
 	{
 	case WM_LBUTTONUP: return mouse1;
 	case WM_RBUTTONUP: return mouse2;
 	case WM_MBUTTONUP: return mouse3;
+	case WM_LBUTTONDOWN: return mouse1;
+	case WM_RBUTTONDOWN: return mouse2;
 	case WM_MBUTTONDOWN: return mouse3;
+	default: return unknown;
 	}
+}
 
+engine::key engine::fromWinApiKey(int vkCode)
+{
 	switch (vkCode) {
-	case VK_LBUTTON: return mouse1;
-	case VK_RBUTTON: return mouse2;
-	case VK_MBUTTON: return mouse3;
 	case VK_ESCAPE:  return escape;
 	case VK_RETURN:  return enter;
 	case VK_SPACE:   return space;
@@ -23,7 +26,6 @@ engine::key engine::fromWinApiKey(int vkCode, int msg)
 	case VK_UP:      return up;
 	case VK_DOWN:    return down;
 
-		// Letters
 	case 'A': return a;
 	case 'B': return b;
 	case 'C': return c;
@@ -51,7 +53,6 @@ engine::key engine::fromWinApiKey(int vkCode, int msg)
 	case 'Y': return y;
 	case 'Z': return z;
 
-	// Numbers
 	case '0': return zero;
 	case '1': return one;
 	case '2': return two;
