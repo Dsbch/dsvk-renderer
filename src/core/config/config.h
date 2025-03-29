@@ -4,6 +4,13 @@
 #include <nlohmann/json.hpp>
 
 namespace config {
+	struct camera
+	{
+		float fov = 90.0f;
+		float nearPlane = 0.1f;
+		float farPlane = 1000.0f;
+	};
+
 	struct gameLoop 
 	{
 		uint32_t fps = 60;
@@ -38,6 +45,7 @@ namespace config {
 		logger log;
 		window wnd;
 		gameLoop gameLoop;
+		camera camera;
 	};
 }
 
@@ -47,7 +55,7 @@ namespace core {
 		core::error mErr;
 		config::main mCfg;
 	public:
-		cfg(const std::string& fileName);
+		cfg(const std::string& fileName = "config.json");
 		core::error checkError() const;
 		~cfg();
 		config::main getCfg() const;

@@ -11,9 +11,12 @@ namespace engine {
 		core::error mErr;
 		bool mIsFullscreen;
 		bool mShowCursor;
-		engine::eventDispatcher mDispatcher;
+		std::shared_ptr<engine::eventDispatcher> mDispatcher;
+		engine::context mCtx;
 	public:
 		window(
+			engine::context ctx,
+			std::shared_ptr<engine::eventDispatcher> dispatcher,
 			const std::string& name,
 			std::uint32_t width,
 			std::uint32_t heigth,

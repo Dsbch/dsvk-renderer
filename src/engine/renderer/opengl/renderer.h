@@ -13,11 +13,12 @@ namespace engine {
 		static void initOpengl();
 
 		core::error mErr;
+
 	public:
 		openglRenderer();
 		std::string getVersion() const;
 		core::error check() const;
-		void changeViewPort(const engine::windowResizeEvent& e) const;
+		void changeViewPort(uint32_t width, uint32_t height) const;
 		void render() const;
 		void render(const vertexBufferObject& vao) const;
 	};

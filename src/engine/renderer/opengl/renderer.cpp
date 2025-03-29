@@ -43,8 +43,6 @@ static void openglLog(GLenum source, GLenum type, GLuint m_id, GLenum severity, 
 	LOGINFO("{}, {}, {}, {:d}, {}", src_str, type_str, severity_str, m_id, message);
 }
 
-
-
 void engine::openglRenderer::initOpengl()
 {
 	int version = gladLoadGL();
@@ -52,19 +50,18 @@ void engine::openglRenderer::initOpengl()
 		mInitOpenglErr = {"failed to initialize opengl"};
 	}
 
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_POLYGON_MODE);
+
 #ifdef DEBUG
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(openglLog, 0);
 #endif // DEBUG
-
 }
 
 engine::openglRenderer::openglRenderer()
 {
-
-	int version;
-	auto initGlad = [&version]() { gladLoadGL(); };
-	std::call_once(mIsOpenglInitialized, initGlad);
+	std::call_once(mIsOpenglInitialized, initOpengl);
 
 	if (mInitOpenglErr)
 	{
@@ -85,11 +82,11 @@ core::error engine::openglRenderer::check() const
 	return mErr;
 }
 
-void engine::openglRenderer::changeViewPort(const engine::windowResizeEvent& e) const
+void engine::openglRenderer::changeViewPort(uint32_t width, uint32_t height) const
 {
 	PROFILE_FUNC();
 
-	glViewport(0, 0, e.getWidth(), e.getHeight());
+	glViewport(0, 0, width, height);
 }
 
 void engine::openglRenderer::render() const

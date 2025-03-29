@@ -7,6 +7,11 @@ int engine::texture::maxOccupiedSlots;
 
 core::error engine::texture::bind()
 {
+	if (mSlotID != 0)
+	{
+		return {};
+	}
+
 	mSlotID = nextTextureSlot();
 	if (mSlotID == 0)
 	{
@@ -14,6 +19,8 @@ core::error engine::texture::bind()
 	}
 
 	glBindTextureUnit(mSlotID, mID);
+
+	return {};
 }
 
 engine::texture::texture(uint8_t* data, int width, int height, imageChannel channel)

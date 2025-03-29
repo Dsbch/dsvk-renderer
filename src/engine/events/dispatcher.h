@@ -1,8 +1,9 @@
 #pragma once
 
 #include <pch.h>
-#include "events.h"
 #include <typeindex>
+#include "events.h"
+#include "../context/context.h"
 
 namespace engine {
 	class eventDispatcher {
@@ -10,8 +11,10 @@ namespace engine {
 		static std::mutex mU;
 		template <class event>
 		static std::map<std::type_index, std::vector<std::function<void(const event&)>>> mEventMap;
+	
+		engine::context mCtx;
 	public:
-		eventDispatcher() = default;
+		eventDispatcher(engine::context ctx);
 		
 		template<class event>
 		void addHandler(std::function<void(const event&)>);
@@ -40,7 +43,6 @@ namespace engine {
 		auto it = handlers.find(std::type_index(typeid(event)));
 		if (it == handlers.end())
 		{
-			LOGERROR("attempt to dispatch event without handler.");
 			return;
 		}
 

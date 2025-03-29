@@ -2,6 +2,22 @@
 #include "config.h"
 
 namespace config {
+	void to_json(nlohmann::json& j, const camera& p)
+	{
+		j = nlohmann::json{
+			{"farPlane", p.farPlane},
+			{"nearPlane", p.nearPlane},
+			{"fov", p.fov},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, camera& p)
+	{
+		j.at("farPlane").get_to(p.farPlane);
+		j.at("nearPlane").get_to(p.nearPlane);
+		j.at("fov").get_to(p.fov);
+	}
+
 	void to_json(nlohmann::json& j, const gameLoop& p)
 	{
 		j = nlohmann::json{
@@ -73,6 +89,7 @@ namespace config {
 			{"logger", p.log},
 			{"window", p.wnd},
 			{"gameLoop", p.gameLoop},
+			{"camera", p.camera},
 		};
 	}
 
@@ -82,6 +99,7 @@ namespace config {
 		j.at("logger").get_to(p.log);
 		j.at("window").get_to(p.wnd);
 		j.at("gameLoop").get_to(p.gameLoop);
+		j.at("camera").get_to(p.camera);
 	}
 }
 

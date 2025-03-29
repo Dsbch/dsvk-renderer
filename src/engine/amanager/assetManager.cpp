@@ -23,6 +23,10 @@ static std::string openAndRead(const std::string& name)
 	return s.str();
 }
 
+engine::assetManager::assetManager(context ctx) : mCtx(ctx)
+{
+}
+
 std::pair<const std::shared_ptr<engine::texture>, core::error> engine::assetManager::getTexture(const std::string& id)
 {
 	auto it = mLoadedTextures.find(id);

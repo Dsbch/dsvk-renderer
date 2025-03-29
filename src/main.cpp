@@ -1,5 +1,7 @@
 #include "pch.h"
 #include <glad/glad.h>
+#include <glm/vec3.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include "engine/events/dispatcher.h"
 #include "engine/events/events.h"
 #include "engine/renderer/opengl/renderer.h"
@@ -8,235 +10,178 @@
 #include "engine/renderer/vertex.h"
 #include "engine/amanager/assetManager.h"
 #include "../core/config/config.h"
-#include <glm/vec3.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <../core/timer/timer.h>
+#include "../engine/camera/camera.h"
 
-void run()
-{
-	core::timer t;
+class application {
+private:
+	core::error mErr;
 
-	core::cfg config{ "config.json" };
-	auto cfg = config.getCfg();
+	core::cfg mCfg;
+	engine::context mCtx;
+	std::unique_ptr<engine::window> mWindow;
+	std::unique_ptr<engine::fpsCamera> mCamera;
+	std::unique_ptr<engine::openglRenderer> mRenderer;
+	std::shared_ptr<engine::eventDispatcher> mDispatcher;
+	std::unique_ptr<engine::assetManager> mAssetMeneger;
 
-	core::logger::initLogger(cfg.app.name, cfg.log.file, cfg.log.pattern, cfg.log.level);
+	bool mAppShouldClose;
 
-	auto f = engine::windowFactory::createWindow(cfg.wnd.name, cfg.wnd.width, cfg.wnd.height, cfg.wnd.isFullscreen, cfg.app.name, cfg.wnd.showCursor);
-	if (f->checkError())
+	void initApplication()
 	{
-		LOGERROR(f->checkError().err());
-		return;
-	}
+		mCtx = engine::context{};
 
-	auto err = f->makeOpenglContext();
-	if (err)
-	{
-		LOGERROR(err.err());
-		return;
-	}
+		mCfg = core::cfg{ "config.json" };
+		core::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
 
-	auto renderer = std::make_unique<engine::openglRenderer>();
-	if (auto err = renderer->check(); err)
-	{
-		LOGERROR(err.err());
-		return;
-	}
+		mDispatcher = std::make_shared<engine::eventDispatcher>(mCtx);
+		mAssetMeneger = std::make_unique<engine::assetManager>(mCtx);
 
-	// for mandelbrotset.
-	double xMax = 1.0f, xMin = -1.0f, yMax = 1.0f, yMin = -1.0f;
-	int maxIteration = 10;
+		mWindow = engine::windowFactory::createWindow(mCtx, mDispatcher, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
+		if (mErr = mWindow->checkError(); mErr)
+			return;
 
-	engine::eventDispatcher d;
-	d.template addHandler<engine::windowResizeEvent>(
-		[&renderer, &cfg](const engine::windowResizeEvent& e)
+		mWindow->makeOpenglContext();
+
+		mCamera = std::make_unique<engine::fpsCamera>(mCtx, mCfg.getCfg().camera.fov, mCfg.getCfg().camera.nearPlane, mCfg.getCfg().camera.farPlane, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height);
+		mRenderer = std::make_unique<engine::openglRenderer>();
+		if (mErr = mRenderer->check(); mErr)
 		{
-			renderer->changeViewPort(e);
-			cfg.wnd.height = e.getHeight();
-			cfg.wnd.width = e.getWidth();
-		});
-
-	d.template addHandler<engine::keyDownEvent>([](const engine::keyDownEvent& e) { LOGINFO("keyDown: {}, x: {}, y: {}", static_cast<int>(e.getKey()), e.getMousePosition().x, e.getMousePosition().y); });
-	d.template addHandler<engine::keyUpEvent>([](const engine::keyUpEvent& e) { LOGINFO("keyUp: {}, x: {}, y: {}", static_cast<int>(e.getKey()), e.getMousePosition().x, e.getMousePosition().y); });
-	d.template addHandler<engine::mouseMoveEvent>([](const engine::mouseMoveEvent& e) { LOGINFO("mouseMove: x: {}, y: {}", e.getMousePosition().x, e.getMousePosition().y); });
-	d.template addHandler<engine::keyDownEvent>(
-		[&](const engine::keyDownEvent& e) {
-			if (e.getKey() == engine::key::mouse2)
-			{
-				auto mPos = e.getMousePosition();
-				double x = (xMax - xMin) / double(cfg.wnd.width) * mPos.x + xMin;
-				double y = (yMin - yMax) / double(cfg.wnd.height) * (cfg.wnd.height - mPos.y) + yMax;
-
-				double lenX = xMax - xMin;
-				double lenY = yMax - yMin;
-
-				xMax = x + lenX * 1.25;
-				xMin = x - lenX * 1.25;
-
-				yMax = y + lenY * 1.25;  
-				yMin = y - lenY * 1.25;
-			}
-
-			if (e.getKey() == engine::key::mouse1)
-			{
-				auto mPos = e.getMousePosition();
-				double x = (xMax - xMin) / double(cfg.wnd.width) * mPos.x + xMin;
-				double y = (yMin - yMax) / double(cfg.wnd.height) * (cfg.wnd.height - mPos.y) + yMax;
-
-				double lenX = xMax - xMin;
-				double lenY = yMax - yMin;
-
-				xMax = x + lenX / 2.25;
-				xMin = x - lenX / 2.25;
-
-				yMax = y + lenY / 2.25;  
-				yMin = y - lenY / 2.25;
-			}
-		});
-	d.template addHandler<engine::keyDownEvent>(
-		[&](const engine::keyDownEvent& e) 
-		{ 
-			if (e.getKey() == engine::key::q)
-			{
-				maxIteration -= 100;
-			}
-
-			if (e.getKey() == engine::key::e)
-			{
-				maxIteration += 100;
-			}
+			return;
 		}
-	);
 
-
-	LOGINFO(renderer->getVersion());
-
-	bool appShouldStop = false;
-	d.addHandler<engine::closeEvent>([&appShouldStop](const engine::closeEvent& e) { appShouldStop = true; LOGINFO("app is closing."); });
-
-	std::vector<engine::vertex> vboData = {
-		{
-			{1.0f, 1.0f, 0},
-			{1.0f, 1.0f},
-			0,
-		},
-		{
-			{1.0f, -1.0f, 0},
-			{1.0f, -1.0f},
-			0,
-		},
-		{
-			{-1.0f, -1.0f, 0},
-			{-1.0f, -1.0f},
-			0,
-		},
-		{
-			{-1.0f, 1.0f, 0},
-			{-1.0f, 1.0f},
-			0,
-		}
-	};
-	std::vector<uint32_t> eboData = {
-		0, 1, 2, 3, 0, 2
-	};
-
-	engine::arrayObject vbo = { uint32_t(sizeof(engine::vertex) * vboData.size()), vboData.data() };
-	engine::arrayObject ebo = { uint32_t(sizeof(uint32_t) * eboData.size()), eboData.data() };
-	engine::vertexBufferObject vao = {};
-
-	vao.setElementBuffer(ebo.getSize(), ebo.getID());
-	vao.setAttribs(engine::vertexDescriber(vbo.getID()));
-
-	engine::assetManager am = {};
-	auto cmpProgram = am.loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
-	if (cmpProgram.second)
+		mDispatcher->addHandler<engine::closeEvent>([&](const engine::closeEvent& e) { mAppShouldClose = true; });
+		mDispatcher->addHandler<engine::windowResizeEvent>([&](const engine::windowResizeEvent& e) { mRenderer->changeViewPort(e.getWidth(), e.getHeight()); mCamera->changeViewPort(e.getWidth(), e.getHeight()); });
+		mDispatcher->addHandler<engine::keyDownEvent>(
+			[&](const engine::keyDownEvent& e)
+			{
+				switch (e.getKey())
+				{
+				case engine::key::s:
+					mCamera->changePosition(glm::vec3(0.0f, 0.0f, -0.01f));
+					break;
+				case engine::key::w:
+					mCamera->changePosition(glm::vec3(0.0f, 0.0f, 0.01f));
+					break;
+				case engine::key::a:
+					mCamera->changePosition(glm::vec3(-0.1f, 0.0f, 0.0f));
+					break;
+				case engine::key::d:
+					mCamera->changePosition(glm::vec3(0.1f, 0.0f, 0.0f));
+					break;
+				case engine::key::q:
+					mCamera->changeYaw(-1.0f);
+					break;
+				case engine::key::e:
+					mCamera->changeYaw(1.0f);
+					break;
+				case engine::key::x:
+					mCamera->changePitch(-1.0f);
+					break;
+				case engine::key::c:
+					mCamera->changePitch(1.0f);
+					break;
+				}
+			}
+		);
+	}
+public:
+	application() : mAppShouldClose(false)
 	{
-		LOGERROR(cmpProgram.second.err());
-		return;
+		initApplication();
 	}
 
-	auto updateUnifroms = [&]
-		{
-			auto err = cmpProgram.first->setUnifromVec3("uColor", glm::value_ptr(glm::vec3(1.0f)), 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
+	void run()
+	{
+		std::chrono::milliseconds nextGameUpdate = mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart());
 
-			err = cmpProgram.first->setUniformType("uWidth", &cfg.wnd.width, 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
+		uint32_t maxFrameSkip = mCfg.getCfg().gameLoop.gups / mCfg.getCfg().gameLoop.minimumFps;
+		std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / mCfg.getCfg().gameLoop.gups);
 
-			err = cmpProgram.first->setUniformType("uHeight", &cfg.wnd.height, 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
+		std::vector<engine::vertex> vboData = {
+			// Front face
+			{{ 0.5f,  0.5f,  0.0f}, {1.0f, 1.0f}, 0},
+			{{ 0.5f, -0.5f,  0.0f}, {1.0f, 0.0f}, 0},
+			{{-0.5f, -0.5f,  0.0f}, {0.0f, 0.0f}, 0},
+			{{-0.5f,  0.5f,  0.0f}, {0.0f, 1.0f}, 0},
 
-			err = cmpProgram.first->setUniformType("uXmax", &xMax, 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
-
-			err = cmpProgram.first->setUniformType("uXmin", &xMin, 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
-
-			err = cmpProgram.first->setUniformType("uYmax", &yMax, 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
-
-			err = cmpProgram.first->setUniformType("uYmin", &yMin, 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
-
-			err = cmpProgram.first->setUniformType("uMaxIteration", &maxIteration, 1);
-			if (err)
-			{
-				LOGERROR(err.err());
-			}
+			// Back face
+			{{ 0.5f,  0.5f, -0.5f}, {1.0f, 1.0f}, 0},
+			{{ 0.5f, -0.5f, -0.5f}, {1.0f, 0.0f}, 0},
+			{{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, 0},
+			{{-0.5f,  0.5f, -0.5f}, {0.0f, 1.0f}, 0}
 		};
 
-	cmpProgram.first->bind();
+		std::vector<uint32_t> eboData = {
+			// Front face
+			0, 1, 2, 2, 3, 0,
+			// Back face
+			4, 5, 6, 6, 7, 4,
+			// Left face
+			3, 2, 6, 6, 7, 3,
+			// Right face
+			0, 1, 5, 5, 4, 0,
+			// Top face
+			0, 3, 7, 7, 4, 0,
+			// Bottom face
+			1, 2, 6, 6, 5, 1
+		};
 
-	std::chrono::milliseconds nextGameUpdate = t.toMS(t.getTimeSinceStart());
-	std::chrono::milliseconds nextRender = t.toMS(t.getTimeSinceStart());
+		engine::arrayObject vbo = { uint32_t(sizeof(engine::vertex) * vboData.size()), vboData.data() };
+		engine::arrayObject ebo = { uint32_t(sizeof(uint32_t) * eboData.size()), eboData.data() };
+		engine::vertexBufferObject vao = {};
 
-	uint32_t maxFrameSkip = cfg.gameLoop.gups / cfg.gameLoop.minimumFps;
-	std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / cfg.gameLoop.gups);
-	std::chrono::milliseconds renderShift = std::chrono::milliseconds(1000 / cfg.gameLoop.fps);
+		vao.setElementBuffer(ebo.getSize(), ebo.getID());
+		vao.setAttribs(engine::vertexDescriber(vbo.getID()));
 
-	while (!appShouldStop)
-	{
-		// update game/window state: read input from user, apply logic for that input.
-		for (int i = 0; t.toMS(t.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && !appShouldStop; i++)
+		auto texture = mAssetMeneger->loadTexture("../assets/textures/wood.jpg");
+		if (texture.second)
 		{
-			f->updateWindowState();
-			updateUnifroms();
-			nextGameUpdate += updateShift;
+			mErr = texture.second;
+			return;
 		}
 
-		// draw call.
-		if (t.toMS(t.getTimeSinceStart()) >= nextRender)
+		texture.first->bind();
+
+		auto cmpProgram = mAssetMeneger->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+		if (cmpProgram.second)
 		{
-			renderer->render(vao);
-			f->swapBuffers();
-			nextRender += renderShift;
+			LOGERROR(cmpProgram.second.err());
+			return;
+		}
+
+		int slotID = texture.first->getSlotID();
+		cmpProgram.first->setUniformType("u_textures[0]", &slotID, 1);
+
+		while (!mAppShouldClose)
+		{
+			// update game/window state: read input from user, apply logic for that input.
+			for (int i = 0; mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && !mAppShouldClose; i++)
+			{
+				cmpProgram.first->setUniformMat4("uView", glm::value_ptr(mCamera->getCameraTransform()), 1);
+				cmpProgram.first->setUniformMat4("uProjection", glm::value_ptr(mCamera->getProjection()), 1);
+				
+
+				mWindow->updateWindowState();
+				nextGameUpdate += updateShift;
+			}
+
+			mRenderer->render(vao);
+			mWindow->swapBuffers();
 		}
 	}
 
+	core::error checkError()
+	{
+		return mErr;
+	}
+
+	~application()
+	{
 #ifdef DEBUG
-	DUMP_PROFILING("prof.json");
+		DUMP_PROFILING("prof.json");
 #endif // !DEBUG
-}
+	}
+};
 
 int WINAPI WinMain(
 	_In_ HINSTANCE hInstance,
@@ -247,7 +192,14 @@ int WINAPI WinMain(
 {
 	try
 	{
-		run();
+		application app{};
+		if (auto err = app.checkError(); err)
+		{
+			LOGERROR(err.err());
+			return 0;
+		}
+
+		app.run();
 	}
 	catch (const std::exception& exc)
 	{
