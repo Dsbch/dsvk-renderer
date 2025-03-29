@@ -10,22 +10,11 @@
 #include "../core/config/config.h"
 #include <glm/vec3.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
-static auto getStartTimer()
-{
-	static auto start = std::chrono::high_resolution_clock::now();
-	return start;
-}
-
-static auto getDurationSinceStart()
-{
-	auto end = std::chrono::high_resolution_clock::now();
-	return end - getStartTimer();
-}
+#include <../core/timer/timer.h>
 
 void run()
 {
-	getStartTimer();
+	core::timer t;
 
 	core::cfg config{ "config.json" };
 	auto cfg = config.getCfg();
@@ -55,7 +44,7 @@ void run()
 
 	// for mandelbrotset.
 	double xMax = 1.0f, xMin = -1.0f, yMax = 1.0f, yMin = -1.0f;
-	int maxIteration = 100;
+	int maxIteration = 10;
 
 	engine::eventDispatcher d;
 	d.template addHandler<engine::windowResizeEvent>(
@@ -218,13 +207,8 @@ void run()
 
 	cmpProgram.first->bind();
 
-#ifndef TO_MS
-#define TO_MS std::chrono::duration_cast<std::chrono::milliseconds>
-#endif // !TO_MS
-
-
-	std::chrono::milliseconds nextGameUpdate = TO_MS(getDurationSinceStart());
-	std::chrono::milliseconds nextRender = TO_MS(getDurationSinceStart());
+	std::chrono::milliseconds nextGameUpdate = t.toMS(t.getTimeSinceStart());
+	std::chrono::milliseconds nextRender = t.toMS(t.getTimeSinceStart());
 
 	uint32_t maxFrameSkip = cfg.gameLoop.gups / cfg.gameLoop.minimumFps;
 	std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / cfg.gameLoop.gups);
@@ -233,7 +217,7 @@ void run()
 	while (!appShouldStop)
 	{
 		// update game/window state: read input from user, apply logic for that input.
-		for (int i = 0; TO_MS(getDurationSinceStart()) >= nextGameUpdate && i < maxFrameSkip && !appShouldStop; i++)
+		for (int i = 0; t.toMS(t.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && !appShouldStop; i++)
 		{
 			f->updateWindowState();
 			updateUnifroms();
@@ -241,7 +225,7 @@ void run()
 		}
 
 		// draw call.
-		if (TO_MS(getDurationSinceStart()) >= nextRender)
+		if (t.toMS(t.getTimeSinceStart()) >= nextRender)
 		{
 			renderer->render(vao);
 			f->swapBuffers();
