@@ -5,6 +5,7 @@ core::error engine::winApiWindow::createWndClassErr;
 std::once_flag engine::winApiWindow::isWindowClassCreated;
 WNDCLASSEX engine::winApiWindow::wndClass;
 std::map<HWND, engine::winApiWindow*> engine::winApiWindow::hwndTable;
+std::mutex engine::winApiWindow::hwndTableMu;
 
 static HMODULE getThisModuleHandle()
 {
@@ -112,7 +113,9 @@ engine::winApiWindow::winApiWindow(engine::context ctx, std::shared_ptr<engine::
 		return;
 	}
 
+	hwndTableMu.lock();
 	hwndTable[mHWnd] = this;
+	hwndTableMu.unlock();
 
 	if (!mShowCursor)
 		ShowCursor(mShowCursor);
@@ -240,7 +243,8 @@ core::error engine::winApiWindow::makeOpenglContext()
 void engine::winApiWindow::updateWindowState()
 {
 	MSG msg;
-	GetMessage(&msg, NULL, 0, 0);
+	if (!PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		return;
 
 	TranslateMessage(&msg);
 	DispatchMessage(&msg);

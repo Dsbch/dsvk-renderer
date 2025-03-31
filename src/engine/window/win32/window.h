@@ -10,6 +10,7 @@
 namespace engine {
 	class winApiWindow : public engine::window {
 	private:
+		static std::mutex hwndTableMu;
 		static std::map<HWND, winApiWindow*> hwndTable;
 		static WNDCLASSEX wndClass;
 		static std::once_flag isWindowClassCreated;

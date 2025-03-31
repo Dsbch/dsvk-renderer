@@ -6,7 +6,7 @@
 namespace config {
 	struct camera
 	{
-		float fov = 90.0f;
+		float fov = 70.0f;
 		float nearPlane = 0.1f;
 		float farPlane = 1000.0f;
 	};

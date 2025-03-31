@@ -67,6 +67,7 @@ bool engine::winApiWindow::handleKeyboardEvent(engine::winApiWindow* winApiInst,
 		POINT cursorPos;
 		GetCursorPos(&cursorPos);
 		ScreenToClient(hWnd, &cursorPos);
+		LOGINFO("{}, UP", int(keyCode));
 
 		winApiInst->mDispatcher->template dispatch<engine::keyUpEvent>(
 			{ keyCode, { cursorPos.x, cursorPos.y } });
@@ -77,6 +78,8 @@ bool engine::winApiWindow::handleKeyboardEvent(engine::winApiWindow* winApiInst,
 		POINT cursorPos;
 		GetCursorPos(&cursorPos);
 		ScreenToClient(hWnd, &cursorPos);
+
+		LOGINFO("{}, down", int(keyCode));
 
 		winApiInst->mDispatcher->template dispatch<engine::keyDownEvent>(
 			{ keyCode, { cursorPos.x, cursorPos.y } });
@@ -123,9 +126,12 @@ LRESULT engine::winApiWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LP
 {
 	PROFILE_FUNC();
 
+	hwndTableMu.lock();
 	auto pThis = hwndTable.find(hWnd);
+	auto end = hwndTable.end();
+	hwndTableMu.unlock();
 
-	if (pThis != hwndTable.end())
+	if (pThis != end)
 	{
 		bool handled = false;
 
