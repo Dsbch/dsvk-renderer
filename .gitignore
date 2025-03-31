@@ -408,3 +408,4 @@ vs2022
 
 bin
 bin-int
+!win32
