@@ -62,8 +62,8 @@ void engine::winApiWindow::createWindowClass(const std::string& applicationName)
 	}
 }
 
-engine::winApiWindow::winApiWindow(engine::context ctx, std::shared_ptr<engine::eventDispatcher> dispatcher, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
-	: window(ctx, dispatcher, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
+engine::winApiWindow::winApiWindow(engine::context ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
+	: baseWindow(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
 {
 	PROFILE_FUNC();
 
@@ -148,17 +148,12 @@ engine::winApiWindow::~winApiWindow()
 }
 
 engine::winApiWindow::winApiWindow(const winApiWindow& other)
-	: window(other)
+	: baseWindow(other)
 {
 	this->mApplicationName = other.mApplicationName;
 	this->mHWnd = other.mHWnd;
 	this->mHdc = other.mHdc;
 	this->mHrc = other.mHrc;
-}
-
-engine::winApiWindow::winApiWindow(winApiWindow&& other) noexcept
-	: window(std::move(other)), mApplicationName(std::move(other.mApplicationName)), mHWnd(std::move(other.mHWnd)), mHdc(std::move(other.mHdc)), mHrc(std::move(other.mHrc))
-{
 }
 
 engine::winApiWindow& engine::winApiWindow::operator=(const winApiWindow& other)
@@ -172,16 +167,6 @@ engine::winApiWindow& engine::winApiWindow::operator=(const winApiWindow& other)
 		this->mHdc = other.mHdc;
 		this->mHrc = other.mHrc;
 	}
-
-	return *this;
-}
-
-engine::winApiWindow& engine::winApiWindow::operator=(winApiWindow&& other) noexcept
-{
-	this->mApplicationName.swap(other.mApplicationName);
-	this->mHWnd = std::move(other.mHWnd);
-	this->mHdc = std::move(other.mHdc);
-	this->mHrc = std::move(other.mHrc);
 
 	return *this;
 }
@@ -212,29 +197,29 @@ core::error engine::winApiWindow::makeOpenglContext()
 
 	if (!(mHdc = GetDC(mHWnd)))                     // Did We Get A Device Context?
 	{
-		return { "error on GetDC call" };                               // Return false
+		return { "error on GetDC call" };                               
 	}
 
 	int pixelFormat = 0;
 
 	if (!(pixelFormat=ChoosePixelFormat(mHdc, &pfd))) // Did Windows Find A Matching Pixel Format?
 	{
-		return { "error on ChoosePixelFormat call" };                               // Return false
+		return { "error on ChoosePixelFormat call" };                               
 	}
 
 	if (!SetPixelFormat(mHdc, pixelFormat, &pfd))       // Are We Able To Set The Pixel Format?
 	{
-		return { "error on SetPixelFormat call" };                               // Return false
+		return { "error on SetPixelFormat call" };                               
 	}
 
 	if (!(mHrc = wglCreateContext(mHdc)))               // Are We Able To Get A Rendering Context?
 	{
-		return { "error on wglCreateContext call" };                               // Return false
+		return { "error on wglCreateContext call" };                               
 	}
 
 	if (!wglMakeCurrent(mHdc, mHrc))                    // Try To Activate The Rendering Context
 	{
-		return { "error on wglMakeCurrent call" };                               // Return false
+		return { "error on wglMakeCurrent call" };                               
 	}
 
 	return {};
@@ -248,6 +233,22 @@ void engine::winApiWindow::updateWindowState()
 
 	TranslateMessage(&msg);
 	DispatchMessage(&msg);
+}
+
+void engine::winApiWindow::dispatchInput()
+{
+	for (auto crnt : mKeyUp)
+	{
+		mCtx.getDispatcher()->dispatch(crnt.second);
+		mKeyDown.erase(crnt.first);
+	}
+	mKeyUp.clear();
+
+
+	for (auto crnt : mKeyDown)
+	{
+		mCtx.getDispatcher()->dispatch(crnt.second);
+	}
 }
 
 void engine::winApiWindow::swapBuffers() const

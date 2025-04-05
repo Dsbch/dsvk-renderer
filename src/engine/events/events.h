@@ -41,7 +41,9 @@ namespace engine {
 		eventType mType;
 	public:
 		virtual ~baseEvent() = default;
+		baseEvent() = default;
 		baseEvent(eventType type) : mType(type) {};
+		eventType getEventType() const { return mType; };
 	};
 
 	class windowResizeEvent : public baseEvent {
@@ -60,7 +62,8 @@ namespace engine {
 
 	class keyDownEvent : public baseEvent {
 	public:
-		keyDownEvent(key key, mousePosition mPos = {}) : baseEvent(eventType::keyDown), mKey(key), mMpos(mPos) {};
+		keyDownEvent() = default;
+		keyDownEvent(key key, mousePosition pos = {}) : baseEvent(eventType::keyDown), mKey(key), mMpos(pos) {};
 		key getKey() const { return mKey; };
 		mousePosition getMousePosition() const { return mMpos; };
 	private:
@@ -70,7 +73,8 @@ namespace engine {
 
 	class keyUpEvent : public baseEvent {
 	public:
-		keyUpEvent(key key, mousePosition mPos = {}) : baseEvent(eventType::keyUp), mKey(key), mMpos(mPos) {};
+		keyUpEvent() = default;
+		keyUpEvent(key key, mousePosition pos = {}) : baseEvent(eventType::keyUp), mKey(key), mMpos(pos) {};
 		key getKey() const { return mKey; };
 		mousePosition getMousePosition() const { return mMpos; };
 	private:
@@ -80,6 +84,7 @@ namespace engine {
 
 	class mouseMoveEvent : public baseEvent {
 	public:
+		mouseMoveEvent() = default;
 		mouseMoveEvent(mousePosition mPos) : baseEvent(eventType::mouseMove), mMpos(mPos) {};
 		mousePosition getMousePosition() const { return mMpos; };
 	private:

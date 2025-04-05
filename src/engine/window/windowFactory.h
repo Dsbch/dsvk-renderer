@@ -6,9 +6,8 @@
 namespace engine {
 	class windowFactory {
 	public:
-		static std::unique_ptr<engine::window> createWindow(
+		static std::unique_ptr<engine::baseWindow> createWindow(
 			engine::context ctx,
-			std::shared_ptr<engine::eventDispatcher> dispatcher,
 			const std::string& name,
 			std::uint32_t width,
 			std::uint32_t heigth,
@@ -18,7 +17,7 @@ namespace engine {
 			)
 		{
 #ifdef WIN32
-			return std::make_unique<engine::winApiWindow>(ctx, dispatcher, name, width, heigth, isFullscreen, applicationName, showCursor);
+			return std::make_unique<engine::winApiWindow>(ctx, name, width, heigth, isFullscreen, applicationName, showCursor);
 #endif // WIN32
 		}
 	};

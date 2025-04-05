@@ -3,61 +3,54 @@
 #include <pch.h>
 #include <nlohmann/json.hpp>
 
-namespace config {
-	struct camera
-	{
-		float fov = 70.0f;
-		float nearPlane = 0.1f;
-		float farPlane = 1000.0f;
-	};
-
-	struct gameLoop 
-	{
-		uint32_t fps = 60;
-		uint32_t gups = 30;
-		uint32_t minimumFps = 5;
-	};
-
-	struct application 
-	{
-		std::string name = "engine";
-	};
-
-	struct logger 
-	{
-		std::string file = "logs.log";
-		std::string pattern = "[%H:%M:%S.%e] [%^%l%$] %v";
-		core::logger::level level = core::logger::level::debug;
-	};
-
-	struct window 
-{
-		uint32_t width = 1920;
-		uint32_t height = 1080;
-		bool isFullscreen = false;
-		bool showCursor = true;
-		std::string name = "engine";
-	};
-
-	struct main
-	{
-		application app;
-		logger log;
-		window wnd;
-		gameLoop gameLoop;
-		camera camera;
-	};
-}
-
 namespace core {
+	template<class T>
 	struct cfg {
 	private:
 		core::error mErr;
-		config::main mCfg;
+		T mCfg;
 	public:
 		cfg(const std::string& fileName = "config.json");
 		core::error checkError() const;
 		~cfg();
-		config::main getCfg() const;
+		T getCfg() const;
 	};
+
+	template<class T>
+	inline cfg<T>::cfg(const std::string& fileName)
+	{
+		std::ifstream f(fileName, std::ifstream::in);
+		if (!f)
+		{
+			mErr = core::error{ "fail on open file with name {}", fileName };
+			return;
+		}
+
+		try
+		{
+			nlohmann::json parsed = nlohmann::json::parse(f);
+			mCfg = parsed.get<config::main>();
+		}
+		catch (const std::exception& exc)
+		{
+			mErr = { exc.what() };
+		}
+	}
+	
+	template<class T>
+	inline core::error cfg<T>::checkError() const
+	{
+		return mErr;
+	}
+	
+	template<class T>
+	inline cfg<T>::~cfg()
+	{
+	}
+
+	template<class T>
+	inline T cfg<T>::getCfg() const
+	{
+		return mCfg;
+	}
 }

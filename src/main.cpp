@@ -2,7 +2,6 @@
 #include <glad/glad.h>
 #include <glm/vec3.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "engine/events/dispatcher.h"
 #include "engine/events/events.h"
 #include "engine/renderer/opengl/renderer.h"
 #include "engine/renderer/opengl/arrayObject.h"
@@ -12,16 +11,162 @@
 #include "../core/config/config.h"
 #include "../engine/camera/camera.h"
 
+namespace config {
+	struct camera
+	{
+		float fov = 70.0f;
+		float nearPlane = 0.1f;
+		float farPlane = 1000.0f;
+	};
+
+	struct gameLoop
+	{
+		uint32_t fps = 60;
+		uint32_t gups = 30;
+		uint32_t minimumFps = 5;
+	};
+
+	struct application
+	{
+		std::string name = "engine";
+	};
+
+	struct logger
+	{
+		std::string file = "logs.log";
+		std::string pattern = "[%H:%M:%S.%e] [%^%l%$] %v";
+		core::logger::level level = core::logger::level::debug;
+	};
+
+	struct window
+	{
+		uint32_t width = 1920;
+		uint32_t height = 1080;
+		bool isFullscreen = false;
+		bool showCursor = true;
+		std::string name = "engine";
+	};
+
+	struct main
+	{
+		application app;
+		logger log;
+		window wnd;
+		gameLoop gameLoop;
+		camera camera;
+	};
+
+	void to_json(nlohmann::json& j, const camera& p)
+	{
+		j = nlohmann::json{
+			{"farPlane", p.farPlane},
+			{"nearPlane", p.nearPlane},
+			{"fov", p.fov},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, camera& p)
+	{
+		j.at("farPlane").get_to(p.farPlane);
+		j.at("nearPlane").get_to(p.nearPlane);
+		j.at("fov").get_to(p.fov);
+	}
+
+	void to_json(nlohmann::json& j, const gameLoop& p)
+	{
+		j = nlohmann::json{
+			{"fps", p.fps},
+			{"gups", p.gups},
+			{"minimumFps", p.minimumFps},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, gameLoop& p)
+	{
+		j.at("fps").get_to(p.fps);
+		j.at("gups").get_to(p.gups);
+		j.at("minimumFps").get_to(p.minimumFps);
+	}
+
+	void to_json(nlohmann::json& j, const application& p)
+	{
+		j = nlohmann::json{
+			{"name", p.name},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, application& p)
+	{
+		j.at("name").get_to(p.name);
+	}
+
+	void to_json(nlohmann::json& j, const logger& p)
+	{
+		j = nlohmann::json{
+			{"file", p.file},
+			{"pattern", p.pattern},
+			{"level", p.level},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, logger& p)
+	{
+		j.at("file").get_to(p.file);
+		j.at("pattern").get_to(p.pattern);
+		j.at("level").get_to(p.level);
+	}
+
+	void to_json(nlohmann::json& j, const window& p)
+	{
+		j = nlohmann::json{
+			{"width", p.width},
+			{"height", p.height},
+			{"isFullscreen", p.isFullscreen},
+			{"name", p.name},
+			{"showCursor", p.showCursor},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, window& p)
+	{
+		j.at("width").get_to(p.width);
+		j.at("height").get_to(p.height);
+		j.at("isFullscreen").get_to(p.isFullscreen);
+		j.at("name").get_to(p.name);
+		j.at("showCursor").get_to(p.showCursor);
+	}
+
+	void to_json(nlohmann::json& j, const main& p)
+	{
+		j = nlohmann::json{
+			{"application", p.app},
+			{"logger", p.log},
+			{"window", p.wnd},
+			{"gameLoop", p.gameLoop},
+			{"camera", p.camera},
+		};
+	}
+
+	void from_json(const nlohmann::json& j, main& p)
+	{
+		j.at("application").get_to(p.app);
+		j.at("logger").get_to(p.log);
+		j.at("window").get_to(p.wnd);
+		j.at("gameLoop").get_to(p.gameLoop);
+		j.at("camera").get_to(p.camera);
+	}
+}
+
+
 class application {
 private:
 	core::error mErr;
 
-	core::cfg mCfg;
+	core::cfg<config::main> mCfg;
 	engine::context mCtx;
-	std::unique_ptr<engine::window> mWindow;
+	std::unique_ptr<engine::baseWindow> mWindow;
 	std::unique_ptr<engine::fpsCamera> mCamera;
 	std::unique_ptr<engine::openglRenderer> mRenderer;
-	std::shared_ptr<engine::eventDispatcher> mDispatcher;
 	std::unique_ptr<engine::assetManager> mAssetMeneger;
 
 	bool mAppShouldClose;
@@ -30,13 +175,12 @@ private:
 	{
 		mCtx = engine::context{};
 
-		mCfg = core::cfg{ "config.json" };
+		mCfg = core::cfg<config::main>{ "config.json" };
 		core::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
 
-		mDispatcher = std::make_shared<engine::eventDispatcher>(mCtx);
 		mAssetMeneger = std::make_unique<engine::assetManager>(mCtx);
 
-		mWindow = engine::windowFactory::createWindow(mCtx, mDispatcher, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
+		mWindow = engine::windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
 		if (mErr = mWindow->checkError(); mErr)
 			return;
 
@@ -49,12 +193,40 @@ private:
 			return;
 		}
 
-		mDispatcher->addHandler<engine::closeEvent>([&](const engine::closeEvent& e) { mAppShouldClose = true; });
-		mDispatcher->addHandler<engine::windowResizeEvent>([&](const engine::windowResizeEvent& e) { mRenderer->changeViewPort(e.getWidth(), e.getHeight()); mCamera->changeViewPort(e.getWidth(), e.getHeight()); });
-		mDispatcher->addHandler<engine::keyDownEvent>(
-			[&](const engine::keyDownEvent& e)
+		mCtx.getDispatcher()->addHandler(
+			engine::eventType::close,
+			[&](const engine::baseEvent& e)
 			{
-				switch (e.getKey())
+				if (e.getEventType() != engine::eventType::close)
+					return;
+
+				mAppShouldClose = true;
+			}
+		);
+
+		mCtx.getDispatcher()->addHandler(
+			engine::eventType::windowResize,
+			[&](const engine::baseEvent& e)
+			{
+				if (e.getEventType() != engine::eventType::windowResize)
+					return;
+
+				auto resizeEvent = static_cast<const engine::windowResizeEvent&>(e);
+
+				mRenderer->changeViewPort(resizeEvent.getWidth(), resizeEvent.getHeight()); mCamera->changeViewPort(resizeEvent.getWidth(), resizeEvent.getHeight());
+			}
+		);
+
+		mCtx.getDispatcher()->addHandler(
+			engine::eventType::keyDown,
+			[&](const engine::baseEvent& e)
+			{
+				if (e.getEventType() != engine::eventType::keyDown)
+					return;
+
+				auto keyDownEvent = static_cast<const engine::keyDownEvent&>(e);
+
+				switch (keyDownEvent.getKey())
 				{
 				case engine::key::s:
 					mCamera->changePosition(glm::vec3(0.0f, 0.0f, -0.01f));
@@ -108,7 +280,7 @@ public:
 			{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f}, 0},
 			{{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0},
 			{{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f}, 0},
-			{{-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0}
+			{{-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0},
 		};
 
 		std::vector<uint32_t> eboData = {
@@ -123,7 +295,7 @@ public:
 			// Bottom face
 			1, 2, 6, 6, 5, 1,
 			// Back face
-		    4, 5, 6, 6, 7, 4,
+			4, 5, 6, 6, 7, 4,
 		};
 
 		engine::arrayObject vbo = { uint32_t(sizeof(engine::vertex) * vboData.size()), vboData.data() };
@@ -159,9 +331,10 @@ public:
 			{
 				cmpProgram.first->setUniformMat4("uView", glm::value_ptr(mCamera->getCameraTransform()), 1);
 				cmpProgram.first->setUniformMat4("uProjection", glm::value_ptr(mCamera->getProjection()), 1);
-				
+
 
 				mWindow->updateWindowState();
+				mWindow->dispatchInput();
 				nextGameUpdate += updateShift;
 			}
 

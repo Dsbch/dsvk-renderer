@@ -12,47 +12,40 @@ bool engine::winApiWindow::handleMouseEvent(engine::winApiWindow* winApiInst, HW
 	switch (message)
 	{
 	case WM_MOUSEMOVE:
-		winApiInst->mDispatcher->template dispatch<engine::mouseMoveEvent>(
-			{ {cursorPos.x, cursorPos.y } });
+		winApiInst->mCtx.getDispatcher()->dispatch(mouseMoveEvent{ {cursorPos.x, cursorPos.y} });
 		return true;
 	case WM_LBUTTONUP:
 	{
-		winApiInst->mDispatcher->template dispatch<engine::keyUpEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	case WM_MBUTTONUP:
 	{
-		winApiInst->mDispatcher->template dispatch<engine::keyUpEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	case WM_RBUTTONUP:
 	{
-		winApiInst->mDispatcher->template dispatch<engine::keyUpEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	case WM_LBUTTONDOWN:
 	{
-		winApiInst->mDispatcher->template dispatch<engine::keyDownEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	case WM_MBUTTONDOWN:
 	{
-		winApiInst->mDispatcher->template dispatch<engine::keyDownEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	case WM_RBUTTONDOWN:
 	{
-		winApiInst->mDispatcher->template dispatch<engine::keyDownEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	}
-	
+
 	return false;
 }
 
@@ -66,23 +59,16 @@ bool engine::winApiWindow::handleKeyboardEvent(engine::winApiWindow* winApiInst,
 	{
 		POINT cursorPos;
 		GetCursorPos(&cursorPos);
-		ScreenToClient(hWnd, &cursorPos);
-		LOGINFO("{}, UP", int(keyCode));
 
-		winApiInst->mDispatcher->template dispatch<engine::keyUpEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	case WM_KEYDOWN:
 	{
 		POINT cursorPos;
 		GetCursorPos(&cursorPos);
-		ScreenToClient(hWnd, &cursorPos);
 
-		LOGINFO("{}, down", int(keyCode));
-
-		winApiInst->mDispatcher->template dispatch<engine::keyDownEvent>(
-			{ keyCode, { cursorPos.x, cursorPos.y } });
+		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	}
@@ -94,7 +80,7 @@ bool engine::winApiWindow::handleCloseEvent(engine::winApiWindow* winApiInst, HW
 {
 	if (message == WM_DESTROY)
 	{
-		winApiInst->mDispatcher->template dispatch<engine::closeEvent>({});
+		winApiInst->mCtx.getDispatcher()->dispatch(engine::closeEvent{});
 		PostQuitMessage(0);
 		return true;
 	}
@@ -106,7 +92,7 @@ bool engine::winApiWindow::handleResizeEvent(engine::winApiWindow* winApiInst, H
 {
 	if (message == WM_SIZE)
 	{
-		winApiInst->mDispatcher->template dispatch<engine::windowResizeEvent>({ LOWORD(lParam), HIWORD(lParam) });
+		winApiInst->mCtx.getDispatcher()->dispatch(engine::windowResizeEvent{ LOWORD(lParam), HIWORD(lParam) });
 		return true;
 	}
 
@@ -140,7 +126,7 @@ LRESULT engine::winApiWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LP
 		handled |= handleCloseEvent(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handleResizeEvent(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handlePaintEvent(pThis->second, hWnd, message, wParam, lParam);
-	
+
 		if (handled)
 			return 0;
 	}

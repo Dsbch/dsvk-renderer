@@ -5,10 +5,9 @@
 #include <tchar.h>
 #include "../window.h"
 #include "../../events/events.h"
-#include "../../events/dispatcher.h"
 
 namespace engine {
-	class winApiWindow : public engine::window {
+	class winApiWindow : public engine::baseWindow {
 	private:
 		static std::mutex hwndTableMu;
 		static std::map<HWND, winApiWindow*> hwndTable;
@@ -23,21 +22,24 @@ namespace engine {
 		static bool handlePaintEvent(engine::winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 		
 		void createWindowClass(const std::string& applicationName);
+		
+		std::map<engine::key, engine::keyUpEvent> mKeyUp;
+		std::map<engine::key, engine::keyDownEvent> mKeyDown;
+
 		std::string mApplicationName;
-		HWND mHWnd;
 		HDC mHdc;
+		HWND mHWnd;
 		HGLRC mHrc;
 	public:
-		winApiWindow(engine::context ctx, std::shared_ptr<engine::eventDispatcher> dispatcher, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor);
-		~winApiWindow();
+		winApiWindow(engine::context ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor);
 	
+		~winApiWindow();
 		winApiWindow(const winApiWindow& other);
-		winApiWindow(winApiWindow&& other) noexcept;
 		winApiWindow& operator=(const winApiWindow& other);
-		winApiWindow& operator=(winApiWindow&& other) noexcept;
 	
 		core::error makeOpenglContext();
 		void updateWindowState();
+		void dispatchInput();
 		void swapBuffers() const;
 		void toggleCursor();
 		core::error checkError();
