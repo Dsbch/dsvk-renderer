@@ -173,12 +173,9 @@ private:
 
 	void initApplication()
 	{
-		mCtx = engine::context{};
-
-		mCfg = core::cfg<config::main>{ "config.json" };
-		core::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
-
 		mAssetMeneger = std::make_unique<engine::assetManager>(mCtx);
+
+		core::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
 
 		mWindow = engine::windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
 		if (mErr = mWindow->checkError(); mErr)
@@ -192,6 +189,69 @@ private:
 		{
 			return;
 		}
+	}
+public:
+	application() : mAppShouldClose(false), mCtx(), mCfg("config.json")
+	{
+		initApplication();
+	}
+
+	void run()
+	{
+		std::vector<engine::vertex> vboData = {
+			// Front face
+			{{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f}, 0},
+			{{ 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f}, 0},
+			{{-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0},
+			{{-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f}, 0},
+
+			// Back face
+			{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f}, 0},
+			{{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0},
+			{{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f}, 0},
+			{{-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0},
+		};
+
+		std::vector<uint32_t> eboData = {
+			// Front face
+			0, 1, 2, 2, 3, 0,
+			// Left face
+			3, 2, 6, 6, 7, 3,
+			// Right face
+			0, 1, 5, 5, 4, 0,
+			// Top face
+			0, 3, 7, 7, 4, 0,
+			// Bottom face
+			1, 2, 6, 6, 5, 1,
+			// Back face
+			4, 5, 6, 6, 7, 4,
+		};
+
+		engine::dynamicArrayObject vbo = { uint32_t(sizeof(engine::vertex) * vboData.size()), vboData.data() };
+		engine::arrayObject ebo = { uint32_t(sizeof(uint32_t) * eboData.size()), eboData.data() };
+		engine::vertexBufferObject vao{};
+
+		vao.setElementBuffer(ebo.getSize(), ebo.getID());
+		vao.setAttribs(engine::vertexDescriber(vbo.getID()));
+
+		auto texture = mAssetMeneger->loadTexture("../assets/textures/wood.jpg");
+		if (texture.second)
+		{
+			mErr = texture.second;
+			return;
+		}
+
+		texture.first->bind();
+
+		auto cmpProgram = mAssetMeneger->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+		if (cmpProgram.second)
+		{
+			LOGERROR(cmpProgram.second.err());
+			return;
+		}
+
+		int slotID = texture.first->getSlotID();
+		cmpProgram.first->setUniformType("u_textures[0]", &slotID, 1);
 
 		mCtx.getDispatcher()->addHandler(
 			engine::eventType::close,
@@ -252,77 +312,65 @@ private:
 				case engine::key::c:
 					mCamera->changePitch(1.0f);
 					break;
+				case engine::key::one:
+					for (engine::vertex& v : vboData)
+					{
+						v.position.x += 0.1f;
+					}
+
+					vbo.template updateData<engine::vertex>(0, vboData.size(), vboData.data());
+					break;
+				case engine::key::two:
+					for (engine::vertex& v : vboData)
+					{
+						v.position.x -= 0.1f;
+					}
+
+					vbo.template updateData<engine::vertex>(0, vboData.size(), vboData.data());
+					break;
 				}
 			}
 		);
-	}
-public:
-	application() : mAppShouldClose(false)
-	{
-		initApplication();
-	}
 
-	void run()
-	{
+		mCtx.getDispatcher()->addHandler(
+			engine::eventType::mouseMove,
+			[&](const engine::baseEvent& e)
+			{
+				static engine::mousePosition lastPos;
+				static bool mFirstMouse;
+
+				if (e.getEventType() != engine::eventType::mouseMove)
+					return;
+
+				auto mouseMoveEvent = static_cast<const engine::mouseMoveEvent&>(e);
+
+				if (mFirstMouse) {
+					lastPos = { mouseMoveEvent.getMousePosition().x, mouseMoveEvent.getMousePosition().y };
+					mFirstMouse = false;
+					return;
+				}
+
+				float deltaX = mouseMoveEvent.getMousePosition().x - lastPos.x;
+				float deltaY = lastPos.y - mouseMoveEvent.getMousePosition().y; // reversed: y goes down on screen
+
+				lastPos.x = mouseMoveEvent.getMousePosition().x;
+				lastPos.y = mouseMoveEvent.getMousePosition().y;
+
+
+				float sensitivity = 0.1f;
+				deltaX *= sensitivity;
+				deltaY *= sensitivity;
+
+				mCamera->changeYaw(deltaX);
+				mCamera->changePitch(deltaY);
+			}
+		);
+
+		// above move to some object/model class.
+
 		std::chrono::milliseconds nextGameUpdate = mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart());
-
 		uint32_t maxFrameSkip = mCfg.getCfg().gameLoop.gups / mCfg.getCfg().gameLoop.minimumFps;
 		std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / mCfg.getCfg().gameLoop.gups);
-
-		std::vector<engine::vertex> vboData = {
-			// Front face
-			{{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f}, 0},
-			{{ 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f}, 0},
-			{{-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0},
-			{{-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f}, 0},
-
-			// Back face
-			{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f}, 0},
-			{{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0},
-			{{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f}, 0},
-			{{-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0},
-		};
-
-		std::vector<uint32_t> eboData = {
-			// Front face
-			0, 1, 2, 2, 3, 0,
-			// Left face
-			3, 2, 6, 6, 7, 3,
-			// Right face
-			0, 1, 5, 5, 4, 0,
-			// Top face
-			0, 3, 7, 7, 4, 0,
-			// Bottom face
-			1, 2, 6, 6, 5, 1,
-			// Back face
-			4, 5, 6, 6, 7, 4,
-		};
-
-		engine::arrayObject vbo = { uint32_t(sizeof(engine::vertex) * vboData.size()), vboData.data() };
-		engine::arrayObject ebo = { uint32_t(sizeof(uint32_t) * eboData.size()), eboData.data() };
-		engine::vertexBufferObject vao = {};
-
-		vao.setElementBuffer(ebo.getSize(), ebo.getID());
-		vao.setAttribs(engine::vertexDescriber(vbo.getID()));
-
-		auto texture = mAssetMeneger->loadTexture("../assets/textures/wood.jpg");
-		if (texture.second)
-		{
-			mErr = texture.second;
-			return;
-		}
-
-		texture.first->bind();
-
-		auto cmpProgram = mAssetMeneger->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
-		if (cmpProgram.second)
-		{
-			LOGERROR(cmpProgram.second.err());
-			return;
-		}
-
-		int slotID = texture.first->getSlotID();
-		cmpProgram.first->setUniformType("u_textures[0]", &slotID, 1);
 
 		while (!mAppShouldClose)
 		{

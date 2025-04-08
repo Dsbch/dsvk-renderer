@@ -62,12 +62,31 @@ void engine::winApiWindow::createWindowClass(const std::string& applicationName)
 	}
 }
 
-engine::winApiWindow::winApiWindow(engine::context ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
-	: baseWindow(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
+void engine::winApiWindow::registerInputDevices()
 {
-	PROFILE_FUNC();
+	RAWINPUTDEVICE rid[2];
 
-	std::call_once(isWindowClassCreated, [this](const std::string& appName) { this->createWindowClass(appName); }, mApplicationName);
+	// Mouse
+	rid[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+	rid[0].usUsage = HID_USAGE_GENERIC_MOUSE;
+	rid[0].dwFlags = RIDEV_INPUTSINK;
+	rid[0].hwndTarget = mHWnd;
+
+	// Keyboard
+	rid[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
+	rid[1].usUsage = HID_USAGE_GENERIC_KEYBOARD;
+	rid[1].dwFlags = RIDEV_NOLEGACY | RIDEV_INPUTSINK;
+	rid[1].hwndTarget = mHWnd;
+
+	if (!RegisterRawInputDevices(rid, 2, sizeof(RAWINPUTDEVICE)))
+	{
+		LOGERROR("can't register input devices.");
+	}
+}
+
+void engine::winApiWindow::createWindow()
+{
+	std::call_once(isWindowClassCreated, [&]() { this->createWindowClass(mApplicationName); });
 	if (createWndClassErr)
 	{
 		mErr = createWndClassErr;
@@ -124,6 +143,21 @@ engine::winApiWindow::winApiWindow(engine::context ctx, const std::string& name,
 	UpdateWindow(mHWnd);
 }
 
+engine::winApiWindow::winApiWindow(engine::context ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
+	: baseWindow(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
+{
+	PROFILE_FUNC();
+
+	createWindow();
+	//registerInputDevices();
+
+	if (!mShowCursor)
+		ShowCursor(mShowCursor);
+
+	ShowWindow(mHWnd, SW_SHOW);
+	UpdateWindow(mHWnd);
+}
+
 engine::winApiWindow::~winApiWindow()
 {
 	if (mHrc)                                            // Do We Have A Rendering Context?
@@ -139,10 +173,8 @@ engine::winApiWindow::~winApiWindow()
 		}
 	}
 
-	auto appName = std::wstring(mApplicationName.begin(), mApplicationName.end());
-	LPCWSTR lpcAppName = appName.c_str();
-
-	UnregisterClass(lpcAppName, getThisModuleHandle());
+	DestroyWindow(mHWnd);
+	UnregisterClass(wndClass.lpszClassName, getThisModuleHandle());
 
 	hwndTable.erase(mHWnd);
 }
@@ -173,7 +205,7 @@ engine::winApiWindow& engine::winApiWindow::operator=(const winApiWindow& other)
 
 core::error engine::winApiWindow::makeOpenglContext()
 {
-	PIXELFORMATDESCRIPTOR pfd =              // pfd Tells Windows How We Want Things To Be
+	PIXELFORMATDESCRIPTOR pfd =						// pfd Tells Windows How We Want Things To Be
 	{
 		sizeof(PIXELFORMATDESCRIPTOR),              // Size Of This Pixel Format Descriptor
 		1,                                          // Version Number
@@ -197,29 +229,29 @@ core::error engine::winApiWindow::makeOpenglContext()
 
 	if (!(mHdc = GetDC(mHWnd)))                     // Did We Get A Device Context?
 	{
-		return { "error on GetDC call" };                               
+		return { "error on GetDC call" };
 	}
 
 	int pixelFormat = 0;
 
-	if (!(pixelFormat=ChoosePixelFormat(mHdc, &pfd))) // Did Windows Find A Matching Pixel Format?
+	if (!(pixelFormat = ChoosePixelFormat(mHdc, &pfd))) // Did Windows Find A Matching Pixel Format?
 	{
-		return { "error on ChoosePixelFormat call" };                               
+		return { "error on ChoosePixelFormat call" };
 	}
 
 	if (!SetPixelFormat(mHdc, pixelFormat, &pfd))       // Are We Able To Set The Pixel Format?
 	{
-		return { "error on SetPixelFormat call" };                               
+		return { "error on SetPixelFormat call" };
 	}
 
 	if (!(mHrc = wglCreateContext(mHdc)))               // Are We Able To Get A Rendering Context?
 	{
-		return { "error on wglCreateContext call" };                               
+		return { "error on wglCreateContext call" };
 	}
 
 	if (!wglMakeCurrent(mHdc, mHrc))                    // Try To Activate The Rendering Context
 	{
-		return { "error on wglMakeCurrent call" };                               
+		return { "error on wglMakeCurrent call" };
 	}
 
 	return {};
@@ -228,11 +260,30 @@ core::error engine::winApiWindow::makeOpenglContext()
 void engine::winApiWindow::updateWindowState()
 {
 	MSG msg;
-	if (!PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+	//if (!PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		//return;
+	if (!GetMessage(&msg, mHWnd, 0, 0))
 		return;
 
 	TranslateMessage(&msg);
 	DispatchMessage(&msg);
+
+	// with code below smth is off.
+	//MSG msg;
+	//HWND focused = GetFocus();
+	//if (focused == mHWnd) {
+	//	if (!PeekMessage(&msg, NULL, 0, WM_INPUT - 1, PM_REMOVE)) {
+	//		PeekMessage(&msg, NULL, WM_INPUT + 1, std::numeric_limits<UINT>::max(), PM_REMOVE);
+	//	}
+	//}
+	//else
+	//{
+	//	if (!PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+	//		return;
+	//}
+
+	//TranslateMessage(&msg);
+	//DispatchMessage(&msg);
 }
 
 void engine::winApiWindow::dispatchInput()

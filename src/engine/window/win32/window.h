@@ -3,6 +3,7 @@
 #include <pch.h>
 #include <WindowsX.h>
 #include <tchar.h>
+#include <hidusage.h>
 #include "../window.h"
 #include "../../events/events.h"
 
@@ -22,7 +23,9 @@ namespace engine {
 		static bool handlePaintEvent(engine::winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 		
 		void createWindowClass(const std::string& applicationName);
-		
+		void registerInputDevices();
+		void createWindow();
+
 		std::map<engine::key, engine::keyUpEvent> mKeyUp;
 		std::map<engine::key, engine::keyDownEvent> mKeyDown;
 

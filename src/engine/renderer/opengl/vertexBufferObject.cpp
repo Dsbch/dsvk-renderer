@@ -41,7 +41,7 @@ core::error engine::vertexBufferObject::setAttribs(const attributesDescriber& de
 		return { "mMaxAttributes: {:d} but got {:d}", mMaxAttributes, info.size() };
 	}
 
-	for (const auto i : info)
+	for (const engine::attributesDescriber::attributeInfo& i : info)
 	{
 		glEnableVertexArrayAttrib(mID, mAttribCount);
 		glVertexArrayAttribBinding(mID, mAttribCount, mAttribCount);

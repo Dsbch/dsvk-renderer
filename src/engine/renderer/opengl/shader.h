@@ -11,7 +11,6 @@ namespace engine {
 			size_t mSize;
 		};
 
-		shaderProgram(const shaderProgram&) = delete;
 		shaderProgram(const std::string& fragmestSrc, const std::string& vertexSrc);
 		~shaderProgram();
 		core::error compile();

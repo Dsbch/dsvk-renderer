@@ -11,9 +11,26 @@ bool engine::winApiWindow::handleMouseEvent(engine::winApiWindow* winApiInst, HW
 
 	switch (message)
 	{
-	case WM_MOUSEMOVE:
-		winApiInst->mCtx.getDispatcher()->dispatch(mouseMoveEvent{ {cursorPos.x, cursorPos.y} });
-		return true;
+	//case WM_INPUT:
+	//{
+	//	UINT dataSize;
+	//	GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, NULL, &dataSize, sizeof(RAWINPUTHEADER)); //Need to populate data size first
+	//	std::cout << GET_RAWINPUT_CODE_WPARAM(wParam) << " code thing\n";
+	//	if (dataSize > 0)
+	//	{
+	//		std::vector<BYTE> rawdata(dataSize);
+
+	//		if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, rawdata.data(), &dataSize, sizeof(RAWINPUTHEADER)) == dataSize)
+	//		{
+	//			RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(rawdata.data());
+	//			if (raw->header.dwType == RIM_TYPEMOUSE)
+	//			{
+	//			}
+	//		}
+	//	}
+
+	//	return true;
+	//}
 	case WM_LBUTTONUP:
 	{
 		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
@@ -80,8 +97,8 @@ bool engine::winApiWindow::handleCloseEvent(engine::winApiWindow* winApiInst, HW
 {
 	if (message == WM_DESTROY)
 	{
-		winApiInst->mCtx.getDispatcher()->dispatch(engine::closeEvent{});
 		PostQuitMessage(0);
+		winApiInst->mCtx.getDispatcher()->dispatch(engine::closeEvent{});
 		return true;
 	}
 
@@ -123,9 +140,9 @@ LRESULT engine::winApiWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LP
 
 		handled |= handleKeyboardEvent(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handleMouseEvent(pThis->second, hWnd, message, wParam, lParam);
-		handled |= handleCloseEvent(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handleResizeEvent(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handlePaintEvent(pThis->second, hWnd, message, wParam, lParam);
+		handled |= handleCloseEvent(pThis->second, hWnd, message, wParam, lParam);
 
 		if (handled)
 			return 0;
