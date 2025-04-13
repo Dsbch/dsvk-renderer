@@ -10,6 +10,7 @@
 #include "engine/amanager/assetManager.h"
 #include "../core/config/config.h"
 #include "../engine/camera/camera.h"
+#include "../core/concurrency/concurrency.h"
 
 namespace config {
 	struct camera
@@ -157,7 +158,6 @@ namespace config {
 	}
 }
 
-
 class application {
 private:
 	core::error mErr;
@@ -167,22 +167,43 @@ private:
 	std::unique_ptr<engine::baseWindow> mWindow;
 	std::unique_ptr<engine::fpsCamera> mCamera;
 	std::unique_ptr<engine::openglRenderer> mRenderer;
-	std::unique_ptr<engine::assetManager> mAssetMeneger;
+	std::unique_ptr<engine::assetManager> mAssetManager;
 
 	bool mAppShouldClose;
 
 	void initApplication()
 	{
-		mAssetMeneger = std::make_unique<engine::assetManager>(mCtx);
+		mAssetManager = std::make_unique<engine::assetManager>(mCtx);
 
 		core::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
 
-		mWindow = engine::windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
-		if (mErr = mWindow->checkError(); mErr)
-			return;
+		std::mutex tmpLock;
+		bool ready = false;
+		std::condition_variable tmpCv;
+
+		mCtx.getThreadPool().start(
+			[&]() -> void {
+				mWindow = engine::windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
+				if (mErr = mWindow->checkError(); mErr)
+					return;
+
+				{
+					std::lock_guard lk(tmpLock);
+					ready = true;
+				}
+
+				tmpCv.notify_one();
+				
+				mWindow->startPolling();
+			}
+		);
+
+		{
+			std::unique_lock lk(tmpLock);
+			tmpCv.wait(lk, [&] { return ready; });
+		}
 
 		mWindow->makeOpenglContext();
-
 		mCamera = std::make_unique<engine::fpsCamera>(mCtx, mCfg.getCfg().camera.fov, mCfg.getCfg().camera.nearPlane, mCfg.getCfg().camera.farPlane, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height);
 		mRenderer = std::make_unique<engine::openglRenderer>();
 		if (mErr = mRenderer->check(); mErr)
@@ -234,7 +255,7 @@ public:
 		vao.setElementBuffer(ebo.getSize(), ebo.getID());
 		vao.setAttribs(engine::vertexDescriber(vbo.getID()));
 
-		auto texture = mAssetMeneger->loadTexture("../assets/textures/wood.jpg");
+		auto texture = mAssetManager->loadTexture("../assets/textures/wood.jpg");
 		if (texture.second)
 		{
 			mErr = texture.second;
@@ -243,7 +264,7 @@ public:
 
 		texture.first->bind();
 
-		auto cmpProgram = mAssetMeneger->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+		auto cmpProgram = mAssetManager->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
 		if (cmpProgram.second)
 		{
 			LOGERROR(cmpProgram.second.err());
@@ -255,9 +276,9 @@ public:
 
 		mCtx.getDispatcher()->addHandler(
 			engine::eventType::close,
-			[&](const engine::baseEvent& e)
+			[&](std::shared_ptr<engine::baseEvent> e)
 			{
-				if (e.getEventType() != engine::eventType::close)
+				if (e->getEventType() != engine::eventType::close)
 					return;
 
 				mAppShouldClose = true;
@@ -266,27 +287,28 @@ public:
 
 		mCtx.getDispatcher()->addHandler(
 			engine::eventType::windowResize,
-			[&](const engine::baseEvent& e)
+			[&](std::shared_ptr<engine::baseEvent> e)
 			{
-				if (e.getEventType() != engine::eventType::windowResize)
+				if (e->getEventType() != engine::eventType::windowResize)
 					return;
 
-				auto resizeEvent = static_cast<const engine::windowResizeEvent&>(e);
+				auto resizeEvent = static_cast<const engine::windowResizeEvent*>(e.get());
 
-				mRenderer->changeViewPort(resizeEvent.getWidth(), resizeEvent.getHeight()); mCamera->changeViewPort(resizeEvent.getWidth(), resizeEvent.getHeight());
+				mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+				mCamera->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 			}
 		);
 
 		mCtx.getDispatcher()->addHandler(
 			engine::eventType::keyDown,
-			[&](const engine::baseEvent& e)
+			[&](std::shared_ptr<engine::baseEvent> e)
 			{
-				if (e.getEventType() != engine::eventType::keyDown)
+				if (e->getEventType() != engine::eventType::keyDown)
 					return;
 
-				auto keyDownEvent = static_cast<const engine::keyDownEvent&>(e);
+				auto keyDownEvent = static_cast<const engine::keyDownEvent*>(e.get());
 
-				switch (keyDownEvent.getKey())
+				switch (keyDownEvent->getKey())
 				{
 				case engine::key::s:
 					mCamera->changePosition(glm::vec3(0.0f, 0.0f, -0.01f));
@@ -334,27 +356,27 @@ public:
 
 		mCtx.getDispatcher()->addHandler(
 			engine::eventType::mouseMove,
-			[&](const engine::baseEvent& e)
+			[&](std::shared_ptr<engine::baseEvent> e)
 			{
 				static engine::mousePosition lastPos;
 				static bool mFirstMouse;
 
-				if (e.getEventType() != engine::eventType::mouseMove)
+				if (e->getEventType() != engine::eventType::mouseMove)
 					return;
 
-				auto mouseMoveEvent = static_cast<const engine::mouseMoveEvent&>(e);
+				auto mouseMoveEvent = static_cast<const engine::mouseMoveEvent*>(e.get());
 
 				if (mFirstMouse) {
-					lastPos = { mouseMoveEvent.getMousePosition().x, mouseMoveEvent.getMousePosition().y };
+					lastPos = { mouseMoveEvent->getMousePosition().x, mouseMoveEvent->getMousePosition().y };
 					mFirstMouse = false;
 					return;
 				}
 
-				float deltaX = mouseMoveEvent.getMousePosition().x - lastPos.x;
-				float deltaY = lastPos.y - mouseMoveEvent.getMousePosition().y; // reversed: y goes down on screen
+				float deltaX = mouseMoveEvent->getMousePosition().x - lastPos.x;
+				float deltaY = lastPos.y - mouseMoveEvent->getMousePosition().y; // reversed: y goes down on screen
 
-				lastPos.x = mouseMoveEvent.getMousePosition().x;
-				lastPos.y = mouseMoveEvent.getMousePosition().y;
+				lastPos.x = mouseMoveEvent->getMousePosition().x;
+				lastPos.y = mouseMoveEvent->getMousePosition().y;
 
 
 				float sensitivity = 0.1f;
@@ -379,10 +401,8 @@ public:
 			{
 				cmpProgram.first->setUniformMat4("uView", glm::value_ptr(mCamera->getCameraTransform()), 1);
 				cmpProgram.first->setUniformMat4("uProjection", glm::value_ptr(mCamera->getProjection()), 1);
+				mCtx.getDispatcher()->dipatchQueue();
 
-
-				mWindow->updateWindowState();
-				mWindow->dispatchInput();
 				nextGameUpdate += updateShift;
 			}
 

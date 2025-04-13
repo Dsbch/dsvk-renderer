@@ -48,6 +48,7 @@ void engine::openglRenderer::initOpengl()
 	int version = gladLoadGL();
 	if (version == 0) {
 		mInitOpenglErr = {"failed to initialize opengl"};
+		return;
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -91,16 +92,12 @@ void engine::openglRenderer::changeViewPort(uint32_t width, uint32_t height) con
 
 void engine::openglRenderer::render() const
 {
-	PROFILE_FUNC();
-
 	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void engine::openglRenderer::render(const vertexBufferObject& vao) const
 {
-	PROFILE_FUNC();
-
 	vao.bind();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDrawElements(GL_TRIANGLES, vao.getElementCount(), GL_UNSIGNED_INT, nullptr);

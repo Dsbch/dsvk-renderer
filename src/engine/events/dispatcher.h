@@ -8,12 +8,12 @@ namespace engine {
 	class eventDispatcher {
 	private:
 		std::mutex mU;
-		std::map<engine::eventType, std::list<std::function<void(const engine::baseEvent&)>>> mEventMap;
-		std::queue<engine::baseEvent> mQueue;
+		std::map<engine::eventType, std::list<std::function<void(std::shared_ptr<engine::baseEvent>)>>> mEventMap;
+		std::queue<std::shared_ptr<engine::baseEvent>> mQueue;
 	public:
-		void addHandler(engine::eventType, std::function<void(const engine::baseEvent&)>);
-		void dispatch(const engine::baseEvent&);
+		void addHandler(engine::eventType, std::function<void(std::shared_ptr<engine::baseEvent>)>);
+		void dispatch(std::shared_ptr<engine::baseEvent>);
 		void dipatchQueue();
-		void queueEvent(const engine::baseEvent&);
+		void queueEvent(std::shared_ptr<engine::baseEvent>);
 	};
 }

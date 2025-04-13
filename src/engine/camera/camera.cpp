@@ -104,6 +104,12 @@ void engine::fpsCamera::changePitch(float shift)
 
 void engine::fpsCamera::changeViewPort(uint32_t width, uint32_t height)
 {
+	if (height == 0)
+		height = 1;
+
+	if (width == 0)
+		width = 1;
+
 	mWidth = width;
 	mHeight = height;
 	updateProjection();

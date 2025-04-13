@@ -15,3 +15,8 @@ std::shared_ptr<engine::eventDispatcher> engine::context::getDispatcher()
 {
 	return mDispatcher;
 }
+
+core::threadPool engine::context::getThreadPool()
+{
+	return mThreadPool;
+}

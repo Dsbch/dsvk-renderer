@@ -21,12 +21,14 @@ namespace engine {
 			bool isFullscreen,
 			bool showCuresor);
 		virtual ~baseWindow() = default;
+
+		baseWindow(const baseWindow&) = delete;
+		baseWindow& operator=(const baseWindow&) = delete;
 		
 		virtual core::error makeOpenglContext() = 0;
+		virtual void startPolling() = 0;
 		virtual void swapBuffers() const = 0;
-		virtual void updateWindowState() = 0;
 		virtual core::error checkError() = 0;
 		virtual void toggleCursor() = 0;
-		virtual void dispatchInput() = 0;
 	};
 }

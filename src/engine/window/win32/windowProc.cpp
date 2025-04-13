@@ -1,7 +1,7 @@
 #include <pch.h>
 #include "window.h"
 
-bool engine::winApiWindow::handleMouseEvent(engine::winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+bool engine::winApiWindow::handleRawInput(engine::winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	auto keyCode = engine::fromWinApiMouse(message);
 
@@ -11,26 +11,29 @@ bool engine::winApiWindow::handleMouseEvent(engine::winApiWindow* winApiInst, HW
 
 	switch (message)
 	{
-	//case WM_INPUT:
-	//{
-	//	UINT dataSize;
-	//	GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, NULL, &dataSize, sizeof(RAWINPUTHEADER)); //Need to populate data size first
-	//	std::cout << GET_RAWINPUT_CODE_WPARAM(wParam) << " code thing\n";
-	//	if (dataSize > 0)
-	//	{
-	//		std::vector<BYTE> rawdata(dataSize);
+	case WM_INPUT:
+	{
+		UINT dataSize;
+		GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, NULL, &dataSize, sizeof(RAWINPUTHEADER)); //Need to populate data size first
+		if (dataSize > 0)
+		{
+			std::vector<BYTE> rawdata(dataSize);
 
-	//		if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, rawdata.data(), &dataSize, sizeof(RAWINPUTHEADER)) == dataSize)
-	//		{
-	//			RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(rawdata.data());
-	//			if (raw->header.dwType == RIM_TYPEMOUSE)
-	//			{
-	//			}
-	//		}
-	//	}
+			if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, rawdata.data(), &dataSize, sizeof(RAWINPUTHEADER)) == dataSize)
+			{
+				RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(rawdata.data());
+				if (raw->header.dwType == RIM_TYPEMOUSE)
+				{
+					LOGINFO("mouse {}, {}", raw->data.mouse.lLastX, raw->data.mouse.lLastX);
+				} 
+				else {
+					LOGINFO("other {}, {}", raw->data.keyboard.VKey, raw->data.keyboard.Message);
+				}
+			}
+		}
 
-	//	return true;
-	//}
+		return true;
+	}
 	case WM_LBUTTONUP:
 	{
 		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
@@ -66,39 +69,23 @@ bool engine::winApiWindow::handleMouseEvent(engine::winApiWindow* winApiInst, HW
 	return false;
 }
 
-bool engine::winApiWindow::handleKeyboardEvent(engine::winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	auto keyCode = engine::fromWinApiKey(wParam);
-
-	switch (message)
-	{
-	case WM_KEYUP:
-	{
-		POINT cursorPos;
-		GetCursorPos(&cursorPos);
-
-		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
-		return true;
-	}
-	case WM_KEYDOWN:
-	{
-		POINT cursorPos;
-		GetCursorPos(&cursorPos);
-
-		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
-		return true;
-	}
-	}
-
-	return false;
-}
-
 bool engine::winApiWindow::handleCloseEvent(engine::winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	if (message == WM_CLOSE)
+	{
+		if (!DestroyWindow(hWnd))
+		{
+			logLastError("cant destroy window");
+			return false;
+		}
+
+		return true;
+	}
+
 	if (message == WM_DESTROY)
 	{
 		PostQuitMessage(0);
-		winApiInst->mCtx.getDispatcher()->dispatch(engine::closeEvent{});
+		winApiInst->mCtx.getDispatcher()->queueEvent(std::make_shared<engine::closeEvent>());
 		return true;
 	}
 
@@ -109,7 +96,7 @@ bool engine::winApiWindow::handleResizeEvent(engine::winApiWindow* winApiInst, H
 {
 	if (message == WM_SIZE)
 	{
-		winApiInst->mCtx.getDispatcher()->dispatch(engine::windowResizeEvent{ LOWORD(lParam), HIWORD(lParam) });
+		winApiInst->mCtx.getDispatcher()->queueEvent(std::make_shared<engine::windowResizeEvent>(LOWORD(lParam), HIWORD(lParam)));
 		return true;
 	}
 
@@ -124,11 +111,8 @@ bool engine::winApiWindow::handlePaintEvent(engine::winApiWindow* winApiInst, HW
 	return false;
 }
 
-
 LRESULT engine::winApiWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	PROFILE_FUNC();
-
 	hwndTableMu.lock();
 	auto pThis = hwndTable.find(hWnd);
 	auto end = hwndTable.end();
@@ -138,8 +122,7 @@ LRESULT engine::winApiWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LP
 	{
 		bool handled = false;
 
-		handled |= handleKeyboardEvent(pThis->second, hWnd, message, wParam, lParam);
-		handled |= handleMouseEvent(pThis->second, hWnd, message, wParam, lParam);
+		handled |= handleRawInput(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handleResizeEvent(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handlePaintEvent(pThis->second, hWnd, message, wParam, lParam);
 		handled |= handleCloseEvent(pThis->second, hWnd, message, wParam, lParam);

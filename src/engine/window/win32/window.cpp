@@ -7,6 +7,32 @@ WNDCLASSEX engine::winApiWindow::wndClass;
 std::map<HWND, engine::winApiWindow*> engine::winApiWindow::hwndTable;
 std::mutex engine::winApiWindow::hwndTableMu;
 
+void engine::winApiWindow::logLastError(const std::string& prefix = "")
+{
+#ifndef DEBUG
+	return;
+#endif // !DEBUG
+	DWORD error = GetLastError();
+	if (error == 0) {
+		return;
+	}
+
+	LPVOID msgBuffer;
+	FormatMessageA(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		nullptr,
+		error,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		reinterpret_cast<LPSTR>(&msgBuffer),
+		0,
+		nullptr
+	);
+
+	LOGERROR("{} {}", prefix, static_cast<LPCSTR>(msgBuffer));
+
+	LocalFree(msgBuffer);
+}
+
 static HMODULE getThisModuleHandle()
 {
 	//Returns module handle where this function is running in: EXE or DLL
@@ -25,7 +51,7 @@ void engine::winApiWindow::createWindowClass(const std::string& applicationName)
 
 	if (!SetProcessDPIAware())
 	{
-		LOGERROR("error on call to SetProcessDPIAware");
+		logLastError("error on call to SetProcessDPIAware");
 	}
 
 	auto appName = std::wstring(applicationName.begin(), applicationName.end());
@@ -80,7 +106,7 @@ void engine::winApiWindow::registerInputDevices()
 
 	if (!RegisterRawInputDevices(rid, 2, sizeof(RAWINPUTDEVICE)))
 	{
-		LOGERROR("can't register input devices.");
+		logLastError("can't register input devices");
 	}
 }
 
@@ -132,9 +158,10 @@ void engine::winApiWindow::createWindow()
 		return;
 	}
 
-	hwndTableMu.lock();
-	hwndTable[mHWnd] = this;
-	hwndTableMu.unlock();
+	{
+		std::lock_guard<std::mutex> l{hwndTableMu};
+		hwndTable[mHWnd] = this;
+	}
 
 	if (!mShowCursor)
 		ShowCursor(mShowCursor);
@@ -149,7 +176,7 @@ engine::winApiWindow::winApiWindow(engine::context ctx, const std::string& name,
 	PROFILE_FUNC();
 
 	createWindow();
-	//registerInputDevices();
+	registerInputDevices();
 
 	if (!mShowCursor)
 		ShowCursor(mShowCursor);
@@ -164,43 +191,16 @@ engine::winApiWindow::~winApiWindow()
 	{
 		if (!wglMakeCurrent(NULL, NULL))                 // Are We Able To Release The DC And RC Contexts?
 		{
-			LOGERROR("can't release opengl context");
+			logLastError("can't release opengl context");
 		}
 
 		if (!wglDeleteContext(mHrc))                     // Are We Able To Delete The RC?
 		{
-			LOGERROR("can't release rendering context");
+			logLastError("can't release rendering context");
 		}
 	}
 
-	DestroyWindow(mHWnd);
-	UnregisterClass(wndClass.lpszClassName, getThisModuleHandle());
-
 	hwndTable.erase(mHWnd);
-}
-
-engine::winApiWindow::winApiWindow(const winApiWindow& other)
-	: baseWindow(other)
-{
-	this->mApplicationName = other.mApplicationName;
-	this->mHWnd = other.mHWnd;
-	this->mHdc = other.mHdc;
-	this->mHrc = other.mHrc;
-}
-
-engine::winApiWindow& engine::winApiWindow::operator=(const winApiWindow& other)
-{
-	if (this != &other)
-	{
-		engine::winApiWindow tmp(other);
-
-		this->mApplicationName.swap(tmp.mApplicationName);
-		this->mHWnd = other.mHWnd;
-		this->mHdc = other.mHdc;
-		this->mHrc = other.mHrc;
-	}
-
-	return *this;
 }
 
 core::error engine::winApiWindow::makeOpenglContext()
@@ -257,48 +257,25 @@ core::error engine::winApiWindow::makeOpenglContext()
 	return {};
 }
 
-void engine::winApiWindow::updateWindowState()
+void engine::winApiWindow::startPolling()
 {
 	MSG msg;
-	//if (!PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-		//return;
-	if (!GetMessage(&msg, mHWnd, 0, 0))
-		return;
-
-	TranslateMessage(&msg);
-	DispatchMessage(&msg);
-
-	// with code below smth is off.
-	//MSG msg;
-	//HWND focused = GetFocus();
-	//if (focused == mHWnd) {
-	//	if (!PeekMessage(&msg, NULL, 0, WM_INPUT - 1, PM_REMOVE)) {
-	//		PeekMessage(&msg, NULL, WM_INPUT + 1, std::numeric_limits<UINT>::max(), PM_REMOVE);
-	//	}
-	//}
-	//else
-	//{
-	//	if (!PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-	//		return;
-	//}
-
-	//TranslateMessage(&msg);
-	//DispatchMessage(&msg);
-}
-
-void engine::winApiWindow::dispatchInput()
-{
-	for (auto crnt : mKeyUp)
+	while (GetMessage(&msg, mHWnd, 0, 0) > 0)
 	{
-		mCtx.getDispatcher()->dispatch(crnt.second);
-		mKeyDown.erase(crnt.first);
-	}
-	mKeyUp.clear();
+		/*HWND focused = GetFocus();
+		if (focused == mHWnd) {
+			if (!PeekMessage(&msg, mHWnd, 0, WM_INPUT - 1, PM_REMOVE)) {
+				PeekMessage(&msg, mHWnd, WM_INPUT + 1, std::numeric_limits<UINT>::max(), PM_REMOVE);
+			}
+		}
+		else
+		{
+			if (!PeekMessage(&msg, mHWnd, 0, 0, PM_REMOVE))
+				return;
+		}*/
 
-
-	for (auto crnt : mKeyDown)
-	{
-		mCtx.getDispatcher()->dispatch(crnt.second);
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
 }
 
