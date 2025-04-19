@@ -10,9 +10,9 @@ project "core"
    includedirs
    {
       "src",
-      "vendor/json",
-      "vendor/json/single_include",
-      "vendor/spdlog/include",
+      "../vendor/json",
+      "../vendor/json/single_include",
+      "../vendor/spdlog/include",
    }
 
    files

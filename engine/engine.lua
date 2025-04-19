@@ -21,9 +21,9 @@ project "engine"
    {
       "../core/src",
       "src",
-      "vendor/glad/include",
-      "vendor/glm",
-      "vendor/stb",
+      "../vendor/glad/include",
+      "../vendor/glm",
+      "../vendor/stb",
       "../core/vendor/json",
       "../core/vendor/json/single_include",
       "../core/vendor/spdlog/include",
