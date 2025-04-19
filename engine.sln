@@ -5,11 +5,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "engine", "engine\engine.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "core", "core\core.vcxproj", "{4E40957C-3A77-960D-E363-7C10CF79120F}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glad", "engine\vendor\glad.vcxproj", "{DD62977C-C999-980D-7286-7E105E9C140F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glad", "vendor\glad.vcxproj", "{DD62977C-C999-980D-7286-7E105E9C140F}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glm", "engine\vendor\glm.vcxproj", "{6577880B-D180-887C-5AFC-9E7CC604947C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glm", "vendor\glm.vcxproj", "{6577880B-D180-887C-5AFC-9E7CC604947C}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spdlog", "core\vendor\spdlog.vcxproj", "{8EAD431C-7A4F-6EF2-630A-82464F4BF542}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spdlog", "vendor\spdlog.vcxproj", "{8EAD431C-7A4F-6EF2-630A-82464F4BF542}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
