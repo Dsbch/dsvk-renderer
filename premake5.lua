@@ -1,9 +1,12 @@
--- premake5.lua
 workspace "engine"
-   location "%{_ACTION}"
+   outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+
    configurations { "Debug", "Release" }
 
-   include "src/application.lua"
-   include "vendor/glad.lua"
-   include "vendor/spdlog.lua"
-   include "vendor/glm.lua"
+   startproject "engine"
+
+   include "engine/engine.lua"
+   include "core/core.lua"
+   include "core/vendor/spdlog.lua"
+   include "engine/vendor/glad.lua"
+   include "engine/vendor/glm.lua"

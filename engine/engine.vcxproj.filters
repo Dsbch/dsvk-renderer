@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="amanager">
+      <UniqueIdentifier>{41B272B1-2D7F-CDBC-5698-BB6442C4024B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="camera">
+      <UniqueIdentifier>{EE85E6F5-DA27-11CC-C3E2-2420AF23981C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="context">
+      <UniqueIdentifier>{CA9A79D3-367A-F86E-3F92-8345ABF05ED0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="events">
+      <UniqueIdentifier>{5A9D08FC-463F-33D2-2FFA-46261B3BBA22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="renderer">
+      <UniqueIdentifier>{9C6AA017-8837-FB22-B150-E9CA9D7C30B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="renderer\opengl">
+      <UniqueIdentifier>{B0A4E4AA-1C30-526F-2541-D563914BAE6F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="window">
+      <UniqueIdentifier>{5DFE1E25-49A0-49FB-325B-5D4F1E9CD04B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="window\win32">
+      <UniqueIdentifier>{1FD814B9-0B3B-A45D-B4C0-DC13A00270E0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\amanager\assetManager.h">
+      <Filter>amanager</Filter>
+    </ClInclude>
+    <ClInclude Include="src\camera\camera.h">
+      <Filter>camera</Filter>
+    </ClInclude>
+    <ClInclude Include="src\context\context.h">
+      <Filter>context</Filter>
+    </ClInclude>
+    <ClInclude Include="src\events\dispatcher.h">
+      <Filter>events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\events\events.h">
+      <Filter>events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\renderer\opengl\arrayObject.h">
+      <Filter>renderer\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="src\renderer\opengl\renderer.h">
+      <Filter>renderer\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="src\renderer\opengl\shader.h">
+      <Filter>renderer\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="src\renderer\opengl\texture.h">
+      <Filter>renderer\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="src\renderer\opengl\vertexBufferObject.h">
+      <Filter>renderer\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="src\renderer\vertex.h">
+      <Filter>renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\window\win32\window.h">
+      <Filter>window\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\window\window.h">
+      <Filter>window</Filter>
+    </ClInclude>
+    <ClInclude Include="src\window\windowFactory.h">
+      <Filter>window</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\amanager\assetManager.cpp">
+      <Filter>amanager</Filter>
+    </ClCompile>
+    <ClCompile Include="src\camera\camera.cpp">
+      <Filter>camera</Filter>
+    </ClCompile>
+    <ClCompile Include="src\context\context.cpp">
+      <Filter>context</Filter>
+    </ClCompile>
+    <ClCompile Include="src\events\dispatcher.cpp">
+      <Filter>events</Filter>
+    </ClCompile>
+    <ClCompile Include="src\events\events.cpp">
+      <Filter>events</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\pch.cpp" />
+    <ClCompile Include="src\renderer\opengl\arrayObject.cpp">
+      <Filter>renderer\opengl</Filter>
+    </ClCompile>
+    <ClCompile Include="src\renderer\opengl\renderer.cpp">
+      <Filter>renderer\opengl</Filter>
+    </ClCompile>
+    <ClCompile Include="src\renderer\opengl\shader.cpp">
+      <Filter>renderer\opengl</Filter>
+    </ClCompile>
+    <ClCompile Include="src\renderer\opengl\texture.cpp">
+      <Filter>renderer\opengl</Filter>
+    </ClCompile>
+    <ClCompile Include="src\renderer\opengl\vertexBufferObject.cpp">
+      <Filter>renderer\opengl</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window\win32\window.cpp">
+      <Filter>window\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window\win32\windowProc.cpp">
+      <Filter>window\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window\window.cpp">
+      <Filter>window</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
