@@ -28,13 +28,15 @@ namespace engine {
 		unknown // Fallback for unmapped keys
 	};
 
-	struct mousePosition {
+	struct mouseOffset {
 		int x;
 		int y;
 	};
 
 	key fromWinApiMouse(int msg);
 	key fromWinApiKey(int vkCode);
+	key fromRawMouse(const RAWINPUT* raw);
+	key fromRawKeyboard(const RAWINPUT* raw);
 
 	class baseEvent {
 	protected:
@@ -63,31 +65,27 @@ namespace engine {
 	class keyDownEvent : public baseEvent {
 	public:
 		keyDownEvent() = default;
-		keyDownEvent(key key, mousePosition pos = {}) : baseEvent(eventType::keyDown), mKey(key), mMpos(pos) {};
+		keyDownEvent(key key) : baseEvent(eventType::keyDown), mKey(key){};
 		key getKey() const { return mKey; };
-		mousePosition getMousePosition() const { return mMpos; };
 	private:
 		key mKey;
-		mousePosition mMpos;
 	};
 
 	class keyUpEvent : public baseEvent {
 	public:
 		keyUpEvent() = default;
-		keyUpEvent(key key, mousePosition pos = {}) : baseEvent(eventType::keyUp), mKey(key), mMpos(pos) {};
+		keyUpEvent(key key) : baseEvent(eventType::keyUp), mKey(key) {};
 		key getKey() const { return mKey; };
-		mousePosition getMousePosition() const { return mMpos; };
 	private:
 		key mKey;
-		mousePosition mMpos;
 	};
 
 	class mouseMoveEvent : public baseEvent {
 	public:
 		mouseMoveEvent() = default;
-		mouseMoveEvent(mousePosition mPos) : baseEvent(eventType::mouseMove), mMpos(mPos) {};
-		mousePosition getMousePosition() const { return mMpos; };
+		mouseMoveEvent(mouseOffset mPos) : baseEvent(eventType::mouseMove), mOffset(mPos) {};
+		mouseOffset getMouseOffset() const { return mOffset; };
 	private:
-		mousePosition mMpos;
+		mouseOffset mOffset;
 	};
 }

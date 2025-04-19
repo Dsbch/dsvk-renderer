@@ -30,5 +30,6 @@ namespace engine {
 		virtual void swapBuffers() const = 0;
 		virtual core::error checkError() = 0;
 		virtual void toggleCursor() = 0;
+		virtual void pollInput() = 0;
 	};
 }

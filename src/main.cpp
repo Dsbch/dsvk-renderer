@@ -15,7 +15,7 @@
 namespace config {
 	struct camera
 	{
-		float fov = 70.0f;
+		float fov = 90.0f;
 		float nearPlane = 0.1f;
 		float farPlane = 1000.0f;
 	};
@@ -317,10 +317,10 @@ public:
 					mCamera->changePosition(glm::vec3(0.0f, 0.0f, 0.01f));
 					break;
 				case engine::key::a:
-					mCamera->changePosition(glm::vec3(-0.1f, 0.0f, 0.0f));
+					mCamera->changePosition(glm::vec3(-0.01f, 0.0f, 0.0f));
 					break;
 				case engine::key::d:
-					mCamera->changePosition(glm::vec3(0.1f, 0.0f, 0.0f));
+					mCamera->changePosition(glm::vec3(0.01f, 0.0f, 0.0f));
 					break;
 				case engine::key::q:
 					mCamera->changeYaw(-1.0f);
@@ -358,26 +358,13 @@ public:
 			engine::eventType::mouseMove,
 			[&](std::shared_ptr<engine::baseEvent> e)
 			{
-				static engine::mousePosition lastPos;
-				static bool mFirstMouse;
-
 				if (e->getEventType() != engine::eventType::mouseMove)
 					return;
 
 				auto mouseMoveEvent = static_cast<const engine::mouseMoveEvent*>(e.get());
 
-				if (mFirstMouse) {
-					lastPos = { mouseMoveEvent->getMousePosition().x, mouseMoveEvent->getMousePosition().y };
-					mFirstMouse = false;
-					return;
-				}
-
-				float deltaX = mouseMoveEvent->getMousePosition().x - lastPos.x;
-				float deltaY = lastPos.y - mouseMoveEvent->getMousePosition().y; // reversed: y goes down on screen
-
-				lastPos.x = mouseMoveEvent->getMousePosition().x;
-				lastPos.y = mouseMoveEvent->getMousePosition().y;
-
+				float deltaX = mouseMoveEvent->getMouseOffset().x;
+				float deltaY = -mouseMoveEvent->getMouseOffset().y;
 
 				float sensitivity = 0.1f;
 				deltaX *= sensitivity;
@@ -396,11 +383,14 @@ public:
 
 		while (!mAppShouldClose)
 		{
-			// update game/window state: read input from user, apply logic for that input.
+			// 🎮 update game/window state: read input from user, apply logic for that input.
 			for (int i = 0; mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && !mAppShouldClose; i++)
 			{
 				cmpProgram.first->setUniformMat4("uView", glm::value_ptr(mCamera->getCameraTransform()), 1);
 				cmpProgram.first->setUniformMat4("uProjection", glm::value_ptr(mCamera->getProjection()), 1);
+
+				mWindow->pollInput();
+				
 				mCtx.getDispatcher()->dipatchQueue();
 
 				nextGameUpdate += updateShift;

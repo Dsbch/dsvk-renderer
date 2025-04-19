@@ -75,7 +75,7 @@ void engine::fpsCamera::changePosition(glm::vec3 shift)
 {
 	mPos += mFront * shift.z;
 	
-	mPos += glm::normalize(glm::cross(mFront, mUp))*shift.x;
+	mPos += glm::cross(mFront, mUp)*shift.x;
 	
 	updateTransform();
 }

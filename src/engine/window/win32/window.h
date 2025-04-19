@@ -25,9 +25,11 @@ namespace engine {
 		void createWindowClass(const std::string& applicationName);
 		void registerInputDevices();
 		void createWindow();
+		void pollRawInput();
 
-		std::map<engine::key, engine::keyUpEvent> mKeyUp;
-		std::map<engine::key, engine::keyDownEvent> mKeyDown;
+		std::mutex mEvenetQueueMu;
+		std::map<engine::key, std::shared_ptr<engine::baseEvent>> mKeyDown;
+		std::queue<std::shared_ptr<engine::baseEvent>> mEventQueue;
 
 		std::string mApplicationName;
 		HDC mHdc;
@@ -45,5 +47,6 @@ namespace engine {
 		core::error checkError();
 		void startPolling();
 		core::error makeOpenglContext();
+		void pollInput();
 	};
 }

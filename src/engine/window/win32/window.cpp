@@ -159,7 +159,7 @@ void engine::winApiWindow::createWindow()
 	}
 
 	{
-		std::lock_guard<std::mutex> l{hwndTableMu};
+		std::lock_guard<std::mutex> l{ hwndTableMu };
 		hwndTable[mHWnd] = this;
 	}
 
@@ -257,23 +257,45 @@ core::error engine::winApiWindow::makeOpenglContext()
 	return {};
 }
 
+void engine::winApiWindow::pollInput()
+{
+	std::lock_guard<std::mutex> l(mEvenetQueueMu);
+
+	// Queue mouse move events and keyDown events.
+	for (int i = 0; i < mEventQueue.size(); i++)
+	{
+		mCtx.getDispatcher()->queueEvent(mEventQueue.front());
+		mEventQueue.pop();
+	}
+
+	// Queue still pressed keys.
+	for (auto kv : mKeyDown)
+	{
+		mCtx.getDispatcher()->queueEvent(kv.second);
+	}
+}
+
 void engine::winApiWindow::startPolling()
 {
-	MSG msg;
-	while (GetMessage(&msg, mHWnd, 0, 0) > 0)
-	{
-		/*HWND focused = GetFocus();
-		if (focused == mHWnd) {
-			if (!PeekMessage(&msg, mHWnd, 0, WM_INPUT - 1, PM_REMOVE)) {
-				PeekMessage(&msg, mHWnd, WM_INPUT + 1, std::numeric_limits<UINT>::max(), PM_REMOVE);
-			}
-		}
-		else
+	MSG msg{};
+	auto peekNotInput = [&]
 		{
-			if (!PeekMessage(&msg, mHWnd, 0, 0, PM_REMOVE))
-				return;
-		}*/
+			if (GetForegroundWindow() != mHWnd)
+			{
+				return PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+			}
 
+			auto ret = PeekMessage(&msg, NULL, 0, WM_INPUT - 1, PM_REMOVE);
+			if (!ret)
+			{
+				ret = PeekMessage(&msg, NULL, WM_INPUT + 1, std::numeric_limits<UINT>::max(), PM_REMOVE);
+			}
+
+			return ret;
+		};
+
+	while (GetMessage(&msg, NULL, 0, 0) > 0)
+	{
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}

@@ -13,55 +13,56 @@ bool engine::winApiWindow::handleRawInput(engine::winApiWindow* winApiInst, HWND
 	{
 	case WM_INPUT:
 	{
-		UINT dataSize;
-		GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, NULL, &dataSize, sizeof(RAWINPUTHEADER)); //Need to populate data size first
+		UINT dataSize = 0;
+		if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, NULL, &dataSize, sizeof(RAWINPUTHEADER)) == (UINT)-1)
+		{
+			logLastError("GetRawInputData: ");
+		}
+
 		if (dataSize > 0)
 		{
-			std::vector<BYTE> rawdata(dataSize);
-
-			if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, rawdata.data(), &dataSize, sizeof(RAWINPUTHEADER)) == dataSize)
+			void* rawData = alloca(dataSize);
+			if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, rawData, &dataSize, sizeof(RAWINPUTHEADER)) == dataSize)
 			{
-				RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(rawdata.data());
+				RAWINPUT* raw = static_cast<RAWINPUT*>(rawData);
+
+				std::lock_guard<std::mutex> m(winApiInst->mEvenetQueueMu);
 				if (raw->header.dwType == RIM_TYPEMOUSE)
 				{
-					LOGINFO("mouse {}, {}", raw->data.mouse.lLastX, raw->data.mouse.lLastX);
-				} 
-				else {
-					LOGINFO("other {}, {}", raw->data.keyboard.VKey, raw->data.keyboard.Message);
+					winApiInst->mEventQueue.push(std::make_shared<engine::mouseMoveEvent>(engine::mouseOffset{ raw->data.mouse.lLastX, raw->data.mouse.lLastY }));
 				}
+				else
+				{
+					const RAWKEYBOARD& kbd = raw->data.keyboard;
+
+					bool isKeyDown = !(kbd.Flags & RI_KEY_BREAK);
+
+					auto keyCode = engine::fromRawKeyboard(raw);
+
+					if (isKeyDown)
+					{
+						if (winApiInst->mKeyDown.find(keyCode) == winApiInst->mKeyDown.end())
+						{
+							winApiInst->mKeyDown[keyCode] = std::make_shared<engine::keyDownEvent>(keyCode);
+						}
+					}
+					else
+					{
+						if (winApiInst->mKeyDown.find(keyCode) != winApiInst->mKeyDown.end())
+						{
+							winApiInst->mKeyDown.erase(keyCode);
+						}
+
+						winApiInst->mEventQueue.push(std::make_shared<engine::keyUpEvent>(engine::keyUpEvent{ keyCode }));
+					}
+				}
+			}
+			else
+			{
+				logLastError("GetRawInputData: ");
 			}
 		}
 
-		return true;
-	}
-	case WM_LBUTTONUP:
-	{
-		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
-		return true;
-	}
-	case WM_MBUTTONUP:
-	{
-		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
-		return true;
-	}
-	case WM_RBUTTONUP:
-	{
-		winApiInst->mKeyUp[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
-		return true;
-	}
-	case WM_LBUTTONDOWN:
-	{
-		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
-		return true;
-	}
-	case WM_MBUTTONDOWN:
-	{
-		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
-		return true;
-	}
-	case WM_RBUTTONDOWN:
-	{
-		winApiInst->mKeyDown[keyCode] = { keyCode, { cursorPos.x, cursorPos.y } };
 		return true;
 	}
 	}
@@ -132,4 +133,38 @@ LRESULT engine::winApiWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LP
 	}
 
 	return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
+// Not used right know.
+void engine::winApiWindow::pollRawInput()
+{
+	UINT size = 0;
+	if (GetRawInputBuffer(nullptr, &size, sizeof(RAWINPUTHEADER)) == (UINT)-1)
+	{
+		logLastError("GetRawInputBuffer: ");
+	}
+
+	if (size > 0)
+	{
+		auto buffer = alloca(size);
+		PRAWINPUT raw = static_cast<PRAWINPUT>(buffer);
+
+		UINT count = 0;
+
+		if (count = GetRawInputBuffer(raw, &size, sizeof(RAWINPUTHEADER)); count == (UINT)-1)
+		{
+			logLastError("GetRawInputBuffer: ");
+		}
+
+		for (UINT i = 0; i < count; ++i)
+		{
+			if (raw->header.dwType == RIM_TYPEMOUSE) {
+				LOGINFO("Mouse Move: X={}, Y={}", raw->data.mouse.lLastX, raw->data.mouse.lLastY);
+			}
+
+			raw = reinterpret_cast<PRAWINPUT>(
+				reinterpret_cast<BYTE*>(raw) + raw->header.dwSize
+				);
+		}
+	}
 }
