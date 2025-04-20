@@ -1,33 +1,36 @@
 #include "errors.h"
 
-core::error& core::error::operator=(const error& other)
+namespace core
 {
-	if (&other != this)
+	error& error::operator=(const error& other)
 	{
-		core::error tmp(other);
-		this->mValue.swap(tmp.mValue);
+		if (&other != this)
+		{
+			error tmp(other);
+			this->mValue.swap(tmp.mValue);
+		}
+
+		return *this;
 	}
 
-	return *this;
-}
+	error& error::operator=(error&& other) noexcept
+	{
+		mValue.swap(other.mValue);
 
-core::error& core::error::operator=(error&& other) noexcept
-{
-	mValue.swap(other.mValue);
-	
-	return *this;
-}
+		return *this;
+	}
 
-core::error::error(error&& e) noexcept : mValue(std::move(e.mValue))
-{
-}
+	error::error(error&& e) noexcept : mValue(std::move(e.mValue))
+	{
+	}
 
-std::string core::error::err() const
-{
-	return mValue;
-}
+	std::string error::err() const
+	{
+		return mValue;
+	}
 
-core::error::operator bool() const
-{
-	return err().size() != 0;
+	error::operator bool() const
+	{
+		return err().size() != 0;
+	}
 }

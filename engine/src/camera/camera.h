@@ -6,10 +6,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "context/context.h"
 
-namespace engine {
-	class fpsCamera {
+namespace engine
+{
+	class fpsCamera
+	{
 	private:
-		engine::context mCtx;
+		context mCtx;
 		float mFov;
 		float mNearPlane;
 		float mFarPlane;
@@ -23,19 +25,20 @@ namespace engine {
 		glm::mat4 mCameraTransformMatrix;
 		glm::mat4 mProjectionMatrix;
 		void updateFront();
+		void updateUp();
 		void updateTransform();
 		void updateProjection();
 	public:
 		fpsCamera(
-			engine::context ctx, 
-			float fov, 
-			float nearPlane, 
-			float farPlane, 
-			uint32_t width, 
-			uint32_t height, 
+			context ctx,
+			float fov,
+			float nearPlane,
+			float farPlane,
+			uint32_t width,
+			uint32_t height,
 			glm::vec3 pos = glm::vec3(0.0f),
 			float yaw = 0,
-			float pitch = 0, 
+			float pitch = 0,
 			glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::vec3 getFront() const;
 		glm::mat4 getCameraTransform() const;

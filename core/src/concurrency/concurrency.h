@@ -33,7 +33,7 @@ namespace core {
 	class threadPool {
 	private:
 		static uint32_t maxThreads;
-		static std::list<core::threadQueue> threadQueue;
+		static std::list<threadQueue> threadQueue;
 	public:
 		static void start(std::function<void()>);
 	};

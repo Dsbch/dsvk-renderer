@@ -1,116 +1,130 @@
 #include <pch.h>
 #include "camera.h"
 
-void engine::fpsCamera::updateFront()
+namespace engine
 {
-	float x = sin(glm::radians(mYaw)) * cos(glm::radians(mPitch));
-	float y = sin(glm::radians(mPitch));
-	float z = cos(glm::radians(mPitch)) * cos(glm::radians(mYaw));
+	void fpsCamera::updateFront()
+	{
+		float x = sin(glm::radians(mYaw)) * cos(glm::radians(mPitch));
+		float y = sin(glm::radians(mPitch));
+		float z = cos(glm::radians(mPitch)) * cos(glm::radians(mYaw));
 
-	mFront = glm::vec3(x, y, -z);
-}
+		mFront = glm::vec3(x, y, -z);
+	}
 
-void engine::fpsCamera::updateTransform()
-{
-	mCameraTransformMatrix = glm::lookAt(mPos, mPos + mFront, mUp);
-}
+	void fpsCamera::updateUp()
+	{
+		float y = cos(glm::radians(mPitch));
+		float z = sin(glm::radians(mPitch)) * cos(glm::radians(mYaw));
+		float x = sin(glm::radians(mYaw)) * sin(glm::radians(mPitch));
 
-void engine::fpsCamera::updateProjection()
-{
-	mProjectionMatrix = glm::perspective(glm::radians(mFov), float(mWidth) / float(mHeight), mNearPlane, mFarPlane);
-}
+		mUp = glm::vec3(-x, y, z);
+	}
 
-engine::fpsCamera::fpsCamera(
-	engine::context ctx,
-	float fov,
-	float nearPlane,
-	float farPlane,
-	uint32_t width,
-	uint32_t height,
-	glm::vec3 pos,
-	float yaw,
-	float pitch,
-	glm::vec3 up
-)
-	:
-	mPos(pos),
-	mYaw(yaw),
-	mPitch(pitch),
-	mFront(glm::vec3(0.0f)),
-	mUp(up),
-	mCameraTransformMatrix(glm::lookAt(mFront, mPos, mUp)),
-	mCtx(ctx),
-	mFov(fov),
-	mNearPlane(nearPlane),
-	mFarPlane(farPlane),
-	mWidth(width),
-	mHeight(height)
-{
-	updateFront();
-	updateTransform();
-	updateProjection();
-}
+	void fpsCamera::updateTransform()
+	{
+		mCameraTransformMatrix = glm::lookAt(mPos, mPos + mFront, mUp);
+	}
 
-glm::vec3 engine::fpsCamera::getFront() const
-{
-	return mFront;
-}
+	void fpsCamera::updateProjection()
+	{
+		mProjectionMatrix = glm::perspective(glm::radians(mFov), float(mWidth) / float(mHeight), mNearPlane, mFarPlane);
+	}
 
-glm::mat4 engine::fpsCamera::getCameraTransform() const
-{
-	return mCameraTransformMatrix;
-}
+	fpsCamera::fpsCamera(
+		context ctx,
+		float fov,
+		float nearPlane,
+		float farPlane,
+		uint32_t width,
+		uint32_t height,
+		glm::vec3 pos,
+		float yaw,
+		float pitch,
+		glm::vec3 up
+	)
+		:
+		mPos(pos),
+		mYaw(yaw),
+		mPitch(pitch),
+		mFront(glm::vec3(0.0f)),
+		mUp(up),
+		mCameraTransformMatrix(glm::lookAt(mFront, mPos, mUp)),
+		mCtx(ctx),
+		mFov(fov),
+		mNearPlane(nearPlane),
+		mFarPlane(farPlane),
+		mWidth(width),
+		mHeight(height)
+	{
+		updateFront();
+		updateTransform();
+		updateProjection();
+	}
 
-glm::mat4 engine::fpsCamera::getProjection() const
-{
-	return mProjectionMatrix;
-}
+	glm::vec3 fpsCamera::getFront() const
+	{
+		return mFront;
+	}
 
-glm::vec3 engine::fpsCamera::getPosition() const
-{
-	return mPos;
-}
+	glm::mat4 fpsCamera::getCameraTransform() const
+	{
+		return mCameraTransformMatrix;
+	}
 
-void engine::fpsCamera::changePosition(glm::vec3 shift)
-{
-	mPos += mFront * shift.z;
-	
-	mPos += glm::cross(mFront, mUp)*shift.x;
-	
-	updateTransform();
-}
+	glm::mat4 fpsCamera::getProjection() const
+	{
+		return mProjectionMatrix;
+	}
 
-void engine::fpsCamera::changeYaw(float shift)
-{
-	mYaw += shift;
+	glm::vec3 fpsCamera::getPosition() const
+	{
+		return mPos;
+	}
 
-	updateFront();
-	updateTransform();
-}
+	void fpsCamera::changePosition(glm::vec3 shift)
+	{
+		mPos += mFront * shift.z;
 
-void engine::fpsCamera::changePitch(float shift)
-{
-	mPitch += shift;
+		mPos += glm::cross(mFront, mUp) * shift.x;
 
-	if (mPitch > 90.0f)
-		mPitch = 89.9f;
+		updateTransform();
+	}
 
-	if (mPitch < -90.0f)
-		mPitch = -89.9f;
+	void fpsCamera::changeYaw(float shift)
+	{
+		mYaw += shift;
 
-	updateFront();
-	updateTransform();
-}
+		updateFront();
+		updateUp();
+		updateTransform();
+	}
 
-void engine::fpsCamera::changeViewPort(uint32_t width, uint32_t height)
-{
-	if (height == 0)
-		height = 1;
+	void fpsCamera::changePitch(float shift)
+	{
+		mPitch += shift;
 
-	if (width == 0)
-		width = 1;
+		if (mPitch >= 90.0f)
+			mPitch = 89.9f;
 
-	mWidth = width;
-	mHeight = height;
-	updateProjection();
+		if (mPitch <= -90.0f)
+			mPitch = -89.9f;
+
+		updateFront();
+		updateUp();
+		updateTransform();
+	}
+
+	void fpsCamera::changeViewPort(uint32_t width, uint32_t height)
+	{
+		if (height == 0)
+			height = 1;
+
+		if (width == 0)
+			width = 1;
+
+		mWidth = width;
+		mHeight = height;
+		updateProjection();
+	}
 }

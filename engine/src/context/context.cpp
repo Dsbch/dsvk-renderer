@@ -1,22 +1,25 @@
 #include <pch.h>
 #include "context.h"
 
-engine::context::context()
-	: mDispatcher(std::make_shared<engine::eventDispatcher>())
+namespace engine
 {
-}
+	context::context()
+		: mDispatcher(std::make_shared<eventDispatcher>())
+	{
+	}
 
-core::timer engine::context::getTimer()
-{
-	return mTimer;
-}
+	core::timer context::getTimer()
+	{
+		return mTimer;
+	}
 
-std::shared_ptr<engine::eventDispatcher> engine::context::getDispatcher()
-{
-	return mDispatcher;
-}
+	std::shared_ptr<eventDispatcher> context::getDispatcher()
+	{
+		return mDispatcher;
+	}
 
-core::threadPool engine::context::getThreadPool()
-{
-	return mThreadPool;
+	core::threadPool context::getThreadPool()
+	{
+		return mThreadPool;
+	}
 }

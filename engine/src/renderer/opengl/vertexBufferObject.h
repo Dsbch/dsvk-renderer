@@ -2,10 +2,13 @@
 
 #include <pch.h>
 
-namespace engine {
-	class attributesDescriber {
+namespace engine
+{
+	class attributesDescriber
+	{
 	public:
-		struct attributeInfo {
+		struct attributeInfo
+		{
 			uint32_t stride;
 			uint32_t bufferObjectID;
 			uint32_t count;
@@ -13,13 +16,14 @@ namespace engine {
 			uint32_t offset;
 			bool needNormalization;
 		};
-		
+
 		attributesDescriber() = default;
 		virtual ~attributesDescriber() = default;
 		virtual std::vector<attributeInfo> info() const = 0;
 	};
 
-	class vertexBufferObject {
+	class vertexBufferObject
+	{
 	private:
 		uint32_t mID;
 		uint32_t mElementCount;

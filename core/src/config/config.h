@@ -9,11 +9,11 @@ namespace core
 	template<class T>
 	struct cfg {
 	private:
-		core::error mErr;
+		error mErr;
 		T mCfg;
 	public:
 		cfg(const std::string& fileName = "config.json");
-		core::error checkError() const;
+		error checkError() const;
 		~cfg();
 		T getCfg() const;
 	};
@@ -24,7 +24,7 @@ namespace core
 		std::ifstream f(fileName, std::ifstream::in);
 		if (!f)
 		{
-			mErr = core::error{ "fail on open file with name {}", fileName };
+			mErr = error{ "fail on open file with name {}", fileName };
 			return;
 		}
 
@@ -40,7 +40,7 @@ namespace core
 	}
 
 	template<class T>
-	inline core::error cfg<T>::checkError() const
+	inline error cfg<T>::checkError() const
 	{
 		return mErr;
 	}

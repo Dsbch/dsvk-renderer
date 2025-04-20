@@ -6,16 +6,18 @@
 #include "concurrency/concurrency.h"
 #include "events/dispatcher.h"
 
-namespace engine {
-	class context {
+namespace engine
+{
+	class context
+	{
 	private:
 		core::timer mTimer;
 		core::threadPool mThreadPool;
-		std::shared_ptr<engine::eventDispatcher> mDispatcher;
+		std::shared_ptr<eventDispatcher> mDispatcher;
 	public:
 		context();
 		core::timer getTimer();
-		std::shared_ptr<engine::eventDispatcher> getDispatcher();
+		std::shared_ptr<eventDispatcher> getDispatcher();
 		core::threadPool getThreadPool();
 	};
 }

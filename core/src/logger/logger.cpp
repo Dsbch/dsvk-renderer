@@ -1,20 +1,23 @@
 #include "logger.h"
 
-std::shared_ptr<spdlog::logger> core::logger::mLogger;
-
-std::shared_ptr <spdlog::logger > core::logger::log()
+namespace core
 {
-	if (!mLogger)
+	std::shared_ptr<spdlog::logger> logger::mLogger;
+
+	std::shared_ptr <spdlog::logger > logger::log()
 	{
-		mLogger = spdlog::default_logger();
+		if (!mLogger)
+		{
+			mLogger = spdlog::default_logger();
+		}
+
+		return mLogger;
 	}
 
-	return mLogger;
-}
-
-void core::logger::initLogger(const std::string& app_name, const std::string& outputFile, const std::string& pattern, core::logger::level level)
-{
-	mLogger = spdlog::basic_logger_mt(app_name, outputFile);
-	mLogger->set_level(spdlog::level::level_enum(level));
-	mLogger->set_pattern(pattern);
+	void logger::initLogger(const std::string& app_name, const std::string& outputFile, const std::string& pattern, logger::level level)
+	{
+		mLogger = spdlog::basic_logger_mt(app_name, outputFile);
+		mLogger->set_level(spdlog::level::level_enum(level));
+		mLogger->set_pattern(pattern);
+	}
 }

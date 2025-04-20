@@ -2,8 +2,10 @@
 
 #include <pch.h>
 
-namespace engine {
-	class arrayObject {
+namespace engine
+{
+	class arrayObject
+	{
 	private:
 		uint32_t mSize;
 		uint32_t mID;
@@ -15,7 +17,8 @@ namespace engine {
 		uint32_t getID() const;
 	};
 
-	class dynamicArrayObject {
+	class dynamicArrayObject
+	{
 	private:
 		uint32_t mSize;
 		uint32_t mID;

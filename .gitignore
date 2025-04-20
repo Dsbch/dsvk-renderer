@@ -809,6 +809,7 @@ FodyWeavers.xsd
 *.msp
 
 # JetBrains Rider
+*.sln
 *.sln.iml
 *.vcxproj
-*..vcxproj.filters
+*.vcxproj.filters

@@ -2,11 +2,13 @@
 #include "pch.h"
 #include <glad/glad.h>
 
-namespace engine {
+namespace engine 
+{
 	class shaderProgram
 	{
 	public:
-		struct shaderVariableInfo {
+		struct shaderVariableInfo 
+		{
 			GLenum type;
 			size_t mSize;
 		};

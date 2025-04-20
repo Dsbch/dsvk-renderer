@@ -6,14 +6,17 @@
 #include <glad/glad.h>
 #include "opengl/vertexBufferObject.h"
 
-namespace engine {
-	struct vertex {
+namespace engine 
+{
+	struct vertex 
+	{
 		glm::vec3 position;
 		glm::vec2 textureCoords;
 		int textureIndex;
 	};
 
-	class vertexDescriber : public attributesDescriber {
+	class vertexDescriber : public attributesDescriber 
+	{
 	private:
 		uint32_t mBufferObjectID;
 	public:

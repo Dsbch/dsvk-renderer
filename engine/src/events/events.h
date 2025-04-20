@@ -3,8 +3,10 @@
 #include <pch.h>
 #include <Windows.h>
 
-namespace engine {
-	enum eventType {
+namespace engine
+{
+	enum eventType
+	{
 		keyUp,
 		keyDown,
 		mouseMove,
@@ -12,7 +14,8 @@ namespace engine {
 		close,
 	};
 
-	enum key {
+	enum key
+	{
 		mouse1,
 		mouse2,
 		mouse3,
@@ -29,7 +32,8 @@ namespace engine {
 		unknown // Fallback for unmapped keys
 	};
 
-	struct mouseOffset {
+	struct mouseOffset
+	{
 		int x;
 		int y;
 	};
@@ -39,7 +43,8 @@ namespace engine {
 	key fromRawMouse(const RAWINPUT* raw);
 	key fromRawKeyboard(const RAWINPUT* raw);
 
-	class baseEvent {
+	class baseEvent
+	{
 	protected:
 		eventType mType;
 	public:
@@ -49,7 +54,8 @@ namespace engine {
 		eventType getEventType() const { return mType; };
 	};
 
-	class windowResizeEvent : public baseEvent {
+	class windowResizeEvent : public baseEvent
+	{
 	private:
 		uint32_t mWidth, mHeight;
 	public:
@@ -58,21 +64,24 @@ namespace engine {
 		uint32_t getHeight() const { return mHeight; };
 	};
 
-	class closeEvent : public baseEvent {
+	class closeEvent : public baseEvent
+	{
 	public:
 		closeEvent() : baseEvent(eventType::close) {};
 	};
 
-	class keyDownEvent : public baseEvent {
+	class keyDownEvent : public baseEvent
+	{
 	public:
 		keyDownEvent() = default;
-		keyDownEvent(key key) : baseEvent(eventType::keyDown), mKey(key){};
+		keyDownEvent(key key) : baseEvent(eventType::keyDown), mKey(key) {};
 		key getKey() const { return mKey; };
 	private:
 		key mKey;
 	};
 
-	class keyUpEvent : public baseEvent {
+	class keyUpEvent : public baseEvent
+	{
 	public:
 		keyUpEvent() = default;
 		keyUpEvent(key key) : baseEvent(eventType::keyUp), mKey(key) {};
@@ -81,7 +90,8 @@ namespace engine {
 		key mKey;
 	};
 
-	class mouseMoveEvent : public baseEvent {
+	class mouseMoveEvent : public baseEvent
+	{
 	public:
 		mouseMoveEvent() = default;
 		mouseMoveEvent(mouseOffset mPos) : baseEvent(eventType::mouseMove), mOffset(mPos) {};

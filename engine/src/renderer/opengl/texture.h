@@ -2,8 +2,10 @@
 #include "pch.h"
 #include <glad/glad.h>
 
-namespace engine {
-	enum imageChannel {
+namespace engine
+{
+	enum imageChannel
+	{
 		grayscale = 1,
 		rgb = 3,
 		rgba = 4,

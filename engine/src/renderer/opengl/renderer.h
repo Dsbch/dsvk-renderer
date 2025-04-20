@@ -5,8 +5,10 @@
 #include "events/events.h"
 #include "vertexBufferObject.h"
 
-namespace engine {
-	class openglRenderer  {
+namespace engine
+{
+	class openglRenderer
+	{
 	private:
 		static std::once_flag mIsOpenglInitialized;
 		static core::error mInitOpenglErr;
