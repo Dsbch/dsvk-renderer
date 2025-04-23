@@ -1,12 +1,12 @@
 #pragma once
 #include "pch.h"
 
-namespace engineCore 
+namespace engineCore
 {
 	class shaderProgram
 	{
 	public:
-		struct shaderVariableInfo 
+		struct shaderVariableInfo
 		{
 			uint32_t type;
 			size_t mSize;
@@ -39,4 +39,16 @@ namespace engineCore
 	{
 		return engineCore::error("specialization not found");
 	}
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const float* data, uint32_t count) const;
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const uint32_t* data, uint32_t count) const;
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const int* data, uint32_t count) const;
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const double* data, uint32_t count) const;
 }

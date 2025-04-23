@@ -4,28 +4,6 @@
 
 namespace engineCore
 {
-	std::pair<uint32_t, engineCore::error> shaderProgram::compileShader(GLenum shaderType, const std::string& shaderSrc) const
-	{
-		auto shaderID = glCreateShader(shaderType);
-		auto srcPtr = shaderSrc.c_str();
-		glShaderSource(shaderID, 1, &srcPtr, nullptr);
-		glCompileShader(shaderID);
-
-		int result;
-		glGetShaderiv(shaderID, GL_COMPILE_STATUS, &result);
-		if (result == GL_FALSE)
-		{
-			int len;
-			glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &len);
-			char* message = (char*)alloca(len * sizeof(char));
-			glGetShaderInfoLog(shaderID, len, &len, message);
-
-			return { 0, { message } };
-		}
-
-		return { shaderID , {} };
-	}
-
 	shaderProgram::shaderProgram(const std::string& framgentSrc, const std::string& vertexSrc)
 		: mActiveUniforms(), mActiveVertexAttrs(), mFragmentSrc(framgentSrc), mVertexSrc(vertexSrc), mID(0)
 	{
@@ -47,7 +25,7 @@ namespace engineCore
 		return mID;
 	}
 
-	engineCore::error shaderProgram::setUnifromVec3(const std::string& name, const float* data, uint32_t count) const
+	error shaderProgram::setUnifromVec3(const std::string& name, const float* data, uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);
@@ -62,7 +40,7 @@ namespace engineCore
 		return {};
 	}
 
-	engineCore::error shaderProgram::setUniformMat4(const std::string& name, const float* data, uint32_t count) const
+	error shaderProgram::setUniformMat4(const std::string& name, const float* data, uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);
@@ -109,7 +87,29 @@ namespace engineCore
 		}
 	}
 
-	engineCore::error shaderProgram::compile()
+	std::pair<uint32_t, error> shaderProgram::compileShader(uint32_t shaderType, const std::string& shaderSrc) const
+	{
+		auto shaderID = glCreateShader(shaderType);
+		auto srcPtr = shaderSrc.c_str();
+		glShaderSource(shaderID, 1, &srcPtr, nullptr);
+		glCompileShader(shaderID);
+
+		int result;
+		glGetShaderiv(shaderID, GL_COMPILE_STATUS, &result);
+		if (result == GL_FALSE)
+		{
+			int len;
+			glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &len);
+			char* message = (char*)alloca(len * sizeof(char));
+			glGetShaderInfoLog(shaderID, len, &len, message);
+
+			return { 0, { message } };
+		}
+
+		return { shaderID , {} };
+	}
+
+	error shaderProgram::compile()
 	{
 		auto compileResult = compileShader(GL_VERTEX_SHADER, mVertexSrc);
 		if (compileResult.second)
@@ -138,7 +138,7 @@ namespace engineCore
 	}
 
 	template<>
-	inline engineCore::error shaderProgram::setUniformType(const std::string& name, const float* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const float* data, uint32_t count) const
 	{
 		if (!data)
 		{
@@ -159,7 +159,7 @@ namespace engineCore
 	}
 
 	template<>
-	inline engineCore::error shaderProgram::setUniformType(const std::string& name, const uint32_t* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const uint32_t* data, uint32_t count) const
 	{
 		if (!data)
 		{
@@ -180,7 +180,7 @@ namespace engineCore
 	}
 
 	template<>
-	inline engineCore::error shaderProgram::setUniformType(const std::string& name, const int* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const int* data, uint32_t count) const
 	{
 		if (!data)
 		{
@@ -201,7 +201,7 @@ namespace engineCore
 	}
 
 	template<>
-	inline engineCore::error shaderProgram::setUniformType(const std::string& name, const double* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const double* data, uint32_t count) const
 	{
 		if (!data)
 		{
