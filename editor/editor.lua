@@ -14,25 +14,16 @@ project "editor"
       "src/**.h",
    }
 
-   pchheader ("pch.h")
-   pchsource ("src/pch.cpp")
-
-   includedirs 
-   {
+   includedirs {
       "src",
       "../engineCore/src",
-      "../vendor/glad/include",
       "../vendor/glm",
-      "../vendor/stb",
+      "../vendor/spdlog/include",
       "../vendor/json",
       "../vendor/json/single_include",
-      "../vendor/spdlog/include",
-   }
+    }
 
    links { 
-      "glad", 
-      "glm",
-      "opengl32.lib",
       "engineCore",
    }
 

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "logger/logger.h"
+#include <pch.h>
 
-namespace core {
+namespace engineCore {
 	class error {
 	private:
 		std::string mValue;

@@ -1,10 +1,9 @@
 #pragma once
 
+#include <pch.h>
 #include <nlohmann/json.hpp>
-#include "logger/logger.h"
-#include "errors/errors.h"
 
-namespace core
+namespace engineCore
 {
 	template<class T>
 	struct cfg {

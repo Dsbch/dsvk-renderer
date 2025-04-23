@@ -1,13 +1,10 @@
 #pragma once
 
+#include <pch.h>
 #include <thread>
-#include <list>
-#include <functional>
-#include <mutex>
-#include <memory>
 #include <queue>
 
-namespace core {
+namespace engineCore {
 	class threadQueue
 	{
 	private:

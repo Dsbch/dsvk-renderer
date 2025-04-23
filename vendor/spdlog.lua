@@ -3,8 +3,8 @@ project "spdlog"
    language "C++"
    architecture "x64"
    
-   targetdir "bin/%{cfg.buildcfg}"
-   objdir "bin-int/%{cfg.buildcfg}"
+   targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
+   objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
     
    defines {
       "SPDLOG_COMPILED_LIB"

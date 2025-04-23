@@ -14,11 +14,11 @@
 //
 #pragma once
 
-#include <fstream>
+#include <pch.h>
 #include "profiling.h"
 
 #ifdef DEBUG
-namespace core
+namespace engineCore
 {
 	googleProfiler instrumentationTimer::mProfiler;
 

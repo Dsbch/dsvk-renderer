@@ -1,6 +1,7 @@
+#include <pch.h>
 #include "concurrency.h"
 
-namespace core
+namespace engineCore
 {
 	uint32_t threadPool::maxThreads = std::thread::hardware_concurrency();
 	std::list<threadQueue> threadPool::threadQueue;

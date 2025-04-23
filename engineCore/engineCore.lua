@@ -6,6 +6,9 @@ project "engineCore"
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
+
+   pchheader ("pch.h")
+   pchsource ("src/pch.cpp")
     
    includedirs
    {
@@ -13,6 +16,9 @@ project "engineCore"
       "../vendor/json",
       "../vendor/json/single_include",
       "../vendor/spdlog/include",
+      "../vendor/glad/include",
+      "../vendor/glm",
+      "../vendor/stb",
    }
 
    files
@@ -24,6 +30,9 @@ project "engineCore"
    links
    {
       "spdlog",
+      "glad", 
+      "glm",
+      "opengl32.lib",   
    }
 
    filter "system:windows"

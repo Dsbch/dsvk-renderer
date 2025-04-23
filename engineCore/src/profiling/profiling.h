@@ -14,11 +14,11 @@
 //
 #pragma once
 
-#include <mutex>
+#include <pch.h>
 #include <nlohmann/json.hpp>
 
 #ifdef DEBUG
-namespace core {
+namespace engineCore {
 	struct profileResult
 	{
 		std::string name;
@@ -56,8 +56,8 @@ namespace core {
 	};
 }
 
-#define PROFILE_FUNC() core::instrumentationTimer timer{__FUNCSIG__};
-#define DUMP_PROFILING(fileName) core::instrumentationTimer::dump(fileName);
+#define PROFILE_FUNC() engineCore::instrumentationTimer timer{__FUNCSIG__};
+#define DUMP_PROFILING(fileName) engineCore::instrumentationTimer::dump(fileName);
 #else
 #define PROFILE_FUNC()
 #define DUMP_PROFILING(fileName)

@@ -1,6 +1,7 @@
+#include <pch.h>
 #include "logger.h"
 
-namespace core
+namespace engineCore
 {
 	std::shared_ptr<spdlog::logger> logger::mLogger;
 

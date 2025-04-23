@@ -1,6 +1,7 @@
+#include <pch.h>
 #include "errors.h"
 
-namespace core
+namespace engineCore
 {
 	error& error::operator=(const error& other)
 	{

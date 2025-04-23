@@ -1,7 +1,8 @@
-#include "time.h"
+#include <pch.h>
+#include <time.h>
 #include "timer.h"
 
-namespace core
+namespace engineCore
 {
 	timer::timer() : mStartTime(std::chrono::high_resolution_clock::now()) {}
 

@@ -1,0 +1,72 @@
+#include <pch.h>
+#include <glad/glad.h>
+#include "texture.h"
+
+namespace engineCore
+{
+	std::atomic_int texture::occupiedSlots;
+	std::once_flag texture::maxSlotsFlag;
+	int texture::maxOccupiedSlots;
+
+	engineCore::error texture::bind()
+	{
+		if (mSlotID != 0)
+		{
+			return {};
+		}
+
+		mSlotID = nextTextureSlot();
+		if (mSlotID == 0)
+		{
+			return { "Reached max texture slots: {}", maxOccupiedSlots };
+		}
+
+		glBindTextureUnit(mSlotID, mID);
+
+		return {};
+	}
+
+	texture::texture(uint8_t* data, int width, int height, imageChannel channel)
+		: mWidth(width), mHeight(height), mChannel(channel), mID(0), mSlotID(0)
+	{
+		std::call_once(maxSlotsFlag, glGetIntegerv, GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxOccupiedSlots);
+
+		glCreateTextures(GL_TEXTURE_2D, 1, &mID);
+
+		glTextureParameteri(mID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTextureParameteri(mID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTextureParameteri(mID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTextureParameteri(mID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+		glTextureStorage2D(mID, 1, GL_RGB8, mWidth, mHeight);
+		glTextureSubImage2D(mID, 0, 0, 0, mWidth, mHeight, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glGenerateTextureMipmap(mID);
+	}
+
+	texture::~texture()
+	{
+		occupiedSlots--;
+		glDeleteTextures(1, &mID);
+	}
+
+	const uint32_t texture::getID() const
+	{
+		return mID;
+	}
+
+	const uint32_t texture::getSlotID()
+	{
+		return mSlotID;
+	}
+
+	uint32_t texture::nextTextureSlot()
+	{
+		if (occupiedSlots >= maxOccupiedSlots)
+		{
+			return 0;
+		}
+
+		return ++occupiedSlots;
+	}
+
+}

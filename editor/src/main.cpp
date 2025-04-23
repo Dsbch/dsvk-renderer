@@ -1,5 +1,4 @@
 #include <pch.h>
-#include <glad/glad.h>
 #include <glm/vec3.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <config/config.h>
@@ -39,7 +38,7 @@ namespace config
 	{
 		std::string file = "logs.log";
 		std::string pattern = "[%H:%M:%S.%e] [%^%l%$] %v";
-		core::logger::level level = core::logger::level::debug;
+		engineCore::logger::level level = engineCore::logger::level::debug;
 	};
 
 	struct window
@@ -167,22 +166,22 @@ namespace config
 
 class application {
 private:
-	core::error mErr;
+	engineCore::error mErr;
 
-	core::cfg<config::main> mCfg;
-	engine::context mCtx;
-	std::unique_ptr<engine::baseWindow> mWindow;
-	std::unique_ptr<engine::fpsCamera> mCamera;
-	std::unique_ptr<engine::openglRenderer> mRenderer;
-	std::unique_ptr<engine::assetManager> mAssetManager;
+	engineCore::cfg<config::main> mCfg;
+	engineCore::context mCtx;
+	std::unique_ptr<engineCore::baseWindow> mWindow;
+	std::unique_ptr<engineCore::fpsCamera> mCamera;
+	std::unique_ptr<engineCore::openglRenderer> mRenderer;
+	std::unique_ptr<engineCore::assetManager> mAssetManager;
 
 	bool mAppShouldClose;
 
 	void initApplication()
 	{
-		mAssetManager = std::make_unique<engine::assetManager>(mCtx);
+		mAssetManager = std::make_unique<engineCore::assetManager>(mCtx);
 
-		core::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
+		engineCore::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
 
 		std::mutex tmpLock;
 		bool ready = false;
@@ -190,7 +189,7 @@ private:
 
 		mCtx.getThreadPool().start(
 			[&]() -> void {
-				mWindow = engine::windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
+				mWindow = engineCore::windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
 				if (mErr = mWindow->checkError(); mErr)
 					return;
 
@@ -200,7 +199,7 @@ private:
 				}
 
 				tmpCv.notify_one();
-				
+
 				mWindow->startPolling();
 			}
 		);
@@ -211,8 +210,8 @@ private:
 		}
 
 		mWindow->makeOpenglContext();
-		mCamera = std::make_unique<engine::fpsCamera>(mCtx, mCfg.getCfg().camera.fov, mCfg.getCfg().camera.nearPlane, mCfg.getCfg().camera.farPlane, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height);
-		mRenderer = std::make_unique<engine::openglRenderer>();
+		mCamera = std::make_unique<engineCore::fpsCamera>(mCtx, mCfg.getCfg().camera.fov, mCfg.getCfg().camera.nearPlane, mCfg.getCfg().camera.farPlane, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height);
+		mRenderer = std::make_unique<engineCore::openglRenderer>();
 		if (mErr = mRenderer->check(); mErr)
 		{
 			return;
@@ -226,7 +225,7 @@ public:
 
 	void run()
 	{
-		std::vector<engine::vertex> vboData = {
+		std::vector<engineCore::vertex> vboData = {
 			// Front face
 			{{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f}, 0},
 			{{ 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f}, 0},
@@ -255,12 +254,12 @@ public:
 			4, 5, 6, 6, 7, 4,
 		};
 
-		engine::dynamicArrayObject vbo = { uint32_t(sizeof(engine::vertex) * vboData.size()), vboData.data() };
-		engine::arrayObject ebo = { uint32_t(sizeof(uint32_t) * eboData.size()), eboData.data() };
-		engine::vertexBufferObject vao{};
+		engineCore::dynamicArrayObject vbo = { uint32_t(sizeof(engineCore::vertex) * vboData.size()), vboData.data() };
+		engineCore::arrayObject ebo = { uint32_t(sizeof(uint32_t) * eboData.size()), eboData.data() };
+		engineCore::vertexBufferObject vao{};
 
 		vao.setElementBuffer(ebo.getSize(), ebo.getID());
-		vao.setAttribs(engine::vertexDescriber(vbo.getID()));
+		vao.setAttribs(engineCore::vertexDescriber(vbo.getID()));
 
 		auto texture = mAssetManager->loadTexture("../assets/textures/wood.jpg");
 		if (texture.second)
@@ -282,10 +281,10 @@ public:
 		cmpProgram.first->setUniformType("u_textures[0]", &slotID, 1);
 
 		mCtx.getDispatcher()->addHandler(
-			engine::eventType::close,
-			[&](std::shared_ptr<engine::baseEvent> e)
+			engineCore::eventType::close,
+			[&](std::shared_ptr<engineCore::baseEvent> e)
 			{
-				if (e->getEventType() != engine::eventType::close)
+				if (e->getEventType() != engineCore::eventType::close)
 					return;
 
 				mAppShouldClose = true;
@@ -293,13 +292,13 @@ public:
 		);
 
 		mCtx.getDispatcher()->addHandler(
-			engine::eventType::windowResize,
-			[&](std::shared_ptr<engine::baseEvent> e)
+			engineCore::eventType::windowResize,
+			[&](std::shared_ptr<engineCore::baseEvent> e)
 			{
-				if (e->getEventType() != engine::eventType::windowResize)
+				if (e->getEventType() != engineCore::eventType::windowResize)
 					return;
 
-				auto resizeEvent = static_cast<const engine::windowResizeEvent*>(e.get());
+				auto resizeEvent = static_cast<const engineCore::windowResizeEvent*>(e.get());
 
 				mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 				mCamera->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
@@ -307,68 +306,68 @@ public:
 		);
 
 		mCtx.getDispatcher()->addHandler(
-			engine::eventType::keyDown,
-			[&](std::shared_ptr<engine::baseEvent> e)
+			engineCore::eventType::keyDown,
+			[&](std::shared_ptr<engineCore::baseEvent> e)
 			{
-				if (e->getEventType() != engine::eventType::keyDown)
+				if (e->getEventType() != engineCore::eventType::keyDown)
 					return;
 
-				auto keyDownEvent = static_cast<const engine::keyDownEvent*>(e.get());
+				auto keyDownEvent = static_cast<const engineCore::keyDownEvent*>(e.get());
 
 				switch (keyDownEvent->getKey())
 				{
-				case engine::key::s:
+				case engineCore::key::s:
 					mCamera->changePosition(glm::vec3(0.0f, 0.0f, -0.01f));
 					break;
-				case engine::key::w:
+				case engineCore::key::w:
 					mCamera->changePosition(glm::vec3(0.0f, 0.0f, 0.01f));
 					break;
-				case engine::key::a:
+				case engineCore::key::a:
 					mCamera->changePosition(glm::vec3(-0.01f, 0.0f, 0.0f));
 					break;
-				case engine::key::d:
+				case engineCore::key::d:
 					mCamera->changePosition(glm::vec3(0.01f, 0.0f, 0.0f));
 					break;
-				case engine::key::q:
+				case engineCore::key::q:
 					mCamera->changeYaw(-1.0f);
 					break;
-				case engine::key::e:
+				case engineCore::key::e:
 					mCamera->changeYaw(1.0f);
 					break;
-				case engine::key::x:
+				case engineCore::key::x:
 					mCamera->changePitch(-1.0f);
 					break;
-				case engine::key::c:
+				case engineCore::key::c:
 					mCamera->changePitch(1.0f);
 					break;
-				case engine::key::one:
-					for (engine::vertex& v : vboData)
+				case engineCore::key::one:
+					for (engineCore::vertex& v : vboData)
 					{
 						v.position.x += 0.1f;
 					}
 
-					vbo.template updateData<engine::vertex>(0, vboData.size(), vboData.data());
+					vbo.template updateData<engineCore::vertex>(0, vboData.size(), vboData.data());
 					break;
-				case engine::key::two:
-					for (engine::vertex& v : vboData)
+				case engineCore::key::two:
+					for (engineCore::vertex& v : vboData)
 					{
 						v.position.x -= 0.1f;
 					}
 
-					vbo.template updateData<engine::vertex>(0, vboData.size(), vboData.data());
+					vbo.template updateData<engineCore::vertex>(0, vboData.size(), vboData.data());
 					break;
 				}
 			}
 		);
 
 		mCtx.getDispatcher()->addHandler(
-			engine::eventType::mouseMove,
-			[&](std::shared_ptr<engine::baseEvent> e)
+			engineCore::eventType::mouseMove,
+			[&](std::shared_ptr<engineCore::baseEvent> e)
 			{
-				if (e->getEventType() != engine::eventType::mouseMove)
+				if (e->getEventType() != engineCore::eventType::mouseMove)
 					return;
 
-				auto mouseMoveEvent = static_cast<const engine::mouseMoveEvent*>(e.get());
+				auto mouseMoveEvent = static_cast<const engineCore::mouseMoveEvent*>(e.get());
 
 				float deltaX = mouseMoveEvent->getMouseOffset().x;
 				float deltaY = -mouseMoveEvent->getMouseOffset().y;
@@ -397,7 +396,7 @@ public:
 				cmpProgram.first->setUniformMat4("uProjection", glm::value_ptr(mCamera->getProjection()), 1);
 
 				mWindow->pollInput();
-				
+
 				mCtx.getDispatcher()->dipatchQueue();
 
 				nextGameUpdate += updateShift;
@@ -408,7 +407,7 @@ public:
 		}
 	}
 
-	core::error checkError()
+	engineCore::error checkError()
 	{
 		return mErr;
 	}

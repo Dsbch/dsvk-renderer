@@ -1,8 +1,8 @@
 #pragma once
 
-#include <chrono>
+#include <pch.h>
 
-namespace core {
+namespace engineCore {
 	class timer {
 	private:
 		std::chrono::steady_clock::time_point mStartTime;
