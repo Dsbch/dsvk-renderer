@@ -1,11 +1,11 @@
-project "engine"
+project "editor"
    kind "WindowedApp"
    language "C++"
    architecture "x64"
    cppdialect "C++17"
 
-   targetdir ("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
-   objdir ("%{wks.location}/bin-int/" .. outputdir .. "/%{prj.name}")
+   targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
+   objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
 
    files {
       "src/**.hpp",
@@ -19,8 +19,8 @@ project "engine"
 
    includedirs 
    {
-      "../core/src",
       "src",
+      "../engineCore/src",
       "../vendor/glad/include",
       "../vendor/glm",
       "../vendor/stb",
@@ -33,13 +33,26 @@ project "engine"
       "glad", 
       "glm",
       "opengl32.lib",
-      "core",
+      "engineCore",
    }
 
+   filter "system:windows"
+       systemversion "latest"
+       defines { "WINDOWS" }
+
    filter "configurations:Debug"
-      defines { "DEBUG" }
-      symbols "On"
+       defines { "DEBUG" }
+       runtime "Debug"
+       symbols "On"
 
    filter "configurations:Release"
-      defines { "NDEBUG" }
-      optimize "On"
+       defines { "RELEASE" }
+       runtime "Release"
+       optimize "On"
+       symbols "On"
+
+   filter "configurations:Dist"
+       defines { "DIST" }
+       runtime "Release"
+       optimize "On"
+       symbols "Off"
