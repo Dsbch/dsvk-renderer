@@ -7,7 +7,7 @@ workspace "dsengine"
    startproject "editor"
 
    include "editor/editor.lua"
-   include "engineCore/engineCore.lua"
+   include "engine/engine.lua"
    include "vendor/spdlog.lua"
    include "vendor/glad.lua"
    include "vendor/glm.lua"

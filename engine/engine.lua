@@ -1,5 +1,5 @@
-project "editor"
-   kind "WindowedApp"
+project "engine"
+   kind "StaticLib"
    language "C++"
    architecture "x64"
    cppdialect "C++17"
@@ -7,29 +7,37 @@ project "editor"
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
 
-   files {
-      "src/**.hpp",
+   pchheader ("pch.h")
+   pchsource ("src/pch.cpp")
+    
+   includedirs
+   {
+      "src",
+      "../vendor/json",
+      "../vendor/json/single_include",
+      "../vendor/spdlog/include",
+      "../vendor/glad/include",
+      "../vendor/glm",
+      "../vendor/stb",
+   }
+
+   files
+   {
       "src/**.cpp",
-      "src/**.c",
       "src/**.h",
    }
 
-   includedirs {
-      "src",
-      "../engine/src",
-      "../vendor/glm",
-      "../vendor/spdlog/include",
-      "../vendor/json",
-      "../vendor/json/single_include",
-    }
-
-   links { 
-      "engine",
+   links
+   {
+      "spdlog",
+      "glad", 
+      "glm",
+      "opengl32.lib",   
    }
 
    filter "system:windows"
        systemversion "latest"
-       defines { "WINDOWS" }
+       defines { }
 
    filter "configurations:Debug"
        defines { "DEBUG" }

@@ -2,30 +2,30 @@
     "traceEvents": [
         {
             "cat": "function",
-            "dur": 773,
-            "name": "void __cdecl engineCore::winApiWindow::createWindowClass(const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &)",
+            "dur": 859,
+            "name": "void __cdecl engine::winApiWindow::createWindowClass(const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &)",
             "ph": "X",
             "pid": 0,
-            "tid": 2105334130245353366,
-            "ts": 5668076603
+            "tid": 1913372779309565974,
+            "ts": 17151041643
         },
         {
             "cat": "function",
-            "dur": 15700,
-            "name": "__cdecl engineCore::winApiWindow::winApiWindow(class engineCore::context,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,unsigned int,unsigned int,bool,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,bool)",
+            "dur": 15927,
+            "name": "__cdecl engine::winApiWindow::winApiWindow(class engine::context,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,unsigned int,unsigned int,bool,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,bool)",
             "ph": "X",
             "pid": 0,
-            "tid": 2105334130245353366,
-            "ts": 5668076602
+            "tid": 1913372779309565974,
+            "ts": 17151041633
         },
         {
             "cat": "function",
             "dur": 2,
-            "name": "void __cdecl engineCore::openglRenderer::changeViewPort(unsigned int,unsigned int) const",
+            "name": "void __cdecl engine::openglRenderer::changeViewPort(unsigned int,unsigned int) const",
             "ph": "X",
             "pid": 0,
-            "tid": 13917716198234081067,
-            "ts": 5668220201
+            "tid": 16274654137157439088,
+            "ts": 17151182132
         }
     ]
 }
