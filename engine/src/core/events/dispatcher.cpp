@@ -26,17 +26,21 @@ namespace engine
 		}
 	}
 
-	void eventDispatcher::dipatchQueue()
-	{
-		while (!mQueue.empty())
-		{
-			dispatch(mQueue.front());
-			mQueue.pop();
-		}
-	}
-
 	void eventDispatcher::queueEvent(std::shared_ptr<baseEvent> e)
 	{
 		mQueue.emplace(e);
+	}
+
+	std::shared_ptr<baseEvent> eventDispatcher::getEvent()
+	{
+		auto e = mQueue.front();
+		mQueue.pop();
+
+		return e;
+	}
+
+	bool eventDispatcher::hasEvents() const
+	{
+		return !mQueue.empty();
 	}
 }

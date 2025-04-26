@@ -15,7 +15,8 @@ namespace engine
 	public:
 		void addHandler(eventType, std::function<void(std::shared_ptr<baseEvent>)>);
 		void dispatch(std::shared_ptr<baseEvent>);
-		void dipatchQueue();
 		void queueEvent(std::shared_ptr<baseEvent>);
+		std::shared_ptr<baseEvent> getEvent();
+		bool hasEvents() const;
 	};
 }

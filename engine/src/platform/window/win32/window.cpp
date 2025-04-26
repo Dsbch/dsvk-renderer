@@ -90,7 +90,7 @@ namespace engine
 		}
 	}
 
-	void winApiWindow::registerInputDevices()
+	void winApiWindow::registerInputDevices() const
 	{
 		RAWINPUTDEVICE rid[2];
 
@@ -271,7 +271,7 @@ namespace engine
 		}
 
 		// Queue still pressed keys.
-		for (auto [key, val] : mKeyDown)
+		for (auto& [key, val] : mKeyDown)
 		{
 			mCtx.getDispatcher()->queueEvent(val);
 		}

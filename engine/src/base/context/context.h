@@ -19,9 +19,9 @@ namespace engine
 	public:
 		context();
 
-		timer getTimer();
+		timer getTimer() const;
 		std::shared_ptr<eventDispatcher> getDispatcher();
 		std::shared_ptr<aManager> getAManager();
-		threadPool getThreadPool();
+		threadPool getThreadPool() const;
 	};
 }

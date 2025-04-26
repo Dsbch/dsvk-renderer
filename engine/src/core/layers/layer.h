@@ -1,28 +1,30 @@
 #pragma once
 
 #include <pch.h>
-#include <entt/entt.hpp>
 #include "base/context/context.h"
 
 namespace engine
 {
+	class scene;
+
 	class layer
 	{
 	public:
+		layer(context ctx);
 		virtual ~layer() = default;
-		virtual bool onEvent() = 0;
+		virtual bool onEvent(std::shared_ptr<baseEvent>) = 0;
 		virtual void onRender() = 0;
 	protected:
-		eventDispatcher mDispatcher;
-	private:
 		context mCtx;
 	};
 
 	class worldLayer : public layer {
 	public:
-		bool onEvent();
+		worldLayer(context ctx);
+		~worldLayer();
+		bool onEvent(std::shared_ptr<baseEvent> e);
 		void onRender();
 	private:
-		entt::registry mSceneRegistry;
+		std::shared_ptr<scene> mScene;
 	};
 }

@@ -5,7 +5,7 @@ namespace engine
 {
 	context::context() : mDispatcher(std::make_shared<eventDispatcher>()), mAmanager(std::make_shared<aManager>()) {};
 
-	engine::timer context::getTimer()
+	engine::timer context::getTimer() const
 	{
 		return mTimer;
 	}
@@ -20,7 +20,7 @@ namespace engine
 		return mAmanager;
 	}
 
-	engine::threadPool context::getThreadPool()
+	engine::threadPool context::getThreadPool() const
 	{
 		return mThreadPool;
 	}

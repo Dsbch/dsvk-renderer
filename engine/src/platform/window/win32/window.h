@@ -26,7 +26,7 @@ namespace engine
 		static bool handlePaintEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 		void createWindowClass(const std::string& applicationName);
-		void registerInputDevices();
+		void registerInputDevices() const;
 		void createWindow();
 		void pollRawInput();
 
