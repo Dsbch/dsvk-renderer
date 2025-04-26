@@ -9,7 +9,7 @@ namespace engine
 	class entity
 	{
 	public:
-		entity(context ctx, entt::entity handle, std::shared_ptr<scene> scene);
+		entity(context ctx, entt::entity handle, scene* scene);
 
 		template<typename T, typename... Args>
 		T& AddComponent(Args&&... args)
@@ -48,6 +48,6 @@ namespace engine
 	private:
 		context mCtx;
 		entt::entity mEntityHandle;
-		std::shared_ptr<scene> mScene;
+		scene* mScene;
 	};
 }

@@ -22,6 +22,11 @@ namespace engine
 	void scene::onEvent(std::shared_ptr<baseEvent> e)
 	{
 		LOGINFO("scene::onEvent TO BE IMPLEMENTED");
+	
+		if (e->getEventType() == eventType::keyDown)
+		{
+			createEntity("asdasd");
+		}
 	}
 
 	entity scene::createEntity(const std::string& name)
@@ -35,7 +40,7 @@ namespace engine
 
 	entity scene::createEntity()
 	{
-		entity ent{ mCtx, mSceneRegistry.create(), std::shared_ptr<scene>(this) };
+		entity ent{ mCtx, mSceneRegistry.create(), this };
 
 		return ent;
 	}
