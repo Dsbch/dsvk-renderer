@@ -7,7 +7,7 @@ namespace engine
 	std::once_flag openglRenderer::mIsOpenglInitialized;
 	engine::error openglRenderer::mInitOpenglErr;
 
-	static void openglLog(GLenum source, GLenum type, GLuint m_id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+	static void openglLog(GLenum source, GLenum type, GLuint m_id, GLenum severity, [[maybe_unused]] GLsizei length, const GLchar* message, [[maybe_unused]] const void* userParam)
 	{
 		auto const src_str = [source]() {
 			switch (source)

@@ -11,7 +11,7 @@ namespace engine
 		return mStartTime;
 	}
 
-	std::chrono::milliseconds timer::toMS(std::chrono::steady_clock::duration& d)
+	std::chrono::milliseconds timer::toMS(const std::chrono::steady_clock::duration& d)
 	{
 		return std::chrono::duration_cast<std::chrono::milliseconds>(d);
 	}

@@ -8,7 +8,7 @@ namespace engine
 	int vertexBufferObject::mMaxAttributes;
 	std::once_flag vertexBufferObject::mAttribOnceFlag;
 
-	vertexBufferObject::vertexBufferObject() : mID(-1), mElementCount(-1), mAttribCount(0)
+	vertexBufferObject::vertexBufferObject() : mID(0), mElementCount(0), mAttribCount(0)
 	{
 		std::call_once(mAttribOnceFlag, glGetIntegerv, GL_MAX_VERTEX_ATTRIBS, &mMaxAttributes);
 

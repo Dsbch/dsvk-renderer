@@ -4,7 +4,7 @@
 
 namespace engine
 {
-	arrayObject::arrayObject(uint32_t size, void* data) : mSize(size), mID(-1)
+	arrayObject::arrayObject(uint32_t size, void* data) : mSize(size), mID(0)
 	{
 		glCreateBuffers(1, &mID);
 		glNamedBufferStorage(mID, size, data, GL_DYNAMIC_STORAGE_BIT);
@@ -30,7 +30,7 @@ namespace engine
 		return mID;
 	}
 
-	dynamicArrayObject::dynamicArrayObject(size_t size, void* data) : mSize(size), mID(-1), mData(nullptr)
+	dynamicArrayObject::dynamicArrayObject(size_t size, void* data) : mSize(size), mID(0), mData(nullptr)
 	{
 		auto flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
 		glCreateBuffers(1, &mID);

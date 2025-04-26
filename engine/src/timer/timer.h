@@ -11,6 +11,6 @@ namespace engine {
 		std::chrono::steady_clock::duration getTimeSinceStart() const;
 		std::chrono::steady_clock::time_point getStartTime() const;
 		
-		static std::chrono::milliseconds toMS(std::chrono::steady_clock::duration& d);
+		static std::chrono::milliseconds toMS(const std::chrono::steady_clock::duration& d);
 	};
 }

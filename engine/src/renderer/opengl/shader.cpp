@@ -159,7 +159,7 @@ namespace engine
 	}
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const uint32_t* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const uint32_t* data, [[maybe_unused]] uint32_t count) const
 	{
 		if (!data)
 		{

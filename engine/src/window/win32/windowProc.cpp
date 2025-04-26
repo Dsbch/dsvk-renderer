@@ -3,10 +3,8 @@
 
 namespace engine
 {
-	bool winApiWindow::handleRawInput(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+	bool winApiWindow::handleRawInput(winApiWindow* winApiInst, [[maybe_unused]] HWND hWnd, UINT message, [[maybe_unused]] WPARAM wParam, LPARAM lParam)
 	{
-		auto keyCode = fromWinApiMouse(message);
-
 		POINT cursorPos;
 		cursorPos.x = GET_X_LPARAM(lParam);
 		cursorPos.y = GET_Y_LPARAM(lParam);
@@ -72,7 +70,7 @@ namespace engine
 		return false;
 	}
 
-	bool winApiWindow::handleCloseEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+	bool winApiWindow::handleCloseEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, [[maybe_unused]] WPARAM wParam, [[maybe_unused]] LPARAM lParam)
 	{
 		if (message == WM_CLOSE)
 		{
@@ -95,7 +93,7 @@ namespace engine
 		return false;
 	}
 
-	bool winApiWindow::handleResizeEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+	bool winApiWindow::handleResizeEvent(winApiWindow* winApiInst, [[maybe_unused]] HWND hWnd, UINT message, [[maybe_unused]] WPARAM wParam, LPARAM lParam)
 	{
 		if (message == WM_SIZE)
 		{
@@ -106,7 +104,7 @@ namespace engine
 		return false;
 	}
 
-	bool winApiWindow::handlePaintEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+	bool winApiWindow::handlePaintEvent([[maybe_unused]] winApiWindow* winApiInst, [[maybe_unused]] HWND hWnd, [[maybe_unused]] UINT message, [[maybe_unused]] WPARAM wParam, [[maybe_unused]] LPARAM lParam)
 	{
 		if (message == WM_PAINT)
 			return true;
