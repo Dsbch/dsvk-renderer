@@ -28,13 +28,6 @@ project "editor"
       "engine",
    }
 
-    filter "action:vs2022"
-        if _OPTIONS["clang"] then
-            toolset "clang"
-            print("Using clang compiler editor.lua")
-        end
-
-       
    flags
    {
     "FatalWarnings",

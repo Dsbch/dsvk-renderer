@@ -4,7 +4,7 @@
 
 namespace engine
 {
-	timer::timer() : mStartTime(std::chrono::high_resolution_clock::now()) {}
+	timer::timer() : mStartTime(std::chrono::steady_clock::now()) {}
 
 	std::chrono::steady_clock::time_point timer::getStartTime() const
 	{
@@ -18,7 +18,7 @@ namespace engine
 
 	std::chrono::steady_clock::duration timer::getTimeSinceStart() const
 	{
-		auto end = std::chrono::high_resolution_clock::now();
+		auto end = std::chrono::steady_clock::now();
 
 		return end - mStartTime;
 	}
