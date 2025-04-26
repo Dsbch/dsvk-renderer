@@ -11,8 +11,8 @@
 #include <memory>
 #include <atomic>
 #include <inttypes.h>
-#include <logger/logger.h>
-#include <profiling/profiling.h>
-#include <errors/errors.h>
+#include <base/logger/logger.h>
+#include <base/profiling/profiling.h>
+#include <base/errors/errors.h>
 #include <chrono>
 #include <list>

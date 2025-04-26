@@ -1,8 +1,8 @@
 #include <pch.h>
-#include "vertex.h"
 #include <glad/glad.h>
 #include <glm/vec3.hpp>
 #include <glm/vec2.hpp>
+#include "vertex.h"
 
 namespace engine {
 	std::vector<attributesDescriber::attributeInfo> vertexDescriber::info() const
@@ -15,7 +15,7 @@ namespace engine {
 					mBufferObjectID,
 					3,
 					GL_FLOAT,
-					offsetof(vertex, vertex::position),
+					offsetof(vertex, position),
 					false,
 				},
 				// textureCoords.
@@ -24,7 +24,7 @@ namespace engine {
 					mBufferObjectID,
 					2,
 					GL_FLOAT,
-					offsetof(vertex, vertex::textureCoords),
+					offsetof(vertex, textureCoords),
 					false,
 				},
 				// textureIndex.
@@ -33,7 +33,7 @@ namespace engine {
 					mBufferObjectID,
 					1,
 					GL_INT,
-					offsetof(vertex, vertex::textureIndex),
+					offsetof(vertex, textureIndex),
 					false,
 				},
 			};

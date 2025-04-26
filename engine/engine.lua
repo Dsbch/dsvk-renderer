@@ -19,6 +19,7 @@ project "engine"
       "../vendor/glad/include",
       "../vendor/glm",
       "../vendor/stb",
+      "../vendor/entt/src",
    }
 
    files

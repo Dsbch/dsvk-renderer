@@ -2,15 +2,15 @@
 
 #include <glm/vec3.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <config/config.h>
-#include <concurrency/concurrency.h>
+#include <base/config/config.h>
+#include <base/concurrency/concurrency.h>
 
-#include "events/events.h"
-#include "renderer/opengl/renderer.h"
-#include "renderer/opengl/arrayObject.h"
-#include "window/windowFactory.h"
-#include "renderer/vertex.h"
-#include "camera/camera.h"
+#include <core/events/events.h>
+#include <core/camera/camera.h>
+#include <platform/renderer/opengl/renderer.h>
+#include <platform/renderer/opengl/arrayObject.h>
+#include <platform/window/windowFactory.h>
+#include <platform/renderer/vertex.h>
 
 
 namespace config
@@ -181,7 +181,7 @@ private:
 	void initApplication()
 	{
 		engine::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
-		
+
 		if (auto err = mCfg.checkError(); err)
 			LOGERROR(err.err());
 

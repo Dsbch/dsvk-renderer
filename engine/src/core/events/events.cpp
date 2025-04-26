@@ -3,7 +3,7 @@
 
 namespace engine
 {
-	engine::key engine::fromRawMouse(const RAWINPUT* raw)
+	key fromRawMouse(const RAWINPUT* raw)
 	{
 		if (!raw)
 			return unknown;
@@ -22,7 +22,7 @@ namespace engine
 		return unknown;
 	}
 
-	engine::key engine::fromRawKeyboard(const RAWINPUT* raw)
+	key fromRawKeyboard(const RAWINPUT* raw)
 	{
 		if (!raw)
 			return unknown;
@@ -84,7 +84,7 @@ namespace engine
 		}
 	}
 
-	engine::key engine::fromWinApiMouse(int msg)
+	key fromWinApiMouse(int msg)
 	{
 		switch (msg)
 		{
@@ -98,7 +98,7 @@ namespace engine
 		}
 	}
 
-	engine::key engine::fromWinApiKey(int vkCode)
+	key fromWinApiKey(int vkCode)
 	{
 		switch (vkCode) {
 		case VK_ESCAPE:  return escape;

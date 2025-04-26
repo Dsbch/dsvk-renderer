@@ -1,6 +1,6 @@
 #include <pch.h>
-#include "vertexBufferObject.h"
 #include <glad/glad.h>
+#include "vertexBufferObject.h"
 
 namespace engine
 {

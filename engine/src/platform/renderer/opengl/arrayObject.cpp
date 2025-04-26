@@ -1,6 +1,6 @@
 #include <pch.h>
-#include "arrayObject.h"
 #include <glad/glad.h>
+#include "arrayObject.h"
 
 namespace engine
 {

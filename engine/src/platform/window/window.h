@@ -1,8 +1,8 @@
 #pragma once
 
 #include <pch.h>
-#include "context/context.h"
-#include "events/events.h"
+#include "base/context/context.h"
+#include "core/events/events.h"
 
 namespace engine
 {

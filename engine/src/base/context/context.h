@@ -1,11 +1,11 @@
 #pragma once
 
 #include <pch.h>
-#include "config/config.h"
-#include "events/dispatcher.h"
-#include "concurrency/concurrency.h"
-#include "timer/timer.h"
-#include "amanager/aManager.h"
+#include "core/events/dispatcher.h"
+#include "core/amanager/aManager.h"
+#include "base/config/config.h"
+#include "base/concurrency/concurrency.h"
+#include "base/timer/timer.h"
 
 namespace engine
 {
@@ -18,7 +18,7 @@ namespace engine
 		std::shared_ptr<eventDispatcher> mDispatcher;
 	public:
 		context();
-		
+
 		timer getTimer();
 		std::shared_ptr<eventDispatcher> getDispatcher();
 		std::shared_ptr<aManager> getAManager();

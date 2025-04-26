@@ -1,9 +1,9 @@
 #pragma once
 
 #include <pch.h>
-#include "events/events.h"
 #include "vertexBufferObject.h"
-#include "context/context.h"
+#include "base/context/context.h"
+#include "core/events/events.h"
 
 namespace engine
 {

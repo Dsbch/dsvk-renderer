@@ -5,8 +5,8 @@
 #include <tchar.h>
 #include <hidusage.h>
 #include <queue>
-#include "window/window.h"
-#include "events/events.h"
+#include "platform/window/window.h"
+#include "core/events/events.h"
 
 namespace engine
 {
