@@ -30,7 +30,7 @@ namespace config
 		uint32_t minimumFps = 5;
 	};
 
-	struct application
+	struct editor
 	{
 		std::string name = "engine";
 	};
@@ -53,7 +53,7 @@ namespace config
 
 	struct main
 	{
-		application app;
+		editor app;
 		log log;
 		window wnd;
 		gameLoop gameLoop;
@@ -92,7 +92,7 @@ namespace config
 		j.at("minimumFps").get_to(p.minimumFps);
 	}
 
-	void to_json(nlohmann::json& j, const application& p)
+	void to_json(nlohmann::json& j, const editor& p)
 	{
 		j = nlohmann::json
 		{
@@ -100,7 +100,7 @@ namespace config
 		};
 	}
 
-	void from_json(const nlohmann::json& j, application& p)
+	void from_json(const nlohmann::json& j, editor& p)
 	{
 		j.at("name").get_to(p.name);
 	}
@@ -165,7 +165,7 @@ namespace config
 
 }
 
-class application {
+class editor {
 private:
 	engine::error mErr;
 	engine::context mCtx;
@@ -181,6 +181,9 @@ private:
 	void initApplication()
 	{
 		engine::logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
+		
+		if (auto err = mCfg.checkError(); err)
+			LOGERROR(err.err());
 
 		std::mutex tmpLock;
 		bool ready = false;
@@ -210,14 +213,14 @@ private:
 
 		mWindow->makeOpenglContext();
 		mCamera = std::make_unique<engine::fpsCamera>(mCtx, mCfg.getCfg().camera.fov, mCfg.getCfg().camera.nearPlane, mCfg.getCfg().camera.farPlane, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height);
-		mRenderer = std::make_unique<engine::openglRenderer>();
+		mRenderer = std::make_unique<engine::openglRenderer>(mCtx);
 		if (mErr = mRenderer->check(); mErr)
 		{
 			return;
 		}
 	}
 public:
-	application() : mAppShouldClose(false), mCtx(), mCfg("config.json")
+	editor() : mAppShouldClose(false), mCtx(), mCfg("config.json")
 	{
 		initApplication();
 	}
@@ -368,8 +371,8 @@ public:
 
 				auto mouseMoveEvent = static_cast<const engine::mouseMoveEvent*>(e.get());
 
-				float deltaX = mouseMoveEvent->getMouseOffset().x;
-				float deltaY = -mouseMoveEvent->getMouseOffset().y;
+				float deltaX = float(mouseMoveEvent->getMouseOffset().x);
+				float deltaY = -float(mouseMoveEvent->getMouseOffset().y);
 
 				float sensitivity = 0.1f;
 				deltaX *= sensitivity;
@@ -389,7 +392,7 @@ public:
 		while (!mAppShouldClose)
 		{
 			// 🎮 update game/window state: read input from user, apply logic for that input.
-			for (int i = 0; mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && !mAppShouldClose; i++)
+			for (uint32_t i = 0; mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && !mAppShouldClose; i++)
 			{
 				cmpProgram.first->setUniformMat4("uView", glm::value_ptr(mCamera->getCameraTransform()), 1);
 				cmpProgram.first->setUniformMat4("uProjection", glm::value_ptr(mCamera->getProjection()), 1);
@@ -411,7 +414,7 @@ public:
 		return mErr;
 	}
 
-	~application()
+	~editor()
 	{
 #ifdef DEBUG
 		DUMP_PROFILING("prof.json");

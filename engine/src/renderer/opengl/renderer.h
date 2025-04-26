@@ -3,6 +3,7 @@
 #include <pch.h>
 #include "events/events.h"
 #include "vertexBufferObject.h"
+#include "context/context.h"
 
 namespace engine
 {
@@ -10,15 +11,15 @@ namespace engine
 	{
 	private:
 		static std::once_flag mIsOpenglInitialized;
-		static engine::error mInitOpenglErr;
+		static error mInitOpenglErr;
 		static void initOpengl();
 
-		engine::error mErr;
-
+		error mErr;
+		context mCtx;
 	public:
-		openglRenderer();
+		openglRenderer(context ctx);
 		std::string getVersion() const;
-		engine::error check() const;
+		error check() const;
 		void changeViewPort(uint32_t width, uint32_t height) const;
 		void render() const;
 		void render(const vertexBufferObject& vao) const;

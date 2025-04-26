@@ -20,20 +20,20 @@ namespace engine
 	class dynamicArrayObject
 	{
 	private:
-		uint32_t mSize;
+		size_t mSize;
 		uint32_t mID;
 		void* mData;
 	public:
-		dynamicArrayObject(uint32_t size, void* data);
+		dynamicArrayObject(size_t size, void* data);
 		template<class T>
-		void updateData(uint32_t offset, uint32_t size, T* data);
+		void updateData(size_t offset, size_t size, T* data);
 		~dynamicArrayObject();
-		uint32_t getSize() const;
+		size_t getSize() const;
 		uint32_t getID() const;
 	};
 
 	template<class T>
-	inline void dynamicArrayObject::updateData(uint32_t offset, uint32_t size, T* data)
+	inline void dynamicArrayObject::updateData(size_t offset, size_t size, T* data)
 	{
 		PROFILE_FUNC();
 

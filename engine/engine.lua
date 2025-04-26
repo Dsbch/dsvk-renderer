@@ -35,6 +35,11 @@ project "engine"
       "opengl32.lib",   
    }
 
+   flags
+   {
+    "FatalWarnings",
+   }
+
    filter "system:windows"
        systemversion "latest"
        defines { }

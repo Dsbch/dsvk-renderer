@@ -23,8 +23,14 @@ project "editor"
       "../vendor/json/single_include",
     }
 
-   links { 
+   links 
+   { 
       "engine",
+   }
+
+   flags
+   {
+    "FatalWarnings",
    }
 
    filter "system:windows"

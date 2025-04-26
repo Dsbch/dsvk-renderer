@@ -30,7 +30,7 @@ namespace engine
 		return mID;
 	}
 
-	dynamicArrayObject::dynamicArrayObject(uint32_t size, void* data) : mSize(size), mID(-1), mData(nullptr)
+	dynamicArrayObject::dynamicArrayObject(size_t size, void* data) : mSize(size), mID(-1), mData(nullptr)
 	{
 		auto flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
 		glCreateBuffers(1, &mID);
@@ -44,7 +44,7 @@ namespace engine
 		glDeleteBuffers(1, &mID);
 	}
 
-	uint32_t dynamicArrayObject::getSize() const
+	size_t dynamicArrayObject::getSize() const
 	{
 		return mSize;
 	}

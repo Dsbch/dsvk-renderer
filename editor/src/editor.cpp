@@ -1,4 +1,4 @@
-#include "application.h"
+#include "editor.h"
 
 int WINAPI WinMain(
 	_In_ HINSTANCE hInstance,
@@ -9,7 +9,7 @@ int WINAPI WinMain(
 {
 	try
 	{
-		application app{};
+		editor app{};
 		if (auto err = app.checkError(); err)
 		{
 			LOGERROR(err.err());

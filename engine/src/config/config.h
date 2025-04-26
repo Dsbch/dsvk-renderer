@@ -30,7 +30,7 @@ namespace engine
 		try
 		{
 			nlohmann::json parsed = nlohmann::json::parse(f);
-			mCfg = parsed.get<config::main>();
+			mCfg = parsed.get<T>();
 		}
 		catch (const std::exception& exc)
 		{
