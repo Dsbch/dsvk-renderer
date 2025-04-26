@@ -40,6 +40,12 @@ project "engine"
     "FatalWarnings",
    }
 
+    filter "action:vs2022"
+        if _OPTIONS["clang"] then
+            toolset "clang"
+            print("Using clang compiler engine.lua")
+        end
+
    filter "system:windows"
        systemversion "latest"
        defines { }

@@ -1,3 +1,8 @@
+newoption {
+    trigger = "clang",
+    description = "Use Clang compiler"
+}
+
 workspace "dsengine"
 
    outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"

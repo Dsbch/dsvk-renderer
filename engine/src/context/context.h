@@ -5,7 +5,7 @@
 #include "events/dispatcher.h"
 #include "concurrency/concurrency.h"
 #include "timer/timer.h"
-#include "amanager/amanager.h"
+#include "amanager/aManager.h"
 
 namespace engine
 {
