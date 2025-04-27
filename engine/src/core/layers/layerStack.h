@@ -15,5 +15,6 @@ namespace engine
 		void render();
 		void pushLayer(std::shared_ptr<layer> l);
 		void pushOverlay(std::shared_ptr<layer> l);
+		error checkError() const;
 	};
 }

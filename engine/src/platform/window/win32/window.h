@@ -21,9 +21,10 @@ namespace engine
 		static engine::error createWndClassErr;
 		static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 		static bool handleRawInput(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-		static bool handleCloseEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+		static bool handleCloseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+		static bool handleDestroyEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 		static bool handleResizeEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-		static bool handlePaintEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+		static bool handlePaintEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 		void createWindowClass(const std::string& applicationName);
 		void registerInputDevices() const;

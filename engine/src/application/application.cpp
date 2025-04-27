@@ -35,7 +35,7 @@ namespace engine
 		bool ready = false;
 		std::condition_variable tmpCv;
 
-		mCtx.getThreadPool().start(
+		mCtx.getThreadPool()->start(
 			[&]() -> void {
 				mWindow = windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
 				if (mErr = mWindow->checkError(); mErr)
@@ -64,7 +64,7 @@ namespace engine
 	{
 		pushLayer(std::make_shared<worldLayer>(mCtx));
 		
-		return {};
+		return mLayerStack->checkError();
 	}
 
 	void application::update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
@@ -108,6 +108,8 @@ namespace engine
 		mErr = createLayerStack();
 		if (mErr)
 			return;
+
+		app = this;
 	}
 
 	application::~application()
@@ -115,8 +117,6 @@ namespace engine
 #ifdef DEBUG
 		DUMP_PROFILING("prof.json");
 #endif // DEBUG
-
-		delete app;
 	}
 
 	void application::pushLayer(std::shared_ptr<layer> l)

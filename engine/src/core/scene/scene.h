@@ -4,7 +4,7 @@
 #include <entt/entt.hpp>
 #include "base/context/context.h"
 #include "core/events/events.h"
-#include "platform/renderer/opengl/renderer.h"
+#include "core/scene/systems.h"
 
 namespace engine
 {
@@ -14,14 +14,18 @@ namespace engine
 	{
 	public:
 		scene(context ctx);
-		void render();
+	
+		void onRender();
 		void onEvent(std::shared_ptr<baseEvent> e);
+		
+		error checkError() const;
+
 		entity createEntity(const std::string&);
 		entity createEntity();
 	private:
 		context mCtx;
 		entt::registry mSceneRegistry;
-		std::shared_ptr<openglRenderer> mRenderer;
+		std::vector<std::unique_ptr<system>> mSystems;
 
 		friend class entity;
 	};

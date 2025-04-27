@@ -23,6 +23,8 @@ public:
 	{
 		LOGINFO("testOverlay render");
 	}
+
+	engine::error checkError() const { return {}; };
 };
 
 class editor : public engine::application
@@ -61,7 +63,7 @@ int WINAPI WinMain(
 	}
 	catch (...)
 	{
-
+		LOGERROR("exception was caught in run");
 	}
 
 	return 0;

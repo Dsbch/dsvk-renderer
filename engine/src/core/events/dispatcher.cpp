@@ -21,7 +21,8 @@ namespace engine
 			return;
 		}
 
-		for (auto& handler : handlers->second) {
+		for (auto& handler : handlers->second) 
+		{
 			handler(e);
 		}
 	}

@@ -13,7 +13,7 @@ namespace engine
 	{
 	private:
 		timer mTimer;
-		threadPool mThreadPool;
+		std::shared_ptr<threadPool> mThreadPool;
 		std::shared_ptr<aManager> mAmanager;
 		std::shared_ptr<eventDispatcher> mDispatcher;
 	public:
@@ -22,6 +22,6 @@ namespace engine
 		timer getTimer() const;
 		std::shared_ptr<eventDispatcher> getDispatcher();
 		std::shared_ptr<aManager> getAManager();
-		threadPool getThreadPool() const;
+		std::shared_ptr<threadPool> getThreadPool() const;
 	};
 }

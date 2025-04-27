@@ -3,11 +3,16 @@
 
 namespace engine
 {
-	uint32_t threadPool::maxThreads = std::thread::hardware_concurrency();
-	std::list<threadQueue> threadPool::threadQueue;
+	std::mutex threadPool::mMutex;
+
+	threadPool::threadPool() : maxThreads(std::thread::hardware_concurrency())
+	{
+	}
 
 	void threadPool::start(std::function<void()> f)
 	{
+		std::lock_guard<std::mutex> l{ mMutex };
+
 		if (maxThreads == threadQueue.size())
 		{
 			auto smallest = threadQueue.begin();

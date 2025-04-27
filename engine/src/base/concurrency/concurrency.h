@@ -27,11 +27,14 @@ namespace engine {
 		size_t size() const;
 	};
 
-	class threadPool {
+	class threadPool
+	{
 	private:
-		static uint32_t maxThreads;
-		static std::list<threadQueue> threadQueue;
+		static std::mutex mMutex;
+		uint32_t maxThreads;
+		std::list<threadQueue> threadQueue;
 	public:
-		static void start(std::function<void()>);
+		threadPool();
+		void start(std::function<void()>);
 	};
 }

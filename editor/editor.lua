@@ -17,7 +17,6 @@ project "editor"
    includedirs {
       "src",
       "../engine/src",
-      "../vendor/glm",
       "../vendor/spdlog/include",
       "../vendor/json",
       "../vendor/json/single_include",

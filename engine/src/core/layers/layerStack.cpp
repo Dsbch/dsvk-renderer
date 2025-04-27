@@ -40,4 +40,20 @@ namespace engine
 	{
 		mOverlayStack.push_back(l);
 	}
+	error layerStack::checkError() const
+	{
+		for (auto& l : mLayerStack)
+		{
+			if (auto err = l->checkError(); err)
+				return err;
+		}
+
+		for (auto& l : mOverlayStack)
+		{
+			if (auto err = l->checkError(); err)
+				return err;
+		}
+
+		return {};
+	}
 }

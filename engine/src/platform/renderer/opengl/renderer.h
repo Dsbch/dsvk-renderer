@@ -19,7 +19,7 @@ namespace engine
 	public:
 		openglRenderer(context ctx);
 		std::string getVersion() const;
-		error check() const;
+		error checkError() const;
 		void changeViewPort(uint32_t width, uint32_t height) const;
 		void render() const;
 		void render(const vertexBufferObject& vao) const;

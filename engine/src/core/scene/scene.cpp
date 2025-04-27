@@ -8,25 +8,37 @@ namespace engine
 {
 	scene::scene(context ctx)
 		:
-			mSceneRegistry(), mCtx(ctx), mRenderer(std::make_shared<openglRenderer>(ctx))
+		mSceneRegistry(), mCtx(ctx), mSystems()
 	{
+		// push back all needed systems.
+		mSystems.push_back(std::make_unique<renderSystem>(mCtx));
 	}
-	void scene::render()
-	{
-		// temp.
-		mRenderer->render();
 
-		LOGINFO("scene::render TO BE IMPLEMENTED");
+	void scene::onRender()
+	{
+		for (auto& s : mSystems)
+		{
+			s->onRender(mSceneRegistry);
+		}
 	}
 
 	void scene::onEvent(std::shared_ptr<baseEvent> e)
 	{
-		LOGINFO("scene::onEvent TO BE IMPLEMENTED");
-	
-		if (e->getEventType() == eventType::keyDown)
+		for (auto& s : mSystems)
 		{
-			createEntity("asdasd");
+			s->onEvent(mSceneRegistry, e);
 		}
+	}
+
+	error scene::checkError() const
+	{
+		for (auto& s : mSystems)
+		{
+			if (auto err = s->checkError(); err)
+				return err;
+		}
+
+		return {};
 	}
 
 	entity scene::createEntity(const std::string& name)
@@ -34,7 +46,7 @@ namespace engine
 		auto ent = createEntity();
 
 		auto& tag = ent.template AddComponent<tagComponent>(name);
-		
+
 		return ent;
 	}
 

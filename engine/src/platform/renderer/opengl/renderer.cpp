@@ -84,7 +84,7 @@ namespace engine
 		return std::string((const char*)(version));
 	}
 
-	engine::error openglRenderer::check() const
+	engine::error openglRenderer::checkError() const
 	{
 		return mErr;
 	}

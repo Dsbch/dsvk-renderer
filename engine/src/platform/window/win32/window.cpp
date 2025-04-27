@@ -114,7 +114,7 @@ namespace engine
 
 	void winApiWindow::createWindow()
 	{
-		std::call_once(isWindowClassCreated, [&]() { this->createWindowClass(mApplicationName); });
+		std::call_once(isWindowClassCreated, [&]()->void { this->createWindowClass(mApplicationName); });
 		if (createWndClassErr)
 		{
 			mErr = createWndClassErr;
@@ -202,7 +202,17 @@ namespace engine
 			}
 		}
 
-		hwndTable.erase(mHWnd);
+		if (mHWnd)
+		{
+			PostMessage(mHWnd, WM_CLOSE, 0, 0);
+		}
+
+		mCtx.getDispatcher()->queueEvent(std::make_shared<closeEvent>());
+
+		{
+			std::lock_guard<std::mutex> l{ hwndTableMu };
+			hwndTable.erase(mHWnd);
+		}
 	}
 
 	engine::error winApiWindow::makeOpenglContext()

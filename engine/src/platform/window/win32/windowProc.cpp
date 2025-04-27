@@ -70,23 +70,31 @@ namespace engine
 		return false;
 	}
 
-	bool winApiWindow::handleCloseEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, [[maybe_unused]] WPARAM wParam, [[maybe_unused]] LPARAM lParam)
+	bool winApiWindow::handleCloseEvent(HWND hWnd, UINT message, [[maybe_unused]] WPARAM wParam, [[maybe_unused]] LPARAM lParam)
 	{
 		if (message == WM_CLOSE)
 		{
 			if (!DestroyWindow(hWnd))
 			{
-				logLastError("cant destroy window");
+				logLastError("can't destroy window");
 				return false;
 			}
 
 			return true;
 		}
 
+		return false;
+	}
+
+	bool winApiWindow::handleDestroyEvent(winApiWindow* winApiInst, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+	{
 		if (message == WM_DESTROY)
 		{
 			PostQuitMessage(0);
-			winApiInst->mCtx.getDispatcher()->queueEvent(std::make_shared<closeEvent>());
+
+			if (winApiInst)
+				winApiInst->mCtx.getDispatcher()->queueEvent(std::make_shared<closeEvent>());
+
 			return true;
 		}
 
@@ -104,7 +112,7 @@ namespace engine
 		return false;
 	}
 
-	bool winApiWindow::handlePaintEvent([[maybe_unused]] winApiWindow* winApiInst, [[maybe_unused]] HWND hWnd, [[maybe_unused]] UINT message, [[maybe_unused]] WPARAM wParam, [[maybe_unused]] LPARAM lParam)
+	bool winApiWindow::handlePaintEvent([[maybe_unused]] HWND hWnd, [[maybe_unused]] UINT message, [[maybe_unused]] WPARAM wParam, [[maybe_unused]] LPARAM lParam)
 	{
 		if (message == WM_PAINT)
 			return true;
@@ -114,21 +122,28 @@ namespace engine
 
 	LRESULT winApiWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
-		hwndTableMu.lock();
-		auto pThis = hwndTable.find(hWnd);
-		auto end = hwndTable.end();
-		hwndTableMu.unlock();
+		if (handleCloseEvent(hWnd, message, wParam, lParam))
+			return 0;
 
-		if (pThis != end)
+		if (handlePaintEvent(hWnd, message, wParam, lParam))
+			return 0;
+
 		{
-			bool handled = false;
+			std::lock_guard<std::mutex> l{ hwndTableMu };
+			auto pThis = hwndTable.find(hWnd);
+			if (pThis != hwndTable.end() && pThis->first)
+			{
+				if (handleRawInput(pThis->second, hWnd, message, wParam, lParam))
+					return 0;
 
-			handled |= handleRawInput(pThis->second, hWnd, message, wParam, lParam);
-			handled |= handleResizeEvent(pThis->second, hWnd, message, wParam, lParam);
-			handled |= handlePaintEvent(pThis->second, hWnd, message, wParam, lParam);
-			handled |= handleCloseEvent(pThis->second, hWnd, message, wParam, lParam);
+				if (handleResizeEvent(pThis->second, hWnd, message, wParam, lParam))
+					return 0;
 
-			if (handled)
+				if (handleDestroyEvent(pThis->second, hWnd, message, wParam, lParam))
+					return 0;
+			}
+
+			if (handleDestroyEvent(nullptr, hWnd, message, wParam, lParam))
 				return 0;
 		}
 
