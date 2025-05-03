@@ -32,12 +32,6 @@ namespace engine
 		}
 
 		template<typename T>
-		bool HasComponent()
-		{
-			return mScene->mSceneRegistry.has<T>(mEntityHandle);
-		}
-
-		template<typename T>
 		void RemoveComponent()
 		{
 			mScene->mSceneRegistry.remove<T>(mEntityHandle);

@@ -123,12 +123,6 @@ namespace engine
 
 		auto hInstace = getThisModuleHandle();
 
-		auto appName = std::wstring(mApplicationName.begin(), mApplicationName.end());
-		LPCWSTR lpcAppName = appName.c_str();
-
-		auto title = std::wstring(mName.begin(), mName.end());
-		LPCWSTR lpcTitle = title.c_str();
-
 		// The parameters to CreateWindowEx explained:
 		// WS_EX_OVERLAPPEDWINDOW : An optional extended window style.
 		// szWindowClass: the name of the application
@@ -140,10 +134,10 @@ namespace engine
 		// NULL: this application does not have a menu bar
 		// hInstance: the first parameter from WinMain
 		// NULL: not used in this application
-		mHWnd = CreateWindowEx(
+		mHWnd = CreateWindowExA(
 			WS_EX_APPWINDOW,
-			lpcAppName,
-			lpcTitle,
+			mApplicationName.c_str(),
+			mName.c_str(),
 			mIsFullscreen ? WS_POPUP | WS_VISIBLE : WS_OVERLAPPEDWINDOW,
 			CW_USEDEFAULT, CW_USEDEFAULT,
 			mWidth, mHeight,  // Corrected sizes

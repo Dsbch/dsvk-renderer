@@ -36,7 +36,7 @@ namespace engine
 	inline void dynamicArrayObject::updateData(size_t offset, size_t size, T* data)
 	{
 		PROFILE_FUNC();
-
+		
 		std::memcpy(static_cast<T*>(mData) + offset, data, size * sizeof(T));
 	}
 }

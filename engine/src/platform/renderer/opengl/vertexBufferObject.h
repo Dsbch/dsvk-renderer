@@ -22,7 +22,7 @@ namespace engine
 		virtual std::vector<attributeInfo> info() const = 0;
 	};
 
-	class vertexBufferObject
+	class vertexArrayObject
 	{
 	private:
 		uint32_t mID;
@@ -32,8 +32,8 @@ namespace engine
 		static int mMaxAttributes;
 		static std::once_flag mAttribOnceFlag;
 	public:
-		vertexBufferObject();
-		~vertexBufferObject();
+		vertexArrayObject();
+		~vertexArrayObject();
 		void bind() const;
 		void setElementBuffer(uint32_t elementCount, uint32_t elementBufferID);
 		uint32_t getElementCount() const;

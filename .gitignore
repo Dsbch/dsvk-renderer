@@ -787,3 +787,14 @@ FodyWeavers.xsd
 *.sln.iml
 *.vcxproj
 *.vcxproj.filters
+
+# codelite
+.build-debug
+.codelite
+compile_commands.json
+*.workspace
+*.project
+*.mk
+*.txt
+.build-release
+.build-dist

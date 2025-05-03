@@ -5,38 +5,38 @@
 namespace engine
 {
 
-	int vertexBufferObject::mMaxAttributes;
-	std::once_flag vertexBufferObject::mAttribOnceFlag;
+	int vertexArrayObject::mMaxAttributes;
+	std::once_flag vertexArrayObject::mAttribOnceFlag;
 
-	vertexBufferObject::vertexBufferObject() : mID(0), mElementCount(0), mAttribCount(0)
+	vertexArrayObject::vertexArrayObject() : mID(0), mElementCount(0), mAttribCount(0)
 	{
 		std::call_once(mAttribOnceFlag, glGetIntegerv, GL_MAX_VERTEX_ATTRIBS, &mMaxAttributes);
 
 		glCreateVertexArrays(1, &mID);
 	}
 
-	vertexBufferObject::~vertexBufferObject()
+	vertexArrayObject::~vertexArrayObject()
 	{
 		glDeleteVertexArrays(1, &mID);
 	}
 
-	void vertexBufferObject::bind() const
+	void vertexArrayObject::bind() const
 	{
 		glBindVertexArray(mID);
 	}
 
-	void vertexBufferObject::setElementBuffer(uint32_t elementCount, uint32_t elementBufferID)
+	void vertexArrayObject::setElementBuffer(uint32_t elementCount, uint32_t elementBufferID)
 	{
 		mElementCount = elementCount;
 		glVertexArrayElementBuffer(mID, elementBufferID);
 	}
 
-	uint32_t vertexBufferObject::getElementCount() const
+	uint32_t vertexArrayObject::getElementCount() const
 	{
 		return mElementCount;
 	}
 
-	engine::error vertexBufferObject::setAttribs(const attributesDescriber& describer)
+	engine::error vertexArrayObject::setAttribs(const attributesDescriber& describer)
 	{
 		auto info = describer.info();
 		if (info.size() > mMaxAttributes)

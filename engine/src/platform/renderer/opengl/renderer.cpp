@@ -102,7 +102,7 @@ namespace engine
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
-	void openglRenderer::render(const vertexBufferObject& vao) const
+	void openglRenderer::render(const vertexArrayObject& vao) const
 	{
 		vao.bind();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

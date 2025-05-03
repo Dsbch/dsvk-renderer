@@ -1,5 +1,6 @@
 #include <pch.h>
 #include "entity.h"
+#include "core/scene/components.h"
 
 namespace engine
 {
@@ -7,5 +8,6 @@ namespace engine
 		:
 			mEntityHandle(handle), mScene(scene), mCtx(ctx)
 	{
+		AddComponent<uidComponent>();
 	}
 }

@@ -22,6 +22,6 @@ namespace engine
 		error checkError() const;
 		void changeViewPort(uint32_t width, uint32_t height) const;
 		void render() const;
-		void render(const vertexBufferObject& vao) const;
+		void render(const vertexArrayObject& vao) const;
 	};
 }

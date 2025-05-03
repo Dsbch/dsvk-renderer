@@ -2,10 +2,10 @@
 #include <base/logger/logger.h>
 #include <core/layers/layer.h>
 
-class testOverlay : public engine::layer
+class editorLayer : public engine::layer
 {
 public:
-	testOverlay(engine::context ctx)
+	editorLayer(engine::context ctx)
 		:
 		engine::layer(ctx)
 	{
@@ -14,14 +14,11 @@ public:
 
 	bool onEvent(std::shared_ptr<engine::baseEvent> e)
 	{
-		LOGINFO("testOverlay got event");
-
 		return false;
 	}
 
 	void onRender()
 	{
-		LOGINFO("testOverlay render");
 	}
 
 	engine::error checkError() const { return {}; };
@@ -35,7 +32,7 @@ public:
 		if (mErr)
 			return;
 
-		pushOverlay(std::make_shared<testOverlay>(mCtx));
+		pushOverlay(std::make_shared<editorLayer>(mCtx));
 	}
 };
 

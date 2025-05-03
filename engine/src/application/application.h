@@ -6,7 +6,7 @@
 #include "base/config/config.h"
 
 #ifdef WINAPI
-int WINAPI::WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow);
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow);
 #else
 int ::main(int argc, char** argv);
 #endif
@@ -191,12 +191,6 @@ namespace engine
 		error createWindow();
 		error createLayerStack();
 		void update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
-
-
-#ifdef WINAPI
-		friend int WINAPI::WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow);
-#else
-		friend int ::main(int argc, char** argv);
-#endif
+		void render(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
 	};
 }

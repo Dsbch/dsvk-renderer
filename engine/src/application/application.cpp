@@ -25,7 +25,7 @@ namespace engine
 
 		if (auto err = mCfg.checkError(); err)
 			LOGERROR("{}", err.err());
-	
+
 		return {};
 	}
 
@@ -63,7 +63,7 @@ namespace engine
 	error application::createLayerStack()
 	{
 		pushLayer(std::make_shared<worldLayer>(mCtx));
-		
+
 		return mLayerStack->checkError();
 	}
 
@@ -76,10 +76,10 @@ namespace engine
 			mWindow->pollInput();
 
 			// Dispatch events.
-			auto& d = mCtx.getDispatcher();
+			auto d = mCtx.getDispatcher();
 			while (d->hasEvents())
 			{
-				auto& e = d->getEvent();
+				auto e = d->getEvent();
 
 				if (e->getEventType() == eventType::close)
 				{
@@ -93,9 +93,19 @@ namespace engine
 		}
 	}
 
+	void application::render(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
+	{
+		if (mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextRender)
+		{
+			mLayerStack->render();
+			mWindow->swapBuffers();
+			nextRender += renderShift;
+		}
+	}
+
 	application::application()
 		:
-			mCtx(), mErr(), mCfg(), mLayerStack(std::make_unique<layerStack>()), mWindow(nullptr), mRunning(false)
+		mCtx(), mErr(), mCfg(), mLayerStack(std::make_unique<layerStack>()), mWindow(nullptr), mRunning(false)
 	{
 		mErr = initApplication();
 		if (mErr)
@@ -104,7 +114,7 @@ namespace engine
 		mErr = createWindow();
 		if (mErr)
 			return;
-		
+
 		mErr = createLayerStack();
 		if (mErr)
 			return;
@@ -137,12 +147,13 @@ namespace engine
 		uint32_t maxFrameSkip = mCfg.getCfg().gameLoop.gups / mCfg.getCfg().gameLoop.minimumFps;
 		std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / mCfg.getCfg().gameLoop.gups);
 
+		std::chrono::milliseconds nextRender = mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart());
+		std::chrono::milliseconds renderShift = std::chrono::milliseconds(1000 / mCfg.getCfg().gameLoop.fps);
+
 		while (mRunning)
 		{
 			update(nextGameUpdate, updateShift, maxFrameSkip);
-
-			mLayerStack->render();
-			mWindow->swapBuffers();
+			render(nextRender, renderShift);
 		}
 	}
 }
