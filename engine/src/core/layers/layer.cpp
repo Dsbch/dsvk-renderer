@@ -2,6 +2,7 @@
 
 #include "layer.h"
 #include "core/scene/scene.h"
+#include "core/scene/entity.h"
 
 namespace engine 
 {

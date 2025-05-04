@@ -26,8 +26,8 @@ namespace engine
 	{
 	private:
 		uint32_t mID;
-		uint32_t mElementCount;
-		uint32_t mAttribCount;
+		size_t mAttribCount;
+		size_t mElementCount;
 
 		static int mMaxAttributes;
 		static std::once_flag mAttribOnceFlag;
@@ -35,8 +35,8 @@ namespace engine
 		vertexArrayObject();
 		~vertexArrayObject();
 		void bind() const;
-		void setElementBuffer(uint32_t elementCount, uint32_t elementBufferID);
-		uint32_t getElementCount() const;
+		void setElementBuffer(size_t elementCount, uint32_t elementBufferID);
+		size_t getElementCount() const;
 
 		engine::error setAttribs(const attributesDescriber&);
 	};

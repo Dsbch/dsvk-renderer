@@ -46,7 +46,7 @@ namespace engine
 	{
 		auto ent = createEntity();
 
-		auto& tag = ent.template AddComponent<tagComponent>(name);
+		auto& tag = ent.template addComponent<tagComponent>(name);
 
 		return ent;
 	}

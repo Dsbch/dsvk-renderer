@@ -25,13 +25,13 @@ namespace engine
 		glBindVertexArray(mID);
 	}
 
-	void vertexArrayObject::setElementBuffer(uint32_t elementCount, uint32_t elementBufferID)
+	void vertexArrayObject::setElementBuffer(size_t elementCount, uint32_t elementBufferID)
 	{
 		mElementCount = elementCount;
 		glVertexArrayElementBuffer(mID, elementBufferID);
 	}
 
-	uint32_t vertexArrayObject::getElementCount() const
+	size_t vertexArrayObject::getElementCount() const
 	{
 		return mElementCount;
 	}
@@ -46,11 +46,11 @@ namespace engine
 
 		for (const attributesDescriber::attributeInfo& i : info)
 		{
-			glEnableVertexArrayAttrib(mID, mAttribCount);
-			glVertexArrayAttribBinding(mID, mAttribCount, mAttribCount);
+			glEnableVertexArrayAttrib(mID, GLuint(mAttribCount));
+			glVertexArrayAttribBinding(mID, GLuint(mAttribCount), GLuint(mAttribCount));
 
-			glVertexArrayVertexBuffer(mID, mAttribCount, i.bufferObjectID, 0, i.stride);
-			glVertexArrayAttribFormat(mID, mAttribCount, i.count, i.type, i.needNormalization, i.offset);
+			glVertexArrayVertexBuffer(mID, GLuint(mAttribCount), i.bufferObjectID, 0, i.stride);
+			glVertexArrayAttribFormat(mID, GLuint(mAttribCount), i.count, i.type, i.needNormalization, i.offset);
 
 			mAttribCount++;
 		}

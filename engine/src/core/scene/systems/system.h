@@ -9,7 +9,7 @@ namespace engine
 {
 	class system
 	{
-	private:
+	protected:
 		context mCtx;
 	public:
 		system(context ctx) : mCtx(ctx) {};

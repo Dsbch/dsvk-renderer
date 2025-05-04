@@ -8,6 +8,6 @@ namespace engine
 		:
 			mEntityHandle(handle), mScene(scene), mCtx(ctx)
 	{
-		AddComponent<uidComponent>();
+		addComponent<uidComponent>();
 	}
 }

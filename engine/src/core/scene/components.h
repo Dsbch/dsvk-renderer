@@ -33,14 +33,16 @@ namespace engine
 			: tag(tag) {}
 	};
 
+	struct deleteComponent {};
+	struct updateMeshComponent {};
+
 	struct dynamicMeshComponent
 	{
 		std::vector<vertex> meshData;
 		std::vector<uint32_t> indexData;
-		bool needUpdate;
 
 		dynamicMeshComponent(std::vector<vertex>&& meshData, std::vector<uint32_t>&& indexData)
-			: meshData(std::move(meshData)), indexData(std::move(indexData)), needUpdate(false) {}
+			: meshData(std::move(meshData)), indexData(std::move(indexData)) {}
 	};
 
 
@@ -55,10 +57,10 @@ namespace engine
 
 	struct materialComponent
 	{
-		std::unique_ptr<shaderProgram> shader;
-		std::unique_ptr<texture> texture;
+		std::shared_ptr<shaderProgram> shader;
+		std::shared_ptr<texture> tex;
 
-		materialComponent(std::unique_ptr<shaderProgram>&& shader, std::unique_ptr<shaderProgram>&& texure)
-			: shader(std::move(shader)), texture(std::move(texture)) {}
+		materialComponent(std::shared_ptr<texture> tex, std::shared_ptr<shaderProgram> shader)
+			: shader(shader), tex(tex) {}
 	};
 }

@@ -12,27 +12,27 @@ namespace engine
 		entity(context ctx, entt::entity handle, scene* scene);
 
 		template<typename T, typename... Args>
-		T& AddComponent(Args&&... args)
+		T& addComponent(Args&&... args)
 		{
 			T& component = mScene->mSceneRegistry.emplace<T>(mEntityHandle, std::forward<Args>(args)...);
 			return component;
 		}
 
 		template<typename T, typename... Args>
-		T& AddOrReplaceComponent(Args&&... args)
+		T& addOrReplaceComponent(Args&&... args)
 		{
 			T& component = mScene->mSceneRegistry.emplace_or_replace<T>(mEntityHandle, std::forward<Args>(args)...);
 			return component;
 		}
 
 		template<typename T>
-		T& GetComponent()
+		T& getComponent()
 		{
 			return mScene->mSceneRegistry.get<T>(mEntityHandle);
 		}
 
 		template<typename T>
-		void RemoveComponent()
+		void removeComponent()
 		{
 			mScene->mSceneRegistry.remove<T>(mEntityHandle);
 		}

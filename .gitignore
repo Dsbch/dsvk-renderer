@@ -798,3 +798,4 @@ compile_commands.json
 *.txt
 .build-release
 .build-dist
+prof.json

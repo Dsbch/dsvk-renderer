@@ -2,6 +2,7 @@
 
 #include <pch.h>
 #include "vertexBufferObject.h"
+#include "shader.h"
 #include "base/context/context.h"
 #include "core/events/events.h"
 
@@ -22,6 +23,6 @@ namespace engine
 		error checkError() const;
 		void changeViewPort(uint32_t width, uint32_t height) const;
 		void render() const;
-		void render(const vertexArrayObject& vao) const;
+		void render(const shaderProgram& shader, const vertexArrayObject& vao) const;
 	};
 }
