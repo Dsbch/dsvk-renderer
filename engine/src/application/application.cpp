@@ -105,7 +105,7 @@ namespace engine
 
 	application::application()
 		:
-		mCtx(), mErr(), mCfg(), mLayerStack(std::make_unique<layerStack>()), mWindow(nullptr), mRunning(false)
+		mErr(), mCfg(), mCtx(mCfg), mLayerStack(std::make_unique<layerStack>()), mWindow(nullptr), mRunning(false)
 	{
 		mErr = initApplication();
 		if (mErr)

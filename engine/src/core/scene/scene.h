@@ -4,6 +4,7 @@
 #include <entt/entt.hpp>
 #include "base/context/context.h"
 #include "core/events/events.h"
+#include "core/camera/camera.h"
 #include "core/scene/systems/system.h"
 
 namespace engine
@@ -22,8 +23,12 @@ namespace engine
 
 		entity createEntity(const std::string&);
 		entity createEntity();
-	private:
+	
+	protected:
 		context mCtx;
+		fpsCamera mActiveCamera;
+	
+	private:
 		entt::registry mSceneRegistry;
 		std::vector<std::unique_ptr<system>> mSystems;
 

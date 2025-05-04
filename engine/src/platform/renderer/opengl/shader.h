@@ -17,7 +17,7 @@ namespace engine
 		engine::error compile();
 		void bind() const;
 		uint32_t getID() const;
-
+		std::map<std::string, shaderVariableInfo>& getActiveUnifrms();
 		template<class T>
 		engine::error setUniformType(const std::string& name, const T* data, uint32_t count) const;
 		engine::error setUnifromVec3(const std::string& name, const float* data, uint32_t count) const;

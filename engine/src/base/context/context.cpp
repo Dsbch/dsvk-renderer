@@ -3,9 +3,9 @@
 
 namespace engine
 {
-	context::context()
+	context::context(cfg<main> config)
 		:
-		mDispatcher(std::make_shared<eventDispatcher>()), mAmanager(std::make_shared<aManager>()), mThreadPool(std::make_shared<threadPool>())
+		mDispatcher(std::make_shared<eventDispatcher>()), mAmanager(std::make_shared<aManager>()), mThreadPool(std::make_shared<threadPool>()), config(config)
 	{};
 
 	timer context::getTimer() const

@@ -25,6 +25,11 @@ namespace engine
 		return mID;
 	}
 
+	std::map<std::string, shaderProgram::shaderVariableInfo>& shaderProgram::getActiveUnifrms()
+	{
+		return mActiveUniforms;
+	}
+
 	error shaderProgram::setUnifromVec3(const std::string& name, const float* data, uint32_t count) const
 	{
 		bind();

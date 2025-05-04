@@ -59,8 +59,10 @@ namespace engine
 	{
 		std::shared_ptr<shaderProgram> shader;
 		std::shared_ptr<texture> tex;
-
+			
 		materialComponent(std::shared_ptr<texture> tex, std::shared_ptr<shaderProgram> shader)
 			: shader(shader), tex(tex) {}
 	};
+
+	struct inputListenerComponent {};
 }

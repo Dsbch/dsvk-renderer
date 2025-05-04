@@ -1,4 +1,5 @@
 #include <pch.h>
+#include <glm/gtc/type_ptr.hpp>
 #include "renderSystem.h"
 #include "core/scene/components.h"
 
@@ -190,11 +191,14 @@ namespace engine
 		}
 	}
 
-	void renderSystem::render(entt::registry& registry)
+	void renderSystem::render(entt::registry& registry, const fpsCamera& camera)
 	{
 		auto viewStatic = registry.view<uidComponent, staticMeshComponent, materialComponent>();
 		for (auto [entity, uid, mesh, material] : viewStatic.each())
 		{
+			material.shader->setUniformMat4("uView", glm::value_ptr(camera.getCameraTransform()), 1);
+			material.shader->setUniformMat4("uProjection", glm::value_ptr(camera.getProjection()), 1);
+
 			if (auto data = mStaticData.find({ material.tex->getID(), material.shader->getID() }); data != mStaticData.end())
 			{
 				mRenderer.render(*(material.shader.get()), *(material.tex.get()) , *(data->second.mVAO.get()));
@@ -208,6 +212,9 @@ namespace engine
 		auto viewDynamic = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
 		for (auto [entity, uid, mesh, material] : viewDynamic.each())
 		{
+			material.shader->setUniformMat4("uView", glm::value_ptr(camera.getCameraTransform()), 1);
+			material.shader->setUniformMat4("uProjection", glm::value_ptr(camera.getProjection()), 1);
+
 			if (auto data = mDynamicData.find({ material.tex->getID(), material.shader->getID() }); data != mDynamicData.end())
 			{
 				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
@@ -219,7 +226,7 @@ namespace engine
 		}
 	}
 
-	void engine::renderSystem::onRender(entt::registry& registry)
+	void engine::renderSystem::onRender(entt::registry& registry, const fpsCamera& camera)
 	{
 		deleteEntities(registry);
 
@@ -227,7 +234,7 @@ namespace engine
 
 		updateData(registry);
 
-		render(registry);
+		render(registry, camera);
 	}
 
 	void renderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)

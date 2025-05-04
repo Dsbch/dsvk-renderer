@@ -54,10 +54,10 @@ namespace engine
 		void resizeOnNeed(renderDataHandle<dynamicArrayObject>& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo);
 		void addEntities(entt::registry& registry);
 		void updateData(entt::registry& registry);
-		void render(entt::registry& registry);
+		void render(entt::registry& registry, const fpsCamera& camera);
 	public:
 		renderSystem(context ctx);
-		void onRender(entt::registry& registry);
+		void onRender(entt::registry& registry, const fpsCamera& camera);
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 		error checkError();
 	};
