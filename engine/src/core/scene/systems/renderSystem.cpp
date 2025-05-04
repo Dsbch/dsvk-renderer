@@ -197,7 +197,7 @@ namespace engine
 		{
 			if (auto data = mStaticData.find({ material.tex->getID(), material.shader->getID() }); data != mStaticData.end())
 			{
-				mRenderer.render(*(material.shader.get()), *(data->second.mVAO.get()));
+				mRenderer.render(*(material.shader.get()), *(material.tex.get()) , *(data->second.mVAO.get()));
 			}
 			else
 			{
@@ -210,7 +210,7 @@ namespace engine
 		{
 			if (auto data = mDynamicData.find({ material.tex->getID(), material.shader->getID() }); data != mDynamicData.end())
 			{
-				mRenderer.render(*(material.shader.get()), *(data->second.mVAO.get()));
+				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
 			}
 			else
 			{
@@ -232,6 +232,7 @@ namespace engine
 
 	void renderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
+		// move somewhere else, to another system.
 		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::e)
 		{
 			auto t = mCtx.getAManager()->loadTexture("../assets/textures/wood.jpg");
@@ -270,6 +271,11 @@ namespace engine
 			});
 
 			registry.emplace<materialComponent>(c, t.first, p.first);
+
+			// rmv code below, only for tests.
+			t.first->bind();
+			int slotID = t.first->getSlotID();
+			p.first->setUniformType("u_textures[0]", &slotID, 1);
 		}
 	}
 

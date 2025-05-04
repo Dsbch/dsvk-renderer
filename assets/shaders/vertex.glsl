@@ -13,7 +13,7 @@ out float v_tex_index;
 
 void main()
 {
-    gl_Position = uProjection * uView * vec4(position.xyz, 1.0f);
+    gl_Position = vec4(position.xyz, 1.0f);
     pos = gl_Position;
     v_tex_coords = tex_coords;
     v_tex_index = float(tex_index);

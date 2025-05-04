@@ -8,7 +8,7 @@
 
 namespace engine
 {
-	inline uint32_t genUID()
+	static uint32_t genUID()
 	{
 		static std::random_device rd;
 		static std::mt19937 gen(rd());

@@ -102,10 +102,11 @@ namespace engine
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
-	void openglRenderer::render(const shaderProgram& shader, const vertexArrayObject& vao) const
+	void openglRenderer::render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const
 	{
 		vao.bind();
 		shader.bind();
+		tex.bind();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glDrawElements(GL_TRIANGLES, GLsizei(vao.getElementCount()), GL_UNSIGNED_INT, nullptr);
 	}
