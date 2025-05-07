@@ -2,21 +2,21 @@
     "traceEvents": [
         {
             "cat": "function",
-            "dur": 1562,
+            "dur": 904,
             "name": "void __cdecl engine::winApiWindow::createWindowClass(const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &)",
             "ph": "X",
             "pid": 0,
-            "tid": 4843081565296234435,
-            "ts": 13116796558
+            "tid": 7070413169813825477,
+            "ts": 269835357808
         },
         {
             "cat": "function",
-            "dur": 33891,
+            "dur": 16375,
             "name": "__cdecl engine::winApiWindow::winApiWindow(class engine::context,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,unsigned int,unsigned int,bool,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,bool)",
             "ph": "X",
             "pid": 0,
-            "tid": 4843081565296234435,
-            "ts": 13116796556
+            "tid": 7070413169813825477,
+            "ts": 269835357803
         }
     ]
 }

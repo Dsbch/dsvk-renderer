@@ -4,29 +4,24 @@
 #include "core/scene/entity.h"
 #include "core/scene/components.h"
 #include "core/scene/systems/renderSystem.h"
+#include "core/scene/systems/cameraSystem.h"
 
 namespace engine
 {
 	scene::scene(context ctx)
 		:
-		mSceneRegistry(), mCtx(ctx), mSystems(), mActiveCamera(
-			ctx,
-			ctx.config.getCfg().camera.fov,
-			ctx.config.getCfg().camera.nearPlane,
-			ctx.config.getCfg().camera.farPlane,
-			ctx.config.getCfg().wnd.width,
-			ctx.config.getCfg().wnd.height
-		)
+		mSceneRegistry(), mCtx(ctx), mSystems()
 	{
 		// push back all needed systems.
 		mSystems.push_back(std::make_unique<renderSystem>(mCtx));
+		mSystems.push_back(std::make_unique<cameraSystem>(mCtx));
 	}
 
 	void scene::onRender()
 	{
 		for (auto& s : mSystems)
 		{
-			s->onRender(mSceneRegistry, mActiveCamera);
+			s->onRender(mSceneRegistry);
 		}
 	}
 
@@ -35,13 +30,6 @@ namespace engine
 		for (auto& s : mSystems)
 		{
 			s->onEvent(mSceneRegistry, e);
-		}
-
-		if (e->getEventType() == eventType::windowResize)
-		{
-			auto resizeEvent = static_cast<windowResizeEvent*>(e.get());
-
-			mActiveCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 		}
 	}
 

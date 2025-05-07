@@ -1,8 +1,8 @@
 #pragma once
 
 #include <pch.h>
-#include <entt/entt.hpp>
 #include "system.h"
+#include <entt/entt.hpp>
 #include "base/context/context.h"
 #include "core/scene/scene.h"
 #include "platform/renderer/vertex.h"
@@ -45,6 +45,8 @@ namespace engine
 	class renderSystem : public system
 	{
 	private:
+		fpsCamera mDefaultCamera;
+
 		openglRenderer mRenderer;
 
 		std::map<materialID, renderDataHandle<arrayObject>> mStaticData;
@@ -54,10 +56,10 @@ namespace engine
 		void resizeOnNeed(renderDataHandle<dynamicArrayObject>& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo);
 		void addEntities(entt::registry& registry);
 		void updateData(entt::registry& registry);
-		void render(entt::registry& registry, const fpsCamera& camera);
+		void render(entt::registry& registry);
 	public:
 		renderSystem(context ctx);
-		void onRender(entt::registry& registry, const fpsCamera& camera);
+		void onRender(entt::registry& registry);
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 		error checkError();
 	};

@@ -26,7 +26,6 @@ namespace engine
 	
 	protected:
 		context mCtx;
-		fpsCamera mActiveCamera;
 	
 	private:
 		entt::registry mSceneRegistry;

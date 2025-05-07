@@ -7,13 +7,16 @@ namespace engine
 {
 	renderSystem::renderSystem(context ctx)
 		:
-		system(ctx), mRenderer({ ctx })
+		system(ctx),
+		mRenderer({ ctx }),
+		mDefaultCamera(ctx, ctx.config.getCfg().camera.fov, ctx.config.getCfg().camera.nearPlane, ctx.config.getCfg().camera.farPlane, ctx.config.getCfg().wnd.width, ctx.config.getCfg().wnd.height)
 	{
 	}
 
 	void renderSystem::deleteEntities(entt::registry& registry)
 	{
-		auto viewDeleted = registry.view<uidComponent, dynamicMeshComponent, materialComponent, deleteComponent>();
+		// TODO: implement delete, doesn't work because of index buffer.
+		/*auto viewDeleted = registry.view<uidComponent, dynamicMeshComponent, materialComponent, deleteComponent>();
 		for (auto [entity, uid, mesh, material] : viewDeleted.each())
 		{
 			auto renderData = mDynamicData.find({ material.tex->getID(), material.shader->getID() });
@@ -24,7 +27,7 @@ namespace engine
 				{
 					renderData->second.mEBO->updateData(
 						boundaries->second.fromEBO,
-						boundaries->second.toEBO - boundaries->second.fromEBO,
+						renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t) - boundaries->second.toEBO,
 						renderData->second.mEBO->getPtr<uint32_t>() + boundaries->second.toEBO
 					);
 
@@ -34,7 +37,7 @@ namespace engine
 
 					renderData->second.mVBO->updateData(
 						boundaries->second.fromVBO,
-						boundaries->second.toVBO - boundaries->second.fromVBO,
+						renderData->second.mVBO->getLoadedSize() / sizeof(vertex) - boundaries->second.toVBO,
 						renderData->second.mVBO->getPtr<vertex>() + boundaries->second.toVBO
 					);
 
@@ -42,18 +45,18 @@ namespace engine
 						renderData->second.mVBO->getLoadedSize() - (boundaries->second.toVBO - boundaries->second.fromVBO) * sizeof(vertex)
 					);
 
+					registry.destroy(entity);
+
 					renderData->second.mEntityBoundaries.erase(uid.uid);
 					renderData->second.mVAO->setElementBuffer(renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t), renderData->second.mEBO->getID());
-
-					registry.destroy(entity);
 				}
 			}
-		}
+		}*/
 	}
 
 	void renderSystem::resizeOnNeed(renderDataHandle<dynamicArrayObject>& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo)
 	{
-		auto newSize = [&](size_t oldLen, size_t newDataLen)->size_t
+		auto newLen = [](size_t oldLen, size_t newDataLen)->size_t
 			{
 				if (oldLen * 1.5f >= oldLen + newDataLen)
 				{
@@ -71,13 +74,13 @@ namespace engine
 		if (freeSizeVBO < vbo.size() * sizeof(vertex))
 		{
 			auto ptr = new dynamicArrayObject{
-					newSize(renderData.mVBO->getSize() / sizeof(vertex), vbo.size()),
+					newLen(renderData.mVBO->getSize() / sizeof(vertex), vbo.size()) * sizeof(vertex),
 					nullptr
 			};
 
-			ptr->updateData(0, renderData.mVBO->getSize() / sizeof(vertex), renderData.mVBO->getPtr<vertex>());
+			ptr->template updateData<vertex>(0, renderData.mVBO->getLoadedSize() / sizeof(vertex), renderData.mVBO->getPtr<vertex>());
 			ptr->setLoadedSize(
-				ptr->getLoadedSize() + renderData.mVBO->getSize()
+				renderData.mVBO->getLoadedSize()
 			);
 
 			renderData.mVBO.reset(ptr);
@@ -86,13 +89,13 @@ namespace engine
 		if (freeSizeEBO < ebo.size() * sizeof(uint32_t))
 		{
 			auto ptr = new dynamicArrayObject{
-				newSize(renderData.mEBO->getSize() / sizeof(uint32_t), ebo.size()),
+				newLen(renderData.mEBO->getSize() / sizeof(uint32_t), ebo.size()) * sizeof(uint32_t),
 				nullptr
 			};
 
-			ptr->updateData(0, renderData.mEBO->getSize() / sizeof(uint32_t), renderData.mEBO->getPtr<uint32_t>());
+			ptr->template updateData<uint32_t>(0, renderData.mEBO->getLoadedSize() / sizeof(uint32_t), renderData.mEBO->getPtr<uint32_t>());
 			ptr->setLoadedSize(
-				ptr->getLoadedSize() + renderData.mEBO->getSize()
+				renderData.mEBO->getLoadedSize()
 			);
 
 			renderData.mEBO.reset(ptr);
@@ -101,6 +104,17 @@ namespace engine
 
 	void renderSystem::addEntities(entt::registry& registry)
 	{
+		auto shiftIndixes = [](const std::vector<uint32_t>& ebo, size_t shift) ->std::vector<uint32_t>
+			{
+				std::vector<uint32_t> newEbo(ebo);
+				for (auto& e : newEbo)
+				{
+					e += uint32_t(shift);
+				}
+
+				return newEbo;
+			};
+
 		auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
 		for (auto [entity, uid, mesh, material] : view.each())
 		{
@@ -108,24 +122,21 @@ namespace engine
 			if (renderData == mDynamicData.end())
 			{
 				// TODO: figure out where to get that.
-				const size_t newSize = sizeof(vertex) * 100;
+				const size_t newSizeVertex = 100;
+				const size_t newSizeIndex = 100;
 
 				mDynamicData[{ material.tex->getID(), material.shader->getID() }] = {
-					std::make_unique<dynamicArrayObject>(newSize, nullptr),
-					std::make_unique<dynamicArrayObject>(newSize, nullptr),
+					std::make_unique<dynamicArrayObject>(newSizeIndex, nullptr),
+					std::make_unique<dynamicArrayObject>(newSizeVertex, nullptr),
 					std::make_unique<vertexArrayObject>(),
 				};
 
 				renderData = mDynamicData.find({ material.tex->getID(), material.shader->getID() });
-
-				auto err = renderData->second.mVAO->setAttribs(vertexDescriber{ renderData->second.mVBO->getID() });
-				if (err)
-					LOGERROR("can't set attribs");
 			}
 
 			if (renderData->second.mEntityBoundaries.find(uid.uid) != renderData->second.mEntityBoundaries.end())
 			{
-				return;
+				continue;
 			}
 
 			renderData->second.mEntityBoundaries[uid.uid] = entityBoundaries{
@@ -138,6 +149,16 @@ namespace engine
 
 			resizeOnNeed(renderData->second, mesh.meshData, mesh.indexData);
 
+			renderData->second.mEBO->updateData(
+				renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t),
+				mesh.indexData.size(),
+				shiftIndixes(mesh.indexData, renderData->second.mVBO->getLoadedSize() / sizeof(vertex)).data()
+			);
+
+			renderData->second.mEBO->setLoadedSize(
+				renderData->second.mEBO->getLoadedSize() + mesh.indexData.size() * sizeof(uint32_t)
+			);
+
 			renderData->second.mVBO->updateData(
 				renderData->second.mVBO->getLoadedSize() / sizeof(vertex),
 				mesh.meshData.size(),
@@ -148,17 +169,11 @@ namespace engine
 				renderData->second.mVBO->getLoadedSize() + mesh.meshData.size() * sizeof(vertex)
 			);
 
-			renderData->second.mEBO->updateData(
-				renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t),
-				mesh.indexData.size(),
-				mesh.indexData.data()
-			);
-
-			renderData->second.mEBO->setLoadedSize(
-				renderData->second.mEBO->getLoadedSize() + mesh.indexData.size() * sizeof(uint32_t)
-			);
-
 			renderData->second.mVAO->setElementBuffer(renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t), renderData->second.mEBO->getID());
+
+			auto err = renderData->second.mVAO->setAttribs(vertexDescriber{ renderData->second.mVBO->getID() });
+			if (err)
+				LOGERROR("can't set attribs");
 		}
 	}
 
@@ -173,16 +188,10 @@ namespace engine
 				auto boundaries = renderData->second.mEntityBoundaries.find(uid.uid);
 				if (boundaries != renderData->second.mEntityBoundaries.end())
 				{
-					renderData->second.mEBO->updateData(
-						boundaries->second.fromEBO,
-						boundaries->second.toEBO - boundaries->second.fromEBO,
-						renderData->second.mEBO->getPtr<uint32_t>() + boundaries->second.fromEBO
-					);
-
-					renderData->second.mVBO->updateData(
+					renderData->second.mVBO->updateData<vertex>(
 						boundaries->second.fromVBO,
 						boundaries->second.toVBO - boundaries->second.fromVBO,
-						renderData->second.mVBO->getPtr<vertex>() + boundaries->second.fromVBO
+						mesh.meshData.data()
 					);
 
 					registry.remove<updateMeshComponent>(entity);
@@ -191,42 +200,55 @@ namespace engine
 		}
 	}
 
-	void renderSystem::render(entt::registry& registry, const fpsCamera& camera)
+	void renderSystem::render(entt::registry& registry)
 	{
-		auto viewStatic = registry.view<uidComponent, staticMeshComponent, materialComponent>();
-		for (auto [entity, uid, mesh, material] : viewStatic.each())
-		{
-			material.shader->setUniformMat4("uView", glm::value_ptr(camera.getCameraTransform()), 1);
-			material.shader->setUniformMat4("uProjection", glm::value_ptr(camera.getProjection()), 1);
+		glm::mat4 projection = mDefaultCamera.getProjection();
+		glm::mat4 view = mDefaultCamera.getCameraTransform();
 
-			if (auto data = mStaticData.find({ material.tex->getID(), material.shader->getID() }); data != mStaticData.end())
+		auto viewCamera = registry.view<fpsCameraComponent>();
+		for (auto [entity, camera] : viewCamera.each())
+		{
+			if (camera.isActive)
 			{
-				mRenderer.render(*(material.shader.get()), *(material.tex.get()) , *(data->second.mVAO.get()));
-			}
-			else
-			{
-				LOGERROR("renderSystem::render data wansn't found by materialID");
+				projection = camera.camera->getProjection();
+				view = camera.camera->getCameraTransform();
 			}
 		}
 
-		auto viewDynamic = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
-		for (auto [entity, uid, mesh, material] : viewDynamic.each())
+		std::set<materialComponent> uniqueMaterials;
+
+		auto viewStatic = registry.group<materialComponent>();
+		for (auto [entity, material] : viewStatic.each())
 		{
-			material.shader->setUniformMat4("uView", glm::value_ptr(camera.getCameraTransform()), 1);
-			material.shader->setUniformMat4("uProjection", glm::value_ptr(camera.getProjection()), 1);
+			uniqueMaterials.insert(material);
+		}
+
+		// static draws.
+		for (auto material : uniqueMaterials)
+		{
+			material.shader->setUniformMat4("uView", glm::value_ptr(view), 1);
+			material.shader->setUniformMat4("uProjection", glm::value_ptr(projection), 1);
+
+			if (auto data = mStaticData.find({ material.tex->getID(), material.shader->getID() }); data != mStaticData.end())
+			{
+				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
+			}
+		}
+
+		// dynamic draws.
+		for (auto material : uniqueMaterials)
+		{
+			material.shader->setUniformMat4("uView", glm::value_ptr(view), 1);
+			material.shader->setUniformMat4("uProjection", glm::value_ptr(projection), 1);
 
 			if (auto data = mDynamicData.find({ material.tex->getID(), material.shader->getID() }); data != mDynamicData.end())
 			{
 				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
 			}
-			else
-			{
-				LOGERROR("renderSystem::render data wansn't found by materialID");
-			}
 		}
 	}
 
-	void engine::renderSystem::onRender(entt::registry& registry, const fpsCamera& camera)
+	void engine::renderSystem::onRender(entt::registry& registry)
 	{
 		deleteEntities(registry);
 
@@ -234,37 +256,77 @@ namespace engine
 
 		updateData(registry);
 
-		render(registry, camera);
+		render(registry);
 	}
 
 	void renderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
-		// move somewhere else, to another system.
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::e)
+		if (e->getEventType() == eventType::windowResize)
 		{
-			auto t = mCtx.getAManager()->loadTexture("../assets/textures/wood.jpg");
-			auto p = mCtx.getAManager()->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+			auto resizeEvent = static_cast<windowResizeEvent*>(e.get());
+
+			mDefaultCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+		}
+
+		// code below move somewhere else, to another system.
+		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::v)
+		{
+			std::shared_ptr<texture> texture = nullptr;
+			std::shared_ptr<shaderProgram> shader = nullptr;
+
+			auto t = mCtx.getAManager()->getTexture("../assets/textures/wood.jpg");
+			auto p = mCtx.getAManager()->getCompiledShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+			if (t.second || p.second)
+			{
+				auto t1 = mCtx.getAManager()->loadTexture("../assets/textures/wood.jpg");
+				auto p1 = mCtx.getAManager()->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+
+				texture = t1.first;
+				shader = p1.first;
+			}
+			else
+			{
+				texture = t.first;
+				shader = p.first;
+			}
+
+			auto getMovedCube = []()->std::vector<vertex>
+				{
+					auto vertexes = std::vector<vertex>{
+						// Front face
+						{ { 0.5f, 0.5f, 0.5f}, { 1.0f, 1.0f }, 0 },
+						{ { 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f}, 0 },
+						{ {-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0 },
+						{ {-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f}, 0 },
+
+						// Back face
+					{ { 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0 },
+					{ { 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, 0 },
+					{ {-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0 },
+					{ {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f}, 0 },
+					};
+
+					std::mt19937 rng(std::random_device{}());
+					std::uniform_real_distribution<float> dist(-10.0f, 10.0f);
+					glm::vec3 offset(dist(rng), dist(rng), dist(rng));
+					glm::mat4 transform = glm::translate(glm::mat4(1.0f), offset);
+
+					for (auto& v : vertexes) {
+						glm::vec4 pos = transform * glm::vec4(v.position, 1.0f);
+						v.position = glm::vec3(pos);
+					}
+
+					return vertexes;
+				};
 
 			auto c = registry.create();
 			registry.emplace<uidComponent>(c);
 			registry.emplace<dynamicMeshComponent>(
 				c,
-				std::vector<vertex>{
-				// Front face
-					{ { 0.5f, 0.5f, 0.5f}, { 1.0f, 1.0f }, 0 },
-					{ { 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f}, 0 },
-					{ {-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0 },
-					{ {-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f}, 0 },
-
-						// Back face
-					{ { 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f}, 0 },
-					{ { 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0 },
-					{ {-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f}, 0 },
-					{ {-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0 },
-				},
+				getMovedCube(),
 				std::vector<uint32_t>{
-					// Front face
-					0, 1, 2, 2, 3, 0,
+				// Front face
+				0, 1, 2, 2, 3, 0,
 					// Left face
 					3, 2, 6, 6, 7, 3,
 					// Right face
@@ -277,12 +339,35 @@ namespace engine
 					4, 5, 6, 6, 7, 4,
 			});
 
-			registry.emplace<materialComponent>(c, t.first, p.first);
+			registry.emplace<materialComponent>(c, texture, shader);
 
 			// rmv code below, only for tests.
-			t.first->bind();
-			int slotID = t.first->getSlotID();
-			p.first->setUniformType("u_textures[0]", &slotID, 1);
+			texture->bind();
+			int slotID = texture->getSlotID();
+			shader->setUniformType("u_textures[0]", &slotID, 1);
+		}
+
+		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::q)
+		{
+			auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
+
+			if (view.size_hint() != 0)
+				registry.emplace<deleteComponent>(view.back());
+		}
+
+		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::u)
+		{
+			auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
+
+			for (auto [entity, uid, mesh, material] : view.each())
+			{
+				for (auto& v : mesh.meshData)
+				{
+					v.position.x += 0.1f;
+				}
+
+				registry.emplace<updateMeshComponent>(entity);
+			}
 		}
 	}
 

@@ -16,7 +16,7 @@ namespace engine
 		virtual ~system() = default;
 
 		virtual error checkError() = 0;
-		virtual void onRender(entt::registry& registry, const fpsCamera& camera) = 0;
+		virtual void onRender(entt::registry& registry) = 0;
 		virtual void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e) = 0;
 	};
 }

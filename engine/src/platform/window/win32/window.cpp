@@ -291,26 +291,12 @@ namespace engine
 	void winApiWindow::startPolling()
 	{
 		MSG msg{};
-		auto peekNotInput = [&]
-			{
-				if (GetForegroundWindow() != mHWnd)
-				{
-					return PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
-				}
-
-				auto ret = PeekMessage(&msg, NULL, 0, WM_INPUT - 1, PM_REMOVE);
-				if (!ret)
-				{
-					ret = PeekMessage(&msg, NULL, WM_INPUT + 1, std::numeric_limits<UINT>::max(), PM_REMOVE);
-				}
-
-				return ret;
-			};
-
 		while (GetMessage(&msg, NULL, 0, 0) > 0)
 		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+			if (GetForegroundWindow() == mHWnd) {
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
 		}
 	}
 

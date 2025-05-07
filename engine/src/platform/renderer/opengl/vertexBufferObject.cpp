@@ -44,6 +44,7 @@ namespace engine
 			return { "mMaxAttributes: {:d} but got {:d}", mMaxAttributes, info.size() };
 		}
 
+		mAttribCount = 0;
 		for (const attributesDescriber::attributeInfo& i : info)
 		{
 			glEnableVertexArrayAttrib(mID, GLuint(mAttribCount));

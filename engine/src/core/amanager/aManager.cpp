@@ -27,27 +27,15 @@ namespace engine
 		return s.str();
 	}
 
-	std::pair<const std::shared_ptr<texture>, engine::error> aManager::getTexture(const std::string& id)
+	std::pair<const std::shared_ptr<texture>, engine::error> aManager::getTexture(const std::string& path)
 	{
-		auto it = mLoadedTextures.find(id);
+		auto it = mLoadedTextures.find(path);
 		if (it != mLoadedTextures.end())
 		{
 			return { it->second , {} };
 		}
 		else {
 			return { {}, {"tried to access not loaded texture."} };
-		}
-	}
-
-	std::pair<const std::shared_ptr<shaderProgram>, engine::error> aManager::getCompiledShader(const std::string& id)
-	{
-		auto it = mCompiledShaders.find(id);
-		if (it != mCompiledShaders.end())
-		{
-			return { it->second, {} };
-		}
-		else {
-			return { {}, {"tried to access not loaded shader."} };
 		}
 	}
 
@@ -69,6 +57,18 @@ namespace engine
 		return { mLoadedTextures[path], {} };
 	}
 
+	std::pair<const std::shared_ptr<shaderProgram>, error> aManager::getCompiledShader(const std::string& vertexPath, const std::string& fragmentPath)
+	{
+		auto it = mCompiledShaders.find(vertexPath + fragmentPath);
+		if (it != mCompiledShaders.end())
+		{
+			return { it->second, {} };
+		}
+		else {
+			return { {}, {"tried to access not loaded shader."} };
+		}
+	}
+
 	std::pair<const std::shared_ptr<shaderProgram>, engine::error> aManager::loadAndCompileShader(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
 	{
 		std::string vs = openAndRead(vertexShaderPath);
@@ -82,9 +82,9 @@ namespace engine
 			return { {}, err };
 		}
 
-		mCompiledShaders[vertexShaderPath] = program;
+		mCompiledShaders[vertexShaderPath + fragmentShaderPath] = program;
 
-		return { mCompiledShaders[vertexShaderPath], {} };
+		return { mCompiledShaders[vertexShaderPath + fragmentShaderPath], {} };
 	}
 
 }
