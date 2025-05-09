@@ -1,5 +1,6 @@
 #include <pch.h>
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 #include "shader.h"
 
 namespace engine
@@ -28,36 +29,6 @@ namespace engine
 	std::map<std::string, shaderProgram::shaderVariableInfo>& shaderProgram::getActiveUnifrms()
 	{
 		return mActiveUniforms;
-	}
-
-	error shaderProgram::setUnifromVec3(const std::string& name, const float* data, uint32_t count) const
-	{
-		bind();
-		auto elem = mActiveUniforms.find(name);
-		if (elem == mActiveUniforms.end())
-		{
-			return { "unifrom not found" };
-		}
-
-		GLuint location = glGetUniformLocation(mID, name.c_str());
-		glUniform3fv(location, count, data);
-
-		return {};
-	}
-
-	error shaderProgram::setUniformMat4(const std::string& name, const float* data, uint32_t count) const
-	{
-		bind();
-		auto elem = mActiveUniforms.find(name);
-		if (elem == mActiveUniforms.end())
-		{
-			return { "unifrom not found" };
-		}
-
-		GLuint location = glGetUniformLocation(mID, name.c_str());
-		glUniformMatrix4fv(location, count, GL_FALSE, data);
-
-		return {};
 	}
 
 	void shaderProgram::setActiveAttribMap()
@@ -143,13 +114,8 @@ namespace engine
 	}
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const float* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const float data, uint32_t count) const
 	{
-		if (!data)
-		{
-			return { "pointer is nullptr" };
-		}
-
 		bind();
 		auto elem = mActiveUniforms.find(name);
 		if (elem == mActiveUniforms.end())
@@ -158,19 +124,14 @@ namespace engine
 		}
 
 		GLuint location = glGetUniformLocation(mID, name.c_str());
-		glUniform1fv(location, count, data);
+		glUniform1fv(location, count, &data);
 
 		return {};
 	}
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const uint32_t* data, [[maybe_unused]] uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const uint32_t data, [[maybe_unused]] uint32_t count) const
 	{
-		if (!data)
-		{
-			return { "pointer is nullptr" };
-		}
-
 		bind();
 		auto elem = mActiveUniforms.find(name);
 		if (elem == mActiveUniforms.end())
@@ -179,19 +140,14 @@ namespace engine
 		}
 
 		GLuint location = glGetUniformLocation(mID, name.c_str());
-		glUniform1ui(location, *data);
+		glUniform1ui(location, data);
 
 		return {};
 	}
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const int* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const int data, uint32_t count) const
 	{
-		if (!data)
-		{
-			return { "pointer is nullptr" };
-		}
-
 		bind();
 		auto elem = mActiveUniforms.find(name);
 		if (elem == mActiveUniforms.end())
@@ -200,19 +156,14 @@ namespace engine
 		}
 
 		GLuint location = glGetUniformLocation(mID, name.c_str());
-		glUniform1iv(location, count, data);
+		glUniform1iv(location, count, &data);
 
 		return {};
 	}
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const double* data, uint32_t count) const
+	error shaderProgram::setUniformType(const std::string& name, const double data, uint32_t count) const
 	{
-		if (!data)
-		{
-			return { "pointer is nullptr" };
-		}
-
 		bind();
 		auto elem = mActiveUniforms.find(name);
 		if (elem == mActiveUniforms.end())
@@ -221,7 +172,39 @@ namespace engine
 		}
 
 		GLuint location = glGetUniformLocation(mID, name.c_str());
-		glUniform1dv(location, count, data);
+		glUniform1dv(location, count, &data);
+
+		return {};
+	}
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const
+	{
+		bind();
+		auto elem = mActiveUniforms.find(name);
+		if (elem == mActiveUniforms.end())
+		{
+			return { "unifrom not found" };
+		}
+
+		GLuint location = glGetUniformLocation(mID, name.c_str());
+		glUniformMatrix4fv(location, count, GL_FALSE, glm::value_ptr(data));
+
+		return {};
+	}
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const
+	{
+		bind();
+		auto elem = mActiveUniforms.find(name);
+		if (elem == mActiveUniforms.end())
+		{
+			return { "unifrom not found" };
+		}
+
+		GLuint location = glGetUniformLocation(mID, name.c_str());
+		glUniform3fv(location, count, glm::value_ptr(data));
 
 		return {};
 	}

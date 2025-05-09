@@ -1,5 +1,5 @@
 #include <pch.h>
-#include <glm/gtc/type_ptr.hpp>
+
 #include "renderSystem.h"
 #include "core/scene/components.h"
 
@@ -258,14 +258,37 @@ namespace engine
 			uniqueMaterials.insert(material);
 		}
 
+		mRenderer.clear();
+
 		// static draws.
 		for (auto material : uniqueMaterials)
 		{
-			material.shader->setUniformMat4("uView", glm::value_ptr(view), 1);
-			material.shader->setUniformMat4("uProjection", glm::value_ptr(projection), 1);
+			error err = material.shader->setUniformType("uView", view, 1);
+			if (err)
+			{
+				LOGERROR("can't set uniform: {}", err.err());
+			}
+			
+			err = material.shader->setUniformType("uProjection", projection, 1);
+			if (err)
+			{
+				LOGERROR("can't set uniform: {}", err.err());
+			}
 
 			if (auto data = mStaticData.find({ material.tex->getID(), material.shader->getID() }); data != mStaticData.end())
 			{
+				for (auto& unifromData : material.shaderUnifroms)
+				{
+					std::visit([&](auto&& var)
+						{
+							error err = material.shader->setUniformType(unifromData.first, var, unifromData.second.second);
+							if (err)
+							{
+								LOGERROR("can't set uniform: {}", err.err());
+							}
+						}, unifromData.second.first);
+				}
+
 				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
 			}
 		}
@@ -273,11 +296,32 @@ namespace engine
 		// dynamic draws.
 		for (auto material : uniqueMaterials)
 		{
-			material.shader->setUniformMat4("uView", glm::value_ptr(view), 1);
-			material.shader->setUniformMat4("uProjection", glm::value_ptr(projection), 1);
+			error err = material.shader->setUniformType("uView", view, 1);
+			if (err)
+			{
+				LOGERROR("can't set uniform: {}", err.err());
+			}
+
+			err = material.shader->setUniformType("uProjection", projection, 1);
+			if (err)
+			{
+				LOGERROR("can't set uniform: {}", err.err());
+			}
 
 			if (auto data = mDynamicData.find({ material.tex->getID(), material.shader->getID() }); data != mDynamicData.end())
 			{
+				for (auto& unifromData : material.shaderUnifroms)
+				{
+					std::visit([&](auto&& var)
+						{
+							error err = material.shader->setUniformType(unifromData.first, var, unifromData.second.second);
+							if (err)
+							{
+								LOGERROR("can't set uniform: {}", err.err());
+							}
+						}, unifromData.second.first);
+				}
+			
 				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
 			}
 		}
@@ -300,30 +344,15 @@ namespace engine
 		{
 			auto resizeEvent = static_cast<windowResizeEvent*>(e.get());
 
+			mRenderer.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 			mDefaultCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 		}
 
-		// code below move somewhere else, to another system.
+		// TODO: code below move somewhere else, to another system.
 		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::v)
 		{
-			std::shared_ptr<texture> texture = nullptr;
-			std::shared_ptr<shaderProgram> shader = nullptr;
-
-			auto t = mCtx.getAManager()->getTexture("../assets/textures/wood.jpg");
-			auto p = mCtx.getAManager()->getCompiledShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
-			if (t.second || p.second)
-			{
-				auto t1 = mCtx.getAManager()->loadTexture("../assets/textures/wood.jpg");
-				auto p1 = mCtx.getAManager()->loadAndCompileShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
-
-				texture = t1.first;
-				shader = p1.first;
-			}
-			else
-			{
-				texture = t.first;
-				shader = p.first;
-			}
+			auto texture = mCtx.getAManager()->loadTexture("../assets/textures/obsidian.jpg");
+			auto shader = mCtx.getAManager()->loadShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
 
 			auto getMovedCube = []()->std::vector<vertex>
 				{
@@ -374,12 +403,84 @@ namespace engine
 					4, 5, 6, 6, 7, 4,
 			});
 
-			registry.emplace<materialComponent>(c, texture, shader);
+			texture.first->bind();
+			int slotID = texture.first->getSlotID();
 
-			// rmv code below, only for tests.
-			texture->bind();
-			int slotID = texture->getSlotID();
-			shader->setUniformType("u_textures[0]", &slotID, 1);
+			registry.emplace<materialComponent>(
+				c,
+				texture.first,
+				shader.first,
+				materialComponent::shaderUnifrmMap{
+					{"u_textures[0]", {slotID, 1} }
+				}
+			);
+		}
+
+		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::j)
+		{
+			auto texture = mCtx.getAManager()->loadTexture("../assets/textures/wood.jpg");
+			auto shader = mCtx.getAManager()->loadShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+
+			auto getMovedCube = []()->std::vector<vertex>
+				{
+					auto vertexes = std::vector<vertex>{
+						// Front face
+						{ { 0.5f, 0.5f, 0.5f}, { 1.0f, 1.0f }, 0 },
+						{ { 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f}, 0 },
+						{ {-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0 },
+						{ {-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f}, 0 },
+
+						// Back face
+					{ { 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0 },
+					{ { 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, 0 },
+					{ {-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0 },
+					{ {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f}, 0 },
+					};
+
+					std::mt19937 rng(std::random_device{}());
+					std::uniform_real_distribution<float> dist(-10.0f, 10.0f);
+					glm::vec3 offset(dist(rng), dist(rng), dist(rng));
+					glm::mat4 transform = glm::translate(glm::mat4(1.0f), offset);
+
+					for (auto& v : vertexes) {
+						glm::vec4 pos = transform * glm::vec4(v.position, 1.0f);
+						v.position = glm::vec3(pos);
+					}
+
+					return vertexes;
+				};
+
+			auto c = registry.create();
+			registry.emplace<uidComponent>(c);
+			registry.emplace<dynamicMeshComponent>(
+				c,
+				getMovedCube(),
+				std::vector<uint32_t>{
+				// Front face
+				0, 1, 2, 2, 3, 0,
+					// Left face
+					3, 2, 6, 6, 7, 3,
+					// Right face
+					0, 1, 5, 5, 4, 0,
+					// Top face
+					0, 3, 7, 7, 4, 0,
+					// Bottom face
+					1, 2, 6, 6, 5, 1,
+					// Back face
+					4, 5, 6, 6, 7, 4,
+			});
+
+			texture.first->bind();
+			int slotID = texture.first->getSlotID();
+
+			registry.emplace<materialComponent>(
+				c,
+				texture.first,
+				shader.first,
+				materialComponent::shaderUnifrmMap{
+					{"u_textures[0]", {slotID, 1} }
+				}
+			);
 		}
 
 		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::q)

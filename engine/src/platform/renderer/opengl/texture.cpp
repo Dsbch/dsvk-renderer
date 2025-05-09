@@ -54,7 +54,7 @@ namespace engine
 		return mID;
 	}
 
-	const uint32_t texture::getSlotID()
+	const uint32_t texture::getSlotID() const
 	{
 		return mSlotID;
 	}

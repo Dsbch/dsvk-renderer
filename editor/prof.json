@@ -2,21 +2,39 @@
     "traceEvents": [
         {
             "cat": "function",
-            "dur": 821,
+            "dur": 828,
             "name": "void __cdecl engine::winApiWindow::createWindowClass(const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &)",
             "ph": "X",
             "pid": 0,
-            "tid": 7311499551344491846,
-            "ts": 445133880962
+            "tid": 17376744264993841636,
+            "ts": 463186736315
         },
         {
             "cat": "function",
-            "dur": 16011,
+            "dur": 17328,
             "name": "__cdecl engine::winApiWindow::winApiWindow(class engine::context,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,unsigned int,unsigned int,bool,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,bool)",
             "ph": "X",
             "pid": 0,
-            "tid": 7311499551344491846,
-            "ts": 445133880957
+            "tid": 17376744264993841636,
+            "ts": 463186736313
+        },
+        {
+            "cat": "function",
+            "dur": 1,
+            "name": "void __cdecl engine::openglRenderer::changeViewPort(unsigned int,unsigned int) const",
+            "ph": "X",
+            "pid": 0,
+            "tid": 2941208014823183992,
+            "ts": 463186853917
+        },
+        {
+            "cat": "function",
+            "dur": 405,
+            "name": "void __cdecl engine::openglRenderer::changeViewPort(unsigned int,unsigned int) const",
+            "ph": "X",
+            "pid": 0,
+            "tid": 2941208014823183992,
+            "ts": 463199042261
         }
     ]
 }

@@ -25,6 +25,11 @@ namespace engine
 		glBindVertexArray(mID);
 	}
 
+	void vertexArrayObject::unbind() const
+	{
+		glBindVertexArray(-1);
+	}
+
 	void vertexArrayObject::setElementBuffer(size_t elementCount, uint32_t elementBufferID)
 	{
 		mElementCount = elementCount;

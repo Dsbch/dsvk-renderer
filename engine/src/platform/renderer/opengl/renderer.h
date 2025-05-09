@@ -1,10 +1,10 @@
 #pragma once
 
 #include <pch.h>
+#include "base/context/context.h"
 #include "vertexBufferObject.h"
 #include "shader.h"
-#include "base/context/context.h"
-#include "core/events/events.h"
+#include "texture.h"
 
 namespace engine
 {
@@ -22,6 +22,7 @@ namespace engine
 		std::string getVersion() const;
 		error checkError() const;
 		void changeViewPort(uint32_t width, uint32_t height) const;
+		void clear() const;
 		void render() const;
 		void render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const;
 	};

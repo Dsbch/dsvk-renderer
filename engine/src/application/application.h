@@ -3,7 +3,6 @@
 #include <pch.h>
 
 #include "base/context/context.h"
-#include "base/config/config.h"
 
 #ifdef WINAPI
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow);

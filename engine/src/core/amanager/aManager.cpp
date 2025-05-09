@@ -3,6 +3,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include "aManager.h"
+#include "platform/renderer/opengl/texture.h"
+#include "platform/renderer/opengl/shader.h"
 
 namespace engine
 {
@@ -41,6 +43,10 @@ namespace engine
 
 	std::pair<const std::shared_ptr<texture>, engine::error> aManager::loadTexture(const std::string& path)
 	{
+		auto cachedTexure = getTexture(path);
+		if (!cachedTexure.second)
+			return cachedTexure;
+
 		int width, height, nrChannels;
 		uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
 		if (!data)
@@ -57,7 +63,7 @@ namespace engine
 		return { mLoadedTextures[path], {} };
 	}
 
-	std::pair<const std::shared_ptr<shaderProgram>, error> aManager::getCompiledShader(const std::string& vertexPath, const std::string& fragmentPath)
+	std::pair<const std::shared_ptr<shaderProgram>, error> aManager::getShader(const std::string& vertexPath, const std::string& fragmentPath)
 	{
 		auto it = mCompiledShaders.find(vertexPath + fragmentPath);
 		if (it != mCompiledShaders.end())
@@ -69,8 +75,12 @@ namespace engine
 		}
 	}
 
-	std::pair<const std::shared_ptr<shaderProgram>, engine::error> aManager::loadAndCompileShader(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
+	std::pair<const std::shared_ptr<shaderProgram>, engine::error> aManager::loadShader(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
 	{
+		auto cachedShader = getShader(vertexShaderPath, fragmentShaderPath);
+		if (!cachedShader.second)
+			return cachedShader;
+
 		std::string vs = openAndRead(vertexShaderPath);
 		std::string fs = openAndRead(fragmentShaderPath);
 

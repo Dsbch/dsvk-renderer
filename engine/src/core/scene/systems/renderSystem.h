@@ -12,18 +12,23 @@
 
 namespace engine
 {
-	typedef uint32_t entityID;
-
 	struct materialID
 	{
 		uint32_t textureID;
 		uint32_t shaderProgramID;
 		bool operator<(const materialID& other)  const
 		{
+			if (shaderProgramID == other.shaderProgramID)
+				return textureID < other.textureID;
+
+			if (textureID == other.textureID)
+				return shaderProgramID < other.shaderProgramID;
+
 			return textureID < other.textureID && shaderProgramID < other.shaderProgramID;
 		}
 	};
 
+	typedef uint32_t entityID;
 	struct entityBoundaries
 	{
 		size_t fromVBO;

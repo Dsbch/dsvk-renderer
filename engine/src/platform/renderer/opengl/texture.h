@@ -18,7 +18,7 @@ namespace engine
 		~texture();
 		engine::error bind();
 		const uint32_t getID() const;
-		const uint32_t getSlotID();
+		const uint32_t getSlotID() const;
 	private:
 		uint32_t mID;
 		uint32_t mSlotID;

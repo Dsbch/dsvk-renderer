@@ -35,6 +35,7 @@ namespace engine
 		vertexArrayObject();
 		~vertexArrayObject();
 		void bind() const;
+		void unbind() const;
 		void setElementBuffer(size_t elementCount, uint32_t elementBufferID);
 		size_t getElementCount() const;
 

@@ -1,5 +1,8 @@
 #pragma once
+
 #include "pch.h"
+#include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
 
 namespace engine
 {
@@ -19,9 +22,7 @@ namespace engine
 		uint32_t getID() const;
 		std::map<std::string, shaderVariableInfo>& getActiveUnifrms();
 		template<class T>
-		engine::error setUniformType(const std::string& name, const T* data, uint32_t count) const;
-		engine::error setUnifromVec3(const std::string& name, const float* data, uint32_t count) const;
-		engine::error setUniformMat4(const std::string& name, const float* data, uint32_t count) const;
+		engine::error setUniformType(const std::string& name, const T data, uint32_t count) const;
 	private:
 		void setActiveAttribMap();
 		void setActiveUniformsMap();
@@ -35,20 +36,26 @@ namespace engine
 	};
 
 	template<class T>
-	inline engine::error shaderProgram::setUniformType(const std::string& name, const T* data, uint32_t count) const
+	inline engine::error shaderProgram::setUniformType(const std::string& name, const T data, uint32_t count) const
 	{
 		return engine::error("specialization not found");
 	}
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const float* data, uint32_t count) const;
+	error shaderProgram::setUniformType(const std::string& name, const float data, uint32_t count) const;
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const uint32_t* data, uint32_t count) const;
+	error shaderProgram::setUniformType(const std::string& name, const uint32_t data, uint32_t count) const;
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const int* data, uint32_t count) const;
+	error shaderProgram::setUniformType(const std::string& name, const int data, uint32_t count) const;
 
 	template<>
-	error shaderProgram::setUniformType(const std::string& name, const double* data, uint32_t count) const;
+	error shaderProgram::setUniformType(const std::string& name, const double data, uint32_t count) const;
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const;
+
+	template<>
+	error shaderProgram::setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const;
 }
