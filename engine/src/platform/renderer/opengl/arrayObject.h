@@ -27,7 +27,7 @@ namespace engine
 	public:
 		dynamicArrayObject(size_t size, void* data);
 		template<class T>
-		void updateData(size_t offset, size_t size, T* data);
+		void updateData(size_t offset, size_t len, T* data);
 		template<class T>
 		T* getPtr();
 		~dynamicArrayObject();

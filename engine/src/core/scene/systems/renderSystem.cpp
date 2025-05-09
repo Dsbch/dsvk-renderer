@@ -15,8 +15,9 @@ namespace engine
 
 	void renderSystem::deleteEntities(entt::registry& registry)
 	{
-		// TODO: implement delete, doesn't work because of index buffer.
-		/*auto viewDeleted = registry.view<uidComponent, dynamicMeshComponent, materialComponent, deleteComponent>();
+		std::vector<entt::entity> toDestroy;
+
+		auto viewDeleted = registry.view<uidComponent, dynamicMeshComponent, materialComponent, deleteComponent>();
 		for (auto [entity, uid, mesh, material] : viewDeleted.each())
 		{
 			auto renderData = mDynamicData.find({ material.tex->getID(), material.shader->getID() });
@@ -32,7 +33,7 @@ namespace engine
 					);
 
 					renderData->second.mEBO->setLoadedSize(
-						renderData->second.mEBO->getLoadedSize() - (boundaries->second.toEBO - boundaries->second.fromEBO) * sizeof(uint32_t)
+						renderData->second.mEBO->getLoadedSize() - ((boundaries->second.toEBO - boundaries->second.fromEBO) * sizeof(uint32_t))
 					);
 
 					renderData->second.mVBO->updateData(
@@ -42,16 +43,43 @@ namespace engine
 					);
 
 					renderData->second.mVBO->setLoadedSize(
-						renderData->second.mVBO->getLoadedSize() - (boundaries->second.toVBO - boundaries->second.fromVBO) * sizeof(vertex)
+						renderData->second.mVBO->getLoadedSize() - ((boundaries->second.toVBO - boundaries->second.fromVBO) * sizeof(vertex))
 					);
 
-					registry.destroy(entity);
+					// shift all indexes.
+					size_t indexShift = boundaries->second.toVBO - boundaries->second.fromVBO;
+					for (uint32_t* indexPtr = renderData->second.mEBO->getPtr<uint32_t>() + boundaries->second.fromEBO; indexPtr != renderData->second.mEBO->getPtr<uint32_t>() + renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t); indexPtr++)
+					{
+						(*indexPtr) -= uint32_t(indexShift);
+					}
+
+					// update boundaries.
+					size_t eboShift = boundaries->second.toEBO - boundaries->second.fromEBO;
+					size_t vboShift = boundaries->second.toVBO - boundaries->second.fromVBO;
+					for (auto& [key, val] : renderData->second.mEntityBoundaries)
+					{
+						if (boundaries->second.toEBO < val.toEBO)
+						{
+							val.fromEBO -= eboShift;
+							val.toEBO -= eboShift;
+
+							val.fromVBO -= vboShift;
+							val.toVBO -= vboShift;
+						}
+					}
+
+					toDestroy.push_back(entity);
 
 					renderData->second.mEntityBoundaries.erase(uid.uid);
 					renderData->second.mVAO->setElementBuffer(renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t), renderData->second.mEBO->getID());
 				}
 			}
-		}*/
+		}
+
+		for (auto e : toDestroy)
+		{
+			registry.destroy(e);
+		}
 	}
 
 	void renderSystem::resizeOnNeed(renderDataHandle<dynamicArrayObject>& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo)
@@ -179,6 +207,8 @@ namespace engine
 
 	void renderSystem::updateData(entt::registry& registry)
 	{
+		std::vector<entt::entity> updated;
+
 		auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent, updateMeshComponent>();
 		for (auto [entity, uid, mesh, material] : view.each())
 		{
@@ -194,9 +224,14 @@ namespace engine
 						mesh.meshData.data()
 					);
 
-					registry.remove<updateMeshComponent>(entity);
+					updated.push_back(entity);
 				}
 			}
+		}
+
+		for (auto e : updated)
+		{
+			registry.remove<updateMeshComponent>(e);
 		}
 	}
 
@@ -217,7 +252,7 @@ namespace engine
 
 		std::set<materialComponent> uniqueMaterials;
 
-		auto viewStatic = registry.group<materialComponent>();
+		auto viewStatic = registry.view<materialComponent>();
 		for (auto [entity, material] : viewStatic.each())
 		{
 			uniqueMaterials.insert(material);
@@ -349,16 +384,29 @@ namespace engine
 
 		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::q)
 		{
+			entt::entity toDelete;
+			bool use = false;
 			auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
+			int i = 0;
+			for (auto [entity, uid, mesh, mat] : view.each())
+			{
+				if (i == 1)
+				{
+					use = true;
+					toDelete = entity;
+				}
+				i++;
+			}
 
-			if (view.size_hint() != 0)
-				registry.emplace<deleteComponent>(view.back());
+			if (use)
+				registry.emplace<deleteComponent>(toDelete);
 		}
 
 		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::u)
 		{
-			auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
+			std::vector<entt::entity> toUpdate;
 
+			auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
 			for (auto [entity, uid, mesh, material] : view.each())
 			{
 				for (auto& v : mesh.meshData)
@@ -366,7 +414,12 @@ namespace engine
 					v.position.x += 0.1f;
 				}
 
-				registry.emplace<updateMeshComponent>(entity);
+				toUpdate.push_back(entity);
+			}
+
+			for (auto e : toUpdate)
+			{
+				registry.emplace<updateMeshComponent>(e);
 			}
 		}
 	}
