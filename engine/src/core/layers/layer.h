@@ -14,6 +14,7 @@ namespace engine
 		virtual ~layer() = default;
 		virtual bool onEvent(std::shared_ptr<baseEvent>) = 0;
 		virtual void onRender() = 0;
+		virtual void onUpdate() = 0;
 		virtual error checkError() const = 0;
 	protected:
 		context mCtx;
@@ -25,6 +26,7 @@ namespace engine
 		~worldLayer();
 		bool onEvent(std::shared_ptr<baseEvent> e);
 		void onRender();
+		void onUpdate();
 		error checkError() const;
 	private:
 		std::shared_ptr<scene> mScene;

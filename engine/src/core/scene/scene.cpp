@@ -4,16 +4,20 @@
 #include "core/scene/entity.h"
 #include "core/scene/components.h"
 #include "core/scene/systems/renderSystem.h"
+#include "core/scene/systems/instancedRenderSystem.h"
 #include "core/scene/systems/cameraSystem.h"
+#include "core/scene/systems/transformSystem.h"
 
 namespace engine
 {
 	scene::scene(context ctx)
 		:
-		mSceneRegistry(), mCtx(ctx), mSystems()
+		mSceneRegistry(), mCtx(ctx), mSystems(), mSceneCamera(ctx, ctx.config.getCfg().camera.fov, ctx.config.getCfg().camera.nearPlane, ctx.config.getCfg().camera.farPlane, ctx.config.getCfg().wnd.width, ctx.config.getCfg().wnd.height)
 	{
 		// push back all needed systems.
-		mSystems.push_back(std::make_unique<renderSystem>(mCtx));
+		mSystems.push_back(std::make_unique<renderSystem>(mCtx, mSceneCamera));
+		mSystems.push_back(std::make_unique<instancedRenderSystem>(mCtx, mSceneCamera));
+		mSystems.push_back(std::make_unique<transformSystem>(mCtx));
 		mSystems.push_back(std::make_unique<cameraSystem>(mCtx));
 	}
 
@@ -30,6 +34,14 @@ namespace engine
 		for (auto& s : mSystems)
 		{
 			s->onEvent(mSceneRegistry, e);
+		}
+	}
+
+	void scene::onUpdate()
+	{
+		for (auto& s : mSystems)
+		{
+			s->onUpdate(mSceneRegistry);
 		}
 	}
 

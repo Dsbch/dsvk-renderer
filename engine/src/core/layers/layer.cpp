@@ -34,6 +34,12 @@ namespace engine
     {
         mScene->onRender();
     }
+
+    void worldLayer::onUpdate()
+    {
+        mScene->onUpdate();
+    }
+
     error worldLayer::checkError() const
     {
         return mScene->checkError();

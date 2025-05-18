@@ -101,16 +101,24 @@ namespace engine
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
-	void openglRenderer::render() const
+	void openglRenderer::onRender() const
 	{
 		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	}
 
-	void openglRenderer::render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const
+	void openglRenderer::onRender(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const
 	{
 		shader.bind();
 		tex.bind();
 		vao.bind();
 		glDrawElements(GL_TRIANGLES, GLsizei(vao.getElementCount()), GL_UNSIGNED_INT, nullptr);
+	}
+
+	void openglRenderer::onRender(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao, uint32_t instanceCount) const
+	{
+		shader.bind();
+		tex.bind();
+		vao.bind();
+		glDrawElementsInstanced(GL_TRIANGLES, GLsizei(vao.getElementCount()), GL_UNSIGNED_INT, nullptr, instanceCount);
 	}
 }

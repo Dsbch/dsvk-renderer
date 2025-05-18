@@ -3,7 +3,6 @@
 #include <pch.h>
 #include "system.h"
 #include <entt/entt.hpp>
-#include "base/context/context.h"
 #include "core/scene/scene.h"
 #include "platform/renderer/vertex.h"
 #include "platform/renderer/opengl/renderer.h"
@@ -12,11 +11,13 @@
 
 namespace engine
 {
+	typedef uint32_t entityID;
+
 	struct materialID
 	{
 		uint32_t textureID;
 		uint32_t shaderProgramID;
-		bool operator<(const materialID& other)  const
+		bool operator<(const materialID& other) const
 		{
 			if (shaderProgramID == other.shaderProgramID)
 				return textureID < other.textureID;
@@ -28,7 +29,6 @@ namespace engine
 		}
 	};
 
-	typedef uint32_t entityID;
 	struct entityBoundaries
 	{
 		size_t fromVBO;
@@ -38,13 +38,12 @@ namespace engine
 		size_t toEBO;
 	};
 
-	template<class T>
-	struct renderDataHandle
+	struct dynamicRenderData
 	{
-		std::unique_ptr<T> mEBO;
-		std::unique_ptr<T> mVBO;
-		std::unique_ptr<vertexArrayObject> mVAO;
-		std::map<entityID, entityBoundaries> mEntityBoundaries;
+		std::unique_ptr<dynamicArrayObject> EBO;
+		std::unique_ptr<dynamicArrayObject> VBO;
+		std::unique_ptr<vertexArrayObject> VAO;
+		std::map<entityID, entityBoundaries> entityBoundaries;
 	};
 
 	class renderSystem : public system
@@ -53,19 +52,18 @@ namespace engine
 		fpsCamera mDefaultCamera;
 
 		openglRenderer mRenderer;
+		std::map<materialID, dynamicRenderData> mData;
 
-		std::map<materialID, renderDataHandle<arrayObject>> mStaticData;
-		std::map<materialID, renderDataHandle<dynamicArrayObject>> mDynamicData;
-
+		void resizeOnNeed(dynamicRenderData& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo);
 		void deleteEntities(entt::registry& registry);
-		void resizeOnNeed(renderDataHandle<dynamicArrayObject>& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo);
 		void addEntities(entt::registry& registry);
 		void updateData(entt::registry& registry);
 		void render(entt::registry& registry);
 	public:
-		renderSystem(context ctx);
+		renderSystem(context ctx, fpsCamera defaultCamera);
 		void onRender(entt::registry& registry);
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
+		void onUpdate(entt::registry& registry);
 		error checkError();
 	};
 }

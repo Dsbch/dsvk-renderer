@@ -20,7 +20,8 @@ namespace engine
 		engine::error compile();
 		void bind() const;
 		uint32_t getID() const;
-		std::map<std::string, shaderVariableInfo>& getActiveUnifrms();
+		const std::map<std::string, shaderVariableInfo>& getActiveUnifrms() const;
+		const std::map<std::string, shaderVariableInfo>& getActiveAttributes() const;
 		template<class T>
 		engine::error setUniformType(const std::string& name, const T data, uint32_t count) const;
 	private:

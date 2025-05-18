@@ -15,6 +15,7 @@ namespace engine
 			uint32_t type;
 			uint32_t offset;
 			bool needNormalization;
+			bool instanced;
 		};
 
 		attributesDescriber() = default;
@@ -39,6 +40,6 @@ namespace engine
 		void setElementBuffer(size_t elementCount, uint32_t elementBufferID);
 		size_t getElementCount() const;
 
-		engine::error setAttribs(const attributesDescriber&);
+		engine::error setAttribs(std::initializer_list<const attributesDescriber*>);
 	};
 }

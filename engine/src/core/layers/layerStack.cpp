@@ -3,7 +3,7 @@
 
 namespace engine
 {
-	void layerStack::dipsatchEvent(std::shared_ptr<baseEvent> e)
+	void layerStack::onEvent(std::shared_ptr<baseEvent> e)
 	{
 		for (auto begin = mOverlayStack.rbegin(); begin != mOverlayStack.rend(); begin++)
 		{
@@ -18,7 +18,7 @@ namespace engine
 		}
 	}
 
-	void layerStack::render()
+	void layerStack::onRender()
 	{
 		for (auto& l : mLayerStack)
 		{
@@ -28,6 +28,19 @@ namespace engine
 		for (auto& l : mOverlayStack)
 		{
 			l->onRender();
+		}
+	}
+
+	void layerStack::onUpdate()
+	{
+		for (auto& l : mLayerStack)
+		{
+			l->onUpdate();
+		}
+
+		for (auto& l : mOverlayStack)
+		{
+			l->onUpdate();
 		}
 	}
 

@@ -79,25 +79,28 @@ namespace engine
 			auto d = mCtx.getDispatcher();
 			while (d->hasEvents())
 			{
+				// handle window close event.
 				auto e = d->getEvent();
-
 				if (e->getEventType() == eventType::close)
 				{
 					mRunning = false;
 				}
 
-				mLayerStack->dipsatchEvent(e);
+				mLayerStack->onEvent(e);
 			}
+
+			// run updates.
+			mLayerStack->onUpdate();
 
 			nextGameUpdate += updateShift;
 		}
 	}
 
-	void application::render(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
+	void application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
 	{
 		if (mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextRender)
 		{
-			mLayerStack->render();
+			mLayerStack->onRender();
 			mWindow->swapBuffers();
 			nextRender += renderShift;
 		}
@@ -153,7 +156,7 @@ namespace engine
 		while (mRunning)
 		{
 			update(nextGameUpdate, updateShift, maxFrameSkip);
-			render(nextRender, renderShift);
+			onRender(nextRender, renderShift);
 		}
 	}
 }

@@ -1,0 +1,63 @@
+#pragma once
+
+#include <pch.h>
+#include "renderSystem.h"
+#include <entt/entt.hpp>
+#include "core/scene/scene.h"
+#include "platform/renderer/vertex.h"
+#include "platform/renderer/opengl/renderer.h"
+#include "platform/renderer/opengl/arrayObject.h"
+#include "platform/renderer/opengl/vertexBufferObject.h"
+
+namespace engine
+{
+	struct instancedEntityBoundaries
+	{
+		size_t fromVBO;
+		size_t toVBO;
+
+		size_t fromEBO;
+		size_t toEBO;
+
+		size_t fromPerInstAttr;
+		size_t toPerInstAttr;
+	};
+
+	struct instancedRenderData
+	{
+		uint32_t meshUID;
+
+		mutable uint32_t instanceCount;
+		mutable std::unique_ptr<dynamicArrayObject> EBO;
+		mutable std::unique_ptr<dynamicArrayObject> VBO;
+		mutable std::unique_ptr<vertexArrayObject> VAO;
+		mutable std::unique_ptr<dynamicArrayObject> perInstanceAttrs;
+		mutable std::map<uint32_t, instancedEntityBoundaries> boundaries;
+
+		bool operator<(const instancedRenderData& other)  const
+		{
+			return meshUID < other.meshUID;
+		}
+	};
+
+	class instancedRenderSystem : public system
+	{
+	public:
+		instancedRenderSystem(context ctx, fpsCamera defaultCamera);
+
+		error checkError();
+		void onRender(entt::registry& registry);
+		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
+		void onUpdate(entt::registry& registry);
+	private:
+		openglRenderer mRenderer;
+		fpsCamera mDefaultCamera;
+
+		void deleteEntities(entt::registry& registry);
+		void addEntities(entt::registry& registry);
+		void render(entt::registry& registry);
+		void resizeOnNeed(const instancedRenderData&);
+
+		std::map<materialID, std::set<instancedRenderData>> mData;
+	};
+}

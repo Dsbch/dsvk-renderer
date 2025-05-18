@@ -40,6 +40,6 @@ namespace engine
 		error createWindow();
 		error createLayerStack();
 		void update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
-		void render(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
+		void onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
 	};
 }

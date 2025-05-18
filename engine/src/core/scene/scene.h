@@ -18,6 +18,7 @@ namespace engine
 	
 		void onRender();
 		void onEvent(std::shared_ptr<baseEvent> e);
+		void onUpdate();
 		
 		error checkError() const;
 
@@ -26,6 +27,7 @@ namespace engine
 	
 	protected:
 		context mCtx;
+		fpsCamera mSceneCamera;
 	
 	private:
 		entt::registry mSceneRegistry;

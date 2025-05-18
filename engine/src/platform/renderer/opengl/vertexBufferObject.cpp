@@ -41,24 +41,33 @@ namespace engine
 		return mElementCount;
 	}
 
-	engine::error vertexArrayObject::setAttribs(const attributesDescriber& describer)
+	engine::error vertexArrayObject::setAttribs(std::initializer_list<const attributesDescriber*> describer)
 	{
-		auto info = describer.info();
-		if (info.size() > mMaxAttributes)
-		{
-			return { "mMaxAttributes: {:d} but got {:d}", mMaxAttributes, info.size() };
-		}
-
 		mAttribCount = 0;
-		for (const attributesDescriber::attributeInfo& i : info)
+		for (auto& d : describer)
 		{
-			glEnableVertexArrayAttrib(mID, GLuint(mAttribCount));
-			glVertexArrayAttribBinding(mID, GLuint(mAttribCount), GLuint(mAttribCount));
+			if (!d)
+				continue;
 
-			glVertexArrayVertexBuffer(mID, GLuint(mAttribCount), i.bufferObjectID, 0, i.stride);
-			glVertexArrayAttribFormat(mID, GLuint(mAttribCount), i.count, i.type, i.needNormalization, i.offset);
+			auto info = d->info();
+			if (info.size() + mAttribCount > mMaxAttributes)
+			{
+				return { "mMaxAttributes: {:d} but got {:d}", mMaxAttributes, info.size() + mAttribCount };
+			}
 
-			mAttribCount++;
+			for (const attributesDescriber::attributeInfo& i : info)
+			{
+				glEnableVertexArrayAttrib(mID, GLuint(mAttribCount));
+				glVertexArrayAttribBinding(mID, GLuint(mAttribCount), GLuint(mAttribCount));
+
+				glVertexArrayVertexBuffer(mID, GLuint(mAttribCount), i.bufferObjectID, 0, i.stride);
+				glVertexArrayAttribFormat(mID, GLuint(mAttribCount), i.count, i.type, i.needNormalization, i.offset);
+
+				if (i.instanced)
+					glVertexArrayBindingDivisor(mID, GLuint(mAttribCount), 1);
+
+				mAttribCount++;
+			}
 		}
 
 		return {};

@@ -26,9 +26,14 @@ namespace engine
 		return mID;
 	}
 
-	std::map<std::string, shaderProgram::shaderVariableInfo>& shaderProgram::getActiveUnifrms()
+	const std::map<std::string, shaderProgram::shaderVariableInfo>& shaderProgram::getActiveUnifrms() const
 	{
 		return mActiveUniforms;
+	}
+
+	const std::map<std::string, shaderProgram::shaderVariableInfo>& shaderProgram::getActiveAttributes() const
+	{
+		return mActiveVertexAttrs;
 	}
 
 	void shaderProgram::setActiveAttribMap()

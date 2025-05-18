@@ -11,8 +11,9 @@ namespace engine
 		std::vector<std::shared_ptr<layer>> mLayerStack;
 		std::vector<std::shared_ptr<layer>> mOverlayStack;
 	public:
-		void dipsatchEvent(std::shared_ptr<baseEvent>);
-		void render();
+		void onEvent(std::shared_ptr<baseEvent>);
+		void onRender();
+		void onUpdate();
 		void pushLayer(std::shared_ptr<layer> l);
 		void pushOverlay(std::shared_ptr<layer> l);
 		error checkError() const;

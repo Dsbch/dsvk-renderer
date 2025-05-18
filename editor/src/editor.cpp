@@ -21,6 +21,10 @@ public:
 	{
 	}
 
+	void onUpdate()
+	{
+	}
+
 	engine::error checkError() const { return {}; };
 };
 

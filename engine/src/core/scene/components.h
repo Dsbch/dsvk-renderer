@@ -35,25 +35,36 @@ namespace engine
 			: tag(tag) {}
 	};
 
-	struct deleteComponent {};
-	struct updateMeshComponent {};
-
-	struct dynamicMeshComponent
+	struct meshComponent
 	{
 		std::vector<vertex> meshData;
 		std::vector<uint32_t> indexData;
 
-		dynamicMeshComponent(std::vector<vertex>&& meshData, std::vector<uint32_t>&& indexData)
+		meshComponent(std::vector<vertex>&& meshData, std::vector<uint32_t>&& indexData)
 			: meshData(std::move(meshData)), indexData(std::move(indexData)) {}
 	};
 
-	struct staticMeshComponent
-	{
-		std::vector<vertex> meshData;
-		std::vector<uint32_t> indexData;
+	struct deleteComponent {};
+	struct updateMeshComponent {};
+	struct applyTransformComponent {};
 
-		staticMeshComponent(std::vector<vertex>&& meshData, std::vector<uint32_t>&& indexData)
-			: meshData(std::move(meshData)), indexData(std::move(indexData)) {}
+	struct instancedMeshComponent
+	{
+		uint32_t uid;
+		std::shared_ptr<const std::vector<vertex>> meshData;
+		std::shared_ptr<const std::vector<uint32_t>> indexData;
+
+		instancedMeshComponent(std::shared_ptr<const std::vector<vertex>> meshData, std::shared_ptr<const std::vector<uint32_t>> indexData)
+			: meshData(meshData), indexData(indexData), uid(genUID()) {}
+
+		instancedMeshComponent(std::shared_ptr<const std::vector<vertex>> meshData, std::shared_ptr<const std::vector<uint32_t>> indexData, uint32_t uid)
+			: meshData(meshData), indexData(indexData), uid(uid) {}
+	};
+
+	struct transformComponent
+	{
+		glm::mat4 transform;
+		transformComponent(glm::mat4 transform) : transform(transform) {}
 	};
 
 	struct materialComponent

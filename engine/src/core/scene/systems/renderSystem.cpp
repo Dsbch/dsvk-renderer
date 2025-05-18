@@ -1,15 +1,14 @@
 #include <pch.h>
 
 #include "renderSystem.h"
-#include "core/scene/components.h"
 
 namespace engine
 {
-	renderSystem::renderSystem(context ctx)
+	renderSystem::renderSystem(context ctx, fpsCamera defaultCamera)
 		:
 		system(ctx),
 		mRenderer({ ctx }),
-		mDefaultCamera(ctx, ctx.config.getCfg().camera.fov, ctx.config.getCfg().camera.nearPlane, ctx.config.getCfg().camera.farPlane, ctx.config.getCfg().wnd.width, ctx.config.getCfg().wnd.height)
+		mDefaultCamera(defaultCamera)
 	{
 	}
 
@@ -17,38 +16,37 @@ namespace engine
 	{
 		std::vector<entt::entity> toDestroy;
 
-		auto viewDeleted = registry.view<uidComponent, dynamicMeshComponent, materialComponent, deleteComponent>();
-		for (auto [entity, uid, mesh, material] : viewDeleted.each())
+		for (auto [entity, uid, mesh, material] : registry.view<uidComponent, meshComponent, materialComponent, deleteComponent>().each())
 		{
-			auto renderData = mDynamicData.find({ material.tex->getID(), material.shader->getID() });
-			if (renderData != mDynamicData.end())
+			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+			if (renderData != mData.end())
 			{
-				auto boundaries = renderData->second.mEntityBoundaries.find(uid.uid);
-				if (boundaries != renderData->second.mEntityBoundaries.end())
+				auto boundaries = renderData->second.entityBoundaries.find(uid.uid);
+				if (boundaries != renderData->second.entityBoundaries.end())
 				{
-					renderData->second.mEBO->updateData(
+					renderData->second.EBO->updateData(
 						boundaries->second.fromEBO,
-						renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t) - boundaries->second.toEBO,
-						renderData->second.mEBO->getPtr<uint32_t>() + boundaries->second.toEBO
+						renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) - boundaries->second.toEBO,
+						renderData->second.EBO->getPtr<uint32_t>() + boundaries->second.toEBO
 					);
 
-					renderData->second.mEBO->setLoadedSize(
-						renderData->second.mEBO->getLoadedSize() - ((boundaries->second.toEBO - boundaries->second.fromEBO) * sizeof(uint32_t))
+					renderData->second.EBO->setLoadedSize(
+						renderData->second.EBO->getLoadedSize() - ((boundaries->second.toEBO - boundaries->second.fromEBO) * sizeof(uint32_t))
 					);
 
-					renderData->second.mVBO->updateData(
+					renderData->second.VBO->updateData(
 						boundaries->second.fromVBO,
-						renderData->second.mVBO->getLoadedSize() / sizeof(vertex) - boundaries->second.toVBO,
-						renderData->second.mVBO->getPtr<vertex>() + boundaries->second.toVBO
+						renderData->second.VBO->getLoadedSize() / sizeof(vertex) - boundaries->second.toVBO,
+						renderData->second.VBO->getPtr<vertex>() + boundaries->second.toVBO
 					);
 
-					renderData->second.mVBO->setLoadedSize(
-						renderData->second.mVBO->getLoadedSize() - ((boundaries->second.toVBO - boundaries->second.fromVBO) * sizeof(vertex))
+					renderData->second.VBO->setLoadedSize(
+						renderData->second.VBO->getLoadedSize() - ((boundaries->second.toVBO - boundaries->second.fromVBO) * sizeof(vertex))
 					);
 
 					// shift all indexes.
 					size_t indexShift = boundaries->second.toVBO - boundaries->second.fromVBO;
-					for (uint32_t* indexPtr = renderData->second.mEBO->getPtr<uint32_t>() + boundaries->second.fromEBO; indexPtr != renderData->second.mEBO->getPtr<uint32_t>() + renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t); indexPtr++)
+					for (uint32_t* indexPtr = renderData->second.EBO->getPtr<uint32_t>() + boundaries->second.fromEBO; indexPtr != renderData->second.EBO->getPtr<uint32_t>() + renderData->second.EBO->getLoadedSize() / sizeof(uint32_t); indexPtr++)
 					{
 						(*indexPtr) -= uint32_t(indexShift);
 					}
@@ -56,7 +54,7 @@ namespace engine
 					// update boundaries.
 					size_t eboShift = boundaries->second.toEBO - boundaries->second.fromEBO;
 					size_t vboShift = boundaries->second.toVBO - boundaries->second.fromVBO;
-					for (auto& [key, val] : renderData->second.mEntityBoundaries)
+					for (auto& [key, val] : renderData->second.entityBoundaries)
 					{
 						if (boundaries->second.toEBO < val.toEBO)
 						{
@@ -70,8 +68,8 @@ namespace engine
 
 					toDestroy.push_back(entity);
 
-					renderData->second.mEntityBoundaries.erase(uid.uid);
-					renderData->second.mVAO->setElementBuffer(renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t), renderData->second.mEBO->getID());
+					renderData->second.entityBoundaries.erase(uid.uid);
+					renderData->second.VAO->setElementBuffer(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t), renderData->second.EBO->getID());
 				}
 			}
 		}
@@ -82,7 +80,7 @@ namespace engine
 		}
 	}
 
-	void renderSystem::resizeOnNeed(renderDataHandle<dynamicArrayObject>& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo)
+	void renderSystem::resizeOnNeed(dynamicRenderData& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo)
 	{
 		auto newLen = [](size_t oldLen, size_t newDataLen)->size_t
 			{
@@ -96,37 +94,37 @@ namespace engine
 				}
 			};
 
-		auto freeSizeVBO = renderData.mVBO->getSize() - renderData.mVBO->getLoadedSize();
-		auto freeSizeEBO = renderData.mEBO->getSize() - renderData.mEBO->getLoadedSize();
+		auto freeSizeVBO = renderData.VBO->getSize() - renderData.VBO->getLoadedSize();
+		auto freeSizeEBO = renderData.EBO->getSize() - renderData.EBO->getLoadedSize();
 
 		if (freeSizeVBO < vbo.size() * sizeof(vertex))
 		{
 			auto ptr = new dynamicArrayObject{
-					newLen(renderData.mVBO->getSize() / sizeof(vertex), vbo.size()) * sizeof(vertex),
+					newLen(renderData.VBO->getSize() / sizeof(vertex), vbo.size()) * sizeof(vertex),
 					nullptr
 			};
 
-			ptr->template updateData<vertex>(0, renderData.mVBO->getLoadedSize() / sizeof(vertex), renderData.mVBO->getPtr<vertex>());
+			ptr->template updateData<vertex>(0, renderData.VBO->getLoadedSize() / sizeof(vertex), renderData.VBO->getPtr<vertex>());
 			ptr->setLoadedSize(
-				renderData.mVBO->getLoadedSize()
+				renderData.VBO->getLoadedSize()
 			);
 
-			renderData.mVBO.reset(ptr);
+			renderData.VBO.reset(ptr);
 		}
 
 		if (freeSizeEBO < ebo.size() * sizeof(uint32_t))
 		{
 			auto ptr = new dynamicArrayObject{
-				newLen(renderData.mEBO->getSize() / sizeof(uint32_t), ebo.size()) * sizeof(uint32_t),
+				newLen(renderData.EBO->getSize() / sizeof(uint32_t), ebo.size()) * sizeof(uint32_t),
 				nullptr
 			};
 
-			ptr->template updateData<uint32_t>(0, renderData.mEBO->getLoadedSize() / sizeof(uint32_t), renderData.mEBO->getPtr<uint32_t>());
+			ptr->template updateData<uint32_t>(0, renderData.EBO->getLoadedSize() / sizeof(uint32_t), renderData.EBO->getPtr<uint32_t>());
 			ptr->setLoadedSize(
-				renderData.mEBO->getLoadedSize()
+				renderData.EBO->getLoadedSize()
 			);
 
-			renderData.mEBO.reset(ptr);
+			renderData.EBO.reset(ptr);
 		}
 	}
 
@@ -143,63 +141,62 @@ namespace engine
 				return newEbo;
 			};
 
-		auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
-		for (auto [entity, uid, mesh, material] : view.each())
+		for (auto [entity, uid, mesh, material] : registry.view<uidComponent, meshComponent, materialComponent>().each())
 		{
-			auto renderData = mDynamicData.find({ material.tex->getID(), material.shader->getID() });
-			if (renderData == mDynamicData.end())
+			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+			if (renderData == mData.end())
 			{
 				// TODO: figure out where to get that.
 				const size_t newSizeVertex = 100;
 				const size_t newSizeIndex = 100;
 
-				mDynamicData[{ material.tex->getID(), material.shader->getID() }] = {
+				mData[{ material.tex->getID(), material.shader->getID() }] = {
 					std::make_unique<dynamicArrayObject>(newSizeIndex, nullptr),
 					std::make_unique<dynamicArrayObject>(newSizeVertex, nullptr),
 					std::make_unique<vertexArrayObject>(),
 				};
 
-				renderData = mDynamicData.find({ material.tex->getID(), material.shader->getID() });
+				renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 			}
 
-			if (renderData->second.mEntityBoundaries.find(uid.uid) != renderData->second.mEntityBoundaries.end())
+			if (renderData->second.entityBoundaries.find(uid.uid) != renderData->second.entityBoundaries.end())
 			{
 				continue;
 			}
 
-			renderData->second.mEntityBoundaries[uid.uid] = entityBoundaries{
-					renderData->second.mVBO->getLoadedSize() / sizeof(vertex),
-					renderData->second.mVBO->getLoadedSize() / sizeof(vertex) + mesh.meshData.size(),
+			renderData->second.entityBoundaries[uid.uid] = entityBoundaries{
+					renderData->second.VBO->getLoadedSize() / sizeof(vertex),
+					renderData->second.VBO->getLoadedSize() / sizeof(vertex) + mesh.meshData.size(),
 
-					renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t),
-					renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t) + mesh.indexData.size(),
+					renderData->second.EBO->getLoadedSize() / sizeof(uint32_t),
+					renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) + mesh.indexData.size(),
 			};
 
 			resizeOnNeed(renderData->second, mesh.meshData, mesh.indexData);
 
-			renderData->second.mEBO->updateData(
-				renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t),
+			renderData->second.EBO->updateData(
+				renderData->second.EBO->getLoadedSize() / sizeof(uint32_t),
 				mesh.indexData.size(),
-				shiftIndixes(mesh.indexData, renderData->second.mVBO->getLoadedSize() / sizeof(vertex)).data()
+				shiftIndixes(mesh.indexData, renderData->second.VBO->getLoadedSize() / sizeof(vertex)).data()
 			);
 
-			renderData->second.mEBO->setLoadedSize(
-				renderData->second.mEBO->getLoadedSize() + mesh.indexData.size() * sizeof(uint32_t)
+			renderData->second.EBO->setLoadedSize(
+				renderData->second.EBO->getLoadedSize() + mesh.indexData.size() * sizeof(uint32_t)
 			);
 
-			renderData->second.mVBO->updateData(
-				renderData->second.mVBO->getLoadedSize() / sizeof(vertex),
+			renderData->second.VBO->updateData(
+				renderData->second.VBO->getLoadedSize() / sizeof(vertex),
 				mesh.meshData.size(),
 				mesh.meshData.data()
 			);
 
-			renderData->second.mVBO->setLoadedSize(
-				renderData->second.mVBO->getLoadedSize() + mesh.meshData.size() * sizeof(vertex)
+			renderData->second.VBO->setLoadedSize(
+				renderData->second.VBO->getLoadedSize() + mesh.meshData.size() * sizeof(vertex)
 			);
 
-			renderData->second.mVAO->setElementBuffer(renderData->second.mEBO->getLoadedSize() / sizeof(uint32_t), renderData->second.mEBO->getID());
+			renderData->second.VAO->setElementBuffer(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t), renderData->second.EBO->getID());
 
-			auto err = renderData->second.mVAO->setAttribs(vertexDescriber{ renderData->second.mVBO->getID() });
+			auto err = renderData->second.VAO->setAttribs({ &vertexDescriber{ renderData->second.VBO->getID() } });
 			if (err)
 				LOGERROR("can't set attribs");
 		}
@@ -209,16 +206,15 @@ namespace engine
 	{
 		std::vector<entt::entity> updated;
 
-		auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent, updateMeshComponent>();
-		for (auto [entity, uid, mesh, material] : view.each())
+		for (auto [entity, uid, mesh, material] : registry.view<uidComponent, meshComponent, materialComponent, updateMeshComponent>().each())
 		{
-			auto renderData = mDynamicData.find({ material.tex->getID(), material.shader->getID() });
-			if (renderData != mDynamicData.end())
+			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+			if (renderData != mData.end())
 			{
-				auto boundaries = renderData->second.mEntityBoundaries.find(uid.uid);
-				if (boundaries != renderData->second.mEntityBoundaries.end())
+				auto boundaries = renderData->second.entityBoundaries.find(uid.uid);
+				if (boundaries != renderData->second.entityBoundaries.end())
 				{
-					renderData->second.mVBO->updateData<vertex>(
+					renderData->second.VBO->updateData<vertex>(
 						boundaries->second.fromVBO,
 						boundaries->second.toVBO - boundaries->second.fromVBO,
 						mesh.meshData.data()
@@ -240,8 +236,7 @@ namespace engine
 		glm::mat4 projection = mDefaultCamera.getProjection();
 		glm::mat4 view = mDefaultCamera.getCameraTransform();
 
-		auto viewCamera = registry.view<fpsCameraComponent>();
-		for (auto [entity, camera] : viewCamera.each())
+		for (auto [entity, camera] : registry.view<fpsCameraComponent>().each())
 		{
 			if (camera.isActive)
 			{
@@ -252,48 +247,12 @@ namespace engine
 
 		std::set<materialComponent> uniqueMaterials;
 
-		auto viewStatic = registry.view<materialComponent>();
-		for (auto [entity, material] : viewStatic.each())
+		for (auto [entity, material] : registry.view<materialComponent>().each())
 		{
 			uniqueMaterials.insert(material);
 		}
 
 		mRenderer.clear();
-
-		// static draws.
-		for (auto material : uniqueMaterials)
-		{
-			error err = material.shader->setUniformType("uView", view, 1);
-			if (err)
-			{
-				LOGERROR("can't set uniform: {}", err.err());
-			}
-			
-			err = material.shader->setUniformType("uProjection", projection, 1);
-			if (err)
-			{
-				LOGERROR("can't set uniform: {}", err.err());
-			}
-
-			if (auto data = mStaticData.find({ material.tex->getID(), material.shader->getID() }); data != mStaticData.end())
-			{
-				for (auto& unifromData : material.shaderUnifroms)
-				{
-					std::visit([&](auto&& var)
-						{
-							error err = material.shader->setUniformType(unifromData.first, var, unifromData.second.second);
-							if (err)
-							{
-								LOGERROR("can't set uniform: {}", err.err());
-							}
-						}, unifromData.second.first);
-				}
-
-				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
-			}
-		}
-
-		// dynamic draws.
 		for (auto material : uniqueMaterials)
 		{
 			error err = material.shader->setUniformType("uView", view, 1);
@@ -308,7 +267,7 @@ namespace engine
 				LOGERROR("can't set uniform: {}", err.err());
 			}
 
-			if (auto data = mDynamicData.find({ material.tex->getID(), material.shader->getID() }); data != mDynamicData.end())
+			if (auto data = mData.find({ material.tex->getID(), material.shader->getID() }); data != mData.end())
 			{
 				for (auto& unifromData : material.shaderUnifroms)
 				{
@@ -321,20 +280,14 @@ namespace engine
 							}
 						}, unifromData.second.first);
 				}
-			
-				mRenderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.mVAO.get()));
+
+				mRenderer.onRender(*(material.shader.get()), *(material.tex.get()), *(data->second.VAO.get()));
 			}
 		}
 	}
 
 	void engine::renderSystem::onRender(entt::registry& registry)
 	{
-		deleteEntities(registry);
-
-		addEntities(registry);
-
-		updateData(registry);
-
 		render(registry);
 	}
 
@@ -385,7 +338,7 @@ namespace engine
 
 			auto c = registry.create();
 			registry.emplace<uidComponent>(c);
-			registry.emplace<dynamicMeshComponent>(
+			registry.emplace<meshComponent>(
 				c,
 				getMovedCube(),
 				std::vector<uint32_t>{
@@ -414,72 +367,10 @@ namespace engine
 					{"u_textures[0]", {slotID, 1} }
 				}
 			);
-		}
 
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::j)
-		{
-			auto texture = mCtx.getAManager()->loadTexture("../assets/textures/wood.jpg");
-			auto shader = mCtx.getAManager()->loadShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
-
-			auto getMovedCube = []()->std::vector<vertex>
-				{
-					auto vertexes = std::vector<vertex>{
-						// Front face
-						{ { 0.5f, 0.5f, 0.5f}, { 1.0f, 1.0f }, 0 },
-						{ { 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f}, 0 },
-						{ {-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0 },
-						{ {-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f}, 0 },
-
-						// Back face
-					{ { 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0 },
-					{ { 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, 0 },
-					{ {-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0 },
-					{ {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f}, 0 },
-					};
-
-					std::mt19937 rng(std::random_device{}());
-					std::uniform_real_distribution<float> dist(-10.0f, 10.0f);
-					glm::vec3 offset(dist(rng), dist(rng), dist(rng));
-					glm::mat4 transform = glm::translate(glm::mat4(1.0f), offset);
-
-					for (auto& v : vertexes) {
-						glm::vec4 pos = transform * glm::vec4(v.position, 1.0f);
-						v.position = glm::vec3(pos);
-					}
-
-					return vertexes;
-				};
-
-			auto c = registry.create();
-			registry.emplace<uidComponent>(c);
-			registry.emplace<dynamicMeshComponent>(
+			registry.emplace<transformComponent>(
 				c,
-				getMovedCube(),
-				std::vector<uint32_t>{
-				// Front face
-				0, 1, 2, 2, 3, 0,
-					// Left face
-					3, 2, 6, 6, 7, 3,
-					// Right face
-					0, 1, 5, 5, 4, 0,
-					// Top face
-					0, 3, 7, 7, 4, 0,
-					// Bottom face
-					1, 2, 6, 6, 5, 1,
-					// Back face
-					4, 5, 6, 6, 7, 4,
-			});
-
-			texture.first->bind();
-			int slotID = texture.first->getSlotID();
-
-			registry.emplace<materialComponent>(
-				c,
-				texture.first,
-				shader.first,
-				materialComponent::shaderUnifrmMap{
-					{"u_textures[0]", {slotID, 1} }
-				}
+				glm::mat4(1.0f)
 			);
 		}
 
@@ -487,7 +378,7 @@ namespace engine
 		{
 			entt::entity toDelete;
 			bool use = false;
-			auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
+			auto view = registry.view<uidComponent, meshComponent, materialComponent>();
 			int i = 0;
 			for (auto [entity, uid, mesh, mat] : view.each())
 			{
@@ -502,27 +393,15 @@ namespace engine
 			if (use)
 				registry.emplace<deleteComponent>(toDelete);
 		}
+	}
 
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::u)
-		{
-			std::vector<entt::entity> toUpdate;
+	void renderSystem::onUpdate(entt::registry& registry)
+	{
+		deleteEntities(registry);
 
-			auto view = registry.view<uidComponent, dynamicMeshComponent, materialComponent>();
-			for (auto [entity, uid, mesh, material] : view.each())
-			{
-				for (auto& v : mesh.meshData)
-				{
-					v.position.x += 0.1f;
-				}
+		addEntities(registry);
 
-				toUpdate.push_back(entity);
-			}
-
-			for (auto e : toUpdate)
-			{
-				registry.emplace<updateMeshComponent>(e);
-			}
-		}
+		updateData(registry);
 	}
 
 	error renderSystem::checkError()

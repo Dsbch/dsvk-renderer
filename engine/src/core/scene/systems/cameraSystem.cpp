@@ -82,6 +82,10 @@ namespace engine
 		}
 	}
 
+	void cameraSystem::onUpdate(entt::registry& registry)
+	{
+	}
+
 	void cameraSystem::spawnDefaultCamera(entt::registry& registry) const
 	{
 		auto c = registry.create();
