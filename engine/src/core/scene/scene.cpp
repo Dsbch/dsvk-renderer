@@ -3,26 +3,30 @@
 #include "base/profiling/profiling.h"
 #include "core/scene/entity.h"
 #include "core/scene/components.h"
-#include "core/scene/systems/renderSystem.h"
-#include "core/scene/systems/instancedRenderSystem.h"
+#include "core/scene/systems/renderSystems.h"
 #include "core/scene/systems/cameraSystem.h"
 #include "core/scene/systems/transformSystem.h"
 
 namespace engine
 {
+	std::vector<std::unique_ptr<system>> scene::mUserSystems;
+
 	scene::scene(context ctx)
 		:
 		mSceneRegistry(), mCtx(ctx), mSystems(), mSceneCamera(ctx, ctx.config.getCfg().camera.fov, ctx.config.getCfg().camera.nearPlane, ctx.config.getCfg().camera.farPlane, ctx.config.getCfg().wnd.width, ctx.config.getCfg().wnd.height)
 	{
-		// push back all needed systems.
-		mSystems.push_back(std::make_unique<renderSystem>(mCtx, mSceneCamera));
-		mSystems.push_back(std::make_unique<instancedRenderSystem>(mCtx, mSceneCamera));
-		mSystems.push_back(std::make_unique<transformSystem>(mCtx));
-		mSystems.push_back(std::make_unique<cameraSystem>(mCtx));
+		addSystem(std::make_unique<renderSystems>(mCtx, mSceneCamera));
+		addSystem(std::make_unique<transformSystem>(mCtx));
+		addSystem(std::make_unique<cameraSystem>(mCtx));
 	}
 
 	void scene::onRender()
 	{
+		for (auto& s : mUserSystems)
+		{
+			s->onRender(mSceneRegistry);
+		}
+
 		for (auto& s : mSystems)
 		{
 			s->onRender(mSceneRegistry);
@@ -31,6 +35,11 @@ namespace engine
 
 	void scene::onEvent(std::shared_ptr<baseEvent> e)
 	{
+		for (auto& s : mUserSystems)
+		{
+			s->onEvent(mSceneRegistry, e);
+		}
+
 		for (auto& s : mSystems)
 		{
 			s->onEvent(mSceneRegistry, e);
@@ -39,6 +48,11 @@ namespace engine
 
 	void scene::onUpdate()
 	{
+		for (auto& s : mUserSystems)
+		{
+			s->onUpdate(mSceneRegistry);
+		}
+
 		for (auto& s : mSystems)
 		{
 			s->onUpdate(mSceneRegistry);
@@ -47,6 +61,12 @@ namespace engine
 
 	error scene::checkError() const
 	{
+		for (auto& s : mUserSystems)
+		{
+			if (auto err = s->checkError(); err)
+				return err;
+		}
+
 		for (auto& s : mSystems)
 		{
 			if (auto err = s->checkError(); err)
@@ -70,5 +90,15 @@ namespace engine
 		entity ent{ mCtx, mSceneRegistry.create(), this };
 
 		return ent;
+	}
+
+	void scene::addSystem(std::unique_ptr<system>&& s)
+	{
+		mSystems.push_back(std::move(s));
+	}
+
+	void scene::addUserSystem(std::unique_ptr<system>&& s)
+	{
+		mUserSystems.push_back(std::move(s));
 	}
 }

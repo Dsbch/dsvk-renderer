@@ -22,8 +22,8 @@ namespace engine
 		application();
 		virtual ~application();
 
-		void pushLayer(std::shared_ptr<layer>);
-		void pushOverlay(std::shared_ptr<layer>);
+		void pushLayer(std::unique_ptr<layer>&&);
+		void pushOverlay(std::unique_ptr<layer>&&);
 		void run();
 		error checkError();
 	protected:

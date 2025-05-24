@@ -20,6 +20,8 @@ project "editor"
       "../vendor/spdlog/include",
       "../vendor/json",
       "../vendor/json/single_include",
+      "../vendor/entt/src",
+      "../vendor/glm",
     }
 
    links 

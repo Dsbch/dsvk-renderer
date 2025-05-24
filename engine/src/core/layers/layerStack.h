@@ -8,14 +8,14 @@ namespace engine
 	class layerStack
 	{
 	private:
-		std::vector<std::shared_ptr<layer>> mLayerStack;
-		std::vector<std::shared_ptr<layer>> mOverlayStack;
+		std::vector<std::unique_ptr<layer>> mLayerStack;
+		std::vector<std::unique_ptr<layer>> mOverlayStack;
 	public:
 		void onEvent(std::shared_ptr<baseEvent>);
 		void onRender();
 		void onUpdate();
-		void pushLayer(std::shared_ptr<layer> l);
-		void pushOverlay(std::shared_ptr<layer> l);
+		void pushLayer(std::unique_ptr<layer>&& l);
+		void pushOverlay(std::unique_ptr<layer>&& l);
 		error checkError() const;
 	};
 }

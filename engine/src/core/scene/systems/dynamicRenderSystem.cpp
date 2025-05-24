@@ -1,18 +1,16 @@
 #include <pch.h>
 
-#include "renderSystem.h"
+#include "dynamicRenderSystem.h"
 
 namespace engine
 {
-	renderSystem::renderSystem(context ctx, fpsCamera defaultCamera)
+	dynamicRenderSystem::dynamicRenderSystem(context ctx)
 		:
-		system(ctx),
-		mRenderer({ ctx }),
-		mDefaultCamera(defaultCamera)
+		system(ctx)
 	{
 	}
 
-	void renderSystem::deleteEntities(entt::registry& registry)
+	void dynamicRenderSystem::deleteEntities(entt::registry& registry)
 	{
 		std::vector<entt::entity> toDestroy;
 
@@ -80,7 +78,7 @@ namespace engine
 		}
 	}
 
-	void renderSystem::resizeOnNeed(dynamicRenderData& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo)
+	void dynamicRenderSystem::resizeOnNeed(dynamicRenderData& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo)
 	{
 		auto newLen = [](size_t oldLen, size_t newDataLen)->size_t
 			{
@@ -128,7 +126,7 @@ namespace engine
 		}
 	}
 
-	void renderSystem::addEntities(entt::registry& registry)
+	void dynamicRenderSystem::addEntities(entt::registry& registry)
 	{
 		auto shiftIndixes = [](const std::vector<uint32_t>& ebo, size_t shift) ->std::vector<uint32_t>
 			{
@@ -202,7 +200,7 @@ namespace engine
 		}
 	}
 
-	void renderSystem::updateData(entt::registry& registry)
+	void dynamicRenderSystem::updateData(entt::registry& registry)
 	{
 		std::vector<entt::entity> updated;
 
@@ -231,28 +229,17 @@ namespace engine
 		}
 	}
 
-	void renderSystem::render(entt::registry& registry)
+	void dynamicRenderSystem::render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera)
 	{
-		glm::mat4 projection = mDefaultCamera.getProjection();
-		glm::mat4 view = mDefaultCamera.getCameraTransform();
-
-		for (auto [entity, camera] : registry.view<fpsCameraComponent>().each())
-		{
-			if (camera.isActive)
-			{
-				projection = camera.camera->getProjection();
-				view = camera.camera->getCameraTransform();
-			}
-		}
+		glm::mat4 projection = camera.getProjection();
+		glm::mat4 view = camera.getCameraTransform();
 
 		std::set<materialComponent> uniqueMaterials;
-
 		for (auto [entity, material] : registry.view<materialComponent>().each())
 		{
 			uniqueMaterials.insert(material);
 		}
 
-		mRenderer.clear();
 		for (auto material : uniqueMaterials)
 		{
 			error err = material.shader->setUniformType("uView", view, 1);
@@ -269,7 +256,7 @@ namespace engine
 
 			if (auto data = mData.find({ material.tex->getID(), material.shader->getID() }); data != mData.end())
 			{
-				for (auto& unifromData : material.shaderUnifroms)
+				for (auto& unifromData : material.shaderUniforms)
 				{
 					std::visit([&](auto&& var)
 						{
@@ -281,121 +268,16 @@ namespace engine
 						}, unifromData.second.first);
 				}
 
-				mRenderer.onRender(*(material.shader.get()), *(material.tex.get()), *(data->second.VAO.get()));
+				renderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.VAO.get()));
 			}
 		}
 	}
 
-	void engine::renderSystem::onRender(entt::registry& registry)
+	void dynamicRenderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
-		render(registry);
 	}
 
-	void renderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
-	{
-		if (e->getEventType() == eventType::windowResize)
-		{
-			auto resizeEvent = static_cast<windowResizeEvent*>(e.get());
-
-			mRenderer.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
-			mDefaultCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
-		}
-
-		// TODO: code below move somewhere else, to another system.
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::v)
-		{
-			auto texture = mCtx.getAManager()->loadTexture("../assets/textures/obsidian.jpg");
-			auto shader = mCtx.getAManager()->loadShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
-
-			auto getMovedCube = []()->std::vector<vertex>
-				{
-					auto vertexes = std::vector<vertex>{
-						// Front face
-						{ { 0.5f, 0.5f, 0.5f}, { 1.0f, 1.0f }, 0 },
-						{ { 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f}, 0 },
-						{ {-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0 },
-						{ {-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f}, 0 },
-
-						// Back face
-					{ { 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0 },
-					{ { 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, 0 },
-					{ {-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0 },
-					{ {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f}, 0 },
-					};
-
-					std::mt19937 rng(std::random_device{}());
-					std::uniform_real_distribution<float> dist(-10.0f, 10.0f);
-					glm::vec3 offset(dist(rng), dist(rng), dist(rng));
-					glm::mat4 transform = glm::translate(glm::mat4(1.0f), offset);
-
-					for (auto& v : vertexes) {
-						glm::vec4 pos = transform * glm::vec4(v.position, 1.0f);
-						v.position = glm::vec3(pos);
-					}
-
-					return vertexes;
-				};
-
-			auto c = registry.create();
-			registry.emplace<uidComponent>(c);
-			registry.emplace<meshComponent>(
-				c,
-				getMovedCube(),
-				std::vector<uint32_t>{
-				// Front face
-				0, 1, 2, 2, 3, 0,
-					// Left face
-					3, 2, 6, 6, 7, 3,
-					// Right face
-					0, 1, 5, 5, 4, 0,
-					// Top face
-					0, 3, 7, 7, 4, 0,
-					// Bottom face
-					1, 2, 6, 6, 5, 1,
-					// Back face
-					4, 5, 6, 6, 7, 4,
-			});
-
-			texture.first->bind();
-			int slotID = texture.first->getSlotID();
-
-			registry.emplace<materialComponent>(
-				c,
-				texture.first,
-				shader.first,
-				materialComponent::shaderUnifrmMap{
-					{"u_textures[0]", {slotID, 1} }
-				}
-			);
-
-			registry.emplace<transformComponent>(
-				c,
-				glm::mat4(1.0f)
-			);
-		}
-
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::q)
-		{
-			entt::entity toDelete;
-			bool use = false;
-			auto view = registry.view<uidComponent, meshComponent, materialComponent>();
-			int i = 0;
-			for (auto [entity, uid, mesh, mat] : view.each())
-			{
-				if (i == 1)
-				{
-					use = true;
-					toDelete = entity;
-				}
-				i++;
-			}
-
-			if (use)
-				registry.emplace<deleteComponent>(toDelete);
-		}
-	}
-
-	void renderSystem::onUpdate(entt::registry& registry)
+	void dynamicRenderSystem::onUpdate(entt::registry& registry)
 	{
 		deleteEntities(registry);
 
@@ -404,8 +286,8 @@ namespace engine
 		updateData(registry);
 	}
 
-	error renderSystem::checkError()
+	error dynamicRenderSystem::checkError()
 	{
-		return mRenderer.checkError();
+		return {};
 	}
 }

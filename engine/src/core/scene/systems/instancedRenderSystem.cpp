@@ -5,19 +5,63 @@
 
 namespace engine
 {
-	instancedRenderSystem::instancedRenderSystem(context ctx, fpsCamera defaultCamera)
+	instancedRenderSystem::instancedRenderSystem(context ctx)
 		:
-		system(ctx), mRenderer({ ctx }), mDefaultCamera(defaultCamera)
+		system(ctx)
 	{
 	}
 
 	error instancedRenderSystem::checkError()
 	{
-		return mRenderer.checkError();
+		return {};
 	}
 
-	void instancedRenderSystem::render(entt::registry& registry)
+	void instancedRenderSystem::render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera)
 	{
+		glm::mat4 projection = camera.getProjection();
+		glm::mat4 view = camera.getCameraTransform();
+
+		std::set<materialComponent> uniqueMaterials;
+		for (auto [entity, material] : registry.view<materialComponent>().each())
+		{
+			uniqueMaterials.insert(material);
+		}
+
+		for (auto material : uniqueMaterials)
+		{
+			error err = material.shader->setUniformType("uView", view, 1);
+			if (err)
+			{
+				LOGERROR("can't set uniform: {}", err.err());
+			}
+
+			err = material.shader->setUniformType("uProjection", projection, 1);
+			if (err)
+			{
+				LOGERROR("can't set uniform: {}", err.err());
+			}
+
+			if (auto data = mData.find({ material.tex->getID(), material.shader->getID() }); data != mData.end())
+			{
+				for (auto& unifromData : material.shaderUniforms)
+				{
+					std::visit([&](auto&& var)
+						{
+							error err = material.shader->setUniformType(unifromData.first, var, unifromData.second.second);
+							if (err)
+							{
+								LOGERROR("can't set uniform: {}", err.err());
+							}
+						}, unifromData.second.first);
+				}
+
+				for (auto& setData : data->second)
+				{
+					renderer.render(*(material.shader.get()), *(material.tex.get()), *(setData.VAO.get()), setData.instanceCount);
+				}
+			}
+		}
+
 	}
 
 	void instancedRenderSystem::resizeOnNeed(const instancedRenderData& data)
@@ -40,13 +84,41 @@ namespace engine
 		}
 	}
 
-	void instancedRenderSystem::onRender(entt::registry& registry)
-	{
-		render(registry);
-	}
-
 	void instancedRenderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
+
+	}
+
+	void instancedRenderSystem::updateData(entt::registry& registry)
+	{
+		std::vector<entt::entity> updated;
+		for (auto [entity, uid, mesh, material, transform] : registry.view<uidComponent, instancedMeshComponent, materialComponent, transformComponent, updateMeshComponent>().each())
+		{
+			auto set = mData.find({ material.tex->getID(), material.shader->getID() });
+			if (set != mData.end())
+			{
+				if (auto renderData = set->second.find({ mesh.uid }); renderData != set->second.end())
+				{
+					if (auto boundaries = renderData->boundaries.find(uid.uid); boundaries != renderData->boundaries.end())
+					{
+						std::vector<instanceAttributes> attribs{ {transform.transform} };
+
+						renderData->perInstanceAttrs->updateData<instanceAttributes>(
+							boundaries->second.fromPerInstAttr,
+							boundaries->second.toPerInstAttr - boundaries->second.fromPerInstAttr,
+							attribs.data()
+						);
+
+						updated.push_back(entity);
+					}
+				}
+			}
+		}
+
+		for (auto e : updated)
+		{
+			registry.remove<updateMeshComponent>(e);
+		}
 	}
 
 	void instancedRenderSystem::deleteEntities(entt::registry& registry)
@@ -79,12 +151,16 @@ namespace engine
 					size_t perInstShift = 1; // always one.
 					for (auto& [key, val] : found->boundaries)
 					{
-						if (boundaries->second.toPerInstAttr< val.toPerInstAttr)
+						if (boundaries->second.toPerInstAttr < val.toPerInstAttr)
 						{
 							val.fromPerInstAttr -= perInstShift;
 							val.toPerInstAttr -= perInstShift;
 						}
 					}
+
+					found->boundaries.erase(uid.uid);
+
+					found->instanceCount--;
 				}
 			}
 		}
@@ -106,7 +182,8 @@ namespace engine
 				foundSet = mData.find({ material.tex->getID(), material.shader->getID() });
 			}
 
-			if (auto found = foundSet->second.find({ instancedMesh.uid }); found == foundSet->second.end())
+			auto foundData = foundSet->second.find({ instancedMesh.uid });
+			if (foundData == foundSet->second.end())
 			{
 				// TODO: figure out where to get that.
 				const size_t newSizeAttrs = 100;
@@ -122,35 +199,34 @@ namespace engine
 					}
 					);
 
-				found = foundSet->second.find({ instancedMesh.uid });
+				foundData = foundSet->second.find({ instancedMesh.uid });
 			}
-			else
-			{
-				if (auto boundaries = found->boundaries.find(uid.uid); boundaries != found->boundaries.end())
-					return;
 
-				resizeOnNeed(*found);
+			if (auto boundaries = foundData->boundaries.find(uid.uid); boundaries != foundData->boundaries.end())
+				return;
 
-				found->boundaries[uid.uid] = {
-					found->VBO->getLoadedSize() / sizeof(vertex),
-					found->VBO->getLoadedSize() / sizeof(vertex) + instancedMesh.meshData->size(),
+			resizeOnNeed(*foundData);
 
-					found->EBO->getLoadedSize() / sizeof(uint32_t),
-					found->EBO->getLoadedSize() / sizeof(uint32_t) + instancedMesh.indexData->size(),
+			foundData->boundaries[uid.uid] = {
+				0, // always zero.
+				foundData->VBO->getLoadedSize() / sizeof(vertex),
 
-					found->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes),
-					found->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes) + 1,
-				};
+				0, // always zero.
+				foundData->EBO->getLoadedSize() / sizeof(uint32_t),
 
-				found->instanceCount++;
-				found->perInstanceAttrs->updateData(found->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes), 1, glm::value_ptr(transform.transform));
-				found->perInstanceAttrs->setLoadedSize(found->perInstanceAttrs->getLoadedSize() + sizeof(instanceAttributes) * 1);
+				foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes),
+				foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes) + 1,
+			};
 
-				found->VAO->setElementBuffer(found->EBO->getLoadedSize() / sizeof(uint32_t), found->EBO->getID());
-				auto err = found->VAO->setAttribs({ &vertexDescriber{ found->VBO->getID() }, &instancedAttrDescriber{ found->perInstanceAttrs->getID()} });
-				if (err)
-					LOGERROR("can't set attribs");
-			}
+			std::vector<instanceAttributes> attribs{ {transform.transform} };
+			foundData->instanceCount++;
+			foundData->perInstanceAttrs->updateData<instanceAttributes>(foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes), 1, attribs.data());
+			foundData->perInstanceAttrs->setLoadedSize(foundData->perInstanceAttrs->getLoadedSize() + sizeof(instanceAttributes) * 1);
+
+			foundData->VAO->setElementBuffer(foundData->EBO->getLoadedSize() / sizeof(uint32_t), foundData->EBO->getID());
+			auto err = foundData->VAO->setAttribs({ &vertexDescriber{ foundData->VBO->getID() }, &instancedAttrDescriber{ foundData->perInstanceAttrs->getID()} });
+			if (err)
+				LOGERROR("can't set attribs");
 		}
 	}
 
@@ -159,5 +235,7 @@ namespace engine
 		deleteEntities(registry);
 
 		addEntities(registry);
+
+		updateData(registry);
 	}
 }

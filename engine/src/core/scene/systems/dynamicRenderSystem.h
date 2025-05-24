@@ -46,24 +46,23 @@ namespace engine
 		std::map<entityID, entityBoundaries> entityBoundaries;
 	};
 
-	class renderSystem : public system
+	class dynamicRenderSystem : public system
 	{
 	private:
-		fpsCamera mDefaultCamera;
-
-		openglRenderer mRenderer;
 		std::map<materialID, dynamicRenderData> mData;
 
 		void resizeOnNeed(dynamicRenderData& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo);
 		void deleteEntities(entt::registry& registry);
 		void addEntities(entt::registry& registry);
 		void updateData(entt::registry& registry);
-		void render(entt::registry& registry);
+		void render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera);
 	public:
-		renderSystem(context ctx, fpsCamera defaultCamera);
-		void onRender(entt::registry& registry);
+		dynamicRenderSystem(context ctx);
+		void onRender(entt::registry& registry) {};
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 		void onUpdate(entt::registry& registry);
 		error checkError();
+
+		friend class renderSystems;
 	};
 }

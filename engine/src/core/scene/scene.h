@@ -24,12 +24,16 @@ namespace engine
 
 		entity createEntity(const std::string&);
 		entity createEntity();
-	
+		void addSystem(std::unique_ptr<system>&&);
+
+		static void addUserSystem(std::unique_ptr<system>&&);
 	protected:
 		context mCtx;
 		fpsCamera mSceneCamera;
 	
 	private:
+		static std::vector<std::unique_ptr<system>> mUserSystems;
+		
 		entt::registry mSceneRegistry;
 		std::vector<std::unique_ptr<system>> mSystems;
 

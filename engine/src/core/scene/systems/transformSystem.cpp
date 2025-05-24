@@ -20,32 +20,6 @@ namespace engine
 
 	void transformSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
-		// code below just for tests.
-		std::vector<entt::entity> toUpdate;
-
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::k)
-		{
-			for (auto [entity, uid, mesh, transform] : registry.view<uidComponent, meshComponent, transformComponent>().each())
-			{
-				transform.transform = glm::translate(transform.transform, glm::vec3(0.1f, 0.1f, 0.1f));
-				toUpdate.push_back(entity);
-			}
-		}
-
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::i)
-		{
-			for (auto [entity, uid, mesh, transform] : registry.view<uidComponent, meshComponent, transformComponent>().each())
-			{
-				transform.transform = glm::rotate(transform.transform, glm::radians(10.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-				toUpdate.push_back(entity);
-			}
-		}
-
-		for (auto e : toUpdate)
-		{
-			registry.emplace_or_replace<applyTransformComponent>(e);
-			registry.emplace_or_replace<updateMeshComponent>(e);
-		}
 	}
 
 	void transformSystem::onUpdate(entt::registry& registry)
@@ -66,8 +40,8 @@ namespace engine
 
 		for (auto e : toUpdate)
 		{
-			registry.emplace_or_replace<updateMeshComponent>(e);
 			registry.remove<applyTransformComponent>(e);
+			registry.emplace_or_replace<updateMeshComponent>(e);
 		}
 	}
 }

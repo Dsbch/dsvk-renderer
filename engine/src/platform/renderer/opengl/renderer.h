@@ -23,8 +23,8 @@ namespace engine
 		error checkError() const;
 		void changeViewPort(uint32_t width, uint32_t height) const;
 		void clear() const;
-		void onRender() const;
-		void onRender(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const;
-		void onRender(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao, uint32_t instanceCount) const;
+		void render() const;
+		void render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const;
+		void render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao, uint32_t instanceCount) const;
 	};
 }

@@ -17,7 +17,7 @@ namespace engine
 
 	struct instanceAttributes
 	{
-		glm::mat3 modelMatrix;
+		glm::mat4 modelMatrix;
 	};
 
 	class vertexDescriber : public attributesDescriber 

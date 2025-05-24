@@ -44,15 +44,16 @@ namespace engine
 		}
 	}
 
-	void layerStack::pushLayer(std::shared_ptr<layer> l)
+	void layerStack::pushLayer(std::unique_ptr<layer>&& l)
 	{
-		mLayerStack.push_back(l);
+		mLayerStack.push_back(std::move(l));
 	}
 
-	void layerStack::pushOverlay(std::shared_ptr<layer> l)
+	void layerStack::pushOverlay(std::unique_ptr<layer>&& l)
 	{
-		mOverlayStack.push_back(l);
+		mOverlayStack.push_back(std::move(l));
 	}
+
 	error layerStack::checkError() const
 	{
 		for (auto& l : mLayerStack)

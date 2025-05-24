@@ -22,19 +22,7 @@ namespace engine
 
 	void cameraSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
-		if (e->getEventType() == eventType::keyUp && static_cast<keyUpEvent*>(e.get())->getKey() == key::b)
-		{
-			auto cameraView = registry.view<fpsCameraComponent>();
-
-			for (auto [entity, camera] : cameraView.each())
-			{
-				if (camera.isActive)
-					return;
-			}
-
-			spawnDefaultCamera(registry);
-		}
-
+		// TODO: figure out how to apply application settings to it.
 		auto cameraView = registry.view<fpsCameraComponent, inputListenerComponent>();
 		for (auto [entity, camera, input] : cameraView.each())
 		{

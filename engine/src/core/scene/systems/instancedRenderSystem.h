@@ -1,7 +1,7 @@
 #pragma once
 
 #include <pch.h>
-#include "renderSystem.h"
+#include "dynamicRenderSystem.h"
 #include <entt/entt.hpp>
 #include "core/scene/scene.h"
 #include "platform/renderer/vertex.h"
@@ -43,21 +43,21 @@ namespace engine
 	class instancedRenderSystem : public system
 	{
 	public:
-		instancedRenderSystem(context ctx, fpsCamera defaultCamera);
+		instancedRenderSystem(context ctx);
 
 		error checkError();
-		void onRender(entt::registry& registry);
+		void onRender(entt::registry& registry) {};
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 		void onUpdate(entt::registry& registry);
 	private:
-		openglRenderer mRenderer;
-		fpsCamera mDefaultCamera;
-
+		void updateData(entt::registry& registry);
 		void deleteEntities(entt::registry& registry);
 		void addEntities(entt::registry& registry);
-		void render(entt::registry& registry);
+		void render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera);
 		void resizeOnNeed(const instancedRenderData&);
 
 		std::map<materialID, std::set<instancedRenderData>> mData;
+
+		friend class renderSystems;
 	};
 }

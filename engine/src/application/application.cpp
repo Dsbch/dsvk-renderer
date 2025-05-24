@@ -62,7 +62,7 @@ namespace engine
 
 	error application::createLayerStack()
 	{
-		pushLayer(std::make_shared<worldLayer>(mCtx));
+		pushLayer(std::make_unique<worldLayer>(mCtx));
 
 		return mLayerStack->checkError();
 	}
@@ -132,14 +132,14 @@ namespace engine
 #endif // DEBUG
 	}
 
-	void application::pushLayer(std::shared_ptr<layer> l)
+	void application::pushLayer(std::unique_ptr<layer>&& l)
 	{
-		mLayerStack->pushLayer(l);
+		mLayerStack->pushLayer(std::move(l));
 	}
 
-	void application::pushOverlay(std::shared_ptr<layer> l)
+	void application::pushOverlay(std::unique_ptr<layer>&& l)
 	{
-		mLayerStack->pushOverlay(l);
+		mLayerStack->pushOverlay(std::move(l));
 	}
 
 	void application::run()

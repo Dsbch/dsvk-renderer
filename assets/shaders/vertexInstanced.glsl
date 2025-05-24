@@ -6,7 +6,7 @@ layout(location = 1) in vec2 tex_coords;
 layout(location = 2) in int tex_index;
 
 // Per instance attr.
-layout(location = 3) in mat3 model_matrix;
+layout(location = 3) in mat4 model_matrix;
 
 uniform mat4 uProjection;
 uniform mat4 uView;
@@ -17,9 +17,9 @@ out float v_tex_index;
 
 void main()
 {
-    vec3 worldPos = model_matrix * position;
+    vec4 worldPos = model_matrix * vec4(position.xyz, 1.0f);
 
-    gl_Position = uProjection * uView * vec4(worldPos, 1.0f);
+    gl_Position = uProjection * uView * worldPos;
     pos = gl_Position;
     v_tex_coords = tex_coords;
     v_tex_index = float(tex_index);

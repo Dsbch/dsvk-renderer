@@ -69,12 +69,12 @@ namespace engine
 
 	struct materialComponent
 	{
-		typedef std::map<std::string, std::pair<std::variant<float, uint32_t, int, double, glm::mat4, glm::vec3>, uint32_t>> shaderUnifrmMap;
+		typedef std::map<std::string, std::pair<std::variant<float, uint32_t, int, double, glm::mat4, glm::vec3>, uint32_t>> shaderUniformMap;
 
 		std::shared_ptr<shaderProgram> shader;
 		std::shared_ptr<texture> tex;
 
-		shaderUnifrmMap shaderUnifroms;
+		shaderUniformMap shaderUniforms;
 
 		bool operator<(const materialComponent& other) const
 		{
@@ -88,10 +88,10 @@ namespace engine
 		}
 
 		materialComponent(std::shared_ptr<texture> tex, std::shared_ptr<shaderProgram> shader)
-			: shader(shader), tex(tex), shaderUnifroms() {}
+			: shader(shader), tex(tex), shaderUniforms() {}
 
-		materialComponent(std::shared_ptr<texture> tex, std::shared_ptr<shaderProgram> shader, shaderUnifrmMap&& shaderUnifroms)
-			: shader(shader), tex(tex), shaderUnifroms(std::move(shaderUnifroms)) {}
+		materialComponent(std::shared_ptr<texture> tex, std::shared_ptr<shaderProgram> shader, shaderUniformMap&& shaderUnifroms)
+			: shader(shader), tex(tex), shaderUniforms(std::move(shaderUnifroms)) {}
 	};
 
 	struct inputListenerComponent
