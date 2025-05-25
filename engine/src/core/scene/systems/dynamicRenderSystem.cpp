@@ -144,9 +144,8 @@ namespace engine
 			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 			if (renderData == mData.end())
 			{
-				// TODO: figure out where to get that.
-				const size_t newSizeVertex = 100;
-				const size_t newSizeIndex = 100;
+				size_t newSizeVertex = mesh.meshData.size()*3*sizeof(vertex);
+				size_t newSizeIndex = mesh.indexData.size()*3*sizeof(uint32_t);
 
 				mData[{ material.tex->getID(), material.shader->getID() }] = {
 					std::make_unique<dynamicArrayObject>(newSizeIndex, nullptr),

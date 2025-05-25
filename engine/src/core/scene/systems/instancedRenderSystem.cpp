@@ -185,8 +185,7 @@ namespace engine
 			auto foundData = foundSet->second.find({ instancedMesh.uid });
 			if (foundData == foundSet->second.end())
 			{
-				// TODO: figure out where to get that.
-				const size_t newSizeAttrs = 100;
+				const size_t newSizeAttrs = sizeof(instanceAttributes)*400;
 
 				foundSet->second.insert({
 					instancedMesh.uid,
