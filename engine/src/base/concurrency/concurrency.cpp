@@ -3,59 +3,34 @@
 
 namespace engine
 {
-	std::mutex threadPool::mMutex;
-
-	threadPool::threadPool() : maxThreads(std::thread::hardware_concurrency())
+	void cond::notifyOne()
 	{
+		mCv.notify_one();
 	}
 
-	void threadPool::start(std::function<void()> f)
+	void cond::notifyAll()
 	{
-		std::lock_guard<std::mutex> l{ mMutex };
+		mCv.notify_all();
+	}
 
-		if (maxThreads == threadQueue.size())
-		{
-			auto smallest = threadQueue.begin();
-			for (auto crnt = threadQueue.begin(); crnt != threadQueue.end(); crnt++)
-			{
-				if (crnt->size() > smallest->size())
-				{
-					smallest = crnt;
-				}
-			}
+	std::mutex threadPool::mMutex;
 
-			smallest->add(f);
-		}
-		else
-		{
-			for (auto crnt = threadQueue.begin(); crnt != threadQueue.end(); crnt++)
-			{
-				if (crnt->size() == 0)
-				{
-					crnt->add(f);
-					return;
-				}
-			}
-
-			threadQueue.emplace_back();
-			threadQueue.back().start();
-			threadQueue.back().add(f);
-		}
+	threadPool::threadPool() : maxThreads(std::thread::hardware_concurrency() - 1)
+	{
 	}
 
 	void threadQueue::run()
 	{
 		while (mRunning)
 		{
-			std::unique_lock l{ mMutex };
-			mCv.wait(l, [&] { return (!mQueue.empty() && mRunning) || !mRunning; });
+			mCond.wait([&] { return (!mQueue.empty() && mRunning) || !mRunning; });
 
-			if (!mQueue.empty() && mRunning)
+			while (!mQueue.empty() && mRunning)
 			{
+				mMutex.lock();
 				auto func = mQueue.front();
 				mQueue.pop();
-
-				l.unlock();
+				mMutex.unlock();
 
 				func();
 			}
@@ -68,12 +43,8 @@ namespace engine
 
 	threadQueue::~threadQueue()
 	{
-		{
-			std::lock_guard<std::mutex> mu{ mMutex };
-			mRunning = false;
-		}
-
-		mCv.notify_one();
+		mRunning = false;
+		mCond.notifyOne();
 
 		if (mThread->joinable())
 			mThread->join();
@@ -84,18 +55,9 @@ namespace engine
 		mThread = std::make_unique<std::thread>(&threadQueue::run, this);
 	}
 
-	void threadQueue::add(std::function<void()> f)
+	size_t threadQueue::size()
 	{
-		{
-			std::lock_guard<std::mutex> mu{ mMutex };
-			mQueue.push(f);
-		}
-
-		mCv.notify_one();
-	}
-
-	size_t threadQueue::size() const
-	{
+		std::lock_guard<std::mutex> mu{ mMutex };
 		return mQueue.size();
 	}
 }

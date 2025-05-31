@@ -31,31 +31,20 @@ namespace engine
 
 	error application::createWindow()
 	{
-		std::mutex tmpLock;
-		bool ready = false;
-		std::condition_variable tmpCv;
-
+		cond cv;
 		mCtx.getThreadPool()->start(
 			[&]() -> void {
 				mWindow = windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
 				if (mErr = mWindow->checkError(); mErr)
 					return;
 
-				{
-					std::lock_guard lk(tmpLock);
-					ready = true;
-				}
-
-				tmpCv.notify_one();
+				cv.notifyOne();
 
 				mWindow->startPolling();
 			}
 		);
 
-		{
-			std::unique_lock lk(tmpLock);
-			tmpCv.wait(lk, [&] { return ready; });
-		}
+		cv.wait([&] {return mWindow.get(); });
 
 		return mWindow->makeOpenglContext();
 	}
