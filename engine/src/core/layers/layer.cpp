@@ -6,14 +6,14 @@
 
 namespace engine 
 {
-    layer::layer(context ctx)
+    layer::layer(std::shared_ptr<context> ctx)
         :
         mCtx(ctx)
     {
 
     }
 
-    worldLayer::worldLayer(context ctx)
+    worldLayer::worldLayer(std::shared_ptr<context> ctx)
         :
             layer(ctx), mScene(std::make_shared<scene>(mCtx))
     {

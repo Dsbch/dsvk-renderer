@@ -166,7 +166,7 @@ namespace engine
 		UpdateWindow(mHWnd);
 	}
 
-	winApiWindow::winApiWindow(context ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
+	winApiWindow::winApiWindow(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
 		: baseWindow(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
 	{
 		PROFILE_FUNC();
@@ -201,7 +201,7 @@ namespace engine
 			PostMessage(mHWnd, WM_CLOSE, 0, 0);
 		}
 
-		mCtx.getDispatcher()->queueEvent(std::make_shared<closeEvent>());
+		mCtx->mEventDispatcher->queueEvent(std::make_shared<closeEvent>());
 
 		{
 			std::lock_guard<std::mutex> l{ hwndTableMu };
@@ -270,14 +270,14 @@ namespace engine
 		// Queue mouse move events and keyDown events.
 		for (int i = 0; i < mEventQueue.size(); i++)
 		{
-			mCtx.getDispatcher()->queueEvent(mEventQueue.front());
+			mCtx->mEventDispatcher->queueEvent(mEventQueue.front());
 			mEventQueue.pop();
 		}
 
 		// Queue still pressed keys.
 		for (auto& [key, val] : mKeyDown)
 		{
-			mCtx.getDispatcher()->queueEvent(val);
+			mCtx->mEventDispatcher->queueEvent(val);
 		}
 	}
 

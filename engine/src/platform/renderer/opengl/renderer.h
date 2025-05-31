@@ -16,9 +16,9 @@ namespace engine
 		static void initOpengl();
 
 		error mErr;
-		context mCtx;
+		std::shared_ptr<context> mCtx;
 	public:
-		openglRenderer(context ctx);
+		openglRenderer(std::shared_ptr<context> ctx);
 		std::string getVersion() const;
 		error checkError() const;
 		void changeViewPort(uint32_t width, uint32_t height) const;

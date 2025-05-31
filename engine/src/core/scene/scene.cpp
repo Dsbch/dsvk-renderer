@@ -11,9 +11,9 @@ namespace engine
 {
 	std::vector<std::unique_ptr<system>> scene::mUserSystems;
 
-	scene::scene(context ctx)
+	scene::scene(std::shared_ptr<context> ctx)
 		:
-		mSceneRegistry(), mCtx(ctx), mSystems(), mSceneCamera(ctx, ctx.config.getCfg().camera.fov, ctx.config.getCfg().camera.nearPlane, ctx.config.getCfg().camera.farPlane, ctx.config.getCfg().wnd.width, ctx.config.getCfg().wnd.height)
+		mSceneRegistry(), mCtx(ctx), mSystems(), mSceneCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height)
 	{
 		addSystem(std::make_unique<renderSystems>(mCtx, mSceneCamera));
 		addSystem(std::make_unique<transformSystem>(mCtx));

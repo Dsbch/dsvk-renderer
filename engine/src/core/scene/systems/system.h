@@ -11,9 +11,9 @@ namespace engine
 	class system
 	{
 	protected:
-		context mCtx;
+		std::shared_ptr<context> mCtx;
 	public:
-		system(context ctx) : mCtx(ctx) {};
+		system(std::shared_ptr<context> ctx) : mCtx(ctx) {};
 		virtual ~system() = default;
 
 		virtual error checkError() = 0;

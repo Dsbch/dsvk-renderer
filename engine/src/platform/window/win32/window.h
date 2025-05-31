@@ -40,7 +40,7 @@ namespace engine
 		HWND mHWnd;
 		HGLRC mHrc;
 	public:
-		winApiWindow(context ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor);
+		winApiWindow(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor);
 
 		~winApiWindow();
 		winApiWindow(const winApiWindow& other) = delete;

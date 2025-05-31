@@ -93,7 +93,7 @@ namespace engine
 			PostQuitMessage(0);
 
 			if (winApiInst)
-				winApiInst->mCtx.getDispatcher()->queueEvent(std::make_shared<closeEvent>());
+				winApiInst->mCtx->mEventDispatcher->queueEvent(std::make_shared<closeEvent>());
 
 			return true;
 		}
@@ -105,7 +105,7 @@ namespace engine
 	{
 		if (message == WM_SIZE)
 		{
-			winApiInst->mCtx.getDispatcher()->queueEvent(std::make_shared<windowResizeEvent>(LOWORD(lParam), HIWORD(lParam)));
+			winApiInst->mCtx->mEventDispatcher->queueEvent(std::make_shared<windowResizeEvent>(LOWORD(lParam), HIWORD(lParam)));
 			return true;
 		}
 

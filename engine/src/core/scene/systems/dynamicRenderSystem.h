@@ -57,7 +57,7 @@ namespace engine
 		void updateData(entt::registry& registry);
 		void render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera);
 	public:
-		dynamicRenderSystem(context ctx);
+		dynamicRenderSystem(std::shared_ptr<context> ctx);
 		void onRender(entt::registry& registry) {};
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 		void onUpdate(entt::registry& registry);

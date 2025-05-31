@@ -3,7 +3,7 @@
 
 namespace engine
 {
-	transformSystem::transformSystem(context ctx)
+	transformSystem::transformSystem(std::shared_ptr<context> ctx)
 		:
 		system(ctx)
 	{

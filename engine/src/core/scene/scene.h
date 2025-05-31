@@ -14,7 +14,7 @@ namespace engine
 	class scene
 	{
 	public:
-		scene(context ctx);
+		scene(std::shared_ptr<context> ctx);
 	
 		void onRender();
 		void onEvent(std::shared_ptr<baseEvent> e);
@@ -28,7 +28,7 @@ namespace engine
 
 		static void addUserSystem(std::unique_ptr<system>&&);
 	protected:
-		context mCtx;
+		std::shared_ptr<context> mCtx;
 		fpsCamera mSceneCamera;
 	
 	private:

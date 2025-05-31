@@ -9,7 +9,7 @@ namespace engine
 		public system
 	{
 	public:
-		transformSystem(context ctx);
+		transformSystem(std::shared_ptr<context> ctx);
 
 		error checkError();
 		void onRender(entt::registry& registry);

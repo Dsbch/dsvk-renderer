@@ -16,7 +16,7 @@ namespace engine
 		dynamicRenderSystem mDynamic;
 		instancedRenderSystem mInstanced;
 	public:
-		renderSystems(context ctx, fpsCamera camera);
+		renderSystems(std::shared_ptr<context> ctx, fpsCamera camera);
 	
 		error checkError();
 		void onUpdate(entt::registry& registry);

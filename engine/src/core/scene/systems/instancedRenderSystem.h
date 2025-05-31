@@ -43,7 +43,7 @@ namespace engine
 	class instancedRenderSystem : public system
 	{
 	public:
-		instancedRenderSystem(context ctx);
+		instancedRenderSystem(std::shared_ptr<context> ctx);
 
 		error checkError();
 		void onRender(entt::registry& registry) {};

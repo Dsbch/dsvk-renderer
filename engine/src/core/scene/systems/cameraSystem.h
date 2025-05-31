@@ -9,7 +9,7 @@ namespace engine
 	class cameraSystem : public system
 	{
 	public:
-		cameraSystem(context ctx);
+		cameraSystem(std::shared_ptr<context> ctx);
 		error checkError();
 		void onRender(entt::registry& registry);
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);

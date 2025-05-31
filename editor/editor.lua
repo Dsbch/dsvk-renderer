@@ -1,5 +1,5 @@
 project "editor"
-   kind "WindowedApp"
+   kind "ConsoleApp"
    language "C++"
    architecture "x64"
    cppdialect "C++17"

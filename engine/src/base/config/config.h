@@ -26,6 +26,7 @@ namespace engine
 
 	struct log
 	{
+		bool useFile = false;
 		std::string file = "logs.log";
 		std::string pattern = "[%H:%M:%S.%e] [%^%l%$] %v";
 		engine::logger::level level = engine::logger::level::debug;
@@ -67,12 +68,11 @@ namespace engine
 	struct cfg {
 	private:
 		error mErr;
-		T mCfg;
 	public:
 		cfg(const std::string& fileName = "config.json");
 		error checkError() const;
 		~cfg();
-		T getCfg() const;
+		T inner;
 	};
 
 	template<class T>
@@ -88,7 +88,7 @@ namespace engine
 		try
 		{
 			nlohmann::json parsed = nlohmann::json::parse(f);
-			mCfg = parsed.get<T>();
+			inner = parsed.get<T>();
 		}
 		catch (const std::exception& exc)
 		{
@@ -105,11 +105,5 @@ namespace engine
 	template<class T>
 	inline cfg<T>::~cfg()
 	{
-	}
-
-	template<class T>
-	inline T cfg<T>::getCfg() const
-	{
-		return mCfg;
 	}
 }

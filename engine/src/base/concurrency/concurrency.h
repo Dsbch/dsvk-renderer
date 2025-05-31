@@ -24,40 +24,40 @@ namespace engine {
 	{
 	private:
 		std::mutex mMutex;
-		std::queue<std::function<void()>> mQueue;
-		
-		cond mCond;
-		
+		std::list<std::function<void()>> mQueue;
 		std::unique_ptr<std::thread> mThread;
-		bool mRunning;
+		cond mCond;
+		std::atomic<bool> mRunning;
 
 		void run();
 	public:
 		threadQueue(const threadQueue&) = delete;
 		threadQueue& operator=(const threadQueue&) = delete;
-
 		threadQueue();
 		~threadQueue();
 
 		void start();
+		std::thread::id getThreadID() const;
+		void splice(std::list<std::function<void()>>& out);
 
 		template<class T>
 		void add(T&&);
 		size_t size();
-
-		friend class threadPool;
 	};
 
 	class threadPool
 	{
 	private:
-		static std::mutex mMutex;
-		uint32_t maxThreads;
-		std::list<threadQueue> threadQueue;
-		
-		//void rearrange();
+		std::mutex mMutex;
+		std::list<threadQueue> mThreadList;
+		std::unique_ptr<std::thread> mWatchThread;
+		std::atomic<bool> mRunning;
+		void watchPool();
+
+		uint32_t mMaxThreads;
 	public:
 		threadPool();
+		~threadPool();
 		template<class T>
 		void start(T&&);
 	};
@@ -74,7 +74,7 @@ namespace engine {
 	{
 		{
 			std::lock_guard<std::mutex> mu{ mMutex };
-			mQueue.push(std::forward<T>(f));
+			mQueue.push_back(std::forward<T>(f));
 		}
 
 		mCond.notifyOne();
@@ -85,33 +85,15 @@ namespace engine {
 	{
 		std::lock_guard<std::mutex> l{ mMutex };
 
-		if (maxThreads == threadQueue.size())
+		auto smallest = mThreadList.begin();
+		for (auto crnt = mThreadList.begin(); crnt != mThreadList.end(); crnt++)
 		{
-			auto smallest = threadQueue.begin();
-			for (auto crnt = threadQueue.begin(); crnt != threadQueue.end(); crnt++)
+			if (smallest->size() > crnt->size())
 			{
-				if (smallest->size() > crnt->size())
-				{
-					smallest = crnt;
-				}
+				smallest = crnt;
 			}
-
-			smallest->add(std::forward<T>(f));
 		}
-		else
-		{
-			for (auto crnt = threadQueue.begin(); crnt != threadQueue.end(); crnt++)
-			{
-				if (crnt->size() == 0)
-				{
-					crnt->add(std::forward<T>(f));
-					return;
-				}
-			}
 
-			threadQueue.emplace_back();
-			threadQueue.back().start();
-			threadQueue.back().add(std::forward<T>(f));
-		}
+		smallest->add(std::forward<T>(f));
 	}
 }

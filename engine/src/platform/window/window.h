@@ -14,10 +14,10 @@ namespace engine
 		engine::error mErr;
 		bool mIsFullscreen;
 		bool mShowCursor;
-		context mCtx;
+		std::shared_ptr<context> mCtx;
 	public:
 		baseWindow(
-			context ctx,
+			std::shared_ptr<context> ctx,
 			const std::string& name,
 			std::uint32_t width,
 			std::uint32_t heigth,

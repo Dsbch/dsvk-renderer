@@ -10,19 +10,19 @@ namespace engine
 	class layer
 	{
 	public:
-		layer(context ctx);
+		layer(std::shared_ptr<context> ctx);
 		virtual ~layer() = default;
 		virtual bool onEvent(std::shared_ptr<baseEvent>) = 0;
 		virtual void onRender() = 0;
 		virtual void onUpdate() = 0;
 		virtual error checkError() const = 0;
 	protected:
-		context mCtx;
+		std::shared_ptr<context> mCtx;
 	};
 
 	class worldLayer : public layer {
 	public:
-		worldLayer(context ctx);
+		worldLayer(std::shared_ptr<context> ctx);
 		~worldLayer();
 		bool onEvent(std::shared_ptr<baseEvent> e);
 		void onRender();

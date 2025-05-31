@@ -11,7 +11,7 @@ namespace engine
 	class fpsCamera
 	{
 	private:
-		context mCtx;
+		std::shared_ptr<context> mCtx;
 		float mFov;
 		float mNearPlane;
 		float mFarPlane;
@@ -30,7 +30,7 @@ namespace engine
 		void updateProjection();
 	public:
 		fpsCamera(
-			context ctx,
+			std::shared_ptr<context> ctx,
 			float fov,
 			float nearPlane,
 			float farPlane,

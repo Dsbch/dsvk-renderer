@@ -3,7 +3,7 @@
 
 namespace engine
 {
-	renderSystems::renderSystems(context ctx, fpsCamera camera)
+	renderSystems::renderSystems(std::shared_ptr<context> ctx, fpsCamera camera)
 		:
 			system(ctx), mRenderer(ctx), mDefaultCamera(camera), mInstanced(ctx), mDynamic(ctx)
 	{

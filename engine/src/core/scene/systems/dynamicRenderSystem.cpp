@@ -4,7 +4,7 @@
 
 namespace engine
 {
-	dynamicRenderSystem::dynamicRenderSystem(context ctx)
+	dynamicRenderSystem::dynamicRenderSystem(std::shared_ptr<context> ctx)
 		:
 		system(ctx)
 	{

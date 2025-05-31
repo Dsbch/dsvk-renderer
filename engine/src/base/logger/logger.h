@@ -2,6 +2,7 @@
 #include <pch.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include "spdlog/sinks/stdout_sinks.h"
 
 namespace engine {
 	class logger
@@ -17,6 +18,7 @@ namespace engine {
 		};
 
 		static void initLogger(const std::string& app_name, const std::string& outputFile, const std::string& pattern, engine::logger::level level);
+		static void initLogger(const std::string& app_name, const std::string& pattern, engine::logger::level level);
 		static std::shared_ptr<spdlog::logger> log();
 	private:
 		static std::shared_ptr<spdlog::logger> mLogger;

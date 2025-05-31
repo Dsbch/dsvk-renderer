@@ -5,7 +5,7 @@
 
 namespace engine
 {
-	instancedRenderSystem::instancedRenderSystem(context ctx)
+	instancedRenderSystem::instancedRenderSystem(std::shared_ptr<context> ctx)
 		:
 		system(ctx)
 	{

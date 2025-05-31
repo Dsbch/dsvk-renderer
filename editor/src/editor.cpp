@@ -15,11 +15,11 @@ private:
 			c,
 			std::make_unique<engine::fpsCamera>(
 				mCtx,
-				mCtx.config.getCfg().camera.fov,
-				mCtx.config.getCfg().camera.nearPlane,
-				mCtx.config.getCfg().camera.farPlane,
-				mCtx.config.getCfg().wnd.width,
-				mCtx.config.getCfg().wnd.height
+				mCtx->config.inner.camera.fov,
+				mCtx->config.inner.camera.nearPlane,
+				mCtx->config.inner.camera.farPlane,
+				mCtx->config.inner.wnd.width,
+				mCtx->config.inner.wnd.height
 			),
 			true
 		);
@@ -27,7 +27,7 @@ private:
 		registry.emplace<engine::inputListenerComponent>(c, std::vector<engine::key>{}, std::vector<engine::key>{engine::key::w, engine::key::a, engine::key::s, engine::key::d}, true);
 	}
 public:
-	testSystem(engine::context ctx) : engine::system(ctx) {}
+	testSystem(std::shared_ptr<engine::context> ctx) : engine::system(ctx) {}
 	engine::error checkError()
 	{
 		return {};
@@ -85,8 +85,8 @@ public:
 		// spawn dynamic mesh.
 		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::v)
 		{
-			auto texture = mCtx.getAManager()->loadTexture("../assets/textures/obsidian.jpg");
-			auto shader = mCtx.getAManager()->loadShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
+			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/obsidian.jpg");
+			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
 
 			auto getMovedCube = []()->std::vector<engine::vertex>
 				{
@@ -181,8 +181,8 @@ public:
 		{
 			static auto uid = engine::genUID();
 
-			auto texture = mCtx.getAManager()->loadTexture("../assets/textures/obsidian.jpg");
-			auto shader = mCtx.getAManager()->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
+			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/obsidian.jpg");
+			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
 			auto c = registry.create();
 			registry.emplace<engine::uidComponent>(c);
@@ -308,7 +308,7 @@ public:
 class editorLayer : public engine::layer
 {
 public:
-	editorLayer(engine::context ctx)
+	editorLayer(std::shared_ptr<engine::context> ctx)
 		:
 		engine::layer(ctx)
 	{
@@ -343,12 +343,7 @@ public:
 	}
 };
 
-int WINAPI WinMain(
-	_In_ HINSTANCE hInstance,
-	_In_opt_ HINSTANCE hPrevInstance,
-	_In_ LPSTR     lpCmdLine,
-	_In_ int       nCmdShow
-)
+int main(int argc, char* argv[])
 {
 	try
 	{

@@ -4,7 +4,7 @@
 
 namespace engine
 {
-	cameraSystem::cameraSystem(context ctx)
+	cameraSystem::cameraSystem(std::shared_ptr<context> ctx)
 		:
 		system(ctx)
 	{
@@ -82,11 +82,11 @@ namespace engine
 			c,
 			std::make_unique<fpsCamera>(
 				mCtx,
-				mCtx.config.getCfg().camera.fov,
-				mCtx.config.getCfg().camera.nearPlane,
-				mCtx.config.getCfg().camera.farPlane,
-				mCtx.config.getCfg().wnd.width,
-				mCtx.config.getCfg().wnd.height
+				mCtx->config.inner.camera.fov,
+				mCtx->config.inner.camera.nearPlane,
+				mCtx->config.inner.camera.farPlane,
+				mCtx->config.inner.wnd.width,
+				mCtx->config.inner.wnd.height
 			),
 			true
 		);

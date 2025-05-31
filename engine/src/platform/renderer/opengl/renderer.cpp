@@ -66,7 +66,7 @@ namespace engine
 #endif // DEBUG
 	}
 
-	openglRenderer::openglRenderer(context ctx) : mCtx(ctx)
+	openglRenderer::openglRenderer(std::shared_ptr<context> ctx) : mCtx(ctx)
 	{
 		std::call_once(mIsOpenglInitialized, initOpengl);
 

@@ -32,7 +32,7 @@ namespace engine
 	}
 
 	fpsCamera::fpsCamera(
-		context ctx,
+		std::shared_ptr<context> ctx,
 		float fov,
 		float nearPlane,
 		float farPlane,

@@ -21,9 +21,16 @@ namespace engine
 			return { "application already created" };
 		}
 
-		logger::initLogger(mCfg.getCfg().app.name, mCfg.getCfg().log.file, mCfg.getCfg().log.pattern, mCfg.getCfg().log.level);
+		if (mCtx->config.inner.log.useFile)
+		{
+			logger::initLogger(mCtx->config.inner.app.name, mCtx->config.inner.log.file, mCtx->config.inner.log.pattern, mCtx->config.inner.log.level);
+		}
+		else
+		{
+			logger::initLogger(mCtx->config.inner.app.name, mCtx->config.inner.log.pattern, mCtx->config.inner.log.level);
+		}
 
-		if (auto err = mCfg.checkError(); err)
+		if (auto err = mCtx->config.checkError(); err)
 			LOGERROR("{}", err.err());
 
 		return {};
@@ -32,9 +39,9 @@ namespace engine
 	error application::createWindow()
 	{
 		cond cv;
-		mCtx.getThreadPool()->start(
+		mCtx->mThreadPool->start(
 			[&]() -> void {
-				mWindow = windowFactory::createWindow(mCtx, mCfg.getCfg().wnd.name, mCfg.getCfg().wnd.width, mCfg.getCfg().wnd.height, mCfg.getCfg().wnd.isFullscreen, mCfg.getCfg().app.name, mCfg.getCfg().wnd.showCursor);
+				mWindow = windowFactory::createWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
 				if (mErr = mWindow->checkError(); mErr)
 					return;
 
@@ -58,18 +65,17 @@ namespace engine
 
 	void application::update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
 	{
-		auto k = mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart());
-		for (uint32_t i = 0; mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
+		auto k = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
+		for (uint32_t i = 0; mCtx->timer.toMS(mCtx->timer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
 		{
 			// Queue events in main dispatcher.
 			mWindow->pollInput();
 
 			// Dispatch events.
-			auto d = mCtx.getDispatcher();
-			while (d->hasEvents())
+			while (mCtx->mEventDispatcher->hasEvents())
 			{
 				// handle window close event.
-				auto e = d->getEvent();
+				auto e = mCtx->mEventDispatcher->getEvent();
 				if (e->getEventType() == eventType::close)
 				{
 					mRunning = false;
@@ -87,7 +93,7 @@ namespace engine
 
 	void application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
 	{
-		if (mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart()) >= nextRender)
+		if (mCtx->timer.toMS(mCtx->timer.getTimeSinceStart()) >= nextRender)
 		{
 			mLayerStack->onRender();
 			mWindow->swapBuffers();
@@ -97,7 +103,7 @@ namespace engine
 
 	application::application()
 		:
-		mErr(), mCfg(), mCtx(mCfg), mLayerStack(std::make_unique<layerStack>()), mWindow(nullptr), mRunning(false)
+		mErr(), mCtx(std::make_shared<context>(cfg<main>{})), mLayerStack(std::make_unique<layerStack>()), mWindow(nullptr), mRunning(false)
 	{
 		mErr = initApplication();
 		if (mErr)
@@ -135,12 +141,12 @@ namespace engine
 	{
 		mRunning = true;
 
-		std::chrono::milliseconds nextGameUpdate = mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart());
-		uint32_t maxFrameSkip = mCfg.getCfg().gameLoop.gups / mCfg.getCfg().gameLoop.minimumFps;
-		std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / mCfg.getCfg().gameLoop.gups);
+		std::chrono::milliseconds nextGameUpdate = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
+		uint32_t maxFrameSkip = mCtx->config.inner.gameLoop.gups / mCtx->config.inner.gameLoop.minimumFps;
+		std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.gups);
 
-		std::chrono::milliseconds nextRender = mCtx.getTimer().toMS(mCtx.getTimer().getTimeSinceStart());
-		std::chrono::milliseconds renderShift = std::chrono::milliseconds(1000 / mCfg.getCfg().gameLoop.fps);
+		std::chrono::milliseconds nextRender = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
+		std::chrono::milliseconds renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
 
 		while (mRunning)
 		{

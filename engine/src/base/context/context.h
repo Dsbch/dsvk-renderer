@@ -9,21 +9,14 @@
 
 namespace engine
 {
-	class context
+	struct context
 	{
-	private:
-		timer mTimer;
-		std::shared_ptr<threadPool> mThreadPool;
-		std::shared_ptr<aManager> mAmanager;
-		std::shared_ptr<eventDispatcher> mDispatcher;
-	public:
+		timer timer;
+		std::unique_ptr<threadPool> mThreadPool;
+		std::unique_ptr<aManager> mAmanager;
+		std::unique_ptr<eventDispatcher> mEventDispatcher;
 		cfg<main> config;
 		
 		context(cfg<main> config);
-
-		timer getTimer() const;
-		std::shared_ptr<eventDispatcher> getDispatcher();
-		std::shared_ptr<aManager> getAManager();
-		std::shared_ptr<threadPool> getThreadPool() const;
 	};
 }

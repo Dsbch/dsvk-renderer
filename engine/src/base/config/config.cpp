@@ -53,6 +53,7 @@ namespace engine
 		j = nlohmann::json
 		{
 			{"file", p.file},
+			{"useFile", p.useFile},
 			{"pattern", p.pattern},
 			{"level", p.level},
 		};
@@ -61,6 +62,7 @@ namespace engine
 	void from_json(const nlohmann::json& j, log& p)
 	{
 		j.at("file").get_to(p.file);
+		j.at("useFile").get_to(p.useFile);
 		j.at("pattern").get_to(p.pattern);
 		j.at("level").get_to(p.level);
 	}

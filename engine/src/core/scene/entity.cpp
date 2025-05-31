@@ -4,7 +4,7 @@
 
 namespace engine
 {
-	entity::entity(context ctx, entt::entity handle, scene* scene) 
+	entity::entity(std::shared_ptr<context> ctx, entt::entity handle, scene* scene) 
 		:
 			mEntityHandle(handle), mScene(scene), mCtx(ctx)
 	{
