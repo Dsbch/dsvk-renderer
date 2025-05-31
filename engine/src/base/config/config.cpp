@@ -67,7 +67,7 @@ namespace engine
 		j.at("level").get_to(p.level);
 	}
 
-	void to_json(nlohmann::json& j, const window& p)
+	void to_json(nlohmann::json& j, const wnd& p)
 	{
 		j = nlohmann::json{
 			{"width", p.width},
@@ -78,7 +78,7 @@ namespace engine
 		};
 	}
 
-	void from_json(const nlohmann::json& j, window& p)
+	void from_json(const nlohmann::json& j, wnd& p)
 	{
 		j.at("width").get_to(p.width);
 		j.at("height").get_to(p.height);
@@ -93,7 +93,7 @@ namespace engine
 		{
 			{"application", p.app},
 			{"logger", p.log},
-			{"window", p.wnd},
+			{"wnd", p.wnd},
 			{"gameLoop", p.gameLoop},
 			{"camera", p.camera},
 		};
@@ -103,7 +103,7 @@ namespace engine
 	{
 		j.at("application").get_to(p.app);
 		j.at("logger").get_to(p.log);
-		j.at("window").get_to(p.wnd);
+		j.at("wnd").get_to(p.wnd);
 		j.at("gameLoop").get_to(p.gameLoop);
 		j.at("camera").get_to(p.camera);
 	}

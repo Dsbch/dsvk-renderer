@@ -1,13 +1,13 @@
 #pragma once
 
 #include <pch.h>
-#include "dynamicRenderSystem.h"
 #include <entt/entt.hpp>
+#include "dynamicRenderSystem.h"
 #include "core/scene/scene.h"
 #include "platform/renderer/vertex.h"
-#include "platform/renderer/opengl/renderer.h"
-#include "platform/renderer/opengl/arrayObject.h"
-#include "platform/renderer/opengl/vertexBufferObject.h"
+#include "platform/renderer/renderer.h"
+#include "platform/renderer/arrayObject.h"
+#include "platform/renderer/vertexArrayObject.h"
 
 namespace engine
 {
@@ -53,7 +53,7 @@ namespace engine
 		void updateData(entt::registry& registry);
 		void deleteEntities(entt::registry& registry);
 		void addEntities(entt::registry& registry);
-		void render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera);
+		void render(entt::registry& registry, const renderer* renderer, const fpsCamera& camera);
 		void resizeOnNeed(const instancedRenderData&);
 
 		std::map<materialID, std::set<instancedRenderData>> mData;

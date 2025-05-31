@@ -32,7 +32,7 @@ namespace engine
 		engine::logger::level level = engine::logger::level::debug;
 	};
 
-	struct window
+	struct wnd
 	{
 		uint32_t width = 1920;
 		uint32_t height = 1080;
@@ -45,7 +45,7 @@ namespace engine
 	{
 		editor app;
 		log log;
-		window wnd;
+		wnd wnd;
 		gameLoop gameLoop;
 		camera camera;
 	};
@@ -58,8 +58,8 @@ namespace engine
 	void from_json(const nlohmann::json& j, editor& p);
 	void to_json(nlohmann::json& j, const log& p);
 	void from_json(const nlohmann::json& j, log& p);
-	void to_json(nlohmann::json& j, const window& p);
-	void from_json(const nlohmann::json& j, window& p);
+	void to_json(nlohmann::json& j, const wnd& p);
+	void from_json(const nlohmann::json& j, wnd& p);
 	void to_json(nlohmann::json& j, const main& p);
 	void from_json(const nlohmann::json& j, main& p);
 

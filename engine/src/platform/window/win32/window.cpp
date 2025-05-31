@@ -167,7 +167,7 @@ namespace engine
 	}
 
 	winApiWindow::winApiWindow(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
-		: baseWindow(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
+		: window(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
 	{
 		PROFILE_FUNC();
 

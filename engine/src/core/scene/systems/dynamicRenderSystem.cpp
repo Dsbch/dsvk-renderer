@@ -1,6 +1,7 @@
 #include <pch.h>
 
 #include "dynamicRenderSystem.h"
+#include "platform/renderer/rendererFactory.h"
 
 namespace engine
 {
@@ -24,8 +25,9 @@ namespace engine
 				{
 					renderData->second.EBO->updateData(
 						boundaries->second.fromEBO,
+						sizeof(uint32_t),
 						renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) - boundaries->second.toEBO,
-						renderData->second.EBO->getPtr<uint32_t>() + boundaries->second.toEBO
+						static_cast<uint32_t*>(renderData->second.EBO->getPtr()) + boundaries->second.toEBO
 					);
 
 					renderData->second.EBO->setLoadedSize(
@@ -34,8 +36,9 @@ namespace engine
 
 					renderData->second.VBO->updateData(
 						boundaries->second.fromVBO,
+						sizeof(vertex),
 						renderData->second.VBO->getLoadedSize() / sizeof(vertex) - boundaries->second.toVBO,
-						renderData->second.VBO->getPtr<vertex>() + boundaries->second.toVBO
+						static_cast<vertex*>(renderData->second.VBO->getPtr()) + boundaries->second.toVBO
 					);
 
 					renderData->second.VBO->setLoadedSize(
@@ -44,7 +47,7 @@ namespace engine
 
 					// shift all indexes.
 					size_t indexShift = boundaries->second.toVBO - boundaries->second.fromVBO;
-					for (uint32_t* indexPtr = renderData->second.EBO->getPtr<uint32_t>() + boundaries->second.fromEBO; indexPtr != renderData->second.EBO->getPtr<uint32_t>() + renderData->second.EBO->getLoadedSize() / sizeof(uint32_t); indexPtr++)
+					for (uint32_t* indexPtr = static_cast<uint32_t*>(renderData->second.EBO->getPtr()) + boundaries->second.fromEBO; indexPtr != static_cast<uint32_t*>(renderData->second.EBO->getPtr()) + renderData->second.EBO->getLoadedSize() / sizeof(uint32_t); indexPtr++)
 					{
 						(*indexPtr) -= uint32_t(indexShift);
 					}
@@ -97,27 +100,34 @@ namespace engine
 
 		if (freeSizeVBO < vbo.size() * sizeof(vertex))
 		{
-			auto ptr = new dynamicArrayObject{
-					newLen(renderData.VBO->getSize() / sizeof(vertex), vbo.size()) * sizeof(vertex),
-					nullptr
-			};
+			auto ptr = rendererFactory::createDynamicArrayObject(newLen(renderData.VBO->getSize() / sizeof(vertex), vbo.size()) * sizeof(vertex), nullptr);
 
-			ptr->template updateData<vertex>(0, renderData.VBO->getLoadedSize() / sizeof(vertex), renderData.VBO->getPtr<vertex>());
+			ptr->updateData(
+				0, 
+				sizeof(vertex),
+				renderData.VBO->getLoadedSize() / sizeof(vertex), 
+				renderData.VBO->getPtr()
+			);
 			ptr->setLoadedSize(
 				renderData.VBO->getLoadedSize()
 			);
-
-			renderData.VBO.reset(ptr);
+			
+			renderData.VBO = std::move(ptr);
 		}
 
 		if (freeSizeEBO < ebo.size() * sizeof(uint32_t))
 		{
-			auto ptr = new dynamicArrayObject{
+			auto ptr = new openglDynamicArrayObject{
 				newLen(renderData.EBO->getSize() / sizeof(uint32_t), ebo.size()) * sizeof(uint32_t),
 				nullptr
 			};
 
-			ptr->template updateData<uint32_t>(0, renderData.EBO->getLoadedSize() / sizeof(uint32_t), renderData.EBO->getPtr<uint32_t>());
+			ptr->updateData(
+				0, 
+				sizeof(uint32_t),
+				renderData.EBO->getLoadedSize() / sizeof(uint32_t), 
+				renderData.EBO->getPtr()
+			);
 			ptr->setLoadedSize(
 				renderData.EBO->getLoadedSize()
 			);
@@ -148,9 +158,9 @@ namespace engine
 				size_t newSizeIndex = mesh.indexData.size()*3*sizeof(uint32_t);
 
 				mData[{ material.tex->getID(), material.shader->getID() }] = {
-					std::make_unique<dynamicArrayObject>(newSizeIndex, nullptr),
-					std::make_unique<dynamicArrayObject>(newSizeVertex, nullptr),
-					std::make_unique<vertexArrayObject>(),
+					rendererFactory::createDynamicArrayObject(newSizeIndex, nullptr),
+					rendererFactory::createDynamicArrayObject(newSizeVertex, nullptr),
+					rendererFactory::createVertexArrayObject(),
 				};
 
 				renderData = mData.find({ material.tex->getID(), material.shader->getID() });
@@ -173,6 +183,7 @@ namespace engine
 
 			renderData->second.EBO->updateData(
 				renderData->second.EBO->getLoadedSize() / sizeof(uint32_t),
+				sizeof(uint32_t),
 				mesh.indexData.size(),
 				shiftIndixes(mesh.indexData, renderData->second.VBO->getLoadedSize() / sizeof(vertex)).data()
 			);
@@ -183,6 +194,7 @@ namespace engine
 
 			renderData->second.VBO->updateData(
 				renderData->second.VBO->getLoadedSize() / sizeof(vertex),
+				sizeof(vertex),
 				mesh.meshData.size(),
 				mesh.meshData.data()
 			);
@@ -211,8 +223,9 @@ namespace engine
 				auto boundaries = renderData->second.entityBoundaries.find(uid.uid);
 				if (boundaries != renderData->second.entityBoundaries.end())
 				{
-					renderData->second.VBO->updateData<vertex>(
+					renderData->second.VBO->updateData(
 						boundaries->second.fromVBO,
+						sizeof(vertex),
 						boundaries->second.toVBO - boundaries->second.fromVBO,
 						mesh.meshData.data()
 					);
@@ -228,7 +241,7 @@ namespace engine
 		}
 	}
 
-	void dynamicRenderSystem::render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera)
+	void dynamicRenderSystem::render(entt::registry& registry, const renderer* renderer, const fpsCamera& camera)
 	{
 		glm::mat4 projection = camera.getProjection();
 		glm::mat4 view = camera.getCameraTransform();
@@ -267,7 +280,7 @@ namespace engine
 						}, unifromData.second.first);
 				}
 
-				renderer.render(*(material.shader.get()), *(material.tex.get()), *(data->second.VAO.get()));
+				renderer->render(material.shader.get(), material.tex.get(), data->second.VAO.get());
 			}
 		}
 	}

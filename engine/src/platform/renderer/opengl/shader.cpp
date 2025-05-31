@@ -5,38 +5,38 @@
 
 namespace engine
 {
-	shaderProgram::shaderProgram(const std::string& framgentSrc, const std::string& vertexSrc)
-		: mActiveUniforms(), mActiveVertexAttrs(), mFragmentSrc(framgentSrc), mVertexSrc(vertexSrc), mID(0)
+	openglShaderProgram::openglShaderProgram(const std::string& framgentSrc, const std::string& vertexSrc)
+		: shaderProgram(framgentSrc, vertexSrc), mID(0)
 	{
 		mID = glCreateProgram();
 	}
 
-	shaderProgram::~shaderProgram()
+	openglShaderProgram::~openglShaderProgram()
 	{
 		glDeleteProgram(mID);
 	}
 
-	void shaderProgram::bind() const
+	void openglShaderProgram::bind() const
 	{
 		glUseProgram(mID);
 	}
 
-	uint32_t shaderProgram::getID() const
+	uint32_t openglShaderProgram::getID() const
 	{
 		return mID;
 	}
 
-	const std::map<std::string, shaderProgram::shaderVariableInfo>& shaderProgram::getActiveUnifrms() const
+	const std::map<std::string, shaderProgram::shaderVariableInfo>& openglShaderProgram::getActiveUnifrms() const
 	{
 		return mActiveUniforms;
 	}
 
-	const std::map<std::string, shaderProgram::shaderVariableInfo>& shaderProgram::getActiveAttributes() const
+	const std::map<std::string, shaderProgram::shaderVariableInfo>& openglShaderProgram::getActiveAttributes() const
 	{
 		return mActiveVertexAttrs;
 	}
 
-	void shaderProgram::setActiveAttribMap()
+	void openglShaderProgram::setActiveAttribMap()
 	{
 		bind();
 		GLint count;
@@ -52,7 +52,7 @@ namespace engine
 		}
 	}
 
-	void shaderProgram::setActiveUniformsMap()
+	void openglShaderProgram::setActiveUniformsMap()
 	{
 		bind();
 		GLint count;
@@ -68,7 +68,7 @@ namespace engine
 		}
 	}
 
-	std::pair<uint32_t, error> shaderProgram::compileShader(uint32_t shaderType, const std::string& shaderSrc) const
+	std::pair<uint32_t, error> openglShaderProgram::compileShader(uint32_t shaderType, const std::string& shaderSrc) const
 	{
 		auto shaderID = glCreateShader(shaderType);
 		auto srcPtr = shaderSrc.c_str();
@@ -90,7 +90,7 @@ namespace engine
 		return { shaderID , {} };
 	}
 
-	error shaderProgram::compile()
+	error openglShaderProgram::compile()
 	{
 		auto compileResult = compileShader(GL_VERTEX_SHADER, mVertexSrc);
 		if (compileResult.second)
@@ -118,8 +118,7 @@ namespace engine
 		return {};
 	}
 
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const float data, uint32_t count) const
+	error openglShaderProgram::setUniformType(const std::string& name, const float data, uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);
@@ -134,8 +133,7 @@ namespace engine
 		return {};
 	}
 
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const uint32_t data, [[maybe_unused]] uint32_t count) const
+	error openglShaderProgram::setUniformType(const std::string& name, const uint32_t data, [[maybe_unused]] uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);
@@ -150,8 +148,7 @@ namespace engine
 		return {};
 	}
 
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const int data, uint32_t count) const
+	error openglShaderProgram::setUniformType(const std::string& name, const int data, uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);
@@ -166,8 +163,7 @@ namespace engine
 		return {};
 	}
 
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const double data, uint32_t count) const
+	error openglShaderProgram::setUniformType(const std::string& name, const double data, uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);
@@ -182,8 +178,7 @@ namespace engine
 		return {};
 	}
 
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const
+	error openglShaderProgram::setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);
@@ -198,8 +193,7 @@ namespace engine
 		return {};
 	}
 
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const
+	error openglShaderProgram::setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const
 	{
 		bind();
 		auto elem = mActiveUniforms.find(name);

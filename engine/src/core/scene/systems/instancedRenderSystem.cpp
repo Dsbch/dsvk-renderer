@@ -1,6 +1,7 @@
 #include <pch.h>
 #include <glm/gtc/type_ptr.hpp>
 #include "instancedRenderSystem.h"
+#include "platform/renderer/rendererFactory.h"
 
 
 namespace engine
@@ -16,7 +17,7 @@ namespace engine
 		return {};
 	}
 
-	void instancedRenderSystem::render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera)
+	void instancedRenderSystem::render(entt::registry& registry, const renderer* renderer, const fpsCamera& camera)
 	{
 		glm::mat4 projection = camera.getProjection();
 		glm::mat4 view = camera.getCameraTransform();
@@ -57,7 +58,7 @@ namespace engine
 
 				for (auto& setData : data->second)
 				{
-					renderer.render(*(material.shader.get()), *(material.tex.get()), *(setData.VAO.get()), setData.instanceCount);
+					renderer->render(material.shader.get(), material.tex.get(), setData.VAO.get(), setData.instanceCount);
 				}
 			}
 		}
@@ -70,17 +71,19 @@ namespace engine
 
 		if (freeSizePerInst < sizeof(instanceAttributes))
 		{
-			auto ptr = new dynamicArrayObject{
-					size_t(data.perInstanceAttrs->getSize() * 1.5f),
-					nullptr
-			};
+			auto ptr = rendererFactory::createDynamicArrayObject(size_t(data.perInstanceAttrs->getSize() * 1.5f), nullptr);
 
-			ptr->template updateData<instanceAttributes>(0, data.perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes), data.perInstanceAttrs->getPtr<instanceAttributes>());
+			ptr->updateData(
+				0,
+				sizeof(instanceAttributes),
+				data.perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes),
+				data.perInstanceAttrs->getPtr()
+			);
 			ptr->setLoadedSize(
 				data.perInstanceAttrs->getLoadedSize()
 			);
 
-			data.perInstanceAttrs.reset(ptr);
+			data.perInstanceAttrs = std::move(ptr);
 		}
 	}
 
@@ -103,8 +106,9 @@ namespace engine
 					{
 						std::vector<instanceAttributes> attribs{ {transform.transform} };
 
-						renderData->perInstanceAttrs->updateData<instanceAttributes>(
+						renderData->perInstanceAttrs->updateData(
 							boundaries->second.fromPerInstAttr,
+							sizeof(instanceAttributes),
 							boundaries->second.toPerInstAttr - boundaries->second.fromPerInstAttr,
 							attribs.data()
 						);
@@ -140,8 +144,9 @@ namespace engine
 
 					found->perInstanceAttrs->updateData(
 						boundaries->second.fromPerInstAttr,
+						sizeof(instanceAttributes),
 						found->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes) - 1, // always one.
-						found->perInstanceAttrs->getPtr<instanceAttributes>() + boundaries->second.toPerInstAttr
+						static_cast<instanceAttributes*>(found->perInstanceAttrs->getPtr()) + boundaries->second.toPerInstAttr
 					);
 
 					found->perInstanceAttrs->setLoadedSize(
@@ -185,15 +190,15 @@ namespace engine
 			auto foundData = foundSet->second.find({ instancedMesh.uid });
 			if (foundData == foundSet->second.end())
 			{
-				const size_t newSizeAttrs = sizeof(instanceAttributes)*400;
+				const size_t newSizeAttrs = sizeof(instanceAttributes) * 400;
 
 				foundSet->second.insert({
 					instancedMesh.uid,
 					0,
-					std::make_unique<dynamicArrayObject>(instancedMesh.indexData->size() * sizeof(uint32_t), (void*)(instancedMesh.indexData->data())),
-					std::make_unique<dynamicArrayObject>(instancedMesh.meshData->size() * sizeof(vertex), (void*)(instancedMesh.meshData->data())),
-					std::make_unique<vertexArrayObject>(),
-					std::make_unique<dynamicArrayObject>(newSizeAttrs, nullptr),
+					rendererFactory::createDynamicArrayObject(instancedMesh.indexData->size() * sizeof(uint32_t), (void*)(instancedMesh.indexData->data())),
+					rendererFactory::createDynamicArrayObject(instancedMesh.meshData->size() * sizeof(vertex), (void*)(instancedMesh.meshData->data())),
+					rendererFactory::createVertexArrayObject(),
+					rendererFactory::createDynamicArrayObject(newSizeAttrs, nullptr),
 					{},
 					}
 					);
@@ -219,7 +224,12 @@ namespace engine
 
 			std::vector<instanceAttributes> attribs{ {transform.transform} };
 			foundData->instanceCount++;
-			foundData->perInstanceAttrs->updateData<instanceAttributes>(foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes), 1, attribs.data());
+			foundData->perInstanceAttrs->updateData(
+				foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes),
+				sizeof(instanceAttributes),
+				1,
+				attribs.data()
+			);
 			foundData->perInstanceAttrs->setLoadedSize(foundData->perInstanceAttrs->getLoadedSize() + sizeof(instanceAttributes) * 1);
 
 			foundData->VAO->setElementBuffer(foundData->EBO->getLoadedSize() / sizeof(uint32_t), foundData->EBO->getID());

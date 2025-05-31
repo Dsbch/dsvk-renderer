@@ -3,60 +3,32 @@
 #include "pch.h"
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
+#include "platform/renderer/shader.h"
 
 namespace engine
 {
-	class shaderProgram
+	class openglShaderProgram : public shaderProgram
 	{
 	public:
-		struct shaderVariableInfo
-		{
-			uint32_t type;
-			size_t mSize;
-		};
-
-		shaderProgram(const std::string& fragmestSrc, const std::string& vertexSrc);
-		~shaderProgram();
+		openglShaderProgram(const std::string& fragmestSrc, const std::string& vertexSrc);
+		~openglShaderProgram();
 		engine::error compile();
 		void bind() const;
 		uint32_t getID() const;
-		const std::map<std::string, shaderVariableInfo>& getActiveUnifrms() const;
-		const std::map<std::string, shaderVariableInfo>& getActiveAttributes() const;
-		template<class T>
-		engine::error setUniformType(const std::string& name, const T data, uint32_t count) const;
+		const std::map<std::string, shaderProgram::shaderVariableInfo>& getActiveUnifrms() const;
+		const std::map<std::string, shaderProgram::shaderVariableInfo>& getActiveAttributes() const;
+		
+		error shaderProgram::setUniformType(const std::string& name, const float data, uint32_t count) const;
+		error shaderProgram::setUniformType(const std::string& name, const uint32_t data, uint32_t count) const;
+		error shaderProgram::setUniformType(const std::string& name, const int data, uint32_t count) const;
+		error shaderProgram::setUniformType(const std::string& name, const double data, uint32_t count) const;
+		error shaderProgram::setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const;
+		error shaderProgram::setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const;
 	private:
 		void setActiveAttribMap();
 		void setActiveUniformsMap();
 		std::pair<uint32_t, engine::error> compileShader(uint32_t shaderType, const std::string& shaderSrc) const;
 
-		std::map<std::string, shaderVariableInfo> mActiveUniforms;
-		std::map<std::string, shaderVariableInfo> mActiveVertexAttrs;
-		const std::string mFragmentSrc;
-		const std::string mVertexSrc;
 		uint32_t mID;
 	};
-
-	template<class T>
-	inline engine::error shaderProgram::setUniformType(const std::string& name, const T data, uint32_t count) const
-	{
-		return engine::error("specialization not found");
-	}
-
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const float data, uint32_t count) const;
-
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const uint32_t data, uint32_t count) const;
-
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const int data, uint32_t count) const;
-
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const double data, uint32_t count) const;
-
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const;
-
-	template<>
-	error shaderProgram::setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const;
 }

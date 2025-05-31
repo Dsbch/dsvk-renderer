@@ -5,8 +5,8 @@
 #include "core/camera/camera.h"
 #include "core/events/events.h"
 #include "platform/renderer/vertex.h"
-#include "platform/renderer/opengl/shader.h"
-#include "platform/renderer/opengl/texture.h"
+#include "platform/renderer/shader.h"
+#include "platform/renderer/texture.h"
 
 namespace engine
 {

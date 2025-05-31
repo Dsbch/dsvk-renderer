@@ -6,7 +6,7 @@
 
 namespace engine
 {
-	class baseWindow;
+	class window;
 	class layerStack;
 	class layer;
 
@@ -23,7 +23,7 @@ namespace engine
 	protected:
 		error mErr;
 		std::shared_ptr<context> mCtx;
-		std::unique_ptr<baseWindow> mWindow;
+		std::unique_ptr<window> mWindow;
 		bool mRunning;
 	private:
 		std::unique_ptr<layerStack> mLayerStack;

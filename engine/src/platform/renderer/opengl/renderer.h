@@ -2,21 +2,15 @@
 
 #include <pch.h>
 #include "base/context/context.h"
-#include "vertexBufferObject.h"
-#include "shader.h"
-#include "texture.h"
+#include "vertexArrayObject.h"
+#include "platform/renderer/renderer.h"
+#include "platform/renderer/shader.h"
+#include "platform/renderer/texture.h"
 
 namespace engine
 {
-	class openglRenderer
+	class openglRenderer : public renderer
 	{
-	private:
-		static std::once_flag mIsOpenglInitialized;
-		static error mInitOpenglErr;
-		static void initOpengl();
-
-		error mErr;
-		std::shared_ptr<context> mCtx;
 	public:
 		openglRenderer(std::shared_ptr<context> ctx);
 		std::string getVersion() const;
@@ -24,7 +18,11 @@ namespace engine
 		void changeViewPort(uint32_t width, uint32_t height) const;
 		void clear() const;
 		void render() const;
-		void render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const;
-		void render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao, uint32_t instanceCount) const;
+		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao) const;
+		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, uint32_t instanceCount) const;
+	private:
+		static std::once_flag mIsOpenglInitialized;
+		static error mInitOpenglErr;
+		static void initOpengl();
 	};
 }

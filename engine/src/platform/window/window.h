@@ -6,7 +6,7 @@
 
 namespace engine
 {
-	class baseWindow
+	class window
 	{
 	protected:
 		std::string mName;
@@ -16,17 +16,17 @@ namespace engine
 		bool mShowCursor;
 		std::shared_ptr<context> mCtx;
 	public:
-		baseWindow(
+		window(
 			std::shared_ptr<context> ctx,
 			const std::string& name,
 			std::uint32_t width,
 			std::uint32_t heigth,
 			bool isFullscreen,
 			bool showCuresor);
-		virtual ~baseWindow() = default;
+		virtual ~window() = default;
 
-		baseWindow(const baseWindow&) = delete;
-		baseWindow& operator=(const baseWindow&) = delete;
+		window(const window&) = delete;
+		window& operator=(const window&) = delete;
 
 		virtual engine::error makeOpenglContext() = 0;
 		virtual void startPolling() = 0;

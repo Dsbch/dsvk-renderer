@@ -4,7 +4,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
-#include "opengl/vertexBufferObject.h"
+#include "vertexArrayObject.h"
 
 namespace engine 
 {
@@ -26,7 +26,7 @@ namespace engine
 		uint32_t mBufferObjectID;
 	public:
 		vertexDescriber(uint32_t vboID) : mBufferObjectID(vboID) {}
-		std::vector<attributeInfo> info() const override;
+		std::vector<attributeInfo> info() const;
 	};
 
 	class instancedAttrDescriber : public attributesDescriber
@@ -35,7 +35,7 @@ namespace engine
 		uint32_t mBufferObjectID;
 	public:
 		instancedAttrDescriber(uint32_t vboID) : mBufferObjectID(vboID) {}
-		std::vector<attributeInfo> info() const override;
+		std::vector<attributeInfo> info() const;
 	};
 }
 

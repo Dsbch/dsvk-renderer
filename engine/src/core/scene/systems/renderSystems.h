@@ -12,7 +12,7 @@ namespace engine
 	{
 	private:
 		fpsCamera mDefaultCamera;
-		openglRenderer mRenderer;
+		std::unique_ptr<renderer> mRenderer;
 		dynamicRenderSystem mDynamic;
 		instancedRenderSystem mInstanced;
 	public:

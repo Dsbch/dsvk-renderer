@@ -3,8 +3,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include "aManager.h"
-#include "platform/renderer/opengl/texture.h"
-#include "platform/renderer/opengl/shader.h"
+#include "platform/renderer/texture.h"
+#include "platform/renderer/shader.h"
+#include "platform/renderer/rendererFactory.h"
 
 namespace engine
 {
@@ -54,7 +55,7 @@ namespace engine
 			return { {}, {"can't load texture"} };
 		}
 
-		auto t = std::make_shared<texture>(data, width, height, (imageChannel)nrChannels);
+		auto t = rendererFactory::createTexure(data, width, height, (imageChannel)nrChannels);
 
 		stbi_image_free(data);
 
@@ -84,7 +85,7 @@ namespace engine
 		std::string vs = openAndRead(vertexShaderPath);
 		std::string fs = openAndRead(fragmentShaderPath);
 
-		auto program = std::make_shared<shaderProgram>(fs, vs);
+		auto program = rendererFactory::createShader(fs, vs);
 
 		auto err = program->compile();
 		if (err)

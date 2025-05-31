@@ -4,33 +4,33 @@
 
 namespace engine
 {
-	arrayObject::arrayObject(uint32_t size, void* data) : mSize(size), mID(0)
+	openglArrayObject::openglArrayObject(size_t size, void* data) : arrayObject(size, data), mID(0)
 	{
 		glCreateBuffers(1, &mID);
 		glNamedBufferStorage(mID, size, data, GL_DYNAMIC_STORAGE_BIT);
 	}
 
-	void arrayObject::updateData(uint32_t offset, uint32_t size, void* data) const
+	void openglArrayObject::updateData(uint32_t offset, uint32_t size, void* data) const
 	{
 		glNamedBufferSubData(mID, offset, size, data);
 	}
 
-	arrayObject ::~arrayObject()
+	openglArrayObject ::~openglArrayObject()
 	{
 		glDeleteBuffers(1, &mID);
 	}
 
-	uint32_t arrayObject::getSize() const
+	size_t openglArrayObject::getSize() const
 	{
 		return mSize;
 	}
 
-	uint32_t arrayObject::getID() const
+	uint32_t openglArrayObject::getID() const
 	{
 		return mID;
 	}
 
-	dynamicArrayObject::dynamicArrayObject(size_t size, void* data) : mSize(size), mID(0), mData(nullptr), mLoadedSize(0)
+	openglDynamicArrayObject::openglDynamicArrayObject(size_t size, void* data) : dynamicArrayObject(size, data), mID(0), mData(nullptr)
 	{
 		auto flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
 		glCreateBuffers(1, &mID);
@@ -43,28 +43,38 @@ namespace engine
 		}
 	}
 
-	dynamicArrayObject::~dynamicArrayObject()
+	void openglDynamicArrayObject::updateData(size_t offset, size_t typeSize, size_t len, void* data)
+	{
+		std::memcpy(static_cast<char*>(mData) + offset*typeSize, data, len * typeSize);
+	}
+
+	void* openglDynamicArrayObject::getPtr()
+	{
+		return mData;
+	}
+
+	openglDynamicArrayObject::~openglDynamicArrayObject()
 	{
 		glUnmapNamedBuffer(mID);
 		glDeleteBuffers(1, &mID);
 	}
 
-	void dynamicArrayObject::setLoadedSize(size_t loadedSize)
+	void openglDynamicArrayObject::setLoadedSize(size_t loadedSize)
 	{
 		mLoadedSize = loadedSize;
 	}
 
-	size_t dynamicArrayObject::getSize() const
+	size_t openglDynamicArrayObject::getSize() const
 	{
 		return mSize;
 	}
 
-	size_t dynamicArrayObject::getLoadedSize() const
+	size_t openglDynamicArrayObject::getLoadedSize() const
 	{
 		return mLoadedSize;
 	}
 
-	uint32_t dynamicArrayObject::getID() const
+	uint32_t openglDynamicArrayObject::getID() const
 	{
 		return mID;
 	}

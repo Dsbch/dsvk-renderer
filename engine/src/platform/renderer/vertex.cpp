@@ -1,8 +1,6 @@
 #include <pch.h>
-#include <glad/glad.h>
-#include <glm/vec3.hpp>
-#include <glm/vec2.hpp>
 #include "vertex.h"
+#include <glad/glad.h>
 
 namespace engine {
 	std::vector<attributesDescriber::attributeInfo> vertexDescriber::info() const
@@ -46,6 +44,7 @@ namespace engine {
 	std::vector<attributesDescriber::attributeInfo> instancedAttrDescriber::info() const
 	{
 		return {
+#ifdef OPENGL
 			// Model matrix.
 			// for some reason opengl can't have mat4 attribute, max size of vertex attribute is vec4 :(.
 			{
@@ -62,7 +61,7 @@ namespace engine {
 				mBufferObjectID,
 				sizeof(instanceAttributes::modelMatrix) / sizeof(float) / 4,
 				GL_FLOAT,
-				offsetof(instanceAttributes, instanceAttributes::modelMatrix) + sizeof(glm::vec4)*1,
+				offsetof(instanceAttributes, instanceAttributes::modelMatrix) + sizeof(glm::vec4) * 1,
 				false,
 				true,
 			},
@@ -84,6 +83,7 @@ namespace engine {
 				false,
 				true,
 			},
+#endif // OPENGL
 		};
 	}
 }

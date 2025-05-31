@@ -5,9 +5,9 @@
 #include <entt/entt.hpp>
 #include "core/scene/scene.h"
 #include "platform/renderer/vertex.h"
-#include "platform/renderer/opengl/renderer.h"
-#include "platform/renderer/opengl/arrayObject.h"
-#include "platform/renderer/opengl/vertexBufferObject.h"
+#include "platform/renderer/renderer.h"
+#include "platform/renderer/arrayObject.h"
+#include "platform/renderer/vertexArrayObject.h"
 
 namespace engine
 {
@@ -55,7 +55,7 @@ namespace engine
 		void deleteEntities(entt::registry& registry);
 		void addEntities(entt::registry& registry);
 		void updateData(entt::registry& registry);
-		void render(entt::registry& registry, const openglRenderer& renderer, const fpsCamera& camera);
+		void render(entt::registry& registry, const renderer* renderer, const fpsCamera& camera);
 	public:
 		dynamicRenderSystem(std::shared_ptr<context> ctx);
 		void onRender(entt::registry& registry) {};

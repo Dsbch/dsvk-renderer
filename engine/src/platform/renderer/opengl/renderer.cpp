@@ -66,7 +66,7 @@ namespace engine
 #endif // DEBUG
 	}
 
-	openglRenderer::openglRenderer(std::shared_ptr<context> ctx) : mCtx(ctx)
+	openglRenderer::openglRenderer(std::shared_ptr<context> ctx) : renderer(ctx)
 	{
 		std::call_once(mIsOpenglInitialized, initOpengl);
 
@@ -106,19 +106,19 @@ namespace engine
 		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	}
 
-	void openglRenderer::render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao) const
+	void openglRenderer::render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao) const
 	{
-		shader.bind();
-		tex.bind();
-		vao.bind();
-		glDrawElements(GL_TRIANGLES, GLsizei(vao.getElementCount()), GL_UNSIGNED_INT, nullptr);
+		shader->bind();
+		tex->bind();
+		vao->bind();
+		glDrawElements(GL_TRIANGLES, GLsizei(vao->getElementCount()), GL_UNSIGNED_INT, nullptr);
 	}
 
-	void openglRenderer::render(const shaderProgram& shader, texture& tex, const vertexArrayObject& vao, uint32_t instanceCount) const
+	void openglRenderer::render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, uint32_t instanceCount) const
 	{
-		shader.bind();
-		tex.bind();
-		vao.bind();
-		glDrawElementsInstanced(GL_TRIANGLES, GLsizei(vao.getElementCount()), GL_UNSIGNED_INT, nullptr, instanceCount);
+		shader->bind();
+		tex->bind();
+		vao->bind();
+		glDrawElementsInstanced(GL_TRIANGLES, GLsizei(vao->getElementCount()), GL_UNSIGNED_INT, nullptr, instanceCount);
 	}
 }

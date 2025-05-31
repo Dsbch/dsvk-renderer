@@ -10,7 +10,7 @@
 
 namespace engine
 {
-	class winApiWindow : public baseWindow
+	class winApiWindow : public window
 	{
 	private:
 		static void logLastError(const std::string& prefix);

@@ -4,6 +4,12 @@ project "engine"
    architecture "x64"
    cppdialect "C++17"
 
+   filter { "options:gfxapi=opengl" }
+      defines { "OPENGL" }
+
+   filter { "options:osio=winapi" }
+      defines { "WIN32API" }
+
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
 

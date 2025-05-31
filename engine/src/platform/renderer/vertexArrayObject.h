@@ -25,21 +25,12 @@ namespace engine
 
 	class vertexArrayObject
 	{
-	private:
-		uint32_t mID;
-		size_t mAttribCount;
-		size_t mElementCount;
-
-		static int mMaxAttributes;
-		static std::once_flag mAttribOnceFlag;
 	public:
-		vertexArrayObject();
-		~vertexArrayObject();
-		void bind() const;
-		void unbind() const;
-		void setElementBuffer(size_t elementCount, uint32_t elementBufferID);
-		size_t getElementCount() const;
-
-		engine::error setAttribs(std::initializer_list<const attributesDescriber*>);
+		virtual ~vertexArrayObject() = default;
+		virtual void bind() const = 0;
+		virtual void unbind() const = 0;
+		virtual void setElementBuffer(size_t elementCount, uint32_t elementBufferID) = 0;
+		virtual size_t getElementCount() const = 0;
+		virtual engine::error setAttribs(std::initializer_list<const attributesDescriber*>) = 0;
 	};
 }

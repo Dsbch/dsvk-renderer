@@ -4,11 +4,11 @@
 
 namespace engine
 {
-	std::atomic_int texture::occupiedSlots;
-	std::once_flag texture::maxSlotsFlag;
-	int texture::maxOccupiedSlots;
+	std::atomic_int openglTexture::occupiedSlots;
+	std::once_flag openglTexture::maxSlotsFlag;
+	int openglTexture::maxOccupiedSlots;
 
-	engine::error texture::bind()
+	engine::error openglTexture::bind()
 	{
 		if (mSlotID != 0)
 		{
@@ -26,8 +26,8 @@ namespace engine
 		return {};
 	}
 
-	texture::texture(uint8_t* data, int width, int height, imageChannel channel)
-		: mWidth(width), mHeight(height), mChannel(channel), mID(0), mSlotID(0)
+	openglTexture::openglTexture(uint8_t* data, int width, int height, imageChannel channel)
+		: texture(data, width, height, channel), mID(0), mSlotID(0)
 	{
 		std::call_once(maxSlotsFlag, glGetIntegerv, GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxOccupiedSlots);
 
@@ -43,23 +43,23 @@ namespace engine
 		glGenerateTextureMipmap(mID);
 	}
 
-	texture::~texture()
+	openglTexture::~openglTexture()
 	{
 		occupiedSlots--;
 		glDeleteTextures(1, &mID);
 	}
 
-	const uint32_t texture::getID() const
+	const uint32_t openglTexture::getID() const
 	{
 		return mID;
 	}
 
-	const uint32_t texture::getSlotID() const
+	const uint32_t openglTexture::getSlotID() const
 	{
 		return mSlotID;
 	}
 
-	uint32_t texture::nextTextureSlot()
+	uint32_t openglTexture::nextTextureSlot()
 	{
 		if (occupiedSlots >= maxOccupiedSlots)
 		{

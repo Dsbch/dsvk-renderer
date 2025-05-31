@@ -1,47 +1,47 @@
 #include <pch.h>
 #include <glad/glad.h>
-#include "vertexBufferObject.h"
+#include "vertexArrayObject.h"
 
 namespace engine
 {
 
-	int vertexArrayObject::mMaxAttributes;
-	std::once_flag vertexArrayObject::mAttribOnceFlag;
+	int openglVertexArrayObject::mMaxAttributes;
+	std::once_flag openglVertexArrayObject::mAttribOnceFlag;
 
-	vertexArrayObject::vertexArrayObject() : mID(0), mElementCount(0), mAttribCount(0)
+	openglVertexArrayObject::openglVertexArrayObject() : vertexArrayObject(), mID(0), mElementCount(0), mAttribCount(0)
 	{
 		std::call_once(mAttribOnceFlag, glGetIntegerv, GL_MAX_VERTEX_ATTRIBS, &mMaxAttributes);
 
 		glCreateVertexArrays(1, &mID);
 	}
 
-	vertexArrayObject::~vertexArrayObject()
+	openglVertexArrayObject::~openglVertexArrayObject()
 	{
 		glDeleteVertexArrays(1, &mID);
 	}
 
-	void vertexArrayObject::bind() const
+	void openglVertexArrayObject::bind() const
 	{
 		glBindVertexArray(mID);
 	}
 
-	void vertexArrayObject::unbind() const
+	void openglVertexArrayObject::unbind() const
 	{
 		glBindVertexArray(-1);
 	}
 
-	void vertexArrayObject::setElementBuffer(size_t elementCount, uint32_t elementBufferID)
+	void openglVertexArrayObject::setElementBuffer(size_t elementCount, uint32_t elementBufferID)
 	{
 		mElementCount = elementCount;
 		glVertexArrayElementBuffer(mID, elementBufferID);
 	}
 
-	size_t vertexArrayObject::getElementCount() const
+	size_t openglVertexArrayObject::getElementCount() const
 	{
 		return mElementCount;
 	}
 
-	engine::error vertexArrayObject::setAttribs(std::initializer_list<const attributesDescriber*> describer)
+	engine::error openglVertexArrayObject::setAttribs(std::initializer_list<const attributesDescriber*> describer)
 	{
 		mAttribCount = 0;
 		for (auto& d : describer)

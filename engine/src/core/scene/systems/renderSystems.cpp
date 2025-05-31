@@ -1,16 +1,17 @@
 #include <pch.h>
 #include "renderSystems.h"
+#include "platform/renderer/rendererFactory.h"
 
 namespace engine
 {
 	renderSystems::renderSystems(std::shared_ptr<context> ctx, fpsCamera camera)
 		:
-			system(ctx), mRenderer(ctx), mDefaultCamera(camera), mInstanced(ctx), mDynamic(ctx)
+			system(ctx), mRenderer(rendererFactory::createRenderer(ctx)), mDefaultCamera(camera), mInstanced(ctx), mDynamic(ctx)
 	{
 	}
 	error renderSystems::checkError()
 	{
-		return mRenderer.checkError();
+		return mRenderer->checkError();
 	}
 
 	void renderSystems::onUpdate(entt::registry& registry)
@@ -31,9 +32,9 @@ namespace engine
 			}
 		}
 
-		mRenderer.clear();
-		mDynamic.render(registry, mRenderer, *selectedCam);
-		mInstanced.render(registry, mRenderer, *selectedCam);
+		mRenderer->clear();
+		mDynamic.render(registry, mRenderer.get(), *selectedCam);
+		mInstanced.render(registry, mRenderer.get(), *selectedCam);
 	}
 
 	void renderSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
@@ -42,7 +43,7 @@ namespace engine
 		{
 			auto resizeEvent = static_cast<windowResizeEvent*>(e.get());
 
-			mRenderer.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+			mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 			mDefaultCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 		}
 

@@ -8,7 +8,7 @@ namespace engine
 	class windowFactory
 	{
 	public:
-		static std::unique_ptr<baseWindow> createWindow(
+		static std::unique_ptr<window> createWindow(
 			std::shared_ptr<context> ctx,
 			const std::string& name,
 			std::uint32_t width,
@@ -18,9 +18,9 @@ namespace engine
 			bool showCursor
 		)
 		{
-#ifdef WIN32
+#ifdef WIN32API
 			return std::make_unique<winApiWindow>(ctx, name, width, heigth, isFullscreen, applicationName, showCursor);
-#endif // WIN32
+#endif // WIN32API
 		}
 	};
 }
