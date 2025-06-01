@@ -63,7 +63,7 @@ namespace engine
 				glVertexArrayVertexBuffer(mID, GLuint(mAttribCount), i.bufferObjectID, 0, i.stride);
 				glVertexArrayAttribFormat(mID, GLuint(mAttribCount), i.count, i.type, i.needNormalization, i.offset);
 
-				if (i.instanced)
+				if (i.instanced)	
 					glVertexArrayBindingDivisor(mID, GLuint(mAttribCount), 1);
 
 				mAttribCount++;

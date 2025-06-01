@@ -164,7 +164,7 @@ public:
 			int i = 0;
 			for (auto [entity, uid, mesh, mat] : view.each())
 			{
-				if (i == 1)
+				if (i == 0)
 				{
 					use = true;
 					toDelete = entity;
@@ -263,7 +263,7 @@ public:
 			int i = 0;
 			for (auto [entity, uid, mesh, mat] : view.each())
 			{
-				if (i == 1)
+				if (i == 2)
 				{
 					use = true;
 					toDelete = entity;

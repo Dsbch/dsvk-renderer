@@ -20,8 +20,8 @@ namespace engine
 			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 			if (renderData != mData.end())
 			{
-				auto boundaries = renderData->second.entityBoundaries.find(uid.uid);
-				if (boundaries != renderData->second.entityBoundaries.end())
+				auto boundaries = renderData->second.meshBoundaries.find(uid.uid);
+				if (boundaries != renderData->second.meshBoundaries.end())
 				{
 					renderData->second.EBO->updateData(
 						boundaries->second.fromEBO,
@@ -55,7 +55,7 @@ namespace engine
 					// update boundaries.
 					size_t eboShift = boundaries->second.toEBO - boundaries->second.fromEBO;
 					size_t vboShift = boundaries->second.toVBO - boundaries->second.fromVBO;
-					for (auto& [key, val] : renderData->second.entityBoundaries)
+					for (auto& [key, val] : renderData->second.meshBoundaries)
 					{
 						if (boundaries->second.toEBO < val.toEBO)
 						{
@@ -69,7 +69,7 @@ namespace engine
 
 					toDestroy.push_back(entity);
 
-					renderData->second.entityBoundaries.erase(uid.uid);
+					renderData->second.meshBoundaries.erase(uid.uid);
 					renderData->second.VAO->setElementBuffer(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t), renderData->second.EBO->getID());
 				}
 			}
@@ -166,12 +166,12 @@ namespace engine
 				renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 			}
 
-			if (renderData->second.entityBoundaries.find(uid.uid) != renderData->second.entityBoundaries.end())
+			if (renderData->second.meshBoundaries.find(uid.uid) != renderData->second.meshBoundaries.end())
 			{
 				continue;
 			}
 
-			renderData->second.entityBoundaries[uid.uid] = entityBoundaries{
+			renderData->second.meshBoundaries[uid.uid] = meshBoundaries{
 					renderData->second.VBO->getLoadedSize() / sizeof(vertex),
 					renderData->second.VBO->getLoadedSize() / sizeof(vertex) + mesh.meshData.size(),
 
@@ -220,8 +220,8 @@ namespace engine
 			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 			if (renderData != mData.end())
 			{
-				auto boundaries = renderData->second.entityBoundaries.find(uid.uid);
-				if (boundaries != renderData->second.entityBoundaries.end())
+				auto boundaries = renderData->second.meshBoundaries.find(uid.uid);
+				if (boundaries != renderData->second.meshBoundaries.end())
 				{
 					renderData->second.VBO->updateData(
 						boundaries->second.fromVBO,

@@ -44,22 +44,22 @@ namespace engine
 			: meshData(std::move(meshData)), indexData(std::move(indexData)) {}
 	};
 
-	struct deleteComponent {};
-	struct updateMeshComponent {};
-	struct applyTransformComponent {};
-
 	struct instancedMeshComponent
 	{
 		uint32_t uid;
-		std::shared_ptr<const std::vector<vertex>> meshData;
-		std::shared_ptr<const std::vector<uint32_t>> indexData;
+		std::shared_ptr<std::vector<vertex>> meshData;
+		std::shared_ptr<std::vector<uint32_t>> indexData;
 
-		instancedMeshComponent(std::shared_ptr<const std::vector<vertex>> meshData, std::shared_ptr<const std::vector<uint32_t>> indexData)
+		instancedMeshComponent(std::shared_ptr<std::vector<vertex>> meshData, std::shared_ptr<std::vector<uint32_t>> indexData)
 			: meshData(meshData), indexData(indexData), uid(genUID()) {}
 
-		instancedMeshComponent(std::shared_ptr<const std::vector<vertex>> meshData, std::shared_ptr<const std::vector<uint32_t>> indexData, uint32_t uid)
+		instancedMeshComponent(std::shared_ptr<std::vector<vertex>> meshData, std::shared_ptr<std::vector<uint32_t>> indexData, uint32_t uid)
 			: meshData(meshData), indexData(indexData), uid(uid) {}
 	};
+
+	struct deleteComponent {};
+	struct updateMeshComponent {};
+	struct applyTransformComponent {};
 
 	struct transformComponent
 	{

@@ -62,34 +62,32 @@ namespace engine
 				}
 			}
 		}
-
 	}
 
 	void instancedRenderSystem::resizeOnNeed(const instancedRenderData& data)
 	{
-		auto freeSizePerInst = data.perInstanceAttrs->getSize() - data.perInstanceAttrs->getLoadedSize();
+		auto freeSizePerInst = data.instanceAttributes->getSize() - data.instanceAttributes->getLoadedSize();
 
 		if (freeSizePerInst < sizeof(instanceAttributes))
 		{
-			auto ptr = rendererFactory::createDynamicArrayObject(size_t(data.perInstanceAttrs->getSize() * 1.5f), nullptr);
+			auto ptr = rendererFactory::createDynamicArrayObject(size_t(data.instanceAttributes->getSize() * 1.5f), nullptr);
 
 			ptr->updateData(
 				0,
 				sizeof(instanceAttributes),
-				data.perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes),
-				data.perInstanceAttrs->getPtr()
+				data.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes),
+				data.instanceAttributes->getPtr()
 			);
 			ptr->setLoadedSize(
-				data.perInstanceAttrs->getLoadedSize()
+				data.instanceAttributes->getLoadedSize()
 			);
 
-			data.perInstanceAttrs = std::move(ptr);
+			data.instanceAttributes = std::move(ptr);
 		}
 	}
 
 	void instancedRenderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
-
 	}
 
 	void instancedRenderSystem::updateData(entt::registry& registry)
@@ -106,10 +104,10 @@ namespace engine
 					{
 						std::vector<instanceAttributes> attribs{ {transform.transform} };
 
-						renderData->perInstanceAttrs->updateData(
-							boundaries->second.fromPerInstAttr,
+						renderData->instanceAttributes->updateData(
+							boundaries->second,
 							sizeof(instanceAttributes),
-							boundaries->second.toPerInstAttr - boundaries->second.fromPerInstAttr,
+							1, // always 1.
 							attribs.data()
 						);
 
@@ -138,39 +136,44 @@ namespace engine
 					auto boundaries = found->boundaries.find(uid.uid);
 					if (boundaries == found->boundaries.end())
 					{
-						toDelete.push_back(entity);
 						continue;
 					}
 
-					found->perInstanceAttrs->updateData(
-						boundaries->second.fromPerInstAttr,
+					found->instanceAttributes->updateData(
+						boundaries->second,
 						sizeof(instanceAttributes),
-						found->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes) - 1, // always one.
-						static_cast<instanceAttributes*>(found->perInstanceAttrs->getPtr()) + boundaries->second.toPerInstAttr
+						found->instanceAttributes->getLoadedSize() / sizeof(instanceAttributes) - boundaries->second,
+						static_cast<instanceAttributes*>(found->instanceAttributes->getPtr()) + boundaries->second + 1 // always one.
 					);
 
-					found->perInstanceAttrs->setLoadedSize(
-						found->perInstanceAttrs->getLoadedSize() - (1 * sizeof(instanceAttributes))
+					found->instanceAttributes->setLoadedSize(
+						found->instanceAttributes->getLoadedSize() - (1 * sizeof(instanceAttributes))
 					);
 
 					size_t perInstShift = 1; // always one.
 					for (auto& [key, val] : found->boundaries)
 					{
-						if (boundaries->second.toPerInstAttr < val.toPerInstAttr)
+						if (boundaries->second < val)
 						{
-							val.fromPerInstAttr -= perInstShift;
-							val.toPerInstAttr -= perInstShift;
+							val -= perInstShift;
 						}
 					}
 
 					found->boundaries.erase(uid.uid);
 
 					found->instanceCount--;
+
+					if (found->instanceCount == 0)
+					{
+						foundSet->second.erase(found);
+					}
+
+					toDelete.push_back(entity);
 				}
 			}
 		}
 
-		for (auto e : toDelete)
+		for (auto& e : toDelete)
 		{
 			registry.destroy(e);
 		}
@@ -211,29 +214,19 @@ namespace engine
 
 			resizeOnNeed(*foundData);
 
-			foundData->boundaries[uid.uid] = {
-				0, // always zero.
-				foundData->VBO->getLoadedSize() / sizeof(vertex),
+			foundData->boundaries[uid.uid] = foundData->instanceAttributes->getLoadedSize() / sizeof(instanceAttributes);
 
-				0, // always zero.
-				foundData->EBO->getLoadedSize() / sizeof(uint32_t),
-
-				foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes),
-				foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes) + 1,
-			};
-
-			std::vector<instanceAttributes> attribs{ {transform.transform} };
 			foundData->instanceCount++;
-			foundData->perInstanceAttrs->updateData(
-				foundData->perInstanceAttrs->getLoadedSize() / sizeof(instanceAttributes),
+			foundData->instanceAttributes->updateData(
+				foundData->instanceAttributes->getLoadedSize() / sizeof(instanceAttributes),
 				sizeof(instanceAttributes),
 				1,
-				attribs.data()
+				&transform.transform
 			);
-			foundData->perInstanceAttrs->setLoadedSize(foundData->perInstanceAttrs->getLoadedSize() + sizeof(instanceAttributes) * 1);
+			foundData->instanceAttributes->setLoadedSize(foundData->instanceAttributes->getLoadedSize() + sizeof(instanceAttributes) * 1);
 
 			foundData->VAO->setElementBuffer(foundData->EBO->getLoadedSize() / sizeof(uint32_t), foundData->EBO->getID());
-			auto err = foundData->VAO->setAttribs({ &vertexDescriber{ foundData->VBO->getID() }, &instancedAttrDescriber{ foundData->perInstanceAttrs->getID()} });
+			auto err = foundData->VAO->setAttribs({ &vertexDescriber{ foundData->VBO->getID() }, &instancedAttrDescriber{ foundData->instanceAttributes->getID()} });
 			if (err)
 				LOGERROR("can't set attribs");
 		}

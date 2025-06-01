@@ -6,7 +6,7 @@ namespace engine
 {
 	renderSystems::renderSystems(std::shared_ptr<context> ctx, fpsCamera camera)
 		:
-			system(ctx), mRenderer(rendererFactory::createRenderer(ctx)), mDefaultCamera(camera), mInstanced(ctx), mDynamic(ctx)
+			system(ctx), mRenderer(rendererFactory::createRenderer(ctx)), mDefaultCamera(camera), mInstanced(ctx), mDynamic(ctx), mGpuDriven(ctx)
 	{
 	}
 	error renderSystems::checkError()
@@ -16,8 +16,9 @@ namespace engine
 
 	void renderSystems::onUpdate(entt::registry& registry)
 	{
-		mDynamic.onUpdate(registry);
-		mInstanced.onUpdate(registry);
+		//mDynamic.onUpdate(registry);
+		//mInstanced.onUpdate(registry);
+		mGpuDriven.onUpdate(registry);
 	}
 
 	void renderSystems::onRender(entt::registry& registry)
@@ -33,8 +34,9 @@ namespace engine
 		}
 
 		mRenderer->clear();
-		mDynamic.render(registry, mRenderer.get(), *selectedCam);
-		mInstanced.render(registry, mRenderer.get(), *selectedCam);
+		//mDynamic.render(registry, mRenderer.get(), *selectedCam);
+		//mInstanced.render(registry, mRenderer.get(), *selectedCam);
+		mGpuDriven.render(registry, mRenderer.get(), *selectedCam);
 	}
 
 	void renderSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
@@ -47,7 +49,8 @@ namespace engine
 			mDefaultCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 		}
 
-		mDynamic.onEvent(registry, e);
-		mInstanced.onEvent(registry, e);
+		//mDynamic.onEvent(registry, e);
+		//mInstanced.onEvent(registry, e);
+		mGpuDriven.onEvent(registry, e);
 	}
 }

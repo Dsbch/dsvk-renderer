@@ -37,7 +37,17 @@ namespace engine
 		instancedAttrDescriber(uint32_t vboID) : mBufferObjectID(vboID) {}
 		std::vector<attributeInfo> info() const;
 	};
+
+	struct drawElementsCommand
+	{
+		uint32_t vertexCount;	// amount of vertexes for the model.
+		uint32_t instanceCount; // amount of instances to draw.
+		uint32_t firstIndex;	// offset into index buffer.
+		uint32_t baseVertex;	// offset into vertex buffer.
+		uint32_t baseInstance;	// offset into perInstace buffer.
+	};
 }
 
 static_assert(std::is_pod_v<engine::vertex> == true);
 static_assert(std::is_pod_v<engine::instanceAttributes> == true);
+static_assert(std::is_pod_v<engine::drawElementsCommand> == true);

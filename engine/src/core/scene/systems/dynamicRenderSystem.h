@@ -29,7 +29,7 @@ namespace engine
 		}
 	};
 
-	struct entityBoundaries
+	struct meshBoundaries
 	{
 		size_t fromVBO;
 		size_t toVBO;
@@ -43,7 +43,7 @@ namespace engine
 		std::unique_ptr<dynamicArrayObject> EBO;
 		std::unique_ptr<dynamicArrayObject> VBO;
 		std::unique_ptr<vertexArrayObject> VAO;
-		std::map<entityID, entityBoundaries> entityBoundaries;
+		std::map<entityID, meshBoundaries> meshBoundaries;
 	};
 
 	class dynamicRenderSystem : public system

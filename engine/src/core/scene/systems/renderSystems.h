@@ -4,6 +4,7 @@
 #include "system.h"
 #include "dynamicRenderSystem.h"
 #include "instancedRenderSystem.h"
+#include "gpuDrivenRenderSystem.h"
 
 namespace engine
 {
@@ -15,6 +16,7 @@ namespace engine
 		std::unique_ptr<renderer> mRenderer;
 		dynamicRenderSystem mDynamic;
 		instancedRenderSystem mInstanced;
+		gpuDrivenRenderSystem mGpuDriven;
 	public:
 		renderSystems(std::shared_ptr<context> ctx, fpsCamera camera);
 	

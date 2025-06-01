@@ -2,11 +2,11 @@
 
 #include <pch.h>
 
-#include "opengl/arrayObject.h"
-#include "opengl/renderer.h"
-#include "opengl/shader.h"
-#include "opengl/texture.h"
-#include "opengl/vertexArrayObject.h"
+#include "platform/renderer/opengl/arrayObject.h"
+#include "platform/renderer/opengl/renderer.h"
+#include "platform/renderer/opengl/shader.h"
+#include "platform/renderer/opengl/texture.h"
+#include "platform/renderer/opengl/vertexArrayObject.h"
 
 namespace engine
 {

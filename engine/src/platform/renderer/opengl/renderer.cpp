@@ -57,13 +57,13 @@ namespace engine
 			return;
 		}
 
-		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_POLYGON_MODE);
-
 #ifdef DEBUG
 		glEnable(GL_DEBUG_OUTPUT);
-		glDebugMessageCallback(openglLog, 0);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageCallback(openglLog, nullptr);
 #endif // DEBUG
+
+		glEnable(GL_DEPTH_TEST);
 	}
 
 	openglRenderer::openglRenderer(std::shared_ptr<context> ctx) : renderer(ctx)
@@ -120,5 +120,21 @@ namespace engine
 		tex->bind();
 		vao->bind();
 		glDrawElementsInstanced(GL_TRIANGLES, GLsizei(vao->getElementCount()), GL_UNSIGNED_INT, nullptr, instanceCount);
+	}
+
+	void openglRenderer::render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const
+	{
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirectBuffer->getID());
+		shader->bind();
+		tex->bind();
+		vao->bind();
+
+		glMultiDrawElementsIndirect(
+			GL_TRIANGLES,
+			GL_UNSIGNED_INT,
+			(void*)0,
+			uint32_t(indirectBufferSize),
+			0
+		);
 	}
 }

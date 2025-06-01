@@ -1,6 +1,16 @@
 #include <pch.h>
 #include "window.h"
 
+typedef HGLRC(WINAPI* PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC hDC, HGLRC hShareContext, const int* attribList);
+
+#define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define WGL_CONTEXT_FLAGS_ARB         0x2094
+#define WGL_CONTEXT_PROFILE_MASK_ARB  0x9126
+
+#define WGL_CONTEXT_DEBUG_BIT_ARB     0x0001
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
+
 namespace engine
 {
 	engine::error winApiWindow::createWndClassErr;
@@ -211,57 +221,90 @@ namespace engine
 
 	engine::error winApiWindow::makeOpenglContext()
 	{
-		PIXELFORMATDESCRIPTOR pfd =						// pfd Tells Windows How We Want Things To Be
+		PIXELFORMATDESCRIPTOR pfd =
 		{
-			sizeof(PIXELFORMATDESCRIPTOR),              // Size Of This Pixel Format Descriptor
-			1,                                          // Version Number
-			PFD_DRAW_TO_WINDOW |                        // Format Must Support Window
-			PFD_SUPPORT_OPENGL |                        // Format Must Support OpenGL
-			PFD_DOUBLEBUFFER,                           // Must Support Double Buffering
-			PFD_TYPE_RGBA,                              // Request An RGBA Format
-			32,											// Select Our Color Depth
-			0, 0, 0, 0, 0, 0,                           // Color Bits Ignored
-			0,                                          // No Alpha Buffer
-			0,                                          // Shift Bit Ignored
-			0,                                          // No Accumulation Buffer
-			0, 0, 0, 0,                                 // Accumulation Bits Ignored
-			16,                                         // 16Bit Z-Buffer (Depth Buffer)  
-			0,                                          // No Stencil Buffer
-			0,                                          // No Auxiliary Buffer
-			PFD_MAIN_PLANE,                             // Main Drawing Layer
-			0,                                          // Reserved
-			0, 0, 0                                     // Layer Masks Ignored
+			sizeof(PIXELFORMATDESCRIPTOR),
+			1,
+			PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+			PFD_TYPE_RGBA,
+			32,
+			0,0,0,0,0,0,
+			0,
+			0,
+			0,
+			0,0,0,0,
+			16,
+			0,
+			0,
+			PFD_MAIN_PLANE,
+			0,
+			0,0,0
 		};
 
-		if (!(mHdc = GetDC(mHWnd)))                     // Did We Get A Device Context?
-		{
+		if (!(mHdc = GetDC(mHWnd)))
 			return { "error on GetDC call" };
-		}
 
-		int pixelFormat = 0;
-
-		if (!(pixelFormat = ChoosePixelFormat(mHdc, &pfd))) // Did Windows Find A Matching Pixel Format?
-		{
+		int pixelFormat = ChoosePixelFormat(mHdc, &pfd);
+		if (!pixelFormat)
 			return { "error on ChoosePixelFormat call" };
-		}
 
-		if (!SetPixelFormat(mHdc, pixelFormat, &pfd))       // Are We Able To Set The Pixel Format?
-		{
+		if (!SetPixelFormat(mHdc, pixelFormat, &pfd))
 			return { "error on SetPixelFormat call" };
+
+#ifdef DEBUG
+		// Create temporary context to load wglCreateContextAttribsARB
+		HGLRC tempContext = wglCreateContext(mHdc);
+		if (!tempContext)
+			return { "error on wglCreateContext creation (temp)" };
+
+		if (!wglMakeCurrent(mHdc, tempContext))
+			return { "error on wglMakeCurrent (temp context)" };
+
+		// Load pointer to wglCreateContextAttribsARB
+		auto wglCreateContextAttribsARB =
+			(PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
+		if (!wglCreateContextAttribsARB)
+		{
+			wglMakeCurrent(nullptr, nullptr);
+			wglDeleteContext(tempContext);
+			return { "wglCreateContextAttribsARB not supported" };
 		}
 
-		if (!(mHrc = wglCreateContext(mHdc)))               // Are We Able To Get A Rendering Context?
+		// Attributes for OpenGL 4.6 core debug context
+		int attribs[] =
 		{
+			WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+			WGL_CONTEXT_MINOR_VERSION_ARB, 6,
+			WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+			0
+		};
+
+		mHrc = wglCreateContextAttribsARB(mHdc, 0, attribs);
+
+		// Delete temporary context and release it
+		wglMakeCurrent(nullptr, nullptr);
+		wglDeleteContext(tempContext);
+
+		if (!mHrc)
+			return { "Failed to create OpenGL debug context" };
+
+		if (!wglMakeCurrent(mHdc, mHrc))
+			return { "Failed to make debug context current" };
+
+#else // DEBUG
+		// Normal context creation
+		mHrc = wglCreateContext(mHdc);
+		if (!mHrc)
 			return { "error on wglCreateContext call" };
-		}
 
-		if (!wglMakeCurrent(mHdc, mHrc))                    // Try To Activate The Rendering Context
-		{
+		if (!wglMakeCurrent(mHdc, mHrc))
 			return { "error on wglMakeCurrent call" };
-		}
+#endif
 
 		return {};
 	}
+
 
 	void winApiWindow::pollInput()
 	{

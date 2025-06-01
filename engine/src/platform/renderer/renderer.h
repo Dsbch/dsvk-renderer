@@ -3,6 +3,7 @@
 #include <pch.h>
 #include "base/context/context.h"
 #include "vertexArrayObject.h"
+#include "arrayObject.h"
 #include "shader.h"
 #include "texture.h"
 
@@ -20,6 +21,7 @@ namespace engine
 		virtual void render() const = 0;
 		virtual void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao) const = 0;
 		virtual void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, uint32_t instanceCount) const = 0;
+		virtual void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const = 0;
 	protected:
 		error mErr;
 		std::shared_ptr<context> mCtx;

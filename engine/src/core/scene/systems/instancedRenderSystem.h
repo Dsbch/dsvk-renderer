@@ -11,17 +11,7 @@
 
 namespace engine
 {
-	struct instancedEntityBoundaries
-	{
-		size_t fromVBO;
-		size_t toVBO;
-
-		size_t fromEBO;
-		size_t toEBO;
-
-		size_t fromPerInstAttr;
-		size_t toPerInstAttr;
-	};
+	typedef size_t instanceAttrIndex;
 
 	struct instancedRenderData
 	{
@@ -31,8 +21,8 @@ namespace engine
 		mutable std::unique_ptr<dynamicArrayObject> EBO;
 		mutable std::unique_ptr<dynamicArrayObject> VBO;
 		mutable std::unique_ptr<vertexArrayObject> VAO;
-		mutable std::unique_ptr<dynamicArrayObject> perInstanceAttrs;
-		mutable std::map<uint32_t, instancedEntityBoundaries> boundaries;
+		mutable std::unique_ptr<dynamicArrayObject> instanceAttributes;
+		mutable std::map<entityID, instanceAttrIndex> boundaries;
 
 		bool operator<(const instancedRenderData& other)  const
 		{

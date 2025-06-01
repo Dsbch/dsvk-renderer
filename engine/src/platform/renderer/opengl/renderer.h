@@ -6,6 +6,7 @@
 #include "platform/renderer/renderer.h"
 #include "platform/renderer/shader.h"
 #include "platform/renderer/texture.h"
+#include "platform/renderer/arrayObject.h"
 
 namespace engine
 {
@@ -20,6 +21,7 @@ namespace engine
 		void render() const;
 		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao) const;
 		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, uint32_t instanceCount) const;
+		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const;
 	private:
 		static std::once_flag mIsOpenglInitialized;
 		static error mInitOpenglErr;
