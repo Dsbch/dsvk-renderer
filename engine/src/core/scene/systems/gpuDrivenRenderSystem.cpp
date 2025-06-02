@@ -170,10 +170,10 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 					renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) + mesh.indexData->size(),
 				},
 				{
+					uint32_t(mesh.indexData->size()),
+					1, // count one.
 					uint32_t(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t)),
 					uint32_t(renderData->second.VBO->getLoadedSize() / sizeof(vertex)),
-					uint32_t(mesh.meshData->size()),
-					1, // count one.
 					uint32_t(renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes))
 				},
 				uint32_t(renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand))
