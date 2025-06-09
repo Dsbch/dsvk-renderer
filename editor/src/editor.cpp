@@ -263,7 +263,7 @@ public:
 			int i = 0;
 			for (auto [entity, uid, mesh, mat] : view.each())
 			{
-				if (i == 2)
+				if (i == 1)
 				{
 					use = true;
 					toDelete = entity;
@@ -274,6 +274,85 @@ public:
 			if (use)
 				registry.emplace<engine::deleteComponent>(toDelete);
 		}
+
+		// spawn instance mesh.
+		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::t)
+		{
+			static auto uid = engine::genUID();
+
+			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/obsidian.jpg");
+			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
+
+			auto c = registry.create();
+			registry.emplace<engine::uidComponent>(c);
+			registry.emplace<engine::instancedMeshComponent>(
+				c,
+				std::make_shared<std::vector<engine::vertex>>(std::vector<engine::vertex>{
+				// Front face
+					{ { 0.5f, 0.5f, 0.5f}, { 1.0f, 1.0f }, 0 },
+					{ { 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f}, 0 },
+					{ {-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0 },
+					{ {-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f}, 0 },
+
+						// Back face
+					{ { 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0 },
+					{ { 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, 0 },
+					{ {-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0 },
+					{ {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f}, 0 },
+			}),
+				std::make_shared<std::vector<uint32_t>>(std::vector<uint32_t>{
+				// Front face
+				0, 1, 2, 2, 3, 0,
+					// Left face
+					3, 2, 6, 6, 7, 3,
+					// Right face
+					0, 1, 5, 5, 4, 0,
+					// Top face
+					0, 3, 7, 7, 4, 0,
+					// Bottom face
+					1, 2, 6, 6, 5, 1,
+					// Back face
+					4, 5, 6, 6, 7, 4,
+			}), uid);
+
+			texture.first->bind();
+			int slotID = texture.first->getSlotID();
+
+			registry.emplace<engine::materialComponent>(
+				c,
+				texture.first,
+				shader.first,
+				engine::materialComponent::shaderUniformMap{
+					{"u_textures[0]", {slotID, 1} }
+				}
+			);
+
+			auto randomMat4 = []() -> glm::mat4 {
+				static std::mt19937 rng(std::random_device{}());
+				static std::uniform_real_distribution<float> distPos(-10.0f, 10.0f);
+				static std::uniform_real_distribution<float> distRot(0.0f, 360.0f);
+				static std::uniform_real_distribution<float> distScale(0.5f, 2.0f);
+
+				glm::vec3 position(distPos(rng), distPos(rng), distPos(rng));
+				glm::vec3 rotation(glm::radians(distRot(rng)), glm::radians(distRot(rng)), glm::radians(distRot(rng)));
+				glm::vec3 scale(distScale(rng), distScale(rng), distScale(rng));
+
+				glm::mat4 mat = glm::mat4(1.0f);
+				mat = glm::translate(mat, position);
+				mat = glm::rotate(mat, rotation.x, glm::vec3(1, 0, 0));
+				mat = glm::rotate(mat, rotation.y, glm::vec3(0, 1, 0));
+				mat = glm::rotate(mat, rotation.z, glm::vec3(0, 0, 1));
+				mat = glm::scale(mat, scale);
+
+				return mat;
+				};
+
+			registry.emplace<engine::transformComponent>(
+				c,
+				randomMat4()
+			);
+		}
+
 
 		// upd tranform of instc mesh.
 		std::vector<entt::entity> toUpdateInst;

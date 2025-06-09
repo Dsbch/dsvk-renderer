@@ -341,7 +341,7 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 			renderData->second.instanceAttributes->updateData(
 				renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid],
 				sizeof(instanceAttributes),
-				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes) - renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid],
+				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes) - 1,
 				static_cast<instanceAttributes*>(renderData->second.instanceAttributes->getPtr()) + renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid] + 1
 			);
 
@@ -387,7 +387,7 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 			renderData->second.instanceAttributes->updateData(
 				renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid],
 				sizeof(instanceAttributes),
-				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes) - renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid],
+				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes) - 1,
 				static_cast<instanceAttributes*>(renderData->second.instanceAttributes->getPtr()) + renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid] + 1
 			);
 
@@ -399,7 +399,7 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 			renderData->second.indirectBuffer->updateData(
 				renderData->second.boundaries[mesh.uid].indirectBufferIndex,
 				sizeof(drawElementsCommand),
-				renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand) - renderData->second.boundaries[mesh.uid].indirectBufferIndex,
+				renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand) - 1,
 				static_cast<drawElementsCommand*>(renderData->second.indirectBuffer->getPtr()) + renderData->second.boundaries[mesh.uid].indirectBufferIndex + 1
 			);
 
@@ -410,6 +410,23 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 			shiftIndicies();
 
 			renderData->second.boundaries.erase(mesh.uid);
+
+			renderData->second.VAO->setElementBuffer(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t), renderData->second.EBO->getID());
+
+			auto err = renderData->second.VAO->setAttribs(
+				{
+					&vertexDescriber
+					{
+						renderData->second.VBO->getID()
+					},
+					&instancedAttrDescriber
+					{
+						renderData->second.instanceAttributes->getID()
+					}
+				}
+			);
+			if (err)
+				LOGERROR("can't set attribs");
 
 			toDestroy.push_back(entity);
 		}
