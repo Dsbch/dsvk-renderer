@@ -30,13 +30,13 @@ void engine::gpuDrivenRenderSystem::onEvent(entt::registry& registry, std::share
 {
 }
 
-void engine::gpuDrivenRenderSystem::resizeOnNeed(gpuDrivenData& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo)
+void engine::gpuDrivenRenderSystem::resizeOnNeed(gpuDrivenData& renderData, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo, uint32_t meshUID)
 {
 	auto newMeshLen = [](size_t oldLen, size_t newDataLen)->size_t
 		{
-			if (oldLen * 1.5f >= oldLen + newDataLen)
+			if (oldLen * 2 >= oldLen + newDataLen)
 			{
-				return size_t(oldLen * 1.5f);
+				return size_t(oldLen * 2);
 			}
 			else
 			{
@@ -46,8 +46,6 @@ void engine::gpuDrivenRenderSystem::resizeOnNeed(gpuDrivenData& renderData, cons
 
 
 	auto freeSizeVBO = renderData.VBO->getSize() - renderData.VBO->getLoadedSize();
-	auto freeSizeEBO = renderData.EBO->getSize() - renderData.EBO->getLoadedSize();
-
 	if (freeSizeVBO < vbo.size() * sizeof(vertex))
 	{
 		auto ptr = rendererFactory::createDynamicArrayObject(newMeshLen(renderData.VBO->getSize() / sizeof(vertex), vbo.size()) * sizeof(vertex), nullptr);
@@ -65,6 +63,7 @@ void engine::gpuDrivenRenderSystem::resizeOnNeed(gpuDrivenData& renderData, cons
 		renderData.VBO = std::move(ptr);
 	}
 
+	auto freeSizeEBO = renderData.EBO->getSize() - renderData.EBO->getLoadedSize();
 	if (freeSizeEBO < ebo.size() * sizeof(uint32_t))
 	{
 		auto ptr = new openglDynamicArrayObject{
@@ -85,29 +84,80 @@ void engine::gpuDrivenRenderSystem::resizeOnNeed(gpuDrivenData& renderData, cons
 		renderData.EBO.reset(ptr);
 	}
 
-	auto freeSizeInstanceBuffer = renderData.instanceAttributes->getSize() - renderData.instanceAttributes->getLoadedSize();
-	auto freeSizeIndirectBuffer = renderData.indirectBuffer->getSize() - renderData.indirectBuffer->getLoadedSize();
-
-	if (freeSizeInstanceBuffer < sizeof(instanceAttributes))
+	if (renderData.freeSlots.empty())
 	{
-		auto ptr = rendererFactory::createDynamicArrayObject(size_t(renderData.instanceAttributes->getSize() * 1.5f), nullptr);
+		size_t newMeshesPerMat = size_t(renderData.meshesPerMaterial * 2);
+
+		for (size_t i = renderData.meshesPerMaterial; i < newMeshesPerMat; i++)
+		{
+			renderData.freeSlots.push(i);
+		}
+
+		renderData.meshesPerMaterial = newMeshesPerMat;
+		auto ptr = rendererFactory::createDynamicArrayObject(size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes)), nullptr);
+		ptr->setLoadedSize(
+			size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes))
+		);
 
 		ptr->updateData(
 			0,
 			sizeof(instanceAttributes),
-			renderData.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes),
-			renderData.instanceAttributes->getPtr()
+			renderData.instanceBuffer->getLoadedSize() / sizeof(instanceAttributes),
+			renderData.instanceBuffer->getPtr()
 		);
-		ptr->setLoadedSize(
-			renderData.instanceAttributes->getLoadedSize()
-		);
-
-		renderData.instanceAttributes = std::move(ptr);
 	}
 
+	auto freeSizeInstanceBuffer = renderData.instancesPerMesh - renderData.instanceBufferIndex.size();
+	if (freeSizeInstanceBuffer <= 0)
+	{
+		size_t oldInstancesPerMesh = renderData.instancesPerMesh;
+
+		size_t newInstancesPerMesh = size_t(oldInstancesPerMesh * 2);
+
+		renderData.instancesPerMesh = newInstancesPerMesh;
+
+		auto ptr = rendererFactory::createDynamicArrayObject(size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes)), nullptr);
+		ptr->setLoadedSize(
+			size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes))
+		);
+
+		for (auto& [k, v] : renderData.occupiedSlots)
+		{
+			ptr->updateData(
+				renderData.instancesPerMesh * v,
+				sizeof(instanceAttributes),
+				renderData.drawCommands[k].command.instanceCount,
+				static_cast<instanceAttributes*>(renderData.instanceBuffer->getPtr()) + oldInstancesPerMesh * v
+			);
+		}
+
+		for (auto& [k, v] : renderData.drawCommands)
+		{
+			v.command.baseInstance = uint32_t(v.command.baseInstance * 2);
+
+			renderData.indirectBuffer->updateData(
+				v.index,
+				sizeof(drawElementsCommand),
+				1,
+				&v.command
+			);
+		}
+
+		for (auto& [k, v] : renderData.instanceBufferIndex)
+		{
+			if (v >= oldInstancesPerMesh)
+			{
+				v += oldInstancesPerMesh * ((v + 1) / oldInstancesPerMesh);
+			}
+		}
+
+		renderData.instanceBuffer = std::move(ptr);
+	}
+
+	auto freeSizeIndirectBuffer = renderData.indirectBuffer->getSize() - renderData.indirectBuffer->getLoadedSize();
 	if (freeSizeIndirectBuffer < sizeof(drawElementsCommand))
 	{
-		auto ptr = rendererFactory::createDynamicArrayObject(size_t(renderData.indirectBuffer->getSize() * 1.5f), nullptr);
+		auto ptr = rendererFactory::createDynamicArrayObject(size_t(renderData.indirectBuffer->getSize() * 2), nullptr);
 
 		ptr->updateData(
 			0,
@@ -132,51 +182,87 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 		{
 			size_t newSizeVertex = mesh.meshData->size() * 3 * sizeof(vertex);
 			size_t newSizeIndex = mesh.indexData->size() * 3 * sizeof(uint32_t);
-			size_t newSizePerInstance = 30 * sizeof(instanceAttributes);
 			size_t newSizeIndirect = 100 * sizeof(drawElementsCommand);
 
-			mData[{ material.tex->getID(), material.shader->getID() }] = {
+			size_t newInstancePerMeshes = 1;
+			size_t newMeshesPerMaterial = 1;
+
+			mData[{ material.tex->getID(), material.shader->getID() }] = gpuDrivenData{
 				{},
 				rendererFactory::createDynamicArrayObject(newSizeIndex, nullptr),
 				rendererFactory::createDynamicArrayObject(newSizeVertex, nullptr),
-				rendererFactory::createDynamicArrayObject(newSizePerInstance, nullptr),
+				rendererFactory::createDynamicArrayObject(sizeof(instanceAttributes) * newInstancePerMeshes * newMeshesPerMaterial, nullptr),
 				rendererFactory::createVertexArrayObject(),
 				rendererFactory::createDynamicArrayObject(newSizeIndirect, nullptr),
+				{},
+				{},
+				{},
+				{},
+				newInstancePerMeshes,
+				newMeshesPerMaterial,
 			};
 
 			renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+
+			for (size_t i = 0; i < renderData->second.meshesPerMaterial; i++)
+			{
+				renderData->second.freeSlots.push(i);
+			}
 		}
 
-		if (auto found = renderData->second.boundaries.find(mesh.uid); found != renderData->second.boundaries.end() && found->second.perInstanceBoundries.find(uid.uid) != found->second.perInstanceBoundries.end())
+		if (auto found = renderData->second.boundaries.find(mesh.uid); found != renderData->second.boundaries.end() && renderData->second.instanceBufferIndex.find(uid.uid) != renderData->second.instanceBufferIndex.end())
 		{
 			continue;
 		}
 
 		if (auto found = renderData->second.boundaries.find(mesh.uid); found == renderData->second.boundaries.end())
 		{
-			resizeOnNeed(renderData->second, (*mesh.meshData.get()), (*mesh.indexData.get()));
+			resizeOnNeed(renderData->second, (*mesh.meshData.get()), (*mesh.indexData.get()), mesh.uid);
 
-			renderData->second.boundaries[mesh.uid] = dataBoundries{
+			// grab freeSlot and upload transform.
+			auto freeSlot = renderData->second.freeSlots.front();
+			renderData->second.freeSlots.pop();
+
+			renderData->second.occupiedSlots[mesh.uid] = freeSlot;
+
+			renderData->second.instanceBuffer->updateData(
+				freeSlot * renderData->second.instancesPerMesh,
+				sizeof(instanceAttributes),
+				1,
+				&transform.transform
+			);
+
+			// set index for entity.
+			renderData->second.instanceBufferIndex[uid.uid] = freeSlot * renderData->second.instancesPerMesh;
+
+			// upload indirectBuffer.
+			renderData->second.drawCommands[mesh.uid] = drawCommand{
 				{
-					{
-						uid.uid,
-						renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes)
-					}
+					uint32_t(mesh.indexData->size()),
+					1,
+					uint32_t(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t)),
+					uint32_t(renderData->second.VBO->getLoadedSize() / sizeof(vertex)),
+					uint32_t(freeSlot * renderData->second.instancesPerMesh)
 				},
-				{
+				renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand),
+			};
+
+			renderData->second.indirectBuffer->updateData(
+				renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand),
+				sizeof(drawElementsCommand),
+				1,
+				&renderData->second.drawCommands[mesh.uid].command
+			);
+
+			renderData->second.indirectBuffer->setLoadedSize(
+				renderData->second.indirectBuffer->getLoadedSize() + sizeof(drawElementsCommand)
+			);
+
+			renderData->second.boundaries[mesh.uid] = meshBoundaries{
 					renderData->second.VBO->getLoadedSize() / sizeof(vertex),
 					renderData->second.VBO->getLoadedSize() / sizeof(vertex) + mesh.meshData->size(),
 					renderData->second.EBO->getLoadedSize() / sizeof(uint32_t),
 					renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) + mesh.indexData->size(),
-				},
-				{
-					uint32_t(mesh.indexData->size()),
-					1, // count one.
-					uint32_t(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t)),
-					uint32_t(renderData->second.VBO->getLoadedSize() / sizeof(vertex)),
-					uint32_t(renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes))
-				},
-				uint32_t(renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand))
 			};
 
 			// upload VBO.
@@ -198,52 +284,29 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 			);
 
 			renderData->second.EBO->setLoadedSize(renderData->second.EBO->getLoadedSize() + sizeof(uint32_t) * mesh.indexData->size());
-
-			// upload instanceAttrib.
-			renderData->second.instanceAttributes->updateData(
-				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes),
-				sizeof(instanceAttributes),
-				1, // always 1
-				&transform.transform
-			);
-
-			renderData->second.instanceAttributes->setLoadedSize(renderData->second.instanceAttributes->getLoadedSize() + sizeof(instanceAttributes));
-
-			// upload updated drawCommand.
-			renderData->second.indirectBuffer->updateData(
-				renderData->second.boundaries[mesh.uid].indirectBufferIndex,
-				sizeof(drawElementsCommand),
-				1, // always 1.
-				&renderData->second.boundaries[mesh.uid].drawCommand
-			);
-
-			renderData->second.indirectBuffer->setLoadedSize(renderData->second.indirectBuffer->getLoadedSize() + sizeof(drawElementsCommand));
 		}
 		else
 		{
-			resizeOnNeed(renderData->second, {}, {});
+			resizeOnNeed(renderData->second, {}, {}, mesh.uid);
 
-			renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid] = renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes);
-			
-			// upload instanceAttrib.
-			renderData->second.instanceAttributes->updateData(
-				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes),
+			// upload new instanceAttrib.
+			renderData->second.instanceBuffer->updateData(
+				renderData->second.drawCommands[mesh.uid].command.baseInstance + renderData->second.drawCommands[mesh.uid].command.instanceCount,
 				sizeof(instanceAttributes),
-				1, // always 1
+				1,
 				&transform.transform
 			);
 
-			renderData->second.instanceAttributes->setLoadedSize(renderData->second.instanceAttributes->getLoadedSize() + sizeof(instanceAttributes));
+			renderData->second.instanceBufferIndex[uid.uid] = renderData->second.drawCommands[mesh.uid].command.baseInstance + renderData->second.drawCommands[mesh.uid].command.instanceCount;
 
-
-			// update updated drawCommand.
-			renderData->second.boundaries[mesh.uid].drawCommand.instanceCount++;
+			// increase count, update indirectBuffer.
+			renderData->second.drawCommands[mesh.uid].command.instanceCount++;
 
 			renderData->second.indirectBuffer->updateData(
-				renderData->second.boundaries[mesh.uid].indirectBufferIndex,
+				renderData->second.drawCommands[mesh.uid].index,
 				sizeof(drawElementsCommand),
-				1, // always 1.
-				&renderData->second.boundaries[mesh.uid].drawCommand
+				1,
+				&renderData->second.drawCommands[mesh.uid].command
 			);
 		}
 
@@ -257,7 +320,7 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 				},
 				&instancedAttrDescriber
 				{
-					renderData->second.instanceAttributes->getID()
+					renderData->second.instanceBuffer->getID()
 				}
 			}
 		);
@@ -276,140 +339,152 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 		if (renderData == mData.end())
 			continue;
 
-		if (renderData->second.boundaries.find(mesh.uid) == renderData->second.boundaries.end())
+		if (renderData->second.drawCommands.find(mesh.uid) == renderData->second.drawCommands.end())
 			continue;
 
-		if (renderData->second.boundaries[mesh.uid].perInstanceBoundries.find(uid.uid) == renderData->second.boundaries[mesh.uid].perInstanceBoundries.end())
+		if (renderData->second.instanceBufferIndex.find(uid.uid) == renderData->second.instanceBufferIndex.end())
 			continue;
 
-		auto shiftIndicies = [&]
+		auto slotIndex = renderData->second.instanceBufferIndex[uid.uid] / renderData->second.instancesPerMesh;
+
+		auto shiftBoundries = [&]
 			{
-				// shift all boundries.
-				size_t eboShift = renderData->second.boundaries[mesh.uid].boundries.toEBO - renderData->second.boundaries[mesh.uid].boundries.fromEBO;
-				size_t vboShift = renderData->second.boundaries[mesh.uid].boundries.toVBO - renderData->second.boundaries[mesh.uid].boundries.fromVBO;
+				// shift vbo/ebo boundries.
+				size_t eboShift = renderData->second.boundaries[mesh.uid].toEBO - renderData->second.boundaries[mesh.uid].fromEBO;
+				size_t vboShift = renderData->second.boundaries[mesh.uid].toVBO - renderData->second.boundaries[mesh.uid].fromVBO;
 				for (auto& [k, v] : renderData->second.boundaries)
 				{
-					if (v.boundries.fromEBO >= renderData->second.boundaries[mesh.uid].boundries.toEBO)
+					if (v.fromEBO >= renderData->second.boundaries[mesh.uid].toEBO)
 					{
-						v.boundries.fromEBO -= eboShift;
-						v.boundries.toEBO -= eboShift;
+						v.fromEBO -= eboShift;
+						v.toEBO -= eboShift;
 
-						v.drawCommand.firstIndex -= uint32_t(eboShift);
-					}
+						renderData->second.drawCommands[k].command.firstIndex -= uint32_t(eboShift);
 
-					if (v.boundries.fromVBO >= renderData->second.boundaries[mesh.uid].boundries.toVBO)
-					{
-						v.boundries.fromVBO -= vboShift;
-						v.boundries.toVBO -= vboShift;
-
-						v.drawCommand.baseVertex -= uint32_t(vboShift);
-					}
-
-					if (v.drawCommand.baseInstance > renderData->second.boundaries[mesh.uid].drawCommand.baseInstance)
-					{
-						v.drawCommand.baseInstance--;
-
-						// update indirect buffer.
 						renderData->second.indirectBuffer->updateData(
-							v.indirectBufferIndex,
+							renderData->second.drawCommands[k].index,
 							sizeof(drawElementsCommand),
 							1,
-							&v.drawCommand
+							&renderData->second.drawCommands[k].command
 						);
 					}
 
-					for (auto& [i, j] : v.perInstanceBoundries)
+					if (v.fromVBO >= renderData->second.boundaries[mesh.uid].toVBO)
 					{
-						if (j > renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid])
-							j--;
+						v.fromVBO -= vboShift;
+						v.toVBO -= vboShift;
+
+						renderData->second.drawCommands[k].command.baseVertex -= uint32_t(vboShift);
+
+						renderData->second.indirectBuffer->updateData(
+							renderData->second.drawCommands[k].index,
+							sizeof(drawElementsCommand),
+							1,
+							&renderData->second.drawCommands[k].command
+						);
 					}
+				}
+
+				// shift drawCommands indexes.
+				for (auto& [k, v] : renderData->second.drawCommands)
+				{
+					if (v.index > renderData->second.drawCommands[mesh.uid].index)
+						v.index--;
 				}
 			};
 
-		if (renderData->second.boundaries[mesh.uid].drawCommand.instanceCount > 1)
+		auto shiftInstanceIndex = [&]
+			{
+
+				for (auto& [k, v] : renderData->second.instanceBufferIndex)
+				{
+					if (v > renderData->second.instanceBufferIndex[uid.uid] && v / renderData->second.instancesPerMesh == slotIndex)
+						v--;
+				}
+			};
+
+		if (renderData->second.drawCommands[mesh.uid].command.instanceCount > 1)
 		{
-			renderData->second.boundaries[mesh.uid].drawCommand.instanceCount--;
+			renderData->second.drawCommands[mesh.uid].command.instanceCount--;
 
 			renderData->second.indirectBuffer->updateData(
-				renderData->second.boundaries[mesh.uid].indirectBufferIndex,
+				renderData->second.drawCommands[mesh.uid].index,
 				sizeof(drawElementsCommand),
 				1, // always 1.
-				&renderData->second.boundaries[mesh.uid].drawCommand
+				&renderData->second.drawCommands[mesh.uid].command
 			);
 
 			// delete from perInstance attrs.
-			renderData->second.instanceAttributes->updateData(
-				renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid],
+			renderData->second.instanceBuffer->updateData(
+				renderData->second.instanceBufferIndex[uid.uid],
 				sizeof(instanceAttributes),
-				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes) - 1,
-				static_cast<instanceAttributes*>(renderData->second.instanceAttributes->getPtr()) + renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid] + 1
+				renderData->second.instancesPerMesh * (slotIndex + 1) - renderData->second.instanceBufferIndex[uid.uid] - 1,
+				static_cast<instanceAttributes*>(renderData->second.instanceBuffer->getPtr()) + renderData->second.instanceBufferIndex[uid.uid] + 1
 			);
 
-			renderData->second.instanceAttributes->setLoadedSize(
-				renderData->second.instanceAttributes->getLoadedSize() - sizeof(instanceAttributes)
-			);
+			shiftInstanceIndex();
 
-			shiftIndicies();
-
-			renderData->second.boundaries[mesh.uid].perInstanceBoundries.erase(uid.uid);
+			renderData->second.instanceBufferIndex.erase(uid.uid);
 
 			toDestroy.push_back(entity);
 			continue;
 		}
 
-		if (renderData->second.boundaries[mesh.uid].drawCommand.instanceCount <= 1)
+		if (renderData->second.drawCommands[mesh.uid].command.instanceCount <= 1)
 		{
-			// detele from vbo.
+			// delete from perInstance attrs.
+			renderData->second.instanceBuffer->updateData(
+				renderData->second.instanceBufferIndex[uid.uid],
+				sizeof(instanceAttributes),
+				renderData->second.instancesPerMesh * (slotIndex + 1) - renderData->second.instanceBufferIndex[uid.uid] - 1,
+				static_cast<instanceAttributes*>(renderData->second.instanceBuffer->getPtr()) + renderData->second.instanceBufferIndex[uid.uid] + 1
+			);
+
+			shiftInstanceIndex();
+			renderData->second.instanceBufferIndex.erase(uid.uid);
+
+			//detele from vbo.
 			renderData->second.VBO->updateData(
-				renderData->second.boundaries[mesh.uid].boundries.fromVBO,
+				renderData->second.boundaries[mesh.uid].fromVBO,
 				sizeof(vertex),
-				renderData->second.VBO->getLoadedSize() / sizeof(vertex) - renderData->second.boundaries[mesh.uid].boundries.toVBO,
-				static_cast<vertex*>(renderData->second.VBO->getPtr()) + renderData->second.boundaries[mesh.uid].boundries.toVBO
+				renderData->second.VBO->getLoadedSize() / sizeof(vertex) - renderData->second.boundaries[mesh.uid].toVBO,
+				static_cast<vertex*>(renderData->second.VBO->getPtr()) + renderData->second.boundaries[mesh.uid].toVBO
 			);
 
 			renderData->second.VBO->setLoadedSize(
-				renderData->second.VBO->getLoadedSize() - ((renderData->second.boundaries[mesh.uid].boundries.toVBO - renderData->second.boundaries[mesh.uid].boundries.fromVBO) * sizeof(vertex))
+				renderData->second.VBO->getLoadedSize() - ((renderData->second.boundaries[mesh.uid].toVBO - renderData->second.boundaries[mesh.uid].fromVBO) * sizeof(vertex))
 			);
 
-			// detele from ebo.
+			//detele from ebo.
 			renderData->second.EBO->updateData(
-				renderData->second.boundaries[mesh.uid].boundries.fromEBO,
+				renderData->second.boundaries[mesh.uid].fromEBO,
 				sizeof(uint32_t),
-				renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) - renderData->second.boundaries[mesh.uid].boundries.toEBO,
-				static_cast<uint32_t*>(renderData->second.EBO->getPtr()) + renderData->second.boundaries[mesh.uid].boundries.toEBO
+				renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) - renderData->second.boundaries[mesh.uid].toEBO,
+				static_cast<uint32_t*>(renderData->second.EBO->getPtr()) + renderData->second.boundaries[mesh.uid].toEBO
 			);
 
 			renderData->second.EBO->setLoadedSize(
-				renderData->second.EBO->getLoadedSize() - ((renderData->second.boundaries[mesh.uid].boundries.toEBO - renderData->second.boundaries[mesh.uid].boundries.fromEBO) * sizeof(uint32_t))
+				renderData->second.EBO->getLoadedSize() - ((renderData->second.boundaries[mesh.uid].toEBO - renderData->second.boundaries[mesh.uid].fromEBO) * sizeof(uint32_t))
 			);
 
-			// delete from perInstance attrs.
-			renderData->second.instanceAttributes->updateData(
-				renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid],
-				sizeof(instanceAttributes),
-				renderData->second.instanceAttributes->getLoadedSize() / sizeof(instanceAttributes) - 1,
-				static_cast<instanceAttributes*>(renderData->second.instanceAttributes->getPtr()) + renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid] + 1
-			);
-
-			renderData->second.instanceAttributes->setLoadedSize(
-				renderData->second.instanceAttributes->getLoadedSize() - sizeof(instanceAttributes)
-			);
-
-			// delete from indirect buffer.
+			//delete from indirect buffer.
 			renderData->second.indirectBuffer->updateData(
-				renderData->second.boundaries[mesh.uid].indirectBufferIndex,
+				renderData->second.drawCommands[mesh.uid].index,
 				sizeof(drawElementsCommand),
-				renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand) - 1,
-				static_cast<drawElementsCommand*>(renderData->second.indirectBuffer->getPtr()) + renderData->second.boundaries[mesh.uid].indirectBufferIndex + 1
+				renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand) - renderData->second.drawCommands[mesh.uid].index - 1,
+				static_cast<drawElementsCommand*>(renderData->second.indirectBuffer->getPtr()) + renderData->second.drawCommands[mesh.uid].index + 1
 			);
 
 			renderData->second.indirectBuffer->setLoadedSize(
 				renderData->second.indirectBuffer->getLoadedSize() - sizeof(drawElementsCommand)
 			);
 
-			shiftIndicies();
+			shiftBoundries();
 
 			renderData->second.boundaries.erase(mesh.uid);
+			renderData->second.drawCommands.erase(mesh.uid);
+			renderData->second.freeSlots.push(renderData->second.occupiedSlots[mesh.uid]);
+			renderData->second.occupiedSlots.erase(mesh.uid);
 
 			renderData->second.VAO->setElementBuffer(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t), renderData->second.EBO->getID());
 
@@ -421,7 +496,7 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 					},
 					&instancedAttrDescriber
 					{
-						renderData->second.instanceAttributes->getID()
+						renderData->second.instanceBuffer->getID()
 					}
 				}
 			);
@@ -448,12 +523,10 @@ void engine::gpuDrivenRenderSystem::updateData(entt::registry& registry)
 		{
 			if (renderData->second.boundaries.find(mesh.uid) != renderData->second.boundaries.end())
 			{
-				if (renderData->second.boundaries[mesh.uid].perInstanceBoundries.find(uid.uid) != renderData->second.boundaries[mesh.uid].perInstanceBoundries.end())
+				if (renderData->second.instanceBufferIndex.find(uid.uid) != renderData->second.instanceBufferIndex.end())
 				{
-					std::vector<instanceAttributes> attribs{ {transform.transform} };
-
-					renderData->second.instanceAttributes->updateData(
-						renderData->second.boundaries[mesh.uid].perInstanceBoundries[uid.uid],
+					renderData->second.instanceBuffer->updateData(
+						renderData->second.instanceBufferIndex[uid.uid],
 						sizeof(instanceAttributes),
 						1,
 						&transform.transform
