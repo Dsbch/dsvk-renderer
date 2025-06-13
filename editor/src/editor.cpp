@@ -82,101 +82,7 @@ public:
 			registry.emplace_or_replace<engine::applyTransformComponent>(e);
 		}
 
-		// spawn dynamic mesh.
-		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::v)
-		{
-			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/obsidian.jpg");
-			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertex.glsl", "../assets/shaders/fragment.glsl");
-
-			auto getMovedCube = []()->std::vector<engine::vertex>
-				{
-					auto vertexes = std::vector<engine::vertex>{
-						// Front face
-						{ { 0.5f, 0.5f, 0.5f}, { 1.0f, 1.0f }, 0 },
-						{ { 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f}, 0 },
-						{ {-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f}, 0 },
-						{ {-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f}, 0 },
-
-						// Back face
-					{ { 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f}, 0 },
-					{ { 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, 0 },
-					{ {-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f}, 0 },
-					{ {-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f}, 0 },
-					};
-
-					std::mt19937 rng(std::random_device{}());
-					std::uniform_real_distribution<float> dist(-10.0f, 10.0f);
-					glm::vec3 offset(dist(rng), dist(rng), dist(rng));
-					glm::mat4 transform = glm::translate(glm::mat4(1.0f), offset);
-
-					for (auto& v : vertexes) {
-						glm::vec4 pos = transform * glm::vec4(v.position, 1.0f);
-						v.position = glm::vec3(pos);
-					}
-
-					return vertexes;
-				};
-
-			auto c = registry.create();
-			registry.emplace<engine::uidComponent>(c);
-			registry.emplace<engine::meshComponent>(
-				c,
-				getMovedCube(),
-				std::vector<uint32_t>{
-				// Front face
-				0, 1, 2, 2, 3, 0,
-					// Left face
-					3, 2, 6, 6, 7, 3,
-					// Right face
-					0, 1, 5, 5, 4, 0,
-					// Top face
-					0, 3, 7, 7, 4, 0,
-					// Bottom face
-					1, 2, 6, 6, 5, 1,
-					// Back face
-					4, 5, 6, 6, 7, 4,
-			});
-
-			texture.first->bind();
-			int slotID = texture.first->getSlotID();
-
-			registry.emplace<engine::materialComponent>(
-				c,
-				texture.first,
-				shader.first,
-				engine::materialComponent::shaderUniformMap{
-					{"u_textures[0]", {slotID, 1} }
-				}
-			);
-
-			registry.emplace<engine::transformComponent>(
-				c,
-				glm::mat4(1.0f)
-			);
-		}
-
-		// rmv dynamic mesh.
-		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::q)
-		{
-			entt::entity toDelete;
-			bool use = false;
-			auto view = registry.view<engine::uidComponent, engine::meshComponent, engine::materialComponent>();
-			int i = 0;
-			for (auto [entity, uid, mesh, mat] : view.each())
-			{
-				if (i == 0)
-				{
-					use = true;
-					toDelete = entity;
-				}
-				i++;
-			}
-
-			if (use)
-				registry.emplace<engine::deleteComponent>(toDelete);
-		}
-
-		// spawn instance mesh.
+		// spawn mesh.
 		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::r)
 		{
 			static auto uid = engine::genUID();
@@ -186,7 +92,7 @@ public:
 
 			auto c = registry.create();
 			registry.emplace<engine::uidComponent>(c);
-			registry.emplace<engine::instancedMeshComponent>(
+			registry.emplace<engine::meshComponent>(
 				c,
 				std::make_shared<std::vector<engine::vertex>>(std::vector<engine::vertex>{
 				// Front face
@@ -259,7 +165,7 @@ public:
 		{
 			entt::entity toDelete;
 			bool use = false;
-			auto view = registry.view<engine::uidComponent, engine::instancedMeshComponent, engine::materialComponent>();
+			auto view = registry.view<engine::uidComponent, engine::meshComponent, engine::materialComponent>();
 			int i = 0;
 			for (auto [entity, uid, mesh, mat] : view.each())
 			{
@@ -280,12 +186,12 @@ public:
 		{
 			static auto uid = engine::genUID();
 
-			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/obsidian.jpg");
+			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/wood.jpg");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
 			auto c = registry.create();
 			registry.emplace<engine::uidComponent>(c);
-			registry.emplace<engine::instancedMeshComponent>(
+			registry.emplace<engine::meshComponent>(
 				c,
 				std::make_shared<std::vector<engine::vertex>>(std::vector<engine::vertex>{
 				// Front face
@@ -358,7 +264,7 @@ public:
 		std::vector<entt::entity> toUpdateInst;
 		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::k)
 		{
-			for (auto [entity, uid, mesh, transform] : registry.view<engine::uidComponent, engine::instancedMeshComponent, engine::transformComponent>().each())
+			for (auto [entity, uid, mesh, transform] : registry.view<engine::uidComponent, engine::meshComponent, engine::transformComponent>().each())
 			{
 				transform.transform = glm::translate(transform.transform, glm::vec3(0.1f, 0.1f, 0.1f));
 				toUpdateInst.push_back(entity);
@@ -368,7 +274,7 @@ public:
 
 		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::i)
 		{
-			for (auto [entity, uid, mesh, transform] : registry.view<engine::uidComponent, engine::instancedMeshComponent, engine::transformComponent>().each())
+			for (auto [entity, uid, mesh, transform] : registry.view<engine::uidComponent, engine::meshComponent, engine::transformComponent>().each())
 			{
 				transform.transform = glm::rotate(transform.transform, glm::radians(10.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 				toUpdateInst.push_back(entity);

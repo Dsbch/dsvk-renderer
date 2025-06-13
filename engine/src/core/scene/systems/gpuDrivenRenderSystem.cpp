@@ -175,7 +175,7 @@ void engine::gpuDrivenRenderSystem::resizeOnNeed(gpuDrivenData& renderData, cons
 
 void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 {
-	for (auto [entity, uid, material, mesh, transform] : registry.view<uidComponent, materialComponent, instancedMeshComponent, transformComponent>().each())
+	for (auto [entity, uid, material, mesh, transform] : registry.view<uidComponent, materialComponent, meshComponent, transformComponent>().each())
 	{
 		auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 		if (renderData == mData.end())
@@ -333,7 +333,7 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 {
 	std::vector<entt::entity> toDestroy;
 
-	for (auto [entity, uid, material, mesh] : registry.view<uidComponent, materialComponent, instancedMeshComponent, deleteComponent>().each())
+	for (auto [entity, uid, material, mesh] : registry.view<uidComponent, materialComponent, meshComponent, deleteComponent>().each())
 	{
 		auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 		if (renderData == mData.end())
@@ -516,7 +516,7 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 void engine::gpuDrivenRenderSystem::updateData(entt::registry& registry)
 {
 	std::vector<entt::entity> updated;
-	for (auto [entity, uid, material, mesh, transform] : registry.view<uidComponent, materialComponent, instancedMeshComponent, transformComponent, updateMeshComponent>().each())
+	for (auto [entity, uid, material, mesh, transform] : registry.view<uidComponent, materialComponent, meshComponent, transformComponent, updateMeshComponent>().each())
 	{
 		auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
 		if (renderData != mData.end())

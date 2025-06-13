@@ -23,8 +23,7 @@ namespace engine
 	void cameraSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
 		// TODO: figure out how to apply application settings to it.
-		auto cameraView = registry.view<fpsCameraComponent, inputListenerComponent>();
-		for (auto [entity, camera, input] : cameraView.each())
+		for (auto [entity, camera, input] : registry.view<fpsCameraComponent, inputListenerComponent>().each())
 		{
 			if (e->getEventType() == eventType::windowResize)
 			{

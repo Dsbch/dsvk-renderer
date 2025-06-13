@@ -2,8 +2,6 @@
 
 #include <pch.h>
 #include "system.h"
-#include "dynamicRenderSystem.h"
-#include "instancedRenderSystem.h"
 #include "gpuDrivenRenderSystem.h"
 
 namespace engine
@@ -14,8 +12,6 @@ namespace engine
 	private:
 		fpsCamera mDefaultCamera;
 		std::unique_ptr<renderer> mRenderer;
-		dynamicRenderSystem mDynamic;
-		instancedRenderSystem mInstanced;
 		gpuDrivenRenderSystem mGpuDriven;
 	public:
 		renderSystems(std::shared_ptr<context> ctx, fpsCamera camera);

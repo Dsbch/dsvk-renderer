@@ -2,21 +2,21 @@
     "traceEvents": [
         {
             "cat": "function",
-            "dur": 787,
+            "dur": 869,
             "name": "void __cdecl engine::winApiWindow::createWindowClass(const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &)",
             "ph": "X",
             "pid": 0,
-            "tid": 1939346461059659005,
-            "ts": 12833443126
+            "tid": 15704996495838180384,
+            "ts": 190265485443
         },
         {
             "cat": "function",
-            "dur": 19264,
+            "dur": 17057,
             "name": "__cdecl engine::winApiWindow::winApiWindow(class std::shared_ptr<struct engine::context>,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,unsigned int,unsigned int,bool,const class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,bool)",
             "ph": "X",
             "pid": 0,
-            "tid": 1939346461059659005,
-            "ts": 12833443121
+            "tid": 15704996495838180384,
+            "ts": 190265485440
         },
         {
             "cat": "function",
@@ -24,8 +24,8 @@
             "name": "void __cdecl engine::openglRenderer::changeViewPort(unsigned int,unsigned int) const",
             "ph": "X",
             "pid": 0,
-            "tid": 7230629666054136598,
-            "ts": 12833592927
+            "tid": 5850325710525675416,
+            "ts": 190265722354
         }
     ]
 }

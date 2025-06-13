@@ -6,7 +6,7 @@ namespace engine
 {
 	renderSystems::renderSystems(std::shared_ptr<context> ctx, fpsCamera camera)
 		:
-			system(ctx), mRenderer(rendererFactory::createRenderer(ctx)), mDefaultCamera(camera), mInstanced(ctx), mDynamic(ctx), mGpuDriven(ctx)
+			system(ctx), mRenderer(rendererFactory::createRenderer(ctx)), mDefaultCamera(camera), mGpuDriven(ctx)
 	{
 	}
 	error renderSystems::checkError()
@@ -16,8 +16,6 @@ namespace engine
 
 	void renderSystems::onUpdate(entt::registry& registry)
 	{
-		//mDynamic.onUpdate(registry);
-		//mInstanced.onUpdate(registry);
 		mGpuDriven.onUpdate(registry);
 	}
 
@@ -34,8 +32,7 @@ namespace engine
 		}
 
 		mRenderer->clear();
-		//mDynamic.render(registry, mRenderer.get(), *selectedCam);
-		//mInstanced.render(registry, mRenderer.get(), *selectedCam);
+
 		mGpuDriven.render(registry, mRenderer.get(), *selectedCam);
 	}
 
@@ -49,8 +46,6 @@ namespace engine
 			mDefaultCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 		}
 
-		//mDynamic.onEvent(registry, e);
-		//mInstanced.onEvent(registry, e);
 		mGpuDriven.onEvent(registry, e);
 	}
 }

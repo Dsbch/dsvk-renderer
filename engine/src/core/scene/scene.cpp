@@ -5,7 +5,6 @@
 #include "core/scene/components.h"
 #include "core/scene/systems/renderSystems.h"
 #include "core/scene/systems/cameraSystem.h"
-#include "core/scene/systems/transformSystem.h"
 
 namespace engine
 {
@@ -16,7 +15,6 @@ namespace engine
 		mSceneRegistry(), mCtx(ctx), mSystems(), mSceneCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height)
 	{
 		addSystem(std::make_unique<renderSystems>(mCtx, mSceneCamera));
-		addSystem(std::make_unique<transformSystem>(mCtx));
 		addSystem(std::make_unique<cameraSystem>(mCtx));
 	}
 
