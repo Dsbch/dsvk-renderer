@@ -16,7 +16,7 @@ namespace engine {
 		operator bool() const;
 	};
 
-
 	template<typename ...T>
-	inline error::error(const std::string& fmtStr, T && ...args) : mValue(fmt::format(fmtStr, std::forward<T>(args)...)) {}
+	inline error::error(const std::string& fmtStr, T&&... args)
+		: mValue(fmt::format(fmt::runtime(fmtStr), std::forward<T>(args)...)) {}
 }

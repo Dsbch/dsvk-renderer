@@ -1,4 +1,6 @@
 workspace "dsengine"
+   configurations { "Debug", "Release", "Dist" }
+   outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
    newoption {
       trigger     = "gfxapi",
@@ -7,7 +9,8 @@ workspace "dsengine"
       default     = "opengl",
       category    = "Build Options",
       allowed = {
-         { "opengl", "OpenGL" },
+         { "opengl" },
+         { "vulkan" },
       }
    }
 
@@ -18,18 +21,31 @@ workspace "dsengine"
       default     = "winapi",
       category    = "Build Options",
       allowed = {
-         { "winapi", "WinApi", "Win32Api" },
+         { "winapi" },
       }
    }
 
-   outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+   newoption {
+      trigger     = "mode",
+      value       = "work mode",
+      description = "Choose a particular build mode",
+      default     = "editor",
+      category    = "Build Options",
+      allowed = {
+         { "editor" },
+         { "sandbox" },
+      }
+   }
 
-   configurations { "Debug", "Release", "Dist" }
+   filter { "options:mode=sandbox" }
+      startproject "sandbox"
 
-   startproject "editor"
+   filter { "options:mode=editor" }
+      startproject "editor"
 
-   include "editor/editor.lua"
    include "engine/engine.lua"
    include "vendor/spdlog.lua"
    include "vendor/glad.lua"
    include "vendor/glm.lua"
+   include "editor/editor.lua"
+   include "sandbox/sandbox.lua"

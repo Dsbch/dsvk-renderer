@@ -48,6 +48,6 @@ namespace engine
 	};
 }
 
-static_assert(std::is_pod_v<engine::vertex> == true);
-static_assert(std::is_pod_v<engine::instanceAttributes> == true);
-static_assert(std::is_pod_v<engine::drawElementsCommand> == true);
+static_assert(std::is_trivially_constructible_v<engine::vertex>&& std::is_standard_layout_v<engine::vertex>);
+static_assert(std::is_trivially_constructible_v<engine::instanceAttributes>&& std::is_standard_layout_v<engine::instanceAttributes>);
+static_assert(std::is_trivially_constructible_v<engine::drawElementsCommand>&& std::is_standard_layout_v<engine::drawElementsCommand>);

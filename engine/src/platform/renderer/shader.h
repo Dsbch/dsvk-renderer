@@ -23,12 +23,12 @@ namespace engine
 		virtual const std::map<std::string, shaderVariableInfo>& getActiveUnifrms() const = 0;
 		virtual const std::map<std::string, shaderVariableInfo>& getActiveAttributes() const = 0;
 
-		virtual error shaderProgram::setUniformType(const std::string& name, const float data, uint32_t count) const = 0;
-		virtual error shaderProgram::setUniformType(const std::string& name, const uint32_t data, uint32_t count) const = 0;
-		virtual error shaderProgram::setUniformType(const std::string& name, const int data, uint32_t count) const = 0;
-		virtual error shaderProgram::setUniformType(const std::string& name, const double data, uint32_t count) const = 0;
-		virtual error shaderProgram::setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const = 0;
-		virtual error shaderProgram::setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const = 0;
+		virtual error setUniformType(const std::string& name, const float data, uint32_t count) const = 0;
+		virtual error setUniformType(const std::string& name, const uint32_t data, uint32_t count) const = 0;
+		virtual error setUniformType(const std::string& name, const int data, uint32_t count) const = 0;
+		virtual error setUniformType(const std::string& name, const double data, uint32_t count) const = 0;
+		virtual error setUniformType(const std::string& name, const glm::mat4 data, uint32_t count) const = 0;
+		virtual error setUniformType(const std::string& name, const glm::vec3 data, uint32_t count) const = 0;
 	protected:
 		std::map<std::string, shaderVariableInfo> mActiveUniforms;
 		std::map<std::string, shaderVariableInfo> mActiveVertexAttrs;

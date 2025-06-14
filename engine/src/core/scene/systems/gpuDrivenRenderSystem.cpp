@@ -187,22 +187,22 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 			size_t newInstancePerMeshes = 1;
 			size_t newMeshesPerMaterial = 1;
 
-			mData[{ material.tex->getID(), material.shader->getID() }] = gpuDrivenData{
-				{},
-				rendererFactory::createDynamicArrayObject(newSizeIndex, nullptr),
-				rendererFactory::createDynamicArrayObject(newSizeVertex, nullptr),
-				rendererFactory::createDynamicArrayObject(sizeof(instanceAttributes) * newInstancePerMeshes * newMeshesPerMaterial, nullptr),
-				rendererFactory::createVertexArrayObject(),
-				rendererFactory::createDynamicArrayObject(newSizeIndirect, nullptr),
-				{},
-				{},
-				{},
-				{},
-				newInstancePerMeshes,
-				newMeshesPerMaterial,
+			mData[materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID() }] = gpuDrivenData{
+				.boundaries = {},
+				.EBO = rendererFactory::createDynamicArrayObject(newSizeIndex, nullptr),
+				.VBO = rendererFactory::createDynamicArrayObject(newSizeVertex, nullptr),
+				.instanceBuffer = rendererFactory::createDynamicArrayObject(sizeof(instanceAttributes) * newInstancePerMeshes * newMeshesPerMaterial, nullptr),
+				.VAO = rendererFactory::createVertexArrayObject(),
+				.indirectBuffer = rendererFactory::createDynamicArrayObject(newSizeIndirect, nullptr),
+				.drawCommands = {},
+				.instanceBufferIndex = {},
+				.occupiedSlots = {},
+				.freeSlots = {},
+				.instancesPerMesh = newInstancePerMeshes,
+				.meshesPerMaterial = newMeshesPerMaterial,
 			};
 
-			renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+			renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID() });
 
 			for (size_t i = 0; i < renderData->second.meshesPerMaterial; i++)
 			{
@@ -237,14 +237,14 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 
 			// upload indirectBuffer.
 			renderData->second.drawCommands[mesh.uid] = drawCommand{
-				{
-					uint32_t(mesh.indexData->size()),
-					1,
-					uint32_t(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t)),
-					uint32_t(renderData->second.VBO->getLoadedSize() / sizeof(vertex)),
-					uint32_t(freeSlot * renderData->second.instancesPerMesh)
+				.command = drawElementsCommand{
+					.vertexCount = uint32_t(mesh.indexData->size()),
+					.instanceCount = 1,
+					.firstIndex = uint32_t(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t)),
+					.baseVertex = uint32_t(renderData->second.VBO->getLoadedSize() / sizeof(vertex)),
+					.baseInstance = uint32_t(freeSlot * renderData->second.instancesPerMesh)
 				},
-				renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand),
+				.index = renderData->second.indirectBuffer->getLoadedSize() / sizeof(drawElementsCommand),
 			};
 
 			renderData->second.indirectBuffer->updateData(
@@ -259,10 +259,10 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 			);
 
 			renderData->second.boundaries[mesh.uid] = meshBoundaries{
-					renderData->second.VBO->getLoadedSize() / sizeof(vertex),
-					renderData->second.VBO->getLoadedSize() / sizeof(vertex) + mesh.meshData->size(),
-					renderData->second.EBO->getLoadedSize() / sizeof(uint32_t),
-					renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) + mesh.indexData->size(),
+					.fromVBO = renderData->second.VBO->getLoadedSize() / sizeof(vertex),
+					.toVBO = renderData->second.VBO->getLoadedSize() / sizeof(vertex) + mesh.meshData->size(),
+					.fromEBO = renderData->second.EBO->getLoadedSize() / sizeof(uint32_t),
+					.toEBO = renderData->second.EBO->getLoadedSize() / sizeof(uint32_t) + mesh.indexData->size(),
 			};
 
 			// upload VBO.
@@ -312,18 +312,19 @@ void engine::gpuDrivenRenderSystem::addEntities(entt::registry& registry)
 
 		renderData->second.VAO->setElementBuffer(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t), renderData->second.EBO->getID());
 
+		auto vd = vertexDescriber{
+			renderData->second.VBO->getID()
+		};
+		auto iad = instancedAttrDescriber{
+			renderData->second.instanceBuffer->getID()
+		};
+
 		auto err = renderData->second.VAO->setAttribs(
 			{
-				&vertexDescriber
-				{
-					renderData->second.VBO->getID()
-				},
-				&instancedAttrDescriber
-				{
-					renderData->second.instanceBuffer->getID()
-				}
+				&vd,
+				&iad,
 			}
-		);
+			);
 		if (err)
 			LOGERROR("can't set attribs");
 	}
@@ -335,7 +336,7 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 
 	for (auto [entity, uid, material, mesh] : registry.view<uidComponent, materialComponent, meshComponent, deleteComponent>().each())
 	{
-		auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+		auto renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID() });
 		if (renderData == mData.end())
 			continue;
 
@@ -488,16 +489,17 @@ void engine::gpuDrivenRenderSystem::deleteEntities(entt::registry& registry)
 
 			renderData->second.VAO->setElementBuffer(renderData->second.EBO->getLoadedSize() / sizeof(uint32_t), renderData->second.EBO->getID());
 
+			auto vd = vertexDescriber{
+				renderData->second.VBO->getID()
+			};
+			auto iad = instancedAttrDescriber{
+				renderData->second.instanceBuffer->getID()
+			};
+
 			auto err = renderData->second.VAO->setAttribs(
 				{
-					&vertexDescriber
-					{
-						renderData->second.VBO->getID()
-					},
-					&instancedAttrDescriber
-					{
-						renderData->second.instanceBuffer->getID()
-					}
+					&vd,
+					&iad
 				}
 			);
 			if (err)

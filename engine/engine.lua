@@ -2,10 +2,29 @@ project "engine"
    kind "StaticLib"
    language "C++"
    architecture "x64"
-   cppdialect "C++17"
+   cppdialect "C++20"
+
+   filter { "options:gfxapi=vulkan" }
+   -- lines below only for development, remove them!!!
+      defines { "OPENGL" }   
+      links { "opengl32" }      
+      includedirs { "../vendor/glad/include" }
+      linkoptions { "/IGNORE:4006" }
+   -- end
+      defines { "VULKAN" }
+      local vulkanSDK = os.getenv("VK_SDK_PATH")
+      if vulkanSDK then
+         libdirs { os.getenv("VK_SDK_PATH") .. "/Lib" }
+         includedirs { os.getenv("VK_SDK_PATH") .. "/Include" }
+         links       { "vulkan-1" }
+      else
+         error("VK_SDK_PATH environment variable is not set, install vulkanSDK or add VK_SDK_PATH to ENV.")
+      end
 
    filter { "options:gfxapi=opengl" }
-      defines { "OPENGL" }
+      defines { "OPENGL" }   
+      includedirs { "../vendor/glad/include" }
+      links { "opengl32", "glad" }      
 
    filter { "options:osio=winapi" }
       defines { "WIN32API" }
@@ -22,7 +41,6 @@ project "engine"
       "../vendor/json",
       "../vendor/json/single_include",
       "../vendor/spdlog/include",
-      "../vendor/glad/include",
       "../vendor/glm",
       "../vendor/stb",
       "../vendor/entt/src",
@@ -37,9 +55,7 @@ project "engine"
    links
    {
       "spdlog",
-      "glad", 
       "glm",
-      "opengl32.lib",   
    }
 
    flags

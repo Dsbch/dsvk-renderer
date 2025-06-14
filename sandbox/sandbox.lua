@@ -1,18 +1,21 @@
-project "editor"
+project "sandbox"
    kind "ConsoleApp"
    language "C++"
    architecture "x64"
    cppdialect "C++20"
-   
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
 
-   files {
-      "src/**.hpp",
+   files
+   {
       "src/**.cpp",
-      "src/**.c",
       "src/**.h",
+   }
+
+   flags
+   {
+    "FatalWarnings",
    }
 
    includedirs {
@@ -23,21 +26,18 @@ project "editor"
       "../vendor/json/single_include",
       "../vendor/entt/src",
       "../vendor/glm",
-    }
-
-   links 
-   { 
-      "engine",
    }
 
-   flags
+   links
    {
-    "FatalWarnings",
+      "spdlog",
+      "glm",
+      "engine",
    }
 
    filter "system:windows"
        systemversion "latest"
-       defines { "WINDOWS" }
+       defines { }
 
    filter "configurations:Debug"
        defines { "DEBUG" }

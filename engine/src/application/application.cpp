@@ -53,7 +53,12 @@ namespace engine
 
 		cv.wait([&] {return mWindow.get(); });
 
+#ifdef OPENGL
 		return mWindow->makeOpenglContext();
+#endif // OPENGL
+#ifdef VULKAN
+		// TODO ADD IMPLEMENTATION.
+#endif // VULKAN
 	}
 
 	error application::createLayerStack()
