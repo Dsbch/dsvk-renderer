@@ -11,6 +11,7 @@
 *.sln.docstates
 *.fbx
 assets/models
+assets/skybox
 assets/textures
 
 # User-specific files (MonoDevelop/Xamarin Studio)

@@ -54,6 +54,13 @@ namespace engine
 			return std::make_unique<openglTexture>(data, width, heigth, channel);
 #endif // OPENGL
 		}
+
+		static std::shared_ptr<cubeMap> createCubeMap(const std::array<uint8_t*, 6> data, int width, int heigth, imageChannel channel)
+		{
+#ifdef OPENGL
+			return std::make_shared<openglCubeMap>(data, width, heigth, channel);
+#endif // OPENGL
+		}
 	};
 }
 

@@ -32,7 +32,7 @@ namespace engine
 
 	std::pair<const std::shared_ptr<texture>, engine::error> aManager::getTexture(const std::string& path)
 	{
-		auto it = mLoadedTextures.find(path);
+		auto it = mLoadedTextures.find(std::filesystem::canonical(path).string());
 		if (it != mLoadedTextures.end())
 		{
 			return { it->second , {} };
@@ -59,14 +59,15 @@ namespace engine
 
 		stbi_image_free(data);
 
-		mLoadedTextures[path] = t;
+		auto key = std::filesystem::canonical(path).string();
+		mLoadedTextures[key] = t;
 
-		return { mLoadedTextures[path], {} };
+		return { mLoadedTextures[key], {} };
 	}
 
 	std::pair<const std::shared_ptr<shaderProgram>, error> aManager::getShader(const std::string& vertexPath, const std::string& fragmentPath)
 	{
-		auto it = mCompiledShaders.find(vertexPath + fragmentPath);
+		auto it = mCompiledShaders.find(std::array<std::string, 2>{std::filesystem::canonical(vertexPath).string(), std::filesystem::canonical(fragmentPath).string()});
 		if (it != mCompiledShaders.end())
 		{
 			return { it->second, {} };
@@ -93,9 +94,64 @@ namespace engine
 			return { {}, err };
 		}
 
-		mCompiledShaders[vertexShaderPath + fragmentShaderPath] = program;
+		auto keyVertex = std::filesystem::canonical(vertexShaderPath).string();
+		auto keyFragment = std::filesystem::canonical(fragmentShaderPath).string();
 
-		return { mCompiledShaders[vertexShaderPath + fragmentShaderPath], {} };
+		mCompiledShaders[std::array<std::string, 2>{keyVertex, keyFragment}] = program;
+
+		return { mCompiledShaders[std::array<std::string, 2>{keyVertex, keyFragment}], {} };
 	}
 
+	std::pair<const std::shared_ptr<cubeMap>, error> aManager::getCubeMap(const std::array<std::string, 6> path)
+	{
+		std::array<std::string, 6> genericPath;
+		for (int i = 0; i < path.size(); i++)
+			genericPath[i] = std::filesystem::canonical(path[i]).string();
+
+		auto it = mLoadedCubeMaps.find(genericPath);
+		if (it != mLoadedCubeMaps.end())
+		{
+			return { it->second, {} };
+		}
+		else {
+			return { {}, {"tried to access not loaded cubemap."} };
+		}
+	}
+
+
+	std::pair<const std::shared_ptr<cubeMap>, error> aManager::loadCubeMap(const std::array<std::string, 6> path)
+	{
+		auto cachedCubeMap = getCubeMap(path);
+		if (!cachedCubeMap.second)
+			return cachedCubeMap;
+
+		std::array<uint8_t*, 6> cubeMaps;
+
+		int width, height, nrChannels;
+		for (int i = 0; i < path.size(); i++)
+		{
+			uint8_t* data = stbi_load(path[i].c_str(), &width, &height, &nrChannels, 0);
+			if (!data)
+			{
+				return { {}, {"can't load texture"} };
+			}
+
+			cubeMaps[i] = data;
+		}
+
+		auto t = rendererFactory::createCubeMap(cubeMaps, width, height, (imageChannel)nrChannels);
+
+		for (auto& cm : cubeMaps)
+		{
+			stbi_image_free(cm);
+		}
+
+		std::array<std::string, 6> genericPath;
+		for (int i = 0; i < path.size(); i++)
+			genericPath[i] = std::filesystem::canonical(path[i]).string();
+
+		mLoadedCubeMaps[genericPath] = t;
+
+		return { mLoadedCubeMaps[genericPath], {} };
+	}
 }

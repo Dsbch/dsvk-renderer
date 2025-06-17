@@ -286,6 +286,28 @@ public:
 		{
 			registry.emplace_or_replace<engine::updateMeshComponent>(e);
 		}
+
+		// spawn skybox.
+		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::x)
+		{
+			static auto uid = engine::genUID();
+
+			auto skybox = mCtx->mAmanager->loadCubeMap(
+				{
+					"../assets/skybox/right.jpg",
+					"../assets/skybox/left.jpg",
+					"../assets/skybox/top.jpg",
+					"../assets/skybox/bottom.jpg",
+					"../assets/skybox/front.jpg",
+					"../assets/skybox/back.jpg"
+				}
+			);
+			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexSkybox.glsl", "../assets/shaders/fragmentSkybox.glsl");
+
+			auto c = registry.create();
+			registry.emplace<engine::uidComponent>(c);
+			registry.emplace<engine::skyboxComponent>(c, true, shader.first, skybox.first);
+		}
 	}
 };
 // code above only for tests.

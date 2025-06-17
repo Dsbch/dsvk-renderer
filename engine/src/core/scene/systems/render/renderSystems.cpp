@@ -6,7 +6,11 @@ namespace engine
 {
 	renderSystems::renderSystems(std::shared_ptr<context> ctx, fpsCamera camera)
 		:
-			system(ctx), mRenderer(rendererFactory::createRenderer(ctx)), mDefaultCamera(camera), mGpuDriven(ctx)
+		system(ctx),
+		mRenderer(rendererFactory::createRenderer(ctx)),
+		mDefaultCamera(camera),
+		mCoreRender(std::make_unique<coreRender>(ctx)),
+		mSkyboxRender(std::make_unique<skyboxRender>(ctx))
 	{
 	}
 	error renderSystems::checkError()
@@ -16,7 +20,7 @@ namespace engine
 
 	void renderSystems::onUpdate(entt::registry& registry)
 	{
-		mGpuDriven.onUpdate(registry);
+		mCoreRender->onUpdate(registry);
 	}
 
 	void renderSystems::onRender(entt::registry& registry)
@@ -33,7 +37,8 @@ namespace engine
 
 		mRenderer->clear();
 
-		mGpuDriven.render(registry, mRenderer.get(), *selectedCam);
+		mCoreRender->render(registry, mRenderer.get(), *selectedCam);
+		mSkyboxRender->render(registry, mRenderer.get(), *selectedCam);
 	}
 
 	void renderSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
@@ -46,6 +51,7 @@ namespace engine
 			mDefaultCamera.changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 		}
 
-		mGpuDriven.onEvent(registry, e);
+		mCoreRender->onEvent(registry, e);
+		mSkyboxRender->onEvent(registry, e);
 	}
 }

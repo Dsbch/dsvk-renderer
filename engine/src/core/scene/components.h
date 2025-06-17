@@ -85,6 +85,15 @@ namespace engine
 			: shader(shader), tex(tex), shaderUniforms(std::move(shaderUnifroms)) {}
 	};
 
+	struct skyboxComponent
+	{
+		bool isActive;
+		std::shared_ptr<shaderProgram> shader;
+		std::shared_ptr<cubeMap> skybox;
+	
+		skyboxComponent(bool isActive, std::shared_ptr<shaderProgram> shader, std::shared_ptr<cubeMap> skybox) : isActive(isActive), shader(shader), skybox(skybox) {};
+	};
+
 	struct inputListenerComponent
 	{
 		std::vector<key> keyUp;

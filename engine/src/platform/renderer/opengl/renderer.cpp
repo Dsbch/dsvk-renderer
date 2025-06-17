@@ -137,4 +137,15 @@ namespace engine
 			0
 		);
 	}
+
+	void openglRenderer::render(const shaderProgram* shader, cubeMap* tex, const vertexArrayObject* vao) const
+	{
+		shader->bind();
+		tex->bind();
+		vao->bind();
+
+		glDepthFunc(GL_LEQUAL);
+		glDrawElements(GL_TRIANGLES, GLsizei(vao->getElementCount()), GL_UNSIGNED_INT, nullptr);
+		glDepthFunc(GL_LESS);
+	}
 }

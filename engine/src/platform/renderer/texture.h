@@ -24,4 +24,19 @@ namespace engine
 		uint32_t mHeight;
 		imageChannel mChannel;
 	};
+
+	class cubeMap
+	{
+	public:
+		cubeMap(const std::array<uint8_t*, 6> data, int width, int heigth, imageChannel channel) : mWidth(width), mHeight(heigth), mChannel(channel) {};
+		cubeMap(const cubeMap&) = delete;
+		virtual ~cubeMap() = default;
+		virtual engine::error bind() = 0;
+		virtual const uint32_t getID() const = 0;
+		virtual const uint32_t getSlotID() const = 0;
+	protected:
+		uint32_t mWidth;
+		uint32_t mHeight;
+		imageChannel mChannel;
+	};
 }

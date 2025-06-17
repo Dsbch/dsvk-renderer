@@ -1,8 +1,7 @@
 #pragma once
 
 #include <pch.h>
-#include "system.h"
-#include "base/context/context.h"
+#include "core/scene/systems/system.h"
 #include "platform/renderer/arrayObject.h"
 #include "platform/renderer/renderer.h"
 
@@ -46,7 +45,7 @@ namespace engine
 		size_t index;
 	};
 
-	struct gpuDrivenData
+	struct coreRenderData
 	{
 		std::map<meshID, meshBoundaries> boundaries;
 		std::unique_ptr<dynamicArrayObject> EBO;
@@ -65,18 +64,18 @@ namespace engine
 		size_t meshesPerMaterial;
 	};
 
-	class gpuDrivenRenderSystem : public system
+	class coreRender : public system
 	{
 	public:
-		gpuDrivenRenderSystem(std::shared_ptr<context>);
+		coreRender(std::shared_ptr<context>);
 		error checkError();
 		void onUpdate(entt::registry& registry);
 		void onRender(entt::registry& registry);
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 	private:
-		std::map<materialID, gpuDrivenData> mData;
+		std::map<materialID, coreRenderData> mData;
 
-		void resizeOnNeed(gpuDrivenData&, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo, uint32_t meshUID);
+		void resizeOnNeed(coreRenderData&, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo, uint32_t meshUID);
 		void addEntities(entt::registry& registry);
 		void updateData(entt::registry& registry);
 		void deleteEntities(entt::registry& registry);
