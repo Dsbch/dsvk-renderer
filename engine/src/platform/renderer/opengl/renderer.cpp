@@ -46,7 +46,7 @@ namespace engine
 			}
 			}();
 
-		LOGINFO("{}, {}, {}, {:d}, {}", src_str, type_str, severity_str, m_id, message);
+		LOGDEBUG("{}, {}, {}, {:d}, {}", src_str, type_str, severity_str, m_id, message);
 	}
 
 	void openglRenderer::initOpengl()

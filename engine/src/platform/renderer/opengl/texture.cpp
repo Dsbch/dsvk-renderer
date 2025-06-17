@@ -33,14 +33,24 @@ namespace engine
 
 		glCreateTextures(GL_TEXTURE_2D, 1, &mID);
 
+		glTextureStorage2D(mID, 8, GL_RGB8, mWidth, mHeight);
+		glTextureSubImage2D(mID, 0, 0, 0, mWidth, mHeight, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glGenerateTextureMipmap(mID);
+	
+		// Prevent repeating, clamp at edge.
 		glTextureParameteri(mID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTextureParameteri(mID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		
+		// Use sharp nearest filtering (no smoothing)
 		glTextureParameteri(mID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTextureParameteri(mID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-		glTextureStorage2D(mID, 1, GL_RGB8, mWidth, mHeight);
-		glTextureSubImage2D(mID, 0, 0, 0, mWidth, mHeight, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glGenerateTextureMipmap(mID);
+		// use mipmap levels based on distance.
+		glTextureParameteri(mID, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+		// anisotropic filtering.
+		float maxAniso = 0.0f;
+		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &maxAniso);
+		glTextureParameterf(mID, GL_TEXTURE_MAX_ANISOTROPY, maxAniso);
 	}
 
 	openglTexture::~openglTexture()
