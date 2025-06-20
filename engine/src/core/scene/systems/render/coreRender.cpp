@@ -6,6 +6,25 @@
 namespace engine
 {
 
+	size_t hashUniforms(const materialComponent::shaderUniformMap& uniforms)
+	{
+		size_t seed = 0;
+
+		for (const auto& [name, pair] : uniforms) {
+			const auto& value = pair.first;
+
+			// Hash name
+			seed ^= std::hash<std::string>{}(name);
+
+			// Hash value
+			std::visit([&](const auto& v) {
+				seed ^= std::hash<std::decay_t<decltype(v)>>{}(v);
+				}, value);
+		}
+
+		return seed;
+	}
+
 	coreRender::coreRender(std::shared_ptr<context> ctx)
 		:
 		system(ctx)
@@ -181,7 +200,7 @@ namespace engine
 	{
 		for (auto [entity, uid, material, mesh, transform] : registry.view<uidComponent, materialComponent, meshComponent, transformComponent>().each())
 		{
-			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+			auto renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID(), .uniformID = hashUniforms(material.shaderUniforms) });
 			if (renderData == mData.end())
 			{
 				size_t newSizeVertex = mesh.meshData->size() * 3 * sizeof(vertex);
@@ -191,7 +210,7 @@ namespace engine
 				size_t newInstancePerMeshes = 1;
 				size_t newMeshesPerMaterial = 1;
 
-				mData[materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID() }] = coreRenderData{
+				mData[materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID(), .uniformID = hashUniforms(material.shaderUniforms) }] = coreRenderData{
 					.boundaries = {},
 					.EBO = rendererFactory::createDynamicArrayObject(newSizeIndex, nullptr),
 					.VBO = rendererFactory::createDynamicArrayObject(newSizeVertex, nullptr),
@@ -206,7 +225,7 @@ namespace engine
 					.meshesPerMaterial = newMeshesPerMaterial,
 				};
 
-				renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID() });
+				renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID(), .uniformID = hashUniforms(material.shaderUniforms) });
 
 				for (size_t i = 0; i < renderData->second.meshesPerMaterial; i++)
 				{
@@ -340,7 +359,7 @@ namespace engine
 
 		for (auto [entity, uid, material, mesh] : registry.view<uidComponent, materialComponent, meshComponent, deleteComponent>().each())
 		{
-			auto renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID() });
+			auto renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID(), .uniformID = hashUniforms(material.shaderUniforms) });
 			if (renderData == mData.end())
 				continue;
 
@@ -522,9 +541,9 @@ namespace engine
 	void coreRender::updateData(entt::registry& registry)
 	{
 		std::vector<entt::entity> updated;
-		for (auto [entity, uid, material, mesh, transform] : registry.view<uidComponent, materialComponent, meshComponent, transformComponent, updateMeshComponent>().each())
+		for (auto [entity, uid, material, mesh, transform] : registry.view<uidComponent, materialComponent, meshComponent, transformComponent, applyTransformComponent>().each())
 		{
-			auto renderData = mData.find({ material.tex->getID(), material.shader->getID() });
+			auto renderData = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID(), .uniformID = hashUniforms(material.shaderUniforms) });
 			if (renderData != mData.end())
 			{
 				if (renderData->second.boundaries.find(mesh.uid) != renderData->second.boundaries.end())
@@ -546,7 +565,7 @@ namespace engine
 
 		for (auto e : updated)
 		{
-			registry.remove<updateMeshComponent>(e);
+			registry.remove<applyTransformComponent>(e);
 		}
 	}
 
@@ -575,7 +594,7 @@ namespace engine
 				LOGERROR("can't set uniform: {}", err.err());
 			}
 
-			if (auto data = mData.find({ material.tex->getID(), material.shader->getID() }); data != mData.end())
+			if (auto data = mData.find(materialID{ .textureID = material.tex->getID(), .shaderProgramID = material.shader->getID(), .uniformID = hashUniforms(material.shaderUniforms) }); data != mData.end())
 			{
 				for (auto& unifromData : material.shaderUniforms)
 				{

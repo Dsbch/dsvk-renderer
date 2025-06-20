@@ -8,12 +8,14 @@
 
 namespace engine
 {
+	// user systems.
 	std::vector<std::unique_ptr<system>> scene::mUserSystems;
 
 	scene::scene(std::shared_ptr<context> ctx)
 		:
 		mSceneRegistry(), mCtx(ctx), mSystems(), mSceneCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height)
 	{
+		// core engine systems.
 		addSystem(std::make_unique<renderSystems>(mCtx, mSceneCamera));
 		addSystem(std::make_unique<cameraSystems>(mCtx));
 	}

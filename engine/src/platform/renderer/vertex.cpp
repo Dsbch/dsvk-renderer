@@ -27,13 +27,13 @@ namespace engine {
 					false,
 					false,
 				},
-				// textureIndex.
+				// tangent.
 				{
 					sizeof(vertex),
 					mBufferObjectID,
-					sizeof(vertex::textureIndex) / sizeof(int),
-					GL_INT,
-					offsetof(vertex, textureIndex),
+					sizeof(vertex::tangent) / sizeof(float),
+					GL_FLOAT,
+					offsetof(vertex, tangent),
 					false,
 					false,
 				},

@@ -49,7 +49,6 @@ namespace engine
 	};
 
 	struct deleteComponent {};
-	struct updateMeshComponent {};
 	struct applyTransformComponent {};
 
 	struct transformComponent

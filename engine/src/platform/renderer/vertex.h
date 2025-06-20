@@ -12,7 +12,7 @@ namespace engine
 	{
 		glm::vec3 position;
 		glm::vec2 textureCoords;
-		int textureIndex;
+		glm::vec3 tangent;
 	};
 
 	struct instanceAttributes

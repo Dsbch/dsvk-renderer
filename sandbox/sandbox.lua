@@ -30,10 +30,14 @@ project "sandbox"
 
    links
    {
-      "spdlog",
-      "glm",
       "engine",
    }
+
+   flags
+   {
+    "FatalWarnings",
+   }
+
 
    filter "system:windows"
        systemversion "latest"
