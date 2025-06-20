@@ -3,7 +3,6 @@
 uniform sampler2D uAlbedo;
 
 in vsOUT {
-    vec3 fragmentPos;
     vec2 texCoords;
     vec3 tangentViewPos;
     vec3 tangentFragmentPos;
@@ -11,6 +10,7 @@ in vsOUT {
 
 out vec4 color;
 
+// all calculations in fragment shader should be in tangent space (because of normals).
 void main()
 {
     // vec3 normal = texture(uNormal, fs_in.TexCoords).rgb;

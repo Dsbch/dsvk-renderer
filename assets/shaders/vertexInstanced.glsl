@@ -14,7 +14,6 @@ uniform mat4 uView;
 uniform vec3 uViewPos;
 
 out vsOUT {
-    vec3 fragmentPos;
     vec2 texCoords;
     vec3 tangentViewPos;
     vec3 tangentFragmentPos;
@@ -26,7 +25,6 @@ void main()
     gl_Position = uProjection * uView * worldPos;
 
     vsOut.texCoords = texCoords;
-    vsOut.fragmentPos = worldPos.xyz;
 
     // cast to mat3 removes translation.
     mat3 normalMatrix = transpose(inverse(mat3(model)));
@@ -37,5 +35,5 @@ void main()
     mat3 TBN = transpose(mat3(T, B, N));
 
     vsOut.tangentViewPos = TBN*uViewPos;
-    vsOut.tangentFragmentPos = TBN*vsOut.fragmentPos;
+    vsOut.tangentFragmentPos = TBN*worldPos.xyz;
 }
