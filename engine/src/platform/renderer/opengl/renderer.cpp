@@ -106,27 +106,27 @@ namespace engine
 		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	}
 
-	void openglRenderer::render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao) const
+	void openglRenderer::render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao) const
 	{
 		shader->bind();
-		tex->bind();
+		albedoTexture->bind();
 		vao->bind();
 		glDrawElements(GL_TRIANGLES, GLsizei(vao->getElementCount()), GL_UNSIGNED_INT, nullptr);
 	}
 
-	void openglRenderer::render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, uint32_t instanceCount) const
+	void openglRenderer::render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao, uint32_t instanceCount) const
 	{
 		shader->bind();
-		tex->bind();
+		albedoTexture->bind();
 		vao->bind();
 		glDrawElementsInstanced(GL_TRIANGLES, GLsizei(vao->getElementCount()), GL_UNSIGNED_INT, nullptr, instanceCount);
 	}
 
-	void openglRenderer::render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const
+	void openglRenderer::render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const
 	{
 		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirectBuffer->getID());
 		shader->bind();
-		tex->bind();
+		albedoTexture->bind();
 		vao->bind();
 
 		glMultiDrawElementsIndirect(
@@ -138,10 +138,10 @@ namespace engine
 		);
 	}
 
-	void openglRenderer::render(const shaderProgram* shader, cubeMap* tex, const vertexArrayObject* vao) const
+	void openglRenderer::render(const shaderProgram* shader, cubeMap* albedoTexture, const vertexArrayObject* vao) const
 	{
 		shader->bind();
-		tex->bind();
+		albedoTexture->bind();
 		vao->bind();
 
 		glDepthFunc(GL_LEQUAL);

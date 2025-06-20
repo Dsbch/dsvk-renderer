@@ -2,6 +2,7 @@
 
 #include <pch.h>
 #include <random>
+#include <glm/gtc/type_ptr.inl>
 #include "core/camera/camera.h"
 #include "core/events/events.h"
 #include "platform/renderer/vertex.h"
@@ -57,31 +58,73 @@ namespace engine
 		transformComponent(glm::mat4 transform) : transform(transform) {}
 	};
 
+	static void hashCombine(std::size_t& seed, std::size_t hash) 
+	{
+		seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+	}
+
 	struct materialComponent
 	{
 		typedef std::map<std::string, std::pair<std::variant<float, uint32_t, int, double, glm::mat4, glm::vec3>, uint32_t>> shaderUniformMap;
 
 		std::shared_ptr<shaderProgram> shader;
-		std::shared_ptr<texture> tex;
+		std::shared_ptr<texture> albedoTexture;
+		std::shared_ptr<texture> roughnessTexture;
+		std::shared_ptr<texture> normaTexture;
+		std::shared_ptr<texture> metalicTexture;
+		std::shared_ptr<texture> aoTexture;
 
 		shaderUniformMap shaderUniforms;
 
-		bool operator<(const materialComponent& other) const
+		size_t hash() const
 		{
-			if (shader->getID() == other.shader->getID())
-				return tex->getID() < other.tex->getID();
+			auto texID = [](const std::shared_ptr<texture>& t) {
+				return t ? t->getID() : 0u;
+				};
 
-			if (tex->getID() == other.tex->getID())
-				return shader->getID() < other.shader->getID();
+			size_t seed = 0;
 
-			return tex->getID() < other.tex->getID() && shader->getID() < other.shader->getID();
+			hashCombine(seed, shader ? shader->getID() : 0u);
+			hashCombine(seed, texID(albedoTexture));
+			hashCombine(seed, texID(roughnessTexture));
+			hashCombine(seed, texID(normaTexture));
+			hashCombine(seed, texID(metalicTexture));
+			hashCombine(seed, texID(aoTexture));
+
+			for (const auto& [name, pair] : shaderUniforms) {
+				const auto& value = pair.first;
+				hashCombine(seed, std::hash<std::string>{}(name));
+
+				std::visit([&](const auto& v) {
+					hashCombine(seed, std::hash<std::decay_t<decltype(v)>>{}(v));
+					}, value);
+			}
+
+			return seed;
 		}
 
-		materialComponent(std::shared_ptr<texture> tex, std::shared_ptr<shaderProgram> shader)
-			: shader(shader), tex(tex), shaderUniforms() {}
+		bool operator<(const materialComponent& other) const
+		{
+			return hash() < other.hash();
+		}
 
-		materialComponent(std::shared_ptr<texture> tex, std::shared_ptr<shaderProgram> shader, shaderUniformMap&& shaderUnifroms)
-			: shader(shader), tex(tex), shaderUniforms(std::move(shaderUnifroms)) {}
+		materialComponent(
+			std::shared_ptr<texture> albedoTexture,
+			std::shared_ptr<texture> roughnessTexture,
+			std::shared_ptr<texture> normaTexture,
+			std::shared_ptr<texture> metalicTexture,
+			std::shared_ptr<texture> aoTexture,
+			std::shared_ptr<shaderProgram> shader,
+			shaderUniformMap&& shaderUnifroms
+		)
+			:
+			shader(shader),
+			albedoTexture(albedoTexture),
+			roughnessTexture(roughnessTexture),
+			normaTexture(normaTexture),
+			metalicTexture(metalicTexture),
+			aoTexture(aoTexture),
+			shaderUniforms(std::move(shaderUnifroms)) {}
 	};
 
 	struct skyboxComponent
@@ -89,7 +132,7 @@ namespace engine
 		bool isActive;
 		std::shared_ptr<shaderProgram> shader;
 		std::shared_ptr<cubeMap> skybox;
-	
+
 		skyboxComponent(bool isActive, std::shared_ptr<shaderProgram> shader, std::shared_ptr<cubeMap> skybox) : isActive(isActive), shader(shader), skybox(skybox) {};
 	};
 
@@ -108,5 +151,28 @@ namespace engine
 		bool isActive;
 
 		fpsCameraComponent(std::unique_ptr<fpsCamera>&& camera, bool isActive) : camera(std::move(camera)), isActive(isActive) {}
+	};
+}
+
+namespace std {
+	template <>
+	struct std::hash<glm::vec3> {
+		size_t operator()(const glm::vec3& v) const {
+			size_t hx = std::hash<float>{}(v.x);
+			size_t hy = std::hash<float>{}(v.y);
+			size_t hz = std::hash<float>{}(v.z);
+			return hx ^ (hy << 1) ^ (hz << 2);
+		}
+	};
+
+	template <>
+	struct std::hash<glm::mat4> {
+		size_t operator()(const glm::mat4& mat) const {
+			const float* data = glm::value_ptr(mat);
+			size_t result = 0;
+			for (int i = 0; i < 16; ++i)
+				result ^= std::hash<float>{}(data[i]) << (i % 8);
+			return result;
+		}
 	};
 }

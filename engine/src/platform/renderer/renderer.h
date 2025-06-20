@@ -19,10 +19,10 @@ namespace engine
 		virtual void changeViewPort(uint32_t width, uint32_t height) const = 0;
 		virtual void clear() const = 0;
 		virtual void render() const = 0;
-		virtual void render(const shaderProgram* shader, cubeMap* tex, const vertexArrayObject* vao) const = 0;
-		virtual void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao) const = 0;
-		virtual void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, uint32_t instanceCount) const = 0;
-		virtual void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const = 0;
+		virtual void render(const shaderProgram* shader, cubeMap* albedoTexture, const vertexArrayObject* vao) const = 0;
+		virtual void render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao) const = 0;
+		virtual void render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao, uint32_t instanceCount) const = 0;
+		virtual void render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const = 0;
 	protected:
 		error mErr;
 		std::shared_ptr<context> mCtx;

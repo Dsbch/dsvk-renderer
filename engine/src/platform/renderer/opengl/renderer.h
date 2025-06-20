@@ -19,10 +19,10 @@ namespace engine
 		void changeViewPort(uint32_t width, uint32_t height) const;
 		void clear() const;
 		void render() const;
-		void render(const shaderProgram* shader, cubeMap* tex, const vertexArrayObject* vao) const;
-		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao) const;
-		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, uint32_t instanceCount) const;
-		void render(const shaderProgram* shader, texture* tex, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const;
+		void render(const shaderProgram* shader, cubeMap* albedoTexture, const vertexArrayObject* vao) const;
+		void render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao) const;
+		void render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao, uint32_t instanceCount) const;
+		void render(const shaderProgram* shader, texture* albedoTexture, const vertexArrayObject* vao, const dynamicArrayObject* indirectBuffer, size_t indirectBufferSize) const;
 	private:
 		static std::once_flag mIsOpenglInitialized;
 		static error mInitOpenglErr;

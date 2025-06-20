@@ -100,16 +100,9 @@ namespace sandbox
 				4, 5, 6, 6, 7, 4,
 		}), meshUID);
 
-		material.tex->bind();
-		int slotID = material.tex->getSlotID();
-
 		registry.emplace<engine::materialComponent>(
 			c,
-			material.tex,
-			material.shader,
-			engine::materialComponent::shaderUniformMap{
-				{"u_albedo", {slotID, 1} }
-			}
+			material
 		);
 
 		registry.emplace<engine::transformComponent>(
@@ -181,16 +174,9 @@ namespace sandbox
 			meshUID
 		);
 
-		material.tex->bind();
-		int slotID = material.tex->getSlotID();
-
 		registry.emplace<engine::materialComponent>(
 			c,
-			material.tex,
-			material.shader,
-			engine::materialComponent::shaderUniformMap{
-				{"u_albedo", {slotID, 1}}
-			}
+			material
 		);
 
 		registry.emplace<engine::transformComponent>(
@@ -237,7 +223,20 @@ namespace sandbox
 			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_albedo.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			spawnSphere(registry, engine::materialComponent{ texture.first, shader.first, {} }, getRandomTransform(), uid);
+			texture.first->bind();
+			auto slotID = texture.first->getSlotID();
+
+			spawnSphere(registry, engine::materialComponent{ 
+				texture.first, 
+				texture.first, 
+				texture.first, 
+				texture.first, 
+				texture.first, 
+				shader.first, 
+				{
+					{"u_albedo", {int(slotID), 1}}
+				}
+				}, getRandomTransform(), uid);
 		}
 
 		// spawn obisida cube.
@@ -248,7 +247,20 @@ namespace sandbox
 			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/obsidian.jpg");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			spawnCube(registry, engine::materialComponent{ texture.first, shader.first, {} }, getRandomTransform(), uid);
+			texture.first->bind();
+			auto slotID = texture.first->getSlotID();
+
+			spawnCube(registry, engine::materialComponent{
+				texture.first,
+				texture.first,
+				texture.first,
+				texture.first,
+				texture.first,
+				shader.first,
+				{
+					{"u_albedo", {int(slotID), 1}}
+				}
+				}, getRandomTransform(), uid);
 		}
 
 		// spawn wood cube.
@@ -259,7 +271,21 @@ namespace sandbox
 			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/wood.jpg");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			spawnCube(registry, engine::materialComponent{ texture.first, shader.first, {} }, getRandomTransform(), uid);
+			texture.first->bind();
+			auto slotID = texture.first->getSlotID();
+
+			spawnCube(registry, engine::materialComponent{
+				texture.first,
+				texture.first,
+				texture.first,
+				texture.first,
+				texture.first,
+				shader.first,
+				{
+					{"u_albedo", {int(slotID), 1}}
+				}
+				},
+				getRandomTransform(), uid);
 		}
 
 		// rmv instance mesh.

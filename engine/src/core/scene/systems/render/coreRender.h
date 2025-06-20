@@ -4,54 +4,12 @@
 #include "core/scene/systems/system.h"
 #include "platform/renderer/arrayObject.h"
 #include "platform/renderer/renderer.h"
-#include <glm/gtc/type_ptr.inl>
-
-namespace std {
-	template <>
-	struct std::hash<glm::vec3> {
-		size_t operator()(const glm::vec3& v) const {
-			size_t hx = std::hash<float>{}(v.x);
-			size_t hy = std::hash<float>{}(v.y);
-			size_t hz = std::hash<float>{}(v.z);
-			return hx ^ (hy << 1) ^ (hz << 2);
-		}
-	};
-
-	template <>
-	struct std::hash<glm::mat4> {
-		size_t operator()(const glm::mat4& mat) const {
-			const float* data = glm::value_ptr(mat);
-			size_t result = 0;
-			for (int i = 0; i < 16; ++i)
-				result ^= std::hash<float>{}(data[i]) << (i % 8);
-			return result;
-		}
-	};
-}
-
 
 namespace engine
 {
-	size_t hashUniforms(const materialComponent::shaderUniformMap& uniforms);
-	
 	typedef uint32_t entityID;
 
-	struct materialID
-	{
-		uint32_t textureID;
-		uint32_t shaderProgramID;
-		size_t uniformID;
-
-		bool operator<(const materialID& other) const {
-			if (shaderProgramID != other.shaderProgramID)
-				return shaderProgramID < other.shaderProgramID;
-			
-			if (textureID != other.textureID)
-				return textureID < other.textureID;
-
-			return uniformID < other.uniformID;
-		}
-	};
+	typedef size_t materialID;
 
 	struct meshBoundaries
 	{
