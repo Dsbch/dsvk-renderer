@@ -70,45 +70,65 @@ namespace sandbox
 	{
 		auto c = registry.create();
 		registry.emplace<engine::uidComponent>(c);
+
+		std::vector<engine::vertex> vertices = {
+			// +Z face (front)
+			{.position = { -0.5f, -0.5f,  0.5f }, .textureCoords = { 0.0f, 0.0f }, .normal = { 0.0f, 0.0f, 1.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = {  0.5f, -0.5f,  0.5f }, .textureCoords = { 1.0f, 0.0f }, .normal = { 0.0f, 0.0f, 1.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = {  0.5f,  0.5f,  0.5f }, .textureCoords = { 1.0f, 1.0f }, .normal = { 0.0f, 0.0f, 1.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = { -0.5f,  0.5f,  0.5f }, .textureCoords = { 0.0f, 1.0f }, .normal = { 0.0f, 0.0f, 1.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+
+			// -Z face (back)
+			{.position = {  0.5f, -0.5f, -0.5f }, .textureCoords = { 0.0f, 0.0f },  .normal = { 0.0f, 0.0f, -1.0f } , .tangent = { -1.0f, 0.0f, 0.0f }},
+			{.position = { -0.5f, -0.5f, -0.5f }, .textureCoords = { 1.0f, 0.0f },  .normal = { 0.0f, 0.0f, -1.0f } , .tangent = { -1.0f, 0.0f, 0.0f }},
+			{.position = { -0.5f,  0.5f, -0.5f }, .textureCoords = { 1.0f, 1.0f },  .normal = { 0.0f, 0.0f, -1.0f } , .tangent = { -1.0f, 0.0f, 0.0f }},
+			{.position = {  0.5f,  0.5f, -0.5f }, .textureCoords = { 0.0f, 1.0f },  .normal = { 0.0f, 0.0f, -1.0f } , .tangent = { -1.0f, 0.0f, 0.0f }},
+
+			// -X face (left)
+			{.position = { -0.5f, -0.5f, -0.5f }, .textureCoords = { 0.0f, 0.0f }, .normal = { -1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, 1.0f }},
+			{.position = { -0.5f, -0.5f,  0.5f }, .textureCoords = { 1.0f, 0.0f }, .normal = { -1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, 1.0f }},
+			{.position = { -0.5f,  0.5f,  0.5f }, .textureCoords = { 1.0f, 1.0f }, .normal = { -1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, 1.0f }},
+			{.position = { -0.5f,  0.5f, -0.5f }, .textureCoords = { 0.0f, 1.0f }, .normal = { -1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, 1.0f }},
+
+			// +X face (right)
+			{.position = { 0.5f, -0.5f,  0.5f }, .textureCoords = { 0.0f, 0.0f },  .normal = { 1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, -1.0f }},
+			{.position = { 0.5f, -0.5f, -0.5f }, .textureCoords = { 1.0f, 0.0f },  .normal = { 1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, -1.0f }},
+			{.position = { 0.5f,  0.5f, -0.5f }, .textureCoords = { 1.0f, 1.0f },  .normal = { 1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, -1.0f }},
+			{.position = { 0.5f,  0.5f,  0.5f }, .textureCoords = { 0.0f, 1.0f },  .normal = { 1.0f, 0.0f, 0.0f } , .tangent = { 0.0f, 0.0f, -1.0f }},
+
+			// +Y face (top)
+			{.position = { -0.5f, 0.5f,  0.5f }, .textureCoords = { 0.0f, 0.0f }, .normal = { 0.0f, 1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = {  0.5f, 0.5f,  0.5f }, .textureCoords = { 1.0f, 0.0f }, .normal = { 0.0f, 1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = {  0.5f, 0.5f, -0.5f }, .textureCoords = { 1.0f, 1.0f }, .normal = { 0.0f, 1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = { -0.5f, 0.5f, -0.5f }, .textureCoords = { 0.0f, 1.0f }, .normal = { 0.0f, 1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+
+			// -Y face (bottom)
+			{.position = { -0.5f, -0.5f, -0.5f }, .textureCoords = { 0.0f, 0.0f }, .normal = { 0.0f, -1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = {  0.5f, -0.5f, -0.5f }, .textureCoords = { 1.0f, 0.0f }, .normal = { 0.0f, -1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = {  0.5f, -0.5f,  0.5f }, .textureCoords = { 1.0f, 1.0f }, .normal = { 0.0f, -1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+			{.position = { -0.5f, -0.5f,  0.5f }, .textureCoords = { 0.0f, 1.0f }, .normal = { 0.0f, -1.0f, 0.0f } , .tangent = { 1.0f, 0.0f, 0.0f }},
+		};
+
+		std::vector<uint32_t> indices;
+		for (int face = 0; face < 6; ++face) {
+			uint32_t offset = face * 4;
+			indices.push_back(offset + 0);
+			indices.push_back(offset + 1);
+			indices.push_back(offset + 2);
+			indices.push_back(offset + 2);
+			indices.push_back(offset + 3);
+			indices.push_back(offset + 0);
+		}
+
 		registry.emplace<engine::meshComponent>(
 			c,
-			std::make_shared<std::vector<engine::vertex>>(std::vector<engine::vertex>{
-			// Front face
-				{.position = { 0.5f, 0.5f, 0.5f }, .textureCoords = { 1.0f, 1.0f } },
-				{ .position = { 0.5f, -0.5f,  0.5f}, .textureCoords = {0.0f, 1.0f} },
-				{ .position = {-0.5f, -0.5f,  0.5f}, .textureCoords = {0.0f, 0.0f} },
-				{ .position = {-0.5f,  0.5f,  0.5f}, .textureCoords = {1.0f, 0.0f} },
-
-					// Back face
-				{ .position = { 0.5f,  0.5f, -0.5f}, .textureCoords = {1.0f, 0.0f} },
-				{ .position = { 0.5f, -0.5f, -0.5f}, .textureCoords = {0.0f, 0.0f} },
-				{ .position = {-0.5f, -0.5f, -0.5f}, .textureCoords = {0.0f, 1.0f} },
-				{ .position = {-0.5f,  0.5f, -0.5f}, .textureCoords = {1.0f, 1.0f} },
-		}),
-			std::make_shared<std::vector<uint32_t>>(std::vector<uint32_t>{
-			// Front face
-			0, 1, 2, 2, 3, 0,
-				// Left face
-				3, 2, 6, 6, 7, 3,
-				// Right face
-				0, 1, 5, 5, 4, 0,
-				// Top face
-				0, 3, 7, 7, 4, 0,
-				// Bottom face
-				1, 2, 6, 6, 5, 1,
-				// Back face
-				4, 5, 6, 6, 7, 4,
-		}), meshUID);
-
-		registry.emplace<engine::materialComponent>(
-			c,
-			material
+			std::make_shared<std::vector<engine::vertex>>(std::move(vertices)),
+			std::make_shared<std::vector<uint32_t>>(std::move(indices)),
+			meshUID
 		);
 
-		registry.emplace<engine::transformComponent>(
-			c,
-			transform
-		);
+		registry.emplace<engine::materialComponent>(c, material);
+		registry.emplace<engine::transformComponent>(c, transform);
 	}
 
 	void sandboxSystem::spawnSphere(entt::registry& registry, const engine::materialComponent& material, glm::mat4 transform, uint32_t meshUID)
@@ -123,27 +143,28 @@ namespace sandbox
 				float xSegment = (float)x / X_SEGMENTS;
 				float ySegment = (float)y / Y_SEGMENTS;
 
-				float xPos = std::cos(xSegment * 2.0f * glm::pi<float>()) * std::sin(ySegment * glm::pi<float>());
+				float xPos = std::cos(xSegment * glm::two_pi<float>()) * std::sin(ySegment * glm::pi<float>());
 				float yPos = std::cos(ySegment * glm::pi<float>());
-				float zPos = std::sin(xSegment * 2.0f * glm::pi<float>()) * std::sin(ySegment * glm::pi<float>());
+				float zPos = std::sin(xSegment * glm::two_pi<float>()) * std::sin(ySegment * glm::pi<float>());
 
 				glm::vec3 position = glm::vec3(xPos, yPos, zPos) * 0.5f;
 				glm::vec2 texCoord = glm::vec2(xSegment, ySegment);
+				glm::vec3 normal = normalize(position);
 
-				// Approximate tangent using partial derivative in U direction
-				float dPhi = glm::two_pi<float>() / X_SEGMENTS;
+				// Approx tangent direction in the "U" direction
 				glm::vec3 dpdu = glm::vec3(
 					-std::sin(xSegment * glm::two_pi<float>()) * std::sin(ySegment * glm::pi<float>()),
 					0.0f,
 					std::cos(xSegment * glm::two_pi<float>()) * std::sin(ySegment * glm::pi<float>())
 				);
 
-				glm::vec3 tangent = glm::normalize(dpdu);
+				glm::vec3 tangent = normalize(dpdu);
 
 				vertices.push_back(engine::vertex{
-					position,
-					texCoord,
-					tangent
+					.position = position,
+					.textureCoords = texCoord,
+					.normal = normal,
+					.tangent = tangent,
 					});
 			}
 		}
@@ -174,15 +195,8 @@ namespace sandbox
 			meshUID
 		);
 
-		registry.emplace<engine::materialComponent>(
-			c,
-			material
-		);
-
-		registry.emplace<engine::transformComponent>(
-			c,
-			transform
-		);
+		registry.emplace<engine::materialComponent>(c, material);
+		registry.emplace<engine::transformComponent>(c, transform);
 	}
 
 	void sandboxSystem::updateTransform(entt::registry& registry, glm::mat4 translate)
@@ -234,7 +248,7 @@ namespace sandbox
 				texture.first, 
 				shader.first, 
 				{
-					{"u_albedo", {int(slotID), 1}}
+					{"uAlbedo", {int(slotID), 1}}
 				}
 				}, getRandomTransform(), uid);
 		}
@@ -258,7 +272,7 @@ namespace sandbox
 				texture.first,
 				shader.first,
 				{
-					{"u_albedo", {int(slotID), 1}}
+					{"uAlbedo", {int(slotID), 1}}
 				}
 				}, getRandomTransform(), uid);
 		}
@@ -282,7 +296,7 @@ namespace sandbox
 				texture.first,
 				shader.first,
 				{
-					{"u_albedo", {int(slotID), 1}}
+					{"uAlbedo", {int(slotID), 1}}
 				}
 				},
 				getRandomTransform(), uid);

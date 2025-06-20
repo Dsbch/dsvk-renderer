@@ -27,6 +27,16 @@ namespace engine {
 					false,
 					false,
 				},
+				// normal.
+				{
+					sizeof(vertex),
+					mBufferObjectID,
+					sizeof(vertex::normal) / sizeof(float),
+					GL_FLOAT,
+					offsetof(vertex, normal),
+					false,
+					false,
+				},
 				// tangent.
 				{
 					sizeof(vertex),

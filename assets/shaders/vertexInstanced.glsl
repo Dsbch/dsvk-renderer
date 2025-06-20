@@ -3,22 +3,24 @@
 // Per vertex attrs.
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 tex_coords;
-layout(location = 2) in vec3 tangent;
+layout(location = 2) in vec3 normal;
+layout(location = 3) in vec3 tangent;
 
 // Per instance attr.
-layout(location = 3) in mat4 model_matrix;
+layout(location = 4) in mat4 model_matrix;
 
 uniform mat4 uProjection;
 uniform mat4 uView;
+uniform vec3 uViewPos;
 
-out vec4 pos;
-out vec2 v_tex_coords;
+out vsOUT {
+    vec2 texCoords;
+} vsOut;
 
 void main()
 {
     vec4 worldPos = model_matrix * vec4(position.xyz, 1.0f);
 
     gl_Position = uProjection * uView * worldPos;
-    pos = gl_Position;
-    v_tex_coords = tex_coords;
+    vsOut.texCoords = tex_coords;
 }
