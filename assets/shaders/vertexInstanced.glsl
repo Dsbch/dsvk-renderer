@@ -11,11 +11,11 @@ layout(location = 4) in mat4 model;
 
 uniform mat4 uProjection;
 uniform mat4 uView;
-uniform vec3 uViewPos;
+uniform vec3 uCameraPos;
 
 out vsOUT {
     vec2 texCoords;
-    vec3 tangentViewPos;
+    vec3 tangentCameraPos;
     vec3 tangentFragmentPos;
 } vsOut;
 
@@ -34,6 +34,6 @@ void main()
     vec3 B = cross(N, T);
     mat3 TBN = transpose(mat3(T, B, N));
 
-    vsOut.tangentViewPos = TBN*uViewPos;
+    vsOut.tangentCameraPos = TBN*uCameraPos;
     vsOut.tangentFragmentPos = TBN*worldPos.xyz;
 }

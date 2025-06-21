@@ -8,18 +8,15 @@ static glm::mat4 getRandomTransform()
 	static std::mt19937 rng(std::random_device{}());
 	static std::uniform_real_distribution<float> distPos(-10.0f, 10.0f);
 	static std::uniform_real_distribution<float> distRot(0.0f, 360.0f);
-	static std::uniform_real_distribution<float> distScale(0.5f, 2.0f);
 
 	glm::vec3 position(distPos(rng), distPos(rng), distPos(rng));
 	glm::vec3 rotation(glm::radians(distRot(rng)), glm::radians(distRot(rng)), glm::radians(distRot(rng)));
-	glm::vec3 scale(distScale(rng), distScale(rng), distScale(rng));
 
 	glm::mat4 mat = glm::mat4(1.0f);
 	mat = glm::translate(mat, position);
 	mat = glm::rotate(mat, rotation.x, glm::vec3(1, 0, 0));
 	mat = glm::rotate(mat, rotation.y, glm::vec3(0, 1, 0));
 	mat = glm::rotate(mat, rotation.z, glm::vec3(0, 0, 1));
-	mat = glm::scale(mat, scale);
 
 	return mat;
 }
@@ -133,8 +130,8 @@ namespace sandbox
 
 	void sandboxSystem::spawnSphere(entt::registry& registry, const engine::materialComponent& material, glm::mat4 transform, uint32_t meshUID)
 	{
-		const uint32_t X_SEGMENTS = 64;
-		const uint32_t Y_SEGMENTS = 32;
+		const uint32_t X_SEGMENTS = 256;
+		const uint32_t Y_SEGMENTS = 128;
 		std::vector<engine::vertex> vertices;
 		std::vector<uint32_t> indices;
 
@@ -149,22 +146,19 @@ namespace sandbox
 
 				glm::vec3 position = glm::vec3(xPos, yPos, zPos) * 0.5f;
 				glm::vec2 texCoord = glm::vec2(xSegment, ySegment);
-				glm::vec3 normal = normalize(position);
+				glm::vec3 normal = glm::normalize(position);
 
-				// Approx tangent direction in the "U" direction
-				glm::vec3 dpdu = glm::vec3(
-					-std::sin(xSegment * glm::two_pi<float>()) * std::sin(ySegment * glm::pi<float>()),
-					0.0f,
-					std::cos(xSegment * glm::two_pi<float>()) * std::sin(ySegment * glm::pi<float>())
-				);
+				glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+				if (std::abs(normal.y) > 0.99f)
+					up = glm::vec3(1.0f, 0.0f, 0.0f);
 
-				glm::vec3 tangent = normalize(dpdu);
+				glm::vec3 tangent = glm::normalize(glm::cross(up, normal));
 
 				vertices.push_back(engine::vertex{
 					.position = position,
 					.textureCoords = texCoord,
 					.normal = normal,
-					.tangent = tangent,
+					.tangent = tangent
 					});
 			}
 		}
@@ -194,7 +188,6 @@ namespace sandbox
 			std::make_shared<std::vector<uint32_t>>(std::move(indices)),
 			meshUID
 		);
-
 		registry.emplace<engine::materialComponent>(c, material);
 		registry.emplace<engine::transformComponent>(c, transform);
 	}
@@ -230,25 +223,69 @@ namespace sandbox
 		}
 
 		// spawn sphere.
-		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::o)
+		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::e)
 		{
 			static auto uid = engine::genUID();
 
-			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_albedo.png");
+			auto textureAlbedo = mCtx->mAmanager->loadTexture("../assets/textures/ribbed/rusty-ribbed-metal_albedo.png");
+			auto textureAO = mCtx->mAmanager->loadTexture("../assets/textures/ribbed/rusty-ribbed-metal_ao.png");
+			auto textureMetallic = mCtx->mAmanager->loadTexture("../assets/textures/ribbed/rusty-ribbed-metal_metallic.png");
+			auto textureNormal = mCtx->mAmanager->loadTexture("../assets/textures/ribbed/rusty-ribbed-metal_normal-ogl.png");
+			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/ribbed/rusty-ribbed-metal_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			texture.first->bind();
-			auto slotID = texture.first->getSlotID();
+			auto getSlotID = [&](std::shared_ptr<engine::texture> t) -> int {
+				t->bind();
+				return int(t->getSlotID());
+				};
 
-			spawnSphere(registry, engine::materialComponent{ 
-				texture.first, 
-				texture.first, 
-				texture.first, 
-				texture.first, 
-				texture.first, 
-				shader.first, 
+			spawnSphere(registry, engine::materialComponent{
+				textureAlbedo.first,
+				textureRoughness.first,
+				textureNormal.first,
+				textureMetallic.first,
+				textureAO.first,
+				shader.first,
 				{
-					{"uAlbedo", {int(slotID), 1}}
+					{ "uAlbedo", {getSlotID(textureAlbedo.first), 1} },
+					{ "uNormal", {getSlotID(textureNormal.first), 1} },
+					{ "uMetalic", {getSlotID(textureMetallic.first), 1} },
+					{ "uRoughness", {getSlotID(textureRoughness.first), 1} },
+					{ "uAO", {getSlotID(textureAO.first), 1} },
+				}
+				}, getRandomTransform(), uid);
+		}
+
+		// spawn rusted sphere.
+		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::p)
+		{
+			static auto uid = engine::genUID();
+
+			auto textureAlbedo = mCtx->mAmanager->loadTexture("../assets/textures/rusted-sphere/rustediron2_basecolor.png");
+			auto textureAO = mCtx->mAmanager->loadTexture("../assets/textures/rusted-sphere/rustediron2_ao.png");
+			auto textureMetallic = mCtx->mAmanager->loadTexture("../assets/textures/rusted-sphere/rustediron2_metallic.png");
+			auto textureNormal = mCtx->mAmanager->loadTexture("../assets/textures/rusted-sphere/rustediron2_normal.png");
+			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/rusted-sphere/rustediron2_roughness.png");
+			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
+
+			auto getSlotID = [&](std::shared_ptr<engine::texture> t) -> int {
+				t->bind();
+				return int(t->getSlotID());
+				};
+
+			spawnSphere(registry, engine::materialComponent{
+				textureAlbedo.first,
+				textureRoughness.first,
+				textureNormal.first,
+				textureMetallic.first,
+				textureAO.first,
+				shader.first,
+				{
+					{ "uAlbedo", {getSlotID(textureAlbedo.first), 1} },
+					{ "uNormal", {getSlotID(textureNormal.first), 1} },
+					{ "uMetalic", {getSlotID(textureMetallic.first), 1} },
+					{ "uRoughness", {getSlotID(textureRoughness.first), 1} },
+					{ "uAO", {getSlotID(textureAO.first), 1} },
 				}
 				}, getRandomTransform(), uid);
 		}
@@ -277,26 +314,36 @@ namespace sandbox
 				}, getRandomTransform(), uid);
 		}
 
-		// spawn wood cube.
+		// spawn pirate cube.
 		if (e->getEventType() == engine::eventType::keyUp && static_cast<engine::keyUpEvent*>(e.get())->getKey() == engine::key::t)
 		{
 			static auto uid = engine::genUID();
 
-			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/wood.jpg");
+			auto textureAlbedo = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_albedo.png");
+			auto textureAO = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_ao.png");
+			auto textureMetallic = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_metallic.png");
+			auto textureNormal = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_normal-ogl.png");
+			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			texture.first->bind();
-			auto slotID = texture.first->getSlotID();
+			auto getSlotID = [&](std::shared_ptr<engine::texture> t) -> int {
+				t->bind();
+				return int(t->getSlotID());
+				};
 
 			spawnCube(registry, engine::materialComponent{
-				texture.first,
-				texture.first,
-				texture.first,
-				texture.first,
-				texture.first,
+				textureAlbedo.first,
+				textureRoughness.first,
+				textureNormal.first,
+				textureMetallic.first,
+				textureAO.first,
 				shader.first,
 				{
-					{"uAlbedo", {int(slotID), 1}}
+					{ "uAlbedo", {getSlotID(textureAlbedo.first), 1} },
+					{ "uNormal", {getSlotID(textureNormal.first), 1} },
+					{ "uMetalic", {getSlotID(textureMetallic.first), 1} },
+					{ "uRoughness", {getSlotID(textureRoughness.first), 1} },
+					{ "uAO", {getSlotID(textureAO.first), 1} },
 				}
 				},
 				getRandomTransform(), uid);

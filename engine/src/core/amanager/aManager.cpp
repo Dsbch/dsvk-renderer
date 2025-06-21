@@ -49,7 +49,7 @@ namespace engine
 			return cachedTexure;
 
 		int width, height, nrChannels;
-		uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+		uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 3);
 		if (!data)
 		{
 			return { {}, {"can't load texture"} };

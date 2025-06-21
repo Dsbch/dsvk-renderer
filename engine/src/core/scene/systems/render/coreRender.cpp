@@ -574,7 +574,7 @@ namespace engine
 				LOGERROR("can't set uniform: {}", err.err());
 			}
 
-			err = material.shader->setUniformType("uViewPos", camera.getPosition(), 1);
+			err = material.shader->setUniformType("uCameraPos", camera.getPosition(), 1);
 			if (err)
 			{
 				LOGERROR("can't set uniform: {}", err.err());
