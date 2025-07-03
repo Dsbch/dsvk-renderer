@@ -582,16 +582,32 @@ namespace engine
 
 			if (auto data = mData.find(material.hash()); data != mData.end())
 			{
-				for (auto& unifromData : material.shaderUniforms)
+				for (auto& uniformData : material.shaderUniforms)
 				{
 					std::visit([&](auto&& var)
 						{
-							error err = material.shader->setUniformType(unifromData.first, var, unifromData.second.second);
-							if (err)
+							using T = std::decay_t<decltype(var)>;
+
+							if constexpr (std::is_same_v<T, std::function<float()>> ||
+								std::is_same_v<T, std::function<uint32_t()>> ||
+								std::is_same_v<T, std::function<int()>> ||
+								std::is_same_v<T, std::function<double()>> ||
+								std::is_same_v<T, std::function<glm::mat4()>> ||
+								std::is_same_v<T, std::function<glm::vec3()>>)
 							{
-								LOGERROR("can't set uniform: {}", err.err());
+								 auto result = var();
+								 material.shader->setUniformType(uniformData.first, result, uniformData.second.second);
 							}
-						}, unifromData.second.first);
+							else
+							{
+								error err = material.shader->setUniformType(uniformData.first, var, uniformData.second.second);
+								if (err)
+								{
+									LOGERROR("can't set uniform: {}", err.err());
+								}
+							}
+
+						}, uniformData.second.first);
 				}
 
 				renderer->render(

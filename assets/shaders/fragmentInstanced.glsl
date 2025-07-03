@@ -80,8 +80,8 @@ float geometrySmith(vec3 n, vec3 v, vec3 l, float roughness)
 }
 
 // here I decided to hardCode lightPositions and lightColors for now.
-// keep in mind that they should be in tangent space!
-// TODO: add them to vsOUT and figure out how to do it dynamicly.
+// keep in mind that they should be in tangent space! Right now space doesn't matter because it point lights.
+// TODO: add them as uniforms and figure out how to do it dynamicly.
 const vec3 lightPositions[3] = vec3[](
     vec3(0.0,  0.0, 0.0),
     vec3(5.0, 0.0, 0.0),
@@ -125,7 +125,8 @@ void main()
         vec3 f    = fresnelSchlick(max(dot(halfway, fromFragmentToCamera), 0.0), baseReflectivity(albedo, metallic));
 
         vec3 numerator    = d * f * g; 
-        float denominator = 4.0 * max(dot(normal, fromFragmentToCamera), 0.0) * max(dot(normal, fromFragmentToLight), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
+        float denominator = 4.0 * max(dot(normal, fromFragmentToCamera), 0.0) * max(dot(normal, fromFragmentToLight), 0.0) + 0.0001; 
+        // + 0.0001 to prevent divide by zero
         vec3 specular = numerator / denominator;
 
         // kS is equal to Fresnel

@@ -234,9 +234,29 @@ namespace sandbox
 			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/ribbed/rusty-ribbed-metal_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			auto getSlotID = [&](std::shared_ptr<engine::texture> t) -> int {
-				t->bind();
-				return int(t->getSlotID());
+			std::function<int()> albedo = [tex = textureAlbedo.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> normal = [tex = textureNormal.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> metallic = [tex = textureMetallic.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> roughness = [tex = textureRoughness.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> ao = [tex = textureAO.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
 				};
 
 			spawnSphere(registry, engine::materialComponent{
@@ -247,11 +267,11 @@ namespace sandbox
 				textureAO.first,
 				shader.first,
 				{
-					{ "uAlbedo", {getSlotID(textureAlbedo.first), 1} },
-					{ "uNormal", {getSlotID(textureNormal.first), 1} },
-					{ "uMetalic", {getSlotID(textureMetallic.first), 1} },
-					{ "uRoughness", {getSlotID(textureRoughness.first), 1} },
-					{ "uAO", {getSlotID(textureAO.first), 1} },
+					{ "uAO",		{ao, 1}			},
+					{ "uAlbedo",	{albedo, 1}		},
+					{ "uNormal",	{normal, 1}		},
+					{ "uMetalic",	{metallic, 1}	},
+					{ "uRoughness", {roughness, 1}	},
 				}
 				}, getRandomTransform(), uid);
 		}
@@ -268,9 +288,29 @@ namespace sandbox
 			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/rusted-sphere/rustediron2_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			auto getSlotID = [&](std::shared_ptr<engine::texture> t) -> int {
-				t->bind();
-				return int(t->getSlotID());
+			std::function<int()> albedo = [tex = textureAlbedo.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> normal = [tex = textureNormal.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> metallic = [tex = textureMetallic.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> roughness = [tex = textureRoughness.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> ao = [tex = textureAO.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
 				};
 
 			spawnSphere(registry, engine::materialComponent{
@@ -281,11 +321,11 @@ namespace sandbox
 				textureAO.first,
 				shader.first,
 				{
-					{ "uAlbedo", {getSlotID(textureAlbedo.first), 1} },
-					{ "uNormal", {getSlotID(textureNormal.first), 1} },
-					{ "uMetalic", {getSlotID(textureMetallic.first), 1} },
-					{ "uRoughness", {getSlotID(textureRoughness.first), 1} },
-					{ "uAO", {getSlotID(textureAO.first), 1} },
+					{ "uAO",		{ao, 1}			},
+					{ "uAlbedo",	{albedo, 1}		},
+					{ "uNormal",	{normal, 1}		},
+					{ "uMetalic",	{metallic, 1}	},
+					{ "uRoughness", {roughness, 1}	},
 				}
 				}, getRandomTransform(), uid);
 		}
@@ -326,24 +366,45 @@ namespace sandbox
 			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			auto getSlotID = [&](std::shared_ptr<engine::texture> t) -> int {
-				t->bind();
-				return int(t->getSlotID());
+			std::function<int()> albedo = [tex = textureAlbedo.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
 				};
+
+			std::function<int()> normal = [tex = textureNormal.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> metallic = [tex = textureMetallic.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> roughness = [tex = textureRoughness.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
+			std::function<int()> ao = [tex = textureAO.first]() -> int {
+				tex->bind();
+				return int(tex->getSlotID());
+				};
+
 
 			spawnCube(registry, engine::materialComponent{
 				textureAlbedo.first,
 				textureRoughness.first,
 				textureNormal.first,
 				textureMetallic.first,
-				textureAO.first,
+				textureMetallic.first,
 				shader.first,
 				{
-					{ "uAlbedo", {getSlotID(textureAlbedo.first), 1} },
-					{ "uNormal", {getSlotID(textureNormal.first), 1} },
-					{ "uMetalic", {getSlotID(textureMetallic.first), 1} },
-					{ "uRoughness", {getSlotID(textureRoughness.first), 1} },
-					{ "uAO", {getSlotID(textureAO.first), 1} },
+					{ "uAO",		{ao, 1}			},
+					{ "uAlbedo",	{albedo, 1}		},
+					{ "uNormal",	{normal, 1}		},
+					{ "uMetalic",	{metallic, 1}	},
+					{ "uRoughness", {roughness, 1}	},
 				}
 				},
 				getRandomTransform(), uid);

@@ -65,7 +65,7 @@ namespace engine
 
 	struct materialComponent
 	{
-		typedef std::map<std::string, std::pair<std::variant<float, uint32_t, int, double, glm::mat4, glm::vec3>, uint32_t>> shaderUniformMap;
+		typedef std::map<std::string, std::pair<std::variant<float, uint32_t, int, double, glm::mat4, glm::vec3, std::function<float()>, std::function<uint32_t()>, std::function<int()>, std::function<double()>, std::function<glm::mat4()>, std::function<glm::vec3()>>, uint32_t>> shaderUniformMap;
 
 		std::shared_ptr<shaderProgram> shader;
 		std::shared_ptr<texture> albedoTexture;
@@ -96,7 +96,20 @@ namespace engine
 				hashCombine(seed, std::hash<std::string>{}(name));
 
 				std::visit([&](const auto& v) {
-					hashCombine(seed, std::hash<std::decay_t<decltype(v)>>{}(v));
+					using T = std::decay_t<decltype(v)>;
+
+					if constexpr (std::is_same_v<T, std::function<float()>> ||
+						std::is_same_v<T, std::function<uint32_t()>> ||
+						std::is_same_v<T, std::function<int()>> ||
+						std::is_same_v<T, std::function<double()>> ||
+						std::is_same_v<T, std::function<glm::mat4()>> ||
+						std::is_same_v<T, std::function<glm::vec3()>>) {
+						// Ignore or hash result of the function call (if deterministic)
+						hashCombine(seed, 1337); // Dummy constant
+					}
+					else {
+						hashCombine(seed, std::hash<T>{}(v));
+					}
 					}, value);
 			}
 
