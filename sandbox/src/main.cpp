@@ -2,10 +2,9 @@
 
 int main(int argc, char* argv[])
 {
-	auto ctx = std::make_shared<engine::context>(engine::cfg<engine::main>{});
-
 	try
 	{
+		auto ctx = std::make_shared<engine::context>(engine::cfg<engine::main>{});
 		std::unique_ptr<engine::window> window = nullptr;
 
 		engine::cond cv;
