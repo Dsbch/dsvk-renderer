@@ -53,12 +53,17 @@ namespace engine {
 			};
 		}
 #endif // OPENGL
+
+#ifdef VULKAN
+		return {};
+#endif // VULKAN
+
 	}
 
 	std::vector<attributesDescriber::attributeInfo> instancedAttrDescriber::info() const
 	{
-		return {
 #ifdef OPENGL
+		return {
 			// Model matrix.
 			// for some reason opengl can't have mat4 attribute, max size of vertex attribute is vec4 :(.
 			{
@@ -97,7 +102,11 @@ namespace engine {
 				false,
 				true,
 			},
-#endif // OPENGL
 		};
+#endif // OPENGL
+
+#ifdef VULKAN
+		return {};
+#endif // VULKAN
 	}
 }

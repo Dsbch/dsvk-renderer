@@ -46,6 +46,13 @@ project "engine"
       "src/**.h",
    }
 
+   if _OPTIONS["gfxapi"] == "vulkan" then
+      removefiles {
+         "src/platform/renderer/opengl/**.cpp",
+         "src/platform/renderer/opengl/**.h"
+      }
+   end
+
    links
    {
       "spdlog",

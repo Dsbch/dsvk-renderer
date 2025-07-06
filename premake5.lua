@@ -44,8 +44,11 @@ workspace "dsengine"
       startproject "editor"
 
    include "engine/engine.lua"
-   include "vendor/spdlog.lua"
-   include "vendor/glad.lua"
+   include "vendor/spdlog.lua"   
    include "vendor/glm.lua"
    include "editor/editor.lua"
    include "sandbox/sandbox.lua"
+   
+   if _OPTIONS["gfxapi"] == "opengl" then
+      include "vendor/glad.lua"
+   end

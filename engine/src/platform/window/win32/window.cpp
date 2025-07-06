@@ -195,6 +195,7 @@ namespace engine
 	{
 		if (mHrc)                                            // Do We Have A Rendering Context?
 		{
+#ifdef OPENGL
 			if (!wglMakeCurrent(NULL, NULL))                 // Are We Able To Release The DC And RC Contexts?
 			{
 				logLastError("can't release opengl context");
@@ -204,6 +205,7 @@ namespace engine
 			{
 				logLastError("can't release rendering context");
 			}
+#endif // OPENGL
 		}
 
 		if (mHWnd)
@@ -221,6 +223,7 @@ namespace engine
 
 	engine::error winApiWindow::makeOpenglContext()
 	{
+#ifdef OPENGL
 		PIXELFORMATDESCRIPTOR pfd =
 		{
 			sizeof(PIXELFORMATDESCRIPTOR),
@@ -301,6 +304,7 @@ namespace engine
 		if (!wglMakeCurrent(mHdc, mHrc))
 			return { "error on wglMakeCurrent call" };
 #endif
+#endif // OPENGL
 
 		return {};
 	}
