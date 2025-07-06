@@ -11,6 +11,11 @@ project "engine"
          libdirs { os.getenv("VK_SDK_PATH") .. "/Lib" }
          includedirs { os.getenv("VK_SDK_PATH") .. "/Include" }
          links       { "vulkan-1" }
+
+         includedirs { "../vendor/vk-bootstrap/src" }
+         links       { "vk-bootstrap" }
+
+         includedirs { "../vendor/vkma/include" }
       else
          error("VK_SDK_PATH environment variable is not set, install vulkanSDK or add VK_SDK_PATH to ENV.")
       end

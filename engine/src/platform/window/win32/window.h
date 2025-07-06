@@ -53,5 +53,7 @@ namespace engine
 		engine::error makeOpenglContext();
 		void pollInput();
 		bool isKeyPressed(key);
+
+		HWND getHandle();
 	};
 }

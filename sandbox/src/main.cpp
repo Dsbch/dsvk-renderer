@@ -1,5 +1,5 @@
 #include <platform/window/windowFactory.h>
-
+#include <application/application.h>
 int main(int argc, char* argv[])
 {
 	try
@@ -26,6 +26,8 @@ int main(int argc, char* argv[])
 			LOGERROR("wnd err: {}", err.err());
 
 		LOGINFO("window created");
+		
+		engine::testVulkanAllocator(static_cast<engine::winApiWindow*>(window.get())->getHandle());
 
 		std::this_thread::sleep_for(std::chrono::seconds(2));
 

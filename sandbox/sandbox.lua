@@ -44,7 +44,6 @@ project "sandbox"
     "FatalWarnings",
    }
 
-
    filter "system:windows"
        systemversion "latest"
        defines { }

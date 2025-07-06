@@ -336,6 +336,11 @@ namespace engine
 		return mKeyDown.find(k) != mKeyDown.end();
 	}
 
+	HWND winApiWindow::getHandle()
+	{
+		return mHWnd;
+	}
+
 	void winApiWindow::startPolling()
 	{
 		MSG msg{};
