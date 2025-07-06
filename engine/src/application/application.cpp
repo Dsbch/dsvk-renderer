@@ -57,7 +57,7 @@ namespace engine
 		return mWindow->makeOpenglContext();
 #endif // OPENGL
 #ifdef VULKAN
-		// TODO ADD IMPLEMENTATION.
+		return {};
 #endif // VULKAN
 	}
 

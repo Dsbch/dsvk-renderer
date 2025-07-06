@@ -1,10 +1,13 @@
 #include <pch.h>
 #include "vertex.h"
+#ifdef OPENGL
 #include <glad/glad.h>
+#endif // OPENGL
 
 namespace engine {
 	std::vector<attributesDescriber::attributeInfo> vertexDescriber::info() const
 	{
+#ifdef OPENGL
 		{
 			return {
 				// position.
@@ -49,6 +52,7 @@ namespace engine {
 				},
 			};
 		}
+#endif // OPENGL
 	}
 
 	std::vector<attributesDescriber::attributeInfo> instancedAttrDescriber::info() const

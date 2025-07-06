@@ -5,12 +5,6 @@ project "engine"
    cppdialect "C++20"
 
    filter { "options:gfxapi=vulkan" }
-   -- lines below only for development, remove them!!!
-      defines { "OPENGL" }   
-      links { "opengl32" }      
-      includedirs { "../vendor/glad/include" }
-      linkoptions { "/IGNORE:4006" }
-   -- end
       defines { "VULKAN" }
       local vulkanSDK = os.getenv("VK_SDK_PATH")
       if vulkanSDK then

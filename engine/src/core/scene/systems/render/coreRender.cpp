@@ -69,10 +69,10 @@ namespace engine
 		auto freeSizeEBO = renderData.EBO->getSize() - renderData.EBO->getLoadedSize();
 		if (freeSizeEBO < ebo.size() * sizeof(uint32_t))
 		{
-			auto ptr = new openglDynamicArrayObject{
+			auto ptr = rendererFactory::createDynamicArrayObject(
 				newMeshLen(renderData.EBO->getSize() / sizeof(uint32_t), ebo.size()) * sizeof(uint32_t),
 				nullptr
-			};
+			);
 
 			ptr->updateData(
 				0,
@@ -84,22 +84,23 @@ namespace engine
 				renderData.EBO->getLoadedSize()
 			);
 
-			renderData.EBO.reset(ptr);
+			renderData.EBO = std::move(ptr);
 		}
 
 		if (renderData.freeSlots.empty())
 		{
-			size_t newMeshesPerMat = size_t(renderData.meshesPerMaterial * 2);
+			size_t newPerMeshMat = size_t(renderData.meshesPerMaterial * 2);
 
-			for (size_t i = renderData.meshesPerMaterial; i < newMeshesPerMat; i++)
+			for (size_t i = renderData.meshesPerMaterial; i < newPerMeshMat; i++)
 			{
 				renderData.freeSlots.push(i);
 			}
 
-			renderData.meshesPerMaterial = newMeshesPerMat;
+			renderData.meshesPerMaterial = newPerMeshMat;
 			auto ptr = rendererFactory::createDynamicArrayObject(size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes)), nullptr);
+			
 			ptr->setLoadedSize(
-				size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes))
+				renderData.instanceBuffer->getLoadedSize()
 			);
 
 			ptr->updateData(
@@ -108,6 +109,8 @@ namespace engine
 				renderData.instanceBuffer->getLoadedSize() / sizeof(instanceAttributes),
 				renderData.instanceBuffer->getPtr()
 			);
+
+			renderData.instanceBuffer = std::move(ptr);
 		}
 
 		auto freeSizeInstanceBuffer = renderData.instancesPerMesh - renderData.instanceBufferIndex.size();
