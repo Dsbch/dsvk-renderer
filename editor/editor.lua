@@ -4,6 +4,14 @@ project "editor"
    architecture "x64"
    cppdialect "C++20"
    
+   filter { "options:gfxapi=vulkan" }
+      defines { "VULKAN" }
+   
+   filter { "options:gfxapi=opengl" }
+      defines { "OPENGL" }   
+   
+   filter { "options:osio=winapi" }
+      defines { "WIN32API" }
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")

@@ -7,6 +7,15 @@ project "sandbox"
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
 
+   filter { "options:gfxapi=vulkan" }
+      defines { "VULKAN" }
+   
+   filter { "options:gfxapi=opengl" }
+      defines { "OPENGL" }   
+   
+   filter { "options:osio=winapi" }
+      defines { "WIN32API" }
+
    files
    {
       "src/**.cpp",

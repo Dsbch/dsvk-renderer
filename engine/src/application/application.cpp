@@ -11,6 +11,12 @@ namespace engine
 
 	error application::checkError()
 	{
+		if (auto err = mWindow->checkError(); err)
+			return err;
+
+		if (auto err = mLayerStack->checkError(); err)
+			return err;
+
 		return mErr;
 	}
 

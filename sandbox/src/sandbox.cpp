@@ -489,7 +489,7 @@ namespace sandbox
 
 	sandbox::sandbox() : engine::application()
 	{
-		if (mErr) return;
+		if (auto err = checkError(); err) return;
 		pushOverlay(std::make_unique<sandboxLayer>(mCtx));
 	}
 }

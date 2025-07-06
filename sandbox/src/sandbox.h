@@ -35,7 +35,8 @@ namespace sandbox
         engine::error checkError() const;
     };
 
-    class sandbox : public engine::application {
+    class sandbox : public engine::application 
+    {
     public:
         sandbox();
     };
