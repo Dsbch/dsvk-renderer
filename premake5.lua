@@ -6,10 +6,9 @@ workspace "dsengine"
       trigger     = "gfxapi",
       value       = "API",
       description = "Choose a particular 3D API for rendering",
-      default     = "opengl",
+      default     = "vulkan",
       category    = "Build Options",
       allowed = {
-         { "opengl" },
          { "vulkan" },
       }
    }
@@ -48,7 +47,3 @@ workspace "dsengine"
    include "vendor/glm.lua"
    include "editor/editor.lua"
    include "sandbox/sandbox.lua"
-   
-   if _OPTIONS["gfxapi"] == "opengl" then
-      include "vendor/glad.lua"
-   end

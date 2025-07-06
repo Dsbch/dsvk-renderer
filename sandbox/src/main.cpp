@@ -22,11 +22,14 @@ int main(int argc, char* argv[])
 
 		cv.wait([&] { return window.get(); });
 
-		window->checkError();
+		if (auto err = window->checkError(); err)
+			LOGERROR("wnd err: {}", err.err());
 
 		LOGINFO("window created");
 
-		std::this_thread::sleep_for(std::chrono::seconds(10));
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+
+		LOGINFO("exiting");
 	}
 	catch (const std::exception& exc)
 	{

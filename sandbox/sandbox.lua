@@ -10,9 +10,6 @@ project "sandbox"
    filter { "options:gfxapi=vulkan" }
       defines { "VULKAN" }
    
-   filter { "options:gfxapi=opengl" }
-      defines { "OPENGL" }   
-   
    filter { "options:osio=winapi" }
       defines { "WIN32API" }
 

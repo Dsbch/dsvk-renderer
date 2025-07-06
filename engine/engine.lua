@@ -15,11 +15,6 @@ project "engine"
          error("VK_SDK_PATH environment variable is not set, install vulkanSDK or add VK_SDK_PATH to ENV.")
       end
 
-   filter { "options:gfxapi=opengl" }
-      defines { "OPENGL" }   
-      includedirs { "../vendor/glad/include" }
-      links { "opengl32", "glad" }      
-
    filter { "options:osio=winapi" }
       defines { "WIN32API" }
 
@@ -45,13 +40,6 @@ project "engine"
       "src/**.cpp",
       "src/**.h",
    }
-
-   if _OPTIONS["gfxapi"] == "vulkan" then
-      removefiles {
-         "src/platform/renderer/opengl/**.cpp",
-         "src/platform/renderer/opengl/**.h"
-      }
-   end
 
    links
    {

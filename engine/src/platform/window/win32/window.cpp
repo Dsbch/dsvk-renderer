@@ -210,7 +210,8 @@ namespace engine
 
 		if (mHWnd)
 		{
-			PostMessage(mHWnd, WM_CLOSE, 0, 0);
+			if(!PostMessage(mHWnd, WM_CLOSE, 0, 0))
+				logLastError("can't close window in destructor");
 		}
 
 		mCtx->mEventDispatcher->queueEvent(std::make_shared<closeEvent>());
@@ -340,7 +341,15 @@ namespace engine
 		MSG msg{};
 		while (GetMessage(&msg, NULL, 0, 0) > 0)
 		{
-			if (GetForegroundWindow() == mHWnd) {
+			if (msg.message == WM_CLOSE || msg.message == WM_DESTROY || msg.message == WM_QUIT)
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+				continue;
+			}
+
+			if (GetForegroundWindow() == mHWnd)
+			{
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
