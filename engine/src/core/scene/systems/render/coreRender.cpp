@@ -100,7 +100,7 @@ namespace engine
 			auto ptr = rendererFactory::createDynamicArrayObject(size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes)), nullptr);
 			
 			ptr->setLoadedSize(
-				renderData.instanceBuffer->getLoadedSize()
+				size_t(renderData.meshesPerMaterial * renderData.instancesPerMesh * sizeof(instanceAttributes))
 			);
 
 			ptr->updateData(
