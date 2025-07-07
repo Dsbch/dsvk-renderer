@@ -36,9 +36,7 @@ namespace engine
 		std::queue<std::shared_ptr<baseEvent>> mEventQueue;
 
 		std::string mApplicationName;
-		HDC mHdc;
 		HWND mHWnd;
-		HGLRC mHrc;
 	public:
 		winApiWindow(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor);
 
@@ -50,10 +48,14 @@ namespace engine
 		void toggleCursor();
 		engine::error checkError();
 		void startPolling();
-		engine::error makeOpenglContext();
+		engine::error makeRenderingContext();
 		void pollInput();
 		bool isKeyPressed(key);
 
 		HWND getHandle();
+		HINSTANCE getInstance() const;
+
+		uint32_t getWidth() const;
+		uint32_t getHeight() const;
 	};
 }

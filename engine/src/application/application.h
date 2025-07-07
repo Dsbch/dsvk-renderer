@@ -6,8 +6,6 @@
 
 namespace engine
 {
-	void testVulkanAllocator(HWND hwnd);
-
 	class window;
 	class layerStack;
 	class layer;

@@ -1,5 +1,5 @@
-#include <platform/window/windowFactory.h>
-#include <application/application.h>
+#include <platform/renderer/vulkan/vulkanTests.h>
+
 int main(int argc, char* argv[])
 {
 	try
@@ -7,31 +7,14 @@ int main(int argc, char* argv[])
 		auto ctx = std::make_shared<engine::context>(engine::cfg<engine::main>{});
 		std::unique_ptr<engine::window> window = nullptr;
 
-		engine::cond cv;
-		ctx->mThreadPool->start(
-			[&]() -> void {
-				window = engine::windowFactory::createWindow(ctx, ctx->config.inner.wnd.name, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height, ctx->config.inner.wnd.isFullscreen, ctx->config.inner.app.name, ctx->config.inner.wnd.showCursor);
-				if (auto err = window->checkError(); err)
-					return;
+		auto testApp = vktest::vulkanTest(ctx);
+		if (auto err = testApp.checkError(); err)
+		{
+			LOGERROR(err.err());
+			return 0;
+		}
 
-				cv.notifyOne();
-
-				window->startPolling();
-			}
-		);
-
-		cv.wait([&] { return window.get(); });
-
-		if (auto err = window->checkError(); err)
-			LOGERROR("wnd err: {}", err.err());
-
-		LOGINFO("window created");
-		
-		engine::testVulkanAllocator(static_cast<engine::winApiWindow*>(window.get())->getHandle());
-
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-
-		LOGINFO("exiting");
+		testApp.run();
 	}
 	catch (const std::exception& exc)
 	{

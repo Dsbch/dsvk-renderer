@@ -177,7 +177,7 @@ namespace engine
 	}
 
 	winApiWindow::winApiWindow(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor)
-		: window(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd(), mHdc(), mHrc()
+		: window(ctx, name, width, heigth, isFullscreen, showCursor), mApplicationName(applicationName), mHWnd()
 	{
 		PROFILE_FUNC();
 
@@ -193,25 +193,9 @@ namespace engine
 
 	winApiWindow::~winApiWindow()
 	{
-		if (mHrc)                                            // Do We Have A Rendering Context?
-		{
-#ifdef OPENGL
-			if (!wglMakeCurrent(NULL, NULL))                 // Are We Able To Release The DC And RC Contexts?
-			{
-				logLastError("can't release opengl context");
-			}
-
-			if (!wglDeleteContext(mHrc))                     // Are We Able To Delete The RC?
-			{
-				logLastError("can't release rendering context");
-			}
-#endif // OPENGL
-		}
-
 		if (mHWnd)
 		{
-			if(!PostMessage(mHWnd, WM_CLOSE, 0, 0))
-				logLastError("can't close window in destructor");
+			PostMessage(mHWnd, WM_CLOSE, 0, 0);
 		}
 
 		mCtx->mEventDispatcher->queueEvent(std::make_shared<closeEvent>());
@@ -222,90 +206,11 @@ namespace engine
 		}
 	}
 
-	engine::error winApiWindow::makeOpenglContext()
+	engine::error winApiWindow::makeRenderingContext()
 	{
-#ifdef OPENGL
-		PIXELFORMATDESCRIPTOR pfd =
-		{
-			sizeof(PIXELFORMATDESCRIPTOR),
-			1,
-			PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-			PFD_TYPE_RGBA,
-			32,
-			0,0,0,0,0,0,
-			0,
-			0,
-			0,
-			0,0,0,0,
-			16,
-			0,
-			0,
-			PFD_MAIN_PLANE,
-			0,
-			0,0,0
-		};
-
-		if (!(mHdc = GetDC(mHWnd)))
-			return { "error on GetDC call" };
-
-		int pixelFormat = ChoosePixelFormat(mHdc, &pfd);
-		if (!pixelFormat)
-			return { "error on ChoosePixelFormat call" };
-
-		if (!SetPixelFormat(mHdc, pixelFormat, &pfd))
-			return { "error on SetPixelFormat call" };
-
-#ifdef DEBUG
-		// Create temporary context to load wglCreateContextAttribsARB
-		HGLRC tempContext = wglCreateContext(mHdc);
-		if (!tempContext)
-			return { "error on wglCreateContext creation (temp)" };
-
-		if (!wglMakeCurrent(mHdc, tempContext))
-			return { "error on wglMakeCurrent (temp context)" };
-
-		// Load pointer to wglCreateContextAttribsARB
-		auto wglCreateContextAttribsARB =
-			(PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
-		if (!wglCreateContextAttribsARB)
-		{
-			wglMakeCurrent(nullptr, nullptr);
-			wglDeleteContext(tempContext);
-			return { "wglCreateContextAttribsARB not supported" };
-		}
-
-		// Attributes for OpenGL 4.6 core debug context
-		int attribs[] =
-		{
-			WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-			WGL_CONTEXT_MINOR_VERSION_ARB, 6,
-			WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
-			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-			0
-		};
-
-		mHrc = wglCreateContextAttribsARB(mHdc, 0, attribs);
-
-		// Delete temporary context and release it
-		wglMakeCurrent(nullptr, nullptr);
-		wglDeleteContext(tempContext);
-
-		if (!mHrc)
-			return { "Failed to create OpenGL debug context" };
-
-		if (!wglMakeCurrent(mHdc, mHrc))
-			return { "Failed to make debug context current" };
-
-#else // DEBUG
-		// Normal context creation
-		mHrc = wglCreateContext(mHdc);
-		if (!mHrc)
-			return { "error on wglCreateContext call" };
-
-		if (!wglMakeCurrent(mHdc, mHrc))
-			return { "error on wglMakeCurrent call" };
-#endif
-#endif // OPENGL
+#ifdef VULKAN
+		// TODO: add vulkan context creation.
+#endif // VULKAN
 
 		return {};
 	}
@@ -341,6 +246,21 @@ namespace engine
 		return mHWnd;
 	}
 
+	HINSTANCE winApiWindow::getInstance() const
+	{
+		return getThisModuleHandle();
+	}
+
+	uint32_t winApiWindow::getWidth() const
+	{
+		return mWidth;
+	}
+
+	uint32_t winApiWindow::getHeight() const
+	{
+		return mHeight;
+	}
+
 	void winApiWindow::startPolling()
 	{
 		MSG msg{};
@@ -363,7 +283,6 @@ namespace engine
 
 	void winApiWindow::swapBuffers() const
 	{
-		SwapBuffers(mHdc);
 	}
 
 	engine::error winApiWindow::checkError()

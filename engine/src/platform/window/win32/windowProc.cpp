@@ -106,6 +106,10 @@ namespace engine
 		if (message == WM_SIZE)
 		{
 			winApiInst->mCtx->mEventDispatcher->queueEvent(std::make_shared<windowResizeEvent>(LOWORD(lParam), HIWORD(lParam)));
+
+			winApiInst->mHeight = (HIWORD(lParam));
+			winApiInst->mWidth = (LOWORD(lParam));
+
 			return true;
 		}
 

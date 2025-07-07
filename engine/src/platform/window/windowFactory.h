@@ -1,7 +1,7 @@
 #pragma once
 
 #include <pch.h>
-#include "win32/window.h"
+#include "window.h"
 
 namespace engine
 {
@@ -16,11 +16,6 @@ namespace engine
 			bool isFullscreen,
 			const std::string& applicationName,
 			bool showCursor
-		)
-		{
-#ifdef WIN32API
-			return std::make_unique<winApiWindow>(ctx, name, width, heigth, isFullscreen, applicationName, showCursor);
-#endif // WIN32API
-		}
+		);
 	};
 }

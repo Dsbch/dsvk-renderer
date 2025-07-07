@@ -5,12 +5,6 @@
 #include "platform/window/window.h"
 #include "platform/window/windowFactory.h"
 
-#define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
-#include <VkBootstrap.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_win32.h>
-
 namespace engine
 {
 	application* application::app = nullptr;
@@ -65,12 +59,7 @@ namespace engine
 
 		cv.wait([&] {return mWindow.get(); });
 
-#ifdef OPENGL
-		return mWindow->makeOpenglContext();
-#endif // OPENGL
-#ifdef VULKAN
 		return {};
-#endif // VULKAN
 	}
 
 	error application::createLayerStack()
@@ -171,95 +160,4 @@ namespace engine
 			onRender(nextRender, renderShift);
 		}
 	}
-
-	void testVulkanAllocator(HWND hwnd)
-	{
-		vkb::InstanceBuilder builder;
-		auto inst_ret = builder
-			.set_app_name("Test")
-			.request_validation_layers()
-			.require_api_version(1, 1, 0)
-			.build();
-
-		if (!inst_ret) {
-			LOGERROR("Failed to create Vulkan instance: {}", inst_ret.error().message());
-			return;
-		}
-
-		vkb::Instance vkb_inst = inst_ret.value();
-		VkInstance instance = vkb_inst.instance;
-
-		VkWin32SurfaceCreateInfoKHR surface_info{};
-		surface_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-		surface_info.hwnd = hwnd;
-		surface_info.hinstance = GetModuleHandle(NULL);
-
-		VkSurfaceKHR surface = VK_NULL_HANDLE;
-		vkCreateWin32SurfaceKHR(instance, &surface_info, nullptr, &surface);
-
-		vkb::PhysicalDeviceSelector selector{ vkb_inst };
-		auto phys_ret = selector
-			.set_surface(surface) // <- IMPORTANT
-			.set_minimum_version(1, 1)
-			.select();
-
-		if (!phys_ret) {
-			LOGERROR("Failed to select physical device: {}", phys_ret.error().message());
-			return;
-		}
-
-		vkb::PhysicalDevice vkb_phys = phys_ret.value();
-
-		vkb::DeviceBuilder dev_builder{ vkb_phys };
-		auto dev_ret = dev_builder.build();
-
-		if (!dev_ret) {
-			LOGERROR("Failed to create logical device: {}", dev_ret.error().message());
-			return;
-		}
-
-		vkb::Device vkb_device = dev_ret.value();
-		VkDevice device = vkb_device.device;
-		VkPhysicalDevice phys_device = vkb_phys.physical_device;
-
-		// VMA
-		VmaAllocator allocator{};
-		VmaAllocatorCreateInfo allocator_info{};
-		allocator_info.physicalDevice = phys_device;
-		allocator_info.device = device;
-		allocator_info.instance = instance;
-
-		if (vmaCreateAllocator(&allocator_info, &allocator) != VK_SUCCESS) {
-			LOGERROR("Failed to create VMA allocator");
-			return;
-		}
-
-		// Create a test buffer
-		VkBuffer buffer{};
-		VmaAllocation allocation{};
-
-		VkBufferCreateInfo buffer_info{};
-		buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		buffer_info.size = 4096;
-		buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-		VmaAllocationCreateInfo alloc_create_info{};
-		alloc_create_info.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-
-		if (vmaCreateBuffer(allocator, &buffer_info, &alloc_create_info, &buffer, &allocation, nullptr) != VK_SUCCESS) {
-			LOGERROR("Failed to create buffer with VMA");
-			vmaDestroyAllocator(allocator);
-			return;
-		}
-
-		LOGINFO("Vulkan + VMA buffer created successfully");
-
-		// Cleanup
-		vmaDestroyBuffer(allocator, buffer, allocation);
-		vmaDestroyAllocator(allocator);
-		vkDestroyDevice(device, nullptr);
-		vkDestroySurfaceKHR(instance, surface, nullptr);
-		vkDestroyInstance(instance, nullptr);
-	}
-
 }
