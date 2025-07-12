@@ -7,7 +7,7 @@
 
 namespace vktest
 {
-	struct vulkanRenderer;
+	class vulkanRenderer;
 
 	class vulkanTest
 	{
