@@ -7,8 +7,135 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
 namespace vkinit
 {
+	bool load_shader_module(const char* filePath,
+		VkDevice device,
+		VkShaderModule* outShaderModule)
+	{
+		// open the file. With cursor at the end
+		std::ifstream file(filePath, std::ios::ate | std::ios::binary);
+
+		if (!file.is_open()) {
+			return false;
+		}
+
+		// find what the size of the file is by looking up the location of the cursor
+		// because the cursor is at the end, it gives the size directly in bytes
+		size_t fileSize = (size_t)file.tellg();
+
+		// spirv expects the buffer to be on uint32, so make sure to reserve a int
+		// vector big enough for the entire file
+		std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+		// put file cursor at beginning
+		file.seekg(0);
+
+		// load the entire file into the buffer
+		file.read((char*)buffer.data(), fileSize);
+
+		// now that the file is loaded into the buffer, we can close it
+		file.close();
+
+		// create a new shader module, using the buffer we loaded
+		VkShaderModuleCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.pNext = nullptr;
+
+		// codeSize has to be in bytes, so multply the ints in the buffer by size of
+		// int to know the real size of the buffer
+		createInfo.codeSize = buffer.size() * sizeof(uint32_t);
+		createInfo.pCode = buffer.data();
+
+		// check that the creation goes well.
+		VkShaderModule shaderModule;
+		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+			return false;
+		}
+		*outShaderModule = shaderModule;
+		return true;
+	}
+
+	void copy_image_to_image(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
+	{
+		VkImageBlit2 blitRegion{ .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr };
+
+		blitRegion.srcOffsets[1].x = srcSize.width;
+		blitRegion.srcOffsets[1].y = srcSize.height;
+		blitRegion.srcOffsets[1].z = 1;
+
+		blitRegion.dstOffsets[1].x = dstSize.width;
+		blitRegion.dstOffsets[1].y = dstSize.height;
+		blitRegion.dstOffsets[1].z = 1;
+
+		blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blitRegion.srcSubresource.baseArrayLayer = 0;
+		blitRegion.srcSubresource.layerCount = 1;
+		blitRegion.srcSubresource.mipLevel = 0;
+
+		blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blitRegion.dstSubresource.baseArrayLayer = 0;
+		blitRegion.dstSubresource.layerCount = 1;
+		blitRegion.dstSubresource.mipLevel = 0;
+
+		VkBlitImageInfo2 blitInfo{ .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, .pNext = nullptr };
+		blitInfo.dstImage = destination;
+		blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		blitInfo.srcImage = source;
+		blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		blitInfo.filter = VK_FILTER_LINEAR;
+		blitInfo.regionCount = 1;
+		blitInfo.pRegions = &blitRegion;
+
+		vkCmdBlitImage2(cmd, &blitInfo);
+	}
+
+	VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+	{
+		VkImageCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		info.pNext = nullptr;
+
+		info.imageType = VK_IMAGE_TYPE_2D;
+
+		info.format = format;
+		info.extent = extent;
+
+		info.mipLevels = 1;
+		info.arrayLayers = 1;
+
+		//for MSAA. we will not be using it by default, so default it to 1 sample per pixel.
+		info.samples = VK_SAMPLE_COUNT_1_BIT;
+
+		//optimal tiling, which means the image is stored on the best gpu format
+		info.tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.usage = usageFlags;
+
+		return info;
+	}
+
+	VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+	{
+		// build a image-view for the depth image to use for rendering
+		VkImageViewCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		info.pNext = nullptr;
+
+		info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		info.image = image;
+		info.format = format;
+		info.subresourceRange.baseMipLevel = 0;
+		info.subresourceRange.levelCount = 1;
+		info.subresourceRange.baseArrayLayer = 0;
+		info.subresourceRange.layerCount = 1;
+		info.subresourceRange.aspectMask = aspectFlags;
+
+		return info;
+	}
+
 	VkSemaphoreSubmitInfo semaphore_submit_info(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
 	{
 		VkSemaphoreSubmitInfo submitInfo{};
@@ -151,6 +278,64 @@ namespace vkinit
 // vulkan part.
 namespace vktest
 {
+	// to do rewrite from using std::function to concrete vulkan handles may be using std::variant?
+	struct deletionQueue
+	{
+		std::deque<std::function<void()>> deletors;
+
+		void push_function(std::function<void()>&& function)
+		{
+			deletors.push_back(function);
+		}
+
+		void flush()
+		{
+			for (auto it = deletors.rbegin(); it != deletors.rend(); it++)
+			{
+				(*it)();
+			}
+
+			deletors.clear();
+		}
+	};
+
+	struct DescriptorAllocator
+	{
+
+		struct PoolSizeRatio {
+			VkDescriptorType type;
+			float ratio;
+		};
+
+		VkDescriptorPool pool;
+
+		void init_pool(VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios);
+		void clear_descriptors(VkDevice device);
+		void destroy_pool(VkDevice device);
+
+		VkDescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout);
+	};
+
+	struct DescriptorLayoutBuilder
+	{
+
+		std::vector<VkDescriptorSetLayoutBinding> bindings;
+
+		void add_binding(uint32_t binding, VkDescriptorType type);
+		void clear();
+		VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+	};
+
+	struct AllocatedImage
+	{
+		VkImage image = VK_NULL_HANDLE;
+		VkImageView imageView = VK_NULL_HANDLE;
+		VmaAllocation allocation = VK_NULL_HANDLE;
+
+		VkExtent3D imageExtent;
+		VkFormat imageFormat;
+	};
+
 	constexpr unsigned int FRAME_OVERLAP = 2;
 
 	struct frameData
@@ -160,6 +345,8 @@ namespace vktest
 
 		VkCommandPool commandPool;
 		VkCommandBuffer mainCommandBuffer;
+
+		deletionQueue deleteQueue;
 	};
 
 	struct vulkanRenderer
@@ -176,10 +363,14 @@ namespace vktest
 		VkSurfaceKHR mSurface = VK_NULL_HANDLE;// Vulkan window surface
 		VkDebugUtilsMessengerEXT mDebugMessenger = VK_NULL_HANDLE;// Vulkan debug output handle
 		VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
+		AllocatedImage mDrawImage = {};
+		VkExtent2D mDrawExtent = {};
 		std::vector<VkImage> mSwapchainImages = {};
 		std::vector<VkImageView> mSwapchainImageViews = {};
 		std::unique_ptr<VkFormat> mSwapchainImageFormat = nullptr;
 		std::unique_ptr<VkExtent2D> mSwapchainExtent = nullptr;
+		deletionQueue mDeleteQueue = {};
+		VmaAllocator mAllocator = {};
 
 		frameData mFrames[FRAME_OVERLAP];
 
@@ -193,12 +384,26 @@ namespace vktest
 		void initVulkan(engine::winApiWindow* window);
 
 		void createSwapchain(uint32_t width, uint32_t height);
+		void createImage(uint32_t width, uint32_t height);
 		void destroySwapchain();
 
 		void initCommands();
 		void initSyncStructures();
-
+		void drawBackground(VkCommandBuffer cmd);
 		void draw();
+
+		DescriptorAllocator globalDescriptorAllocator;
+
+		VkDescriptorSet _drawImageDescriptors;
+		VkDescriptorSetLayout _drawImageDescriptorLayout;
+
+		void init_descriptors();
+
+		VkPipeline _gradientPipeline;
+		VkPipelineLayout _gradientPipelineLayout;
+
+		void init_pipelines();
+		void init_background_pipelines();
 	};
 
 	std::string vkResultToStr(VkResult result)
@@ -291,8 +496,54 @@ namespace vktest
 		mSwapchainImageViews = vkbSwapchain.value().get_image_views().value();
 	}
 
+	void vulkanRenderer::createImage(uint32_t width, uint32_t height)
+	{
+		VkExtent3D drawImageExtent = {
+			width,
+			height,
+			1
+		};
+
+		//hardcoding the draw format to 32 bit float
+		mDrawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+		mDrawImage.imageExtent = drawImageExtent;
+
+		VkImageUsageFlags drawImageUsages{};
+		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+		VkImageCreateInfo rimg_info = vkinit::image_create_info(mDrawImage.imageFormat, drawImageUsages, drawImageExtent);
+
+		//for the draw image, we want to allocate it from gpu local memory
+		VmaAllocationCreateInfo rimg_allocinfo = {};
+		rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		rimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		//allocate and create the image
+		vmaCreateImage(mAllocator, &rimg_info, &rimg_allocinfo, &mDrawImage.image, &mDrawImage.allocation, nullptr);
+
+		//build a image-view for the draw image to use for rendering
+		VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(mDrawImage.imageFormat, mDrawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+		VkResult result = vkCreateImageView(mDevice, &rview_info, nullptr, &mDrawImage.imageView);
+		if (result != VK_SUCCESS)
+		{
+			mErr = { vkResultToStr(result) };
+			return;
+		}
+
+		//add to deletion queues
+		mDeleteQueue.push_function([=]() {
+			vkDestroyImageView(mDevice, mDrawImage.imageView, nullptr);
+			vmaDestroyImage(mAllocator, mDrawImage.image, mDrawImage.allocation);
+			});
+	}
+
 	void vulkanRenderer::destroySwapchain()
 	{
+		vkDeviceWaitIdle(mDevice);
 		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
 
 		// destroy swapchain resources
@@ -361,6 +612,25 @@ namespace vktest
 		}
 	}
 
+	void vulkanRenderer::drawBackground(VkCommandBuffer cmd)
+	{
+		//make a clear-color from frame number. This will flash with a 120 frame period.
+		VkClearColorValue clearValue;
+		float flash = std::abs(std::sin(mFrameNumber / 120.f));
+		clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+
+		VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+
+		// bind the gradient drawing compute pipeline
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipeline);
+
+		// bind the descriptor set containing the draw image for the compute pipeline
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
+
+		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
+		vkCmdDispatch(cmd, uint32_t(std::ceil(double(mDrawExtent.width) / 16.0)), uint32_t(std::ceil(double(mDrawExtent.height) / 16.0)), 1);
+	}
+
 	void vulkanRenderer::draw()
 	{
 		//> draw_1
@@ -373,6 +643,8 @@ namespace vktest
 			return;
 		}
 
+		getCurrentFrame().deleteQueue.flush();
+
 		result = vkResetFences(mDevice, 1, &getCurrentFrame().renderFence);
 		if (result != VK_SUCCESS)
 		{
@@ -381,7 +653,7 @@ namespace vktest
 		}
 
 		//< draw_1
-		
+
 		//> draw_2
 		//request image from the swapchain
 		uint32_t swapchainImageIndex;
@@ -418,22 +690,21 @@ namespace vktest
 		}
 		//< draw_3
 
-		//> draw_4
-		// make the swapchain image into writeable mode before rendering
-		vkinit::transition_image(cmd, mSwapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		// transition our main draw image into general layout so we can write into it
+		// we will overwrite it all so we dont care about what was the older layout
+		vkinit::transition_image(cmd, mDrawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-		//make a clear-color from frame number. This will flash with a 120 frame period.
-		VkClearColorValue clearValue;
-		float flash = std::abs(std::sin(mFrameNumber / 120.f));
-		clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+		drawBackground(cmd);
 
-		VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+		//transition the draw image and the swapchain image into their correct transfer layouts
+		vkinit::transition_image(cmd, mDrawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		vkinit::transition_image(cmd, mSwapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-		//clear image
-		vkCmdClearColorImage(cmd, mSwapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+		// execute a copy from the draw image into the swapchain
+		vkinit::copy_image_to_image(cmd, mDrawImage.image, mSwapchainImages[swapchainImageIndex], mDrawExtent, (*mSwapchainExtent.get()));
 
-		//make the swapchain image into presentable mode
-		vkinit::transition_image(cmd, mSwapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		// set swapchain image layout to Present so we can show it on the screen
+		vkinit::transition_image(cmd, mSwapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)
 		result = vkEndCommandBuffer(cmd);
@@ -493,6 +764,100 @@ namespace vktest
 		//< draw_6
 	}
 
+	void vulkanRenderer::init_descriptors()
+	{
+		//create a descriptor pool that will hold 10 sets with 1 image each
+		std::vector<DescriptorAllocator::PoolSizeRatio> sizes =
+		{
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 }
+		};
+
+		globalDescriptorAllocator.init_pool(mDevice, 10, sizes);
+
+		//make the descriptor set layout for our compute draw
+		{
+			DescriptorLayoutBuilder builder;
+			builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+			_drawImageDescriptorLayout = builder.build(mDevice, VK_SHADER_STAGE_COMPUTE_BIT);
+		}
+
+		_drawImageDescriptors = globalDescriptorAllocator.allocate(mDevice, _drawImageDescriptorLayout);
+
+		VkDescriptorImageInfo imgInfo{};
+		imgInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imgInfo.imageView = mDrawImage.imageView;
+
+		VkWriteDescriptorSet drawImageWrite = {};
+		drawImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		drawImageWrite.pNext = nullptr;
+
+		drawImageWrite.dstBinding = 0;
+		drawImageWrite.dstSet = _drawImageDescriptors;
+		drawImageWrite.descriptorCount = 1;
+		drawImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		drawImageWrite.pImageInfo = &imgInfo;
+
+		vkUpdateDescriptorSets(mDevice, 1, &drawImageWrite, 0, nullptr);
+
+		//make sure both the descriptor allocator and the new layout get cleaned up properly
+		mDeleteQueue.push_function([&]() {
+			globalDescriptorAllocator.destroy_pool(mDevice);
+
+			vkDestroyDescriptorSetLayout(mDevice, _drawImageDescriptorLayout, nullptr);
+			});
+
+	}
+
+	void vulkanRenderer::init_pipelines()
+	{
+		init_background_pipelines();
+	}
+
+	void vulkanRenderer::init_background_pipelines()
+	{
+		VkPipelineLayoutCreateInfo computeLayout{};
+		computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		computeLayout.pNext = nullptr;
+		computeLayout.pSetLayouts = &_drawImageDescriptorLayout;
+		computeLayout.setLayoutCount = 1;
+
+		auto result = (vkCreatePipelineLayout(mDevice, &computeLayout, nullptr, &_gradientPipelineLayout));
+		if (result != VK_SUCCESS)
+		{
+			LOGERROR(vkResultToStr(result));
+		}
+
+		VkShaderModule computeDrawShader;
+		if (!vkinit::load_shader_module("../assets/shaders/vkCompute.glsl.spv", mDevice, &computeDrawShader))
+		{
+			fmt::print("Error when building the compute shader \n");
+		}
+
+		VkPipelineShaderStageCreateInfo stageinfo{};
+		stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		stageinfo.pNext = nullptr;
+		stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		stageinfo.module = computeDrawShader;
+		stageinfo.pName = "main";
+
+		VkComputePipelineCreateInfo computePipelineCreateInfo{};
+		computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+		computePipelineCreateInfo.pNext = nullptr;
+		computePipelineCreateInfo.layout = _gradientPipelineLayout;
+		computePipelineCreateInfo.stage = stageinfo;
+
+		result = (vkCreateComputePipelines(mDevice, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &_gradientPipeline));
+		if (result != VK_SUCCESS)
+			LOGERROR(vkResultToStr(result));
+
+		vkDestroyShaderModule(mDevice, computeDrawShader, nullptr);
+
+		mDeleteQueue.push_function([&]() {
+			vkDestroyPipelineLayout(mDevice, _gradientPipelineLayout, nullptr);
+			vkDestroyPipeline(mDevice, _gradientPipeline, nullptr);
+			});
+	}
+
 	vulkanRenderer::~vulkanRenderer()
 	{
 		//make sure the gpu has stopped doing its things
@@ -513,7 +878,9 @@ namespace vktest
 		vkDestroyDevice(mDevice, nullptr);
 
 		vkb::destroy_debug_utils_messenger(mInstance, mDebugMessenger);
-		vkDestroyInstance(mInstance, nullptr);	
+		vkDestroyInstance(mInstance, nullptr);
+
+		mDeleteQueue.flush();
 	}
 
 	void vulkanRenderer::printGPU()
@@ -633,6 +1000,103 @@ namespace vktest
 		// use vkbootstrap to get a Graphics queue
 		mGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 		mGraphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+		// initialize the memory allocator
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.physicalDevice = mChosenGPU;
+		allocatorInfo.device = mDevice;
+		allocatorInfo.instance = mInstance;
+		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		vmaCreateAllocator(&allocatorInfo, &mAllocator);
+
+		mDeleteQueue.push_function([&]() {
+			vmaDestroyAllocator(mAllocator);
+			});
+	}
+
+	void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type)
+	{
+		VkDescriptorSetLayoutBinding newbind{};
+		newbind.binding = binding;
+		newbind.descriptorCount = 1;
+		newbind.descriptorType = type;
+
+		bindings.push_back(newbind);
+	}
+
+	void DescriptorLayoutBuilder::clear()
+	{
+		bindings.clear();
+	}
+
+	VkDescriptorSetLayout DescriptorLayoutBuilder::build(VkDevice device, VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
+	{
+		for (auto& b : bindings) {
+			b.stageFlags |= shaderStages;
+		}
+
+		VkDescriptorSetLayoutCreateInfo info = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+		info.pNext = pNext;
+
+		info.pBindings = bindings.data();
+		info.bindingCount = (uint32_t)bindings.size();
+		info.flags = flags;
+
+		VkDescriptorSetLayout set;
+		auto result = vkCreateDescriptorSetLayout(device, &info, nullptr, &set);
+		if (result != VK_SUCCESS)
+		{
+			LOGERROR(vkResultToStr(result));
+		}
+
+		return set;
+	}
+
+	void DescriptorAllocator::init_pool(VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios)
+	{
+		std::vector<VkDescriptorPoolSize> poolSizes;
+		for (PoolSizeRatio ratio : poolRatios) {
+			poolSizes.push_back(VkDescriptorPoolSize{
+				.type = ratio.type,
+				.descriptorCount = uint32_t(ratio.ratio * maxSets)
+				});
+		}
+
+		VkDescriptorPoolCreateInfo pool_info = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+		pool_info.flags = 0;
+		pool_info.maxSets = maxSets;
+		pool_info.poolSizeCount = (uint32_t)poolSizes.size();
+		pool_info.pPoolSizes = poolSizes.data();
+
+		vkCreateDescriptorPool(device, &pool_info, nullptr, &pool);
+	}
+
+	void DescriptorAllocator::clear_descriptors(VkDevice device)
+	{
+		vkResetDescriptorPool(device, pool, 0);
+	}
+
+	void DescriptorAllocator::destroy_pool(VkDevice device)
+	{
+		vkDestroyDescriptorPool(device, pool, nullptr);
+	}
+
+	VkDescriptorSet DescriptorAllocator::allocate(VkDevice device, VkDescriptorSetLayout layout)
+	{
+		VkDescriptorSetAllocateInfo allocInfo = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		allocInfo.pNext = nullptr;
+		allocInfo.descriptorPool = pool;
+		allocInfo.descriptorSetCount = 1;
+		allocInfo.pSetLayouts = &layout;
+
+		VkDescriptorSet ds;
+		auto result = (vkAllocateDescriptorSets(device, &allocInfo, &ds));
+		if (result != VK_SUCCESS)
+		{
+			LOGERROR(vkResultToStr(result));
+		}
+
+		return ds;
 	}
 }
 
@@ -667,11 +1131,22 @@ namespace vktest
 		if (mRenderer->mErr)
 			return;
 
+		mRenderer->createImage(mWindow->getWidth(), mWindow->getHeight());
+
 		mRenderer->initCommands();
 		if (mRenderer->mErr)
 			return;
 
 		mRenderer->initSyncStructures();
+		if (mRenderer->mErr)
+			return;
+
+
+		mRenderer->init_descriptors();
+		if (mRenderer->mErr)
+			return;
+
+		mRenderer->init_pipelines();
 		if (mRenderer->mErr)
 			return;
 	}
@@ -709,6 +1184,13 @@ namespace vktest
 
 					mRenderer->destroySwapchain();
 					mRenderer->createSwapchain(resizeEvent->getWidth(), resizeEvent->getHeight());
+					if (mErr)
+					{
+						LOGERROR(mErr.err());
+						return;
+					}
+
+					mRenderer->createImage(resizeEvent->getWidth(), resizeEvent->getHeight());
 					if (mErr)
 					{
 						LOGERROR(mErr.err());
