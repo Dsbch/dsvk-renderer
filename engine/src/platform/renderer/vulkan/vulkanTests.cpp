@@ -153,27 +153,28 @@ namespace vktest
 		void draw_background(VkCommandBuffer cmd);
 		void draw();
 
+		// swap chain stuff.
 		VkSwapchainKHR _swapchain;
 		VkFormat _swapchainImageFormat;
-
 		std::vector<VkImage> _swapchainImages;
 		std::vector<VkImageView> _swapchainImageViews;
 		VkExtent2D _swapchainExtent;
-
-		FrameData _frames[FRAME_OVERLAP];
-
 		uint32_t _frameNumber;
 
+		// frame data, relates to swap chain.
+		FrameData _frames[FRAME_OVERLAP];
 		FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; };
 
+		// queue stuff.
 		VkQueue _graphicsQueue;
 		uint32_t _graphicsQueueFamily;
 
+		// shader descriptor stuff.
 		DescriptorAllocator globalDescriptorAllocator;
-
 		VkDescriptorSet _drawImageDescriptors;
 		VkDescriptorSetLayout _drawImageDescriptorLayout;
 
+		// pipeline stuff.
 		VkPipeline _gradientPipeline;
 		VkPipelineLayout _gradientPipelineLayout;
 
@@ -303,22 +304,25 @@ namespace vktest
 
 	void vulkanRenderer::draw()
 	{
+		// here we pick needed height and width of our image to draw.
 		_drawExtent.height = std::min(_swapchainExtent.height, _drawImage.imageExtent.height);
 		_drawExtent.width = std::min(_swapchainExtent.width, _drawImage.imageExtent.width);
 
 		//wait until the gpu has finished rendering the last frame. Timeout of 1 second
 		VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
 
+		// flush local deletion queue of a frame.
 		get_current_frame()._deletionQueue.flush();
 
-		//request image from the swapchain
+		//request image from the swapchain.
+		// keep in mind that we use swapChain semaphore as signaling here.
 		uint32_t swapchainImageIndex;
-
 		VkResult e = vkAcquireNextImageKHR(_device, _swapchain, 1000000000, get_current_frame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
 		if (e == VK_ERROR_OUT_OF_DATE_KHR) {
 			return;
 		}
 
+		// reset fence to reuse.
 		VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
 
 		//now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
@@ -330,21 +334,21 @@ namespace vktest
 		//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
 		VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-		//> draw_first
+		// start recording.
 		VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
 		vkinit::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
+		// draw with compute.
 		draw_background(cmd);
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
 		vkinit::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		vkinit::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		//< draw_first
-		//> imgui_draw
-			// execute a copy from the draw image into the swapchain
+
+		// copy from the draw image into the swapchain
 		vkinit::copy_image_to_image(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex], _drawExtent, _swapchainExtent);
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
@@ -355,11 +359,12 @@ namespace vktest
 
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)
 		VK_CHECK(vkEndCommandBuffer(cmd));
-		//< imgui_draw
 
-			//prepare the submission to the queue. 
-			//we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
-			//we will signal the _renderSemaphore, to signal that rendering has finished
+
+		//prepare the submission to the queue. 
+		//we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+		// (remember when we ask GPU for image from swap chain we provide that semaphore to signal.)
+		// we will signal the _renderSemaphore, to signal that rendering has finished
 
 		VkCommandBufferSubmitInfo cmdinfo = vkinit::command_buffer_submit_info(cmd);
 
@@ -368,7 +373,7 @@ namespace vktest
 
 		VkSubmitInfo2 submit = vkinit::submit_info(&cmdinfo, &signalInfo, &waitInfo);
 
-		//submit command buffer to the queue and execute it.
+		// submit command buffer to the queue and execute it.
 		// _renderFence will now block until the graphic commands finish execution
 		VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submit, get_current_frame()._renderFence));
 
