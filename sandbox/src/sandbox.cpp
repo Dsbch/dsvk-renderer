@@ -234,38 +234,38 @@ namespace sandbox
 			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/ribbed/rusty-ribbed-metal_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			std::function<int()> albedo = [tex = textureAlbedo.first]() -> int {
+			std::function<int()> albedo = [tex = textureAlbedo.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> normal = [tex = textureNormal.first]() -> int {
+			std::function<int()> normal = [tex = textureNormal.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> metallic = [tex = textureMetallic.first]() -> int {
+			std::function<int()> metallic = [tex = textureMetallic.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> roughness = [tex = textureRoughness.first]() -> int {
+			std::function<int()> roughness = [tex = textureRoughness.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> ao = [tex = textureAO.first]() -> int {
+			std::function<int()> ao = [tex = textureAO.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
 			spawnSphere(registry, engine::materialComponent{
-				textureAlbedo.first,
-				textureRoughness.first,
-				textureNormal.first,
-				textureMetallic.first,
-				textureAO.first,
-				shader.first,
+				textureAlbedo.value(),
+				textureRoughness.value(),
+				textureNormal.value(),
+				textureMetallic.value(),
+				textureAO.value(),
+				shader.value(),
 				{
 					{ "uAO",		{ao, 1}			},
 					{ "uAlbedo",	{albedo, 1}		},
@@ -288,38 +288,38 @@ namespace sandbox
 			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/rusted-sphere/rustediron2_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			std::function<int()> albedo = [tex = textureAlbedo.first]() -> int {
+			std::function<int()> albedo = [tex = textureAlbedo.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> normal = [tex = textureNormal.first]() -> int {
+			std::function<int()> normal = [tex = textureNormal.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> metallic = [tex = textureMetallic.first]() -> int {
+			std::function<int()> metallic = [tex = textureMetallic.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> roughness = [tex = textureRoughness.first]() -> int {
+			std::function<int()> roughness = [tex = textureRoughness.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> ao = [tex = textureAO.first]() -> int {
+			std::function<int()> ao = [tex = textureAO.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
 			spawnSphere(registry, engine::materialComponent{
-				textureAlbedo.first,
-				textureRoughness.first,
-				textureNormal.first,
-				textureMetallic.first,
-				textureAO.first,
-				shader.first,
+				textureAlbedo.value(),
+				textureRoughness.value(),
+				textureNormal.value(),
+				textureMetallic.value(),
+				textureAO.value(),
+				shader.value(),
 				{
 					{ "uAO",		{ao, 1}			},
 					{ "uAlbedo",	{albedo, 1}		},
@@ -338,16 +338,16 @@ namespace sandbox
 			auto texture = mCtx->mAmanager->loadTexture("../assets/textures/obsidian.jpg");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			texture.first->bind();
-			auto slotID = texture.first->getSlotID();
+			texture.value()->bind();
+			auto slotID = texture.value()->getSlotID();
 
 			spawnCube(registry, engine::materialComponent{
-				texture.first,
-				texture.first,
-				texture.first,
-				texture.first,
-				texture.first,
-				shader.first,
+				texture.value(),
+				texture.value(),
+				texture.value(),
+				texture.value(),
+				texture.value(),
+				shader.value(),
 				{
 					{"uAlbedo", {int(slotID), 1}}
 				}
@@ -366,39 +366,39 @@ namespace sandbox
 			auto textureRoughness = mCtx->mAmanager->loadTexture("../assets/textures/pirate-gold/pirate-gold_roughness.png");
 			auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vertexInstanced.glsl", "../assets/shaders/fragmentInstanced.glsl");
 
-			std::function<int()> albedo = [tex = textureAlbedo.first]() -> int {
+			std::function<int()> albedo = [tex = textureAlbedo.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> normal = [tex = textureNormal.first]() -> int {
+			std::function<int()> normal = [tex = textureNormal.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> metallic = [tex = textureMetallic.first]() -> int {
+			std::function<int()> metallic = [tex = textureMetallic.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> roughness = [tex = textureRoughness.first]() -> int {
+			std::function<int()> roughness = [tex = textureRoughness.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
-			std::function<int()> ao = [tex = textureAO.first]() -> int {
+			std::function<int()> ao = [tex = textureAO.value()]() -> int {
 				tex->bind();
 				return int(tex->getSlotID());
 				};
 
 
 			spawnCube(registry, engine::materialComponent{
-				textureAlbedo.first,
-				textureRoughness.first,
-				textureNormal.first,
-				textureMetallic.first,
-				textureMetallic.first,
-				shader.first,
+				textureAlbedo.value(),
+				textureRoughness.value(),
+				textureNormal.value(),
+				textureMetallic.value(),
+				textureMetallic.value(),
+				shader.value(),
 				{
 					{ "uAO",		{ao, 1}			},
 					{ "uAlbedo",	{albedo, 1}		},
@@ -462,7 +462,7 @@ namespace sandbox
 
 			auto c = registry.create();
 			registry.emplace<engine::uidComponent>(c);
-			registry.emplace<engine::skyboxComponent>(c, true, shader.first, skybox.first);
+			registry.emplace<engine::skyboxComponent>(c, true, shader.value(), skybox.value());
 		}
 	}
 

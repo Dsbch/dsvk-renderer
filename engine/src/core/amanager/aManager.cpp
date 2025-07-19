@@ -30,29 +30,26 @@ namespace engine
 		return s.str();
 	}
 
-	std::pair<const std::shared_ptr<texture>, engine::error> aManager::getTexture(const std::string& path)
+	withError<std::shared_ptr<texture>> aManager::getTexture(const std::string& path)
 	{
 		auto it = mLoadedTextures.find(std::filesystem::canonical(path).string());
 		if (it != mLoadedTextures.end())
-		{
-			return { it->second , {} };
-		}
-		else {
-			return { {}, {"tried to access not loaded texture."} };
-		}
+			return it->second;
+		else 
+			return error{"tried to access not loaded texture."};
 	}
 
-	std::pair<const std::shared_ptr<texture>, engine::error> aManager::loadTexture(const std::string& path)
+	withError<std::shared_ptr<texture>> aManager::loadTexture(const std::string& path)
 	{
 		auto cachedTexure = getTexture(path);
-		if (!cachedTexure.second)
+		if (cachedTexure)
 			return cachedTexure;
 
 		int width, height, nrChannels;
 		uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 3);
 		if (!data)
 		{
-			return { {}, {"can't load texture"} };
+			return error{"can't load texture"};
 		}
 
 		auto t = rendererFactory::createTexure(data, width, height, (imageChannel)nrChannels);
@@ -62,25 +59,22 @@ namespace engine
 		auto key = std::filesystem::canonical(path).string();
 		mLoadedTextures[key] = t;
 
-		return { mLoadedTextures[key], {} };
+		return mLoadedTextures[key];
 	}
 
-	std::pair<const std::shared_ptr<shaderProgram>, error> aManager::getShader(const std::string& vertexPath, const std::string& fragmentPath)
+	withError<std::shared_ptr<shaderProgram>> aManager::getShader(const std::string& vertexPath, const std::string& fragmentPath)
 	{
 		auto it = mCompiledShaders.find(std::array<std::string, 2>{std::filesystem::canonical(vertexPath).string(), std::filesystem::canonical(fragmentPath).string()});
 		if (it != mCompiledShaders.end())
-		{
-			return { it->second, {} };
-		}
-		else {
-			return { {}, {"tried to access not loaded shader."} };
-		}
+			return it->second;
+		else
+			return error{"tried to access not loaded shader."};
 	}
 
-	std::pair<const std::shared_ptr<shaderProgram>, engine::error> aManager::loadShader(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
+	withError<std::shared_ptr<shaderProgram>> aManager::loadShader(const std::string& vertexShaderPath, const std::string& fragmentShaderPath)
 	{
 		auto cachedShader = getShader(vertexShaderPath, fragmentShaderPath);
-		if (!cachedShader.second)
+		if (cachedShader)
 			return cachedShader;
 
 		std::string vs = openAndRead(vertexShaderPath);
@@ -91,7 +85,7 @@ namespace engine
 		auto err = program->compile();
 		if (err)
 		{
-			return { {}, err };
+			return err;
 		}
 
 		auto keyVertex = std::filesystem::canonical(vertexShaderPath).string();
@@ -99,10 +93,10 @@ namespace engine
 
 		mCompiledShaders[std::array<std::string, 2>{keyVertex, keyFragment}] = program;
 
-		return { mCompiledShaders[std::array<std::string, 2>{keyVertex, keyFragment}], {} };
+		return mCompiledShaders[std::array<std::string, 2>{keyVertex, keyFragment}];
 	}
 
-	std::pair<const std::shared_ptr<cubeMap>, error> aManager::getCubeMap(const std::array<std::string, 6> path)
+	withError<std::shared_ptr<cubeMap>> aManager::getCubeMap(const std::array<std::string, 6> path)
 	{
 		std::array<std::string, 6> genericPath;
 		for (int i = 0; i < path.size(); i++)
@@ -110,19 +104,16 @@ namespace engine
 
 		auto it = mLoadedCubeMaps.find(genericPath);
 		if (it != mLoadedCubeMaps.end())
-		{
-			return { it->second, {} };
-		}
-		else {
-			return { {}, {"tried to access not loaded cubemap."} };
-		}
+			return it->second;
+		else
+			return error{"tried to access not loaded cubemap."};
 	}
 
 
-	std::pair<const std::shared_ptr<cubeMap>, error> aManager::loadCubeMap(const std::array<std::string, 6> path)
+	withError<std::shared_ptr<cubeMap>> aManager::loadCubeMap(const std::array<std::string, 6> path)
 	{
 		auto cachedCubeMap = getCubeMap(path);
-		if (!cachedCubeMap.second)
+		if (cachedCubeMap)
 			return cachedCubeMap;
 
 		std::array<uint8_t*, 6> cubeMaps;
@@ -133,7 +124,7 @@ namespace engine
 			uint8_t* data = stbi_load(path[i].c_str(), &width, &height, &nrChannels, 0);
 			if (!data)
 			{
-				return { {}, {"can't load texture"} };
+				return error{"can't load texture"};
 			}
 
 			cubeMaps[i] = data;
@@ -152,6 +143,6 @@ namespace engine
 
 		mLoadedCubeMaps[genericPath] = t;
 
-		return { mLoadedCubeMaps[genericPath], {} };
+		return mLoadedCubeMaps[genericPath];
 	}
 }
