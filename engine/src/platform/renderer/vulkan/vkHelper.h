@@ -8,7 +8,7 @@
 
 namespace vktest
 {
-	VkPresentInfoKHR present_info()
+	inline VkPresentInfoKHR present_info()
 	{
 		VkPresentInfoKHR info = {};
 		info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -23,7 +23,7 @@ namespace vktest
 		return info;
 	}
 
-	std::string vkResultToStr(VkResult result)
+	inline std::string vkResultToStr(VkResult result)
 	{
 		switch (result) {
 		case VK_SUCCESS: return "VK_SUCCESS";
@@ -65,7 +65,7 @@ namespace vktest
 		}
 	}
 
-	VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	inline VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT              messageType,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -90,7 +90,7 @@ namespace vktest
 
 namespace vkinit
 {
-	bool load_shader_module(const char* filePath,
+	inline bool load_shader_module(const char* filePath,
 		VkDevice device,
 		VkShaderModule* outShaderModule)
 	{
@@ -137,7 +137,7 @@ namespace vkinit
 		return true;
 	}
 
-	void copy_image_to_image(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
+	inline void copy_image_to_image(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
 	{
 		VkImageBlit2 blitRegion{ .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr };
 
@@ -171,7 +171,7 @@ namespace vkinit
 		vkCmdBlitImage2(cmd, &blitInfo);
 	}
 
-	VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+	inline VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 	{
 		VkImageCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -195,7 +195,7 @@ namespace vkinit
 		return info;
 	}
 
-	VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+	inline VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
 	{
 		// build a image-view for the depth image to use for rendering
 		VkImageViewCreateInfo info = {};
@@ -214,7 +214,7 @@ namespace vkinit
 		return info;
 	}
 
-	VkSemaphoreSubmitInfo semaphore_submit_info(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+	inline VkSemaphoreSubmitInfo semaphore_submit_info(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
 	{
 		VkSemaphoreSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
@@ -227,7 +227,7 @@ namespace vkinit
 		return submitInfo;
 	}
 
-	VkCommandBufferSubmitInfo command_buffer_submit_info(VkCommandBuffer cmd)
+	inline VkCommandBufferSubmitInfo command_buffer_submit_info(VkCommandBuffer cmd)
 	{
 		VkCommandBufferSubmitInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -238,7 +238,7 @@ namespace vkinit
 		return info;
 	}
 
-	VkSubmitInfo2 submit_info(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+	inline VkSubmitInfo2 submit_info(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
 		VkSemaphoreSubmitInfo* waitSemaphoreInfo)
 	{
 		VkSubmitInfo2 info = {};
@@ -257,7 +257,7 @@ namespace vkinit
 		return info;
 	}
 
-	VkImageSubresourceRange image_subresource_range(VkImageAspectFlags aspectMask)
+	inline VkImageSubresourceRange image_subresource_range(VkImageAspectFlags aspectMask)
 	{
 		VkImageSubresourceRange subImage{};
 		subImage.aspectMask = aspectMask;
@@ -269,7 +269,7 @@ namespace vkinit
 		return subImage;
 	}
 
-	void transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
+	inline void transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
 	{
 		VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
 		imageBarrier.pNext = nullptr;
@@ -296,7 +296,7 @@ namespace vkinit
 		vkCmdPipelineBarrier2(cmd, &depInfo);
 	}
 
-	VkCommandPoolCreateInfo command_pool_create_info(uint32_t queueFamilyIndex,
+	inline VkCommandPoolCreateInfo command_pool_create_info(uint32_t queueFamilyIndex,
 		VkCommandPoolCreateFlags flags /*= 0*/)
 	{
 		VkCommandPoolCreateInfo info = {};
@@ -308,7 +308,7 @@ namespace vkinit
 	}
 
 
-	VkCommandBufferAllocateInfo command_buffer_allocate_info(
+	inline VkCommandBufferAllocateInfo command_buffer_allocate_info(
 		VkCommandPool pool, uint32_t count /*= 1*/)
 	{
 		VkCommandBufferAllocateInfo info = {};
@@ -321,7 +321,7 @@ namespace vkinit
 		return info;
 	}
 
-	VkFenceCreateInfo fence_create_info(VkFenceCreateFlags flags /*= 0*/)
+	inline VkFenceCreateInfo fence_create_info(VkFenceCreateFlags flags /*= 0*/)
 	{
 		VkFenceCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -332,7 +332,7 @@ namespace vkinit
 		return info;
 	}
 
-	VkSemaphoreCreateInfo semaphore_create_info(VkSemaphoreCreateFlags flags /*= 0*/)
+	inline VkSemaphoreCreateInfo semaphore_create_info(VkSemaphoreCreateFlags flags /*= 0*/)
 	{
 		VkSemaphoreCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -341,7 +341,7 @@ namespace vkinit
 		return info;
 	}
 
-	VkCommandBufferBeginInfo command_buffer_begin_info(VkCommandBufferUsageFlags flags /*= 0*/)
+	inline VkCommandBufferBeginInfo command_buffer_begin_info(VkCommandBufferUsageFlags flags /*= 0*/)
 	{
 		VkCommandBufferBeginInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -350,5 +350,72 @@ namespace vkinit
 		info.pInheritanceInfo = nullptr;
 		info.flags = flags;
 		return info;
+	}
+
+	inline VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(VkShaderStageFlagBits stage,
+		VkShaderModule shaderModule,
+		const char* entry)
+	{
+		VkPipelineShaderStageCreateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		info.pNext = nullptr;
+
+		// shader stage
+		info.stage = stage;
+		// module containing the code for this shader stage
+		info.module = shaderModule;
+		// the entry point of the shader
+		info.pName = entry;
+		return info;
+	}
+
+	inline VkPipelineLayoutCreateInfo pipeline_layout_create_info()
+	{
+		VkPipelineLayoutCreateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		info.pNext = nullptr;
+
+		// empty defaults
+		info.flags = 0;
+		info.setLayoutCount = 0;
+		info.pSetLayouts = nullptr;
+		info.pushConstantRangeCount = 0;
+		info.pPushConstantRanges = nullptr;
+		return info;
+	}
+
+	inline VkRenderingAttachmentInfo attachment_info(
+		VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+	{
+		VkRenderingAttachmentInfo colorAttachment{};
+		colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+		colorAttachment.pNext = nullptr;
+
+		colorAttachment.imageView = view;
+		colorAttachment.imageLayout = layout;
+		colorAttachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		if (clear) {
+			colorAttachment.clearValue = *clear;
+		}
+
+		return colorAttachment;
+	}
+
+	inline VkRenderingInfo rendering_info(VkExtent2D renderExtent, VkRenderingAttachmentInfo* colorAttachment,
+		VkRenderingAttachmentInfo* depthAttachment)
+	{
+		VkRenderingInfo renderInfo{};
+		renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+		renderInfo.pNext = nullptr;
+
+		renderInfo.renderArea = VkRect2D{ VkOffset2D { 0, 0 }, renderExtent };
+		renderInfo.layerCount = 1;
+		renderInfo.colorAttachmentCount = 1;
+		renderInfo.pColorAttachments = colorAttachment;
+		renderInfo.pDepthAttachment = depthAttachment;
+		renderInfo.pStencilAttachment = nullptr;
+
+		return renderInfo;
 	}
 }

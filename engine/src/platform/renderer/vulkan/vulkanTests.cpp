@@ -10,6 +10,9 @@
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
+#include "vkPipeline.h"
+
+#include <glm/vec4.hpp>
 
 //< node_types
 //> intro
@@ -24,6 +27,13 @@
 // vulkan part.
 namespace vktest
 {
+	struct ComputePushConstants {
+		glm::vec4 data1;
+		glm::vec4 data2;
+		glm::vec4 data3;
+		glm::vec4 data4;
+	};
+
 	struct DescriptorAllocator {
 
 		struct PoolSizeRatio {
@@ -179,6 +189,13 @@ namespace vktest
 		VkPipelineLayout _gradientPipelineLayout;
 
 		void resize_swapchain(uint32_t width, uint32_t height);
+
+		VkPipelineLayout _trianglePipelineLayout;
+		VkPipeline _trianglePipeline;
+
+		void init_triangle_pipeline();
+
+		void draw_geometry(VkCommandBuffer cmd);
 	private:
 		engine::error mErr;
 		std::shared_ptr<engine::context> mCtx;
@@ -298,6 +315,13 @@ namespace vktest
 		// bind the descriptor set containing the draw image for the compute pipeline
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
 
+		// set push constants.
+		ComputePushConstants pc;
+		pc.data1 = glm::vec4(1, 0, 0, 1);
+		pc.data2 = glm::vec4(0, 0, 1, 1);
+
+		vkCmdPushConstants(cmd, _gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pc);
+
 		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 		vkCmdDispatch(cmd, uint32_t(std::ceil(double(_drawExtent.width) / 16.0)), uint32_t(std::ceil(double(_drawExtent.height) / 16.0)), 1);
 	}
@@ -343,6 +367,10 @@ namespace vktest
 
 		// draw with compute.
 		draw_background(cmd);
+
+		vkinit::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		draw_geometry(cmd);
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
 		vkinit::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -405,6 +433,100 @@ namespace vktest
 		destroy_swapchain();
 
 		create_swapchain(width, height);
+	}
+
+	void vulkanRenderer::init_triangle_pipeline()
+	{
+		VkShaderModule triangleFragShader;
+		if (!vkinit::load_shader_module("../assets/shaders/simple.fragment.spv", _device, &triangleFragShader)) {
+			LOGERROR("Error when building the triangle fragment shader module");
+		}
+		else {
+			LOGINFO("Triangle fragment shader succesfully loaded");
+		}
+
+		VkShaderModule triangleVertexShader;
+		if (!vkinit::load_shader_module("../assets/shaders/simple.vert.spv", _device, &triangleVertexShader)) {
+			LOGERROR("Error when building the triangle vertex shader module");
+		}
+		else {
+			LOGINFO("Triangle vertex shader succesfully loaded");
+		}
+
+		//build the pipeline layout that controls the inputs/outputs of the shader
+		//we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
+		VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
+		VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_trianglePipelineLayout));
+
+		PipelineBuilder pipelineBuilder;
+
+		//use the triangle layout we created
+		pipelineBuilder._pipelineLayout = _trianglePipelineLayout;
+		//connecting the vertex and pixel shaders to the pipeline
+		pipelineBuilder.set_shaders(triangleVertexShader, triangleFragShader);
+		//it will draw triangles
+		pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		//filled triangles
+		pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
+		//no backface culling
+		pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+		//no multisampling
+		pipelineBuilder.set_multisampling_none();
+		//no blending
+		pipelineBuilder.disable_blending();
+		//no depth testing
+		pipelineBuilder.disable_depthtest();
+
+		//connect the image format we will draw into, from draw image
+		pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
+		pipelineBuilder.set_depth_format(VK_FORMAT_UNDEFINED);
+
+		//finally build the pipeline
+		_trianglePipeline = pipelineBuilder.build_pipeline(_device);
+
+		//clean structures
+		vkDestroyShaderModule(_device, triangleFragShader, nullptr);
+		vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+
+		_mainDeletionQueue.push_function([&]() {
+			vkDestroyPipelineLayout(_device, _trianglePipelineLayout, nullptr);
+			vkDestroyPipeline(_device, _trianglePipeline, nullptr);
+			});
+	}
+
+	void vulkanRenderer::draw_geometry(VkCommandBuffer cmd)
+	{
+		//begin a render pass  connected to our draw image
+		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, nullptr);
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _trianglePipeline);
+
+		//set dynamic viewport and scissor
+		VkViewport viewport = {};
+		viewport.x = 0;
+		viewport.y = 0;
+		viewport.width = float(_drawExtent.width);
+		viewport.height = float(_drawExtent.height);
+		viewport.minDepth = 0.f;
+		viewport.maxDepth = 1.f;
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+		VkRect2D scissor = {};
+		scissor.offset.x = 0;
+		scissor.offset.y = 0;
+		scissor.extent.width = (_drawExtent.width);
+		scissor.extent.height = (_drawExtent.height);
+
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+		//launch a draw command to draw 3 vertices
+		vkCmdDraw(cmd, 3, 1, 0, 0);
+
+		vkCmdEndRendering(cmd);
 	}
 
 	void vulkanRenderer::init_vulkan(engine::winApiWindow* window)
@@ -653,17 +775,28 @@ namespace vktest
 	void vulkanRenderer::init_pipelines()
 	{
 		init_background_pipelines();
+		init_triangle_pipeline();
 	}
 
 	void vulkanRenderer::init_background_pipelines()
 	{
+		// push constants start.
 		VkPipelineLayoutCreateInfo computeLayout{};
 		computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		computeLayout.pNext = nullptr;
 		computeLayout.pSetLayouts = &_drawImageDescriptorLayout;
 		computeLayout.setLayoutCount = 1;
 
+		VkPushConstantRange pushConstant{};
+		pushConstant.offset = 0;
+		pushConstant.size = sizeof(ComputePushConstants);
+		pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+		computeLayout.pPushConstantRanges = &pushConstant;
+		computeLayout.pushConstantRangeCount = 1;
+
 		VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_gradientPipelineLayout));
+		// push constants end.
 
 		//layout code
 		VkShaderModule computeDrawShader;
