@@ -12,7 +12,10 @@
 #include "vk_mem_alloc.h"
 #include "vkPipeline.h"
 
-#include <glm/vec4.hpp>
+#include "core/camera/camera.h"
+
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 
 //< node_types
 //> intro
@@ -28,10 +31,8 @@
 namespace vktest
 {
 	struct ComputePushConstants {
-		glm::vec4 data1;
-		glm::vec4 data2;
-		glm::vec4 data3;
-		glm::vec4 data4;
+		glm::mat4 view;
+		glm::mat4 projection;
 	};
 
 	struct DescriptorAllocator {
@@ -152,7 +153,8 @@ namespace vktest
 			_swapchainImageFormat(),
 			_swapchainExtent(),
 			_graphicsQueue(),
-			_graphicsQueueFamily()
+			_graphicsQueueFamily(),
+			mCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height)
 		{};
 
 		~vulkanRenderer();
@@ -188,15 +190,22 @@ namespace vktest
 		VkPipeline _gradientPipeline;
 		VkPipelineLayout _gradientPipelineLayout;
 
-		void resize_swapchain(uint32_t width, uint32_t height);
 
 		VkPipelineLayout _trianglePipelineLayout;
 		VkPipeline _trianglePipeline;
 
+		void resize(uint32_t width, uint32_t height);
+
 		void init_triangle_pipeline();
 
 		void draw_geometry(VkCommandBuffer cmd);
+
+		void changeCameraPos(glm::vec3);
+		void changeYaw(float);
+		void changePitch(float);
 	private:
+		engine::fpsCamera mCamera;
+
 		engine::error mErr;
 		std::shared_ptr<engine::context> mCtx;
 
@@ -211,6 +220,8 @@ namespace vktest
 
 		AllocatedImage _drawImage;
 		VkExtent2D _drawExtent;
+
+		void resize_swapchain(uint32_t width, uint32_t height);
 
 		void printGPU()
 		{
@@ -314,13 +325,6 @@ namespace vktest
 
 		// bind the descriptor set containing the draw image for the compute pipeline
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
-
-		// set push constants.
-		ComputePushConstants pc;
-		pc.data1 = glm::vec4(1, 0, 0, 1);
-		pc.data2 = glm::vec4(0, 0, 1, 1);
-
-		vkCmdPushConstants(cmd, _gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pc);
 
 		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 		vkCmdDispatch(cmd, uint32_t(std::ceil(double(_drawExtent.width) / 16.0)), uint32_t(std::ceil(double(_drawExtent.height) / 16.0)), 1);
@@ -435,10 +439,16 @@ namespace vktest
 		create_swapchain(width, height);
 	}
 
+	void vulkanRenderer::resize(uint32_t width, uint32_t height)
+	{
+		resize_swapchain(width, height);
+		mCamera.changeViewPort(width, height);
+	}
+
 	void vulkanRenderer::init_triangle_pipeline()
 	{
 		VkShaderModule triangleFragShader;
-		if (!vkinit::load_shader_module("../assets/shaders/simple.fragment.spv", _device, &triangleFragShader)) {
+		if (!vkinit::load_shader_module("../assets/shaders/vkSimple.frag.spv", _device, &triangleFragShader)) {
 			LOGERROR("Error when building the triangle fragment shader module");
 		}
 		else {
@@ -446,7 +456,7 @@ namespace vktest
 		}
 
 		VkShaderModule triangleVertexShader;
-		if (!vkinit::load_shader_module("../assets/shaders/simple.vert.spv", _device, &triangleVertexShader)) {
+		if (!vkinit::load_shader_module("../assets/shaders/vkSimple.vert.spv", _device, &triangleVertexShader)) {
 			LOGERROR("Error when building the triangle vertex shader module");
 		}
 		else {
@@ -456,6 +466,15 @@ namespace vktest
 		//build the pipeline layout that controls the inputs/outputs of the shader
 		//we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
 		VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
+
+		VkPushConstantRange pushConstant{};
+		pushConstant.offset = 0;
+		pushConstant.size = sizeof(ComputePushConstants);
+		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		pipeline_layout_info.pPushConstantRanges = &pushConstant;
+		pipeline_layout_info.pushConstantRangeCount = 1;
+
 		VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_trianglePipelineLayout));
 
 		PipelineBuilder pipelineBuilder;
@@ -523,10 +542,32 @@ namespace vktest
 
 		vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+		// set push constants.
+		ComputePushConstants pc;
+		pc.view = mCamera.getCameraTransform();
+		pc.projection = mCamera.getProjection();
+
+		vkCmdPushConstants(cmd, _trianglePipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ComputePushConstants), &pc);
+
 		//launch a draw command to draw 3 vertices
 		vkCmdDraw(cmd, 3, 1, 0, 0);
 
 		vkCmdEndRendering(cmd);
+	}
+
+	void vulkanRenderer::changeCameraPos(glm::vec3 shift)
+	{
+		mCamera.changePosition(shift);
+	}
+
+	void vulkanRenderer::changeYaw(float yaw)
+	{
+		mCamera.changeYaw(yaw);
+	}
+
+	void vulkanRenderer::changePitch(float pitch)
+	{
+		mCamera.changePitch(pitch);
 	}
 
 	void vulkanRenderer::init_vulkan(engine::winApiWindow* window)
@@ -787,20 +828,12 @@ namespace vktest
 		computeLayout.pSetLayouts = &_drawImageDescriptorLayout;
 		computeLayout.setLayoutCount = 1;
 
-		VkPushConstantRange pushConstant{};
-		pushConstant.offset = 0;
-		pushConstant.size = sizeof(ComputePushConstants);
-		pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-		computeLayout.pPushConstantRanges = &pushConstant;
-		computeLayout.pushConstantRangeCount = 1;
-
 		VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_gradientPipelineLayout));
 		// push constants end.
 
 		//layout code
 		VkShaderModule computeDrawShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkCompute.glsl.spv", _device, &computeDrawShader))
+		if (!vkinit::load_shader_module("../assets/shaders/vkSimple.comp.spv", _device, &computeDrawShader))
 		{
 			fmt::print("Error when building the compute shader \n");
 		}
@@ -929,9 +962,41 @@ namespace vktest
 				{
 					auto resizeEvent = static_cast<engine::windowResizeEvent*>(event.get());
 
-					mRenderer->resize_swapchain(resizeEvent->getWidth(), resizeEvent->getHeight());
+					mRenderer->resize(resizeEvent->getWidth(), resizeEvent->getHeight());
+				}
+
+				if (event->getEventType() == engine::keyDown)
+				{
+					auto e = static_cast<engine::keyDownEvent*>(event.get());
+
+
+					switch (e->getKey())
+					{
+					case engine::key::w:
+						mRenderer->changeCameraPos(glm::vec3(0.0f, 0.0f, 0.1f));
+						break;
+					case engine::key::s:
+						mRenderer->changeCameraPos(glm::vec3(0.0f, 0.0f, -0.1f));
+						break;
+					case engine::key::a:
+						mRenderer->changeCameraPos(glm::vec3(-0.1f, 0.0f, 0.0f));
+						break;
+					case engine::key::d:
+						mRenderer->changeCameraPos(glm::vec3(0.1f, 0.0f, 0.0f));
+						break;
+					}
+				}
+
+				if (event->getEventType() == engine::eventType::mouseMove)
+				{
+					auto offset = static_cast<engine::mouseMoveEvent*>(event.get())->getMouseOffset();
+
+					mRenderer->changeYaw(float(offset.x) * 0.1f);
+					mRenderer->changePitch(float(offset.y) * 0.1f);
 				}
 			}
+
+			mWindow->pollInput();
 
 			// do rendering here.
 			mRenderer->draw();
