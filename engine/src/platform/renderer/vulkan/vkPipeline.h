@@ -1,42 +1,77 @@
 #pragma once
 
+#include <pch.h>
 #include "VkBootstrap.h"
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 #include "vkHelper.h"
-#include <pch.h>
 
-class PipelineBuilder
+namespace vktest
 {
-public:
-    std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
+	class classicGraphicPipeline
+	{
+	public:
+		classicGraphicPipeline();
 
-    VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
-    VkPipelineRasterizationStateCreateInfo _rasterizer;
-    VkPipelineColorBlendAttachmentState _colorBlendAttachment;
-    VkPipelineMultisampleStateCreateInfo _multisampling;
-    VkPipelineLayout _pipelineLayout;
-    VkPipelineDepthStencilStateCreateInfo _depthStencil;
-    VkPipelineRenderingCreateInfo _renderInfo;
-    VkFormat _colorAttachmentformat;
+		void destroy();
 
-    PipelineBuilder() { clear(); }
+		engine::error checkError();
 
-    void clear();
+		void setDevice(VkDevice device);
+		engine::error buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
+		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 
-    VkPipeline build_pipeline(VkDevice device);
+		void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
+		void setInputTopology(VkPrimitiveTopology topology);
+		void setPolygonMode(VkPolygonMode mode);
+		void setCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
+		void setMultisamplingNone();
+		void disableBlending();
+		void enableBlendingAdditive();
+		void enableBlendingAlphablend();
 
-    void set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
-    void set_input_topology(VkPrimitiveTopology topology);
-    void set_polygon_mode(VkPolygonMode mode);
-    void set_cull_mode(VkCullModeFlags cullMode, VkFrontFace frontFace);
-    void set_multisampling_none();
-    void disable_blending();
-    void enable_blending_additive();
-    void enable_blending_alphablend();
+		void setColorAttachmentFormat(VkFormat format);
+		void setDepthFormat(VkFormat format);
+		void disableDepthtest();
+		void enableDepthtest(bool depthWriteEnable, VkCompareOp op);
+	private:
+		engine::error mErr;
 
-    void set_color_attachment_format(VkFormat format);
-    void set_depth_format(VkFormat format);
-    void disable_depthtest();
-    void enable_depthtest(bool depthWriteEnable, VkCompareOp op);
-};
+		VkDevice mDevice;
+		VkPipeline mPipeline;
+		VkPipelineLayout mPipelineLayout;
+
+		std::vector<VkPipelineShaderStageCreateInfo> mShaderStages;
+		VkPipelineInputAssemblyStateCreateInfo mInputAssembly;
+		VkPipelineRasterizationStateCreateInfo mRasterizer;
+		VkPipelineColorBlendAttachmentState mColorBlendAttachment;
+		VkPipelineMultisampleStateCreateInfo mMultisampling;
+		VkPipelineDepthStencilStateCreateInfo mDepthStencil;
+		VkPipelineRenderingCreateInfo mRenderInfo;
+		VkFormat mColorAttachmentformat;
+
+		void clear();
+	};
+
+	class computePipeline
+	{
+	public:
+		computePipeline();
+
+		void destroy();
+		engine::error checkError();
+
+		void setDevice(VkDevice device);
+		void setShader(VkShaderModule computeShader);
+		engine::error buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
+		
+		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
+	private:
+		engine::error mErr;
+
+		VkDevice mDevice;
+		VkPipeline mPipeline;
+		VkPipelineLayout mPipelineLayout;
+		VkPipelineShaderStageCreateInfo mComputeShaderStage;
+	};
+}
