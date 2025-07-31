@@ -2,19 +2,15 @@
 
 #include <pch.h>
 
-#include "platform/window/win32/window.h"
-
+#include "platform/window/window.h"
+#include "core/camera/camera.h"
 #include "vkHelper.h"
-
-#include "VkBootstrap.h"
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_win32.h>
-
-#include "vk_mem_alloc.h"
 #include "vkPipeline.h"
 #include "descriptorSet.h"
+#include "swapChain.h"
 
-#include "core/camera/camera.h"
+#include <VkBootstrap.h>
+#include <vk_mem_alloc.h>
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
@@ -49,36 +45,13 @@ namespace vktest
 		}
 	};
 
-	// double buffered swap chain.
-	constexpr unsigned int FRAME_OVERLAP = 2;
-
-	struct FrameData 
-	{
-		VkCommandPool _commandPool;
-		VkCommandBuffer _mainCommandBuffer;
-
-		VkSemaphore _swapchainSemaphore, _renderSemaphore;
-		VkFence _renderFence;
-
-		DeletionQueue _deletionQueue;
-	};
-
-	// main image to draw to.
-	struct AllocatedImage {
-		VkImage image;
-		VkImageView imageView;
-		VmaAllocation allocation;
-		VkExtent3D imageExtent;
-		VkFormat imageFormat;
-	};
-
 	class vulkanRenderer
 	{
 	public:
 		vulkanRenderer(std::shared_ptr<engine::context> ctx);
 		~vulkanRenderer();
 		engine::error checkError();
-		void init(engine::winApiWindow* window);
+		void init(engine::window* window);
 		void draw(); // TODO: figure out what to pass here, some abstraction over vertex/index data and materials.
 
 		void resize(uint32_t width, uint32_t height);
@@ -108,22 +81,8 @@ namespace vktest
 		// Global deletaion queue.
 		DeletionQueue _mainDeletionQueue;
 
-		// Main image that we will draw to from compute pipeline and graphic pipeline.
-		AllocatedImage _drawImage;
-		VkExtent2D _drawExtent;
-
-		// swap chain stuff.
-		VkSwapchainKHR _swapchain;
-		VkFormat _swapchainImageFormat;
-		std::vector<VkImage> _swapchainImages;
-		std::vector<VkImageView> _swapchainImageViews;
-		VkExtent2D _swapchainExtent;
-		uint32_t _frameNumber;
-
-		// frame data, relates to swap chain.
-		// We have double buffered swap chain.
-		FrameData _frames[FRAME_OVERLAP];
-		inline FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; };
+		// swapChain.
+		swapChain mSwapChain;
 
 		// queue stuff, to submit command buffer.
 		VkQueue _graphicsQueue;
@@ -146,14 +105,9 @@ namespace vktest
 		void init_triangle_pipeline();
 
 		void init_swapchain(uint32_t width, uint32_t height);
-		void create_swapchain(uint32_t width, uint32_t height);
-		void resize_swapchain(uint32_t width, uint32_t height);
-		void destroy_swapchain();
-
-		void init_vulkan(engine::winApiWindow* window);
-		void init_commands();
-		void init_sync_structures();
+		void init_vulkan(engine::window* window);
 		void init_descriptors();
+		void set_descriptor_bindings();
 
 		void printGPU()
 		{

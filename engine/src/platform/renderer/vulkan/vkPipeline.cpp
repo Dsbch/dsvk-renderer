@@ -3,30 +3,9 @@
 
 namespace vktest
 {
-	void classicGraphicPipeline::clear()
-	{
-		// clear all of the structs we need back to 0 with their correct stype
-
-		mInputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
-
-		mRasterizer = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
-
-		mColorBlendAttachment = {};
-
-		mMultisampling = { .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
-
-		mPipelineLayout = {};
-
-		mDepthStencil = { .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
-
-		mRenderInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
-
-		mShaderStages.clear();
-	}
-
-	classicGraphicPipeline::classicGraphicPipeline() 
-		: 
-		mDevice(VK_NULL_HANDLE),
+	classicGraphicPipeline::classicGraphicPipeline(VkDevice device)
+		:
+		mDevice(device),
 		mPipeline(VK_NULL_HANDLE),
 		mPipelineLayout(VK_NULL_HANDLE),
 		mInputAssembly(),
@@ -37,7 +16,19 @@ namespace vktest
 		mRenderInfo(),
 		mColorAttachmentformat()
 	{
-		clear();
+		mInputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+
+		mRasterizer = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
+
+		mMultisampling = { .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
+
+		mPipelineLayout = {};
+
+		mDepthStencil = { .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
+
+		mRenderInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+
+		mShaderStages.clear();
 	}
 
 	void classicGraphicPipeline::destroy()
@@ -54,12 +45,6 @@ namespace vktest
 	std::pair<VkPipeline, VkPipelineLayout> classicGraphicPipeline::getPipeline()
 	{
 		return { mPipeline, mPipelineLayout };
-	}
-
-	void classicGraphicPipeline::setDevice(VkDevice device)
-	{
-		if (mDevice == VK_NULL_HANDLE)
-			mDevice = device;
 	}
 
 	engine::error classicGraphicPipeline::buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets)
@@ -254,12 +239,12 @@ namespace vktest
 		mDepthStencil.maxDepthBounds = 1.f;
 	}
 
-	computePipeline::computePipeline()
+	computePipeline::computePipeline(VkDevice device)
 		:
-		mDevice(VK_NULL_HANDLE),
+		mDevice(device),
 		mPipeline(VK_NULL_HANDLE),
 		mPipelineLayout(VK_NULL_HANDLE),
-		mComputeShaderStage()
+		mComputeShaderStage() 
 	{
 	}
 
@@ -272,11 +257,6 @@ namespace vktest
 	engine::error computePipeline::checkError()
 	{
 		return mErr;
-	}
-
-	void computePipeline::setDevice(VkDevice device)
-	{
-		mDevice = device;
 	}
 
 	void computePipeline::setShader(VkShaderModule computeShader)
@@ -292,7 +272,7 @@ namespace vktest
 	engine::error computePipeline::buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets)
 	{
 		VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
-		
+
 		if (descriptorSets.size() != 0)
 		{
 			pipeline_layout_info.setLayoutCount = uint32_t(descriptorSets.size());

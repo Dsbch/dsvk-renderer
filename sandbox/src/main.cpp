@@ -5,6 +5,10 @@ int main(int argc, char* argv[])
 	try
 	{
 		auto ctx = std::make_shared<engine::context>(engine::cfg<engine::main>{});
+
+		ctx->config.inner.wnd.width = 300;
+		ctx->config.inner.wnd.height = 400;
+
 		std::unique_ptr<engine::window> window = nullptr;
 
 		auto testApp = vktest::vulkanTest(ctx);

@@ -1,6 +1,9 @@
 #include <pch.h>
 #include "window.h"
 
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_win32.h>
+
 typedef HGLRC(WINAPI* PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC hDC, HGLRC hShareContext, const int* attribList);
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
@@ -206,16 +209,6 @@ namespace engine
 		}
 	}
 
-	engine::error winApiWindow::makeRenderingContext()
-	{
-#ifdef VULKAN
-		// TODO: add vulkan context creation.
-#endif // VULKAN
-
-		return {};
-	}
-
-
 	void winApiWindow::pollInput()
 	{
 		std::lock_guard<std::mutex> l(mEvenetQueueMu);
@@ -239,6 +232,22 @@ namespace engine
 		std::lock_guard<std::mutex> l(mEvenetQueueMu);
 
 		return mKeyDown.find(k) != mKeyDown.end();
+	}
+
+	engine::withError<VkSurfaceKHR> winApiWindow::makeVulkunSurface(VkInstance instance)
+	{
+		VkWin32SurfaceCreateInfoKHR surfaceInfo{};
+		surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		surfaceInfo.hwnd = getHandle();
+		surfaceInfo.hinstance = getInstance();
+
+		VkSurfaceKHR surface{};
+
+		VkResult result = vkCreateWin32SurfaceKHR(instance, &surfaceInfo, nullptr, &surface);
+		if (result != VK_SUCCESS) 
+			return engine::error{ "Failed to create Win32 surface" };
+
+		return surface;
 	}
 
 	HWND winApiWindow::getHandle()

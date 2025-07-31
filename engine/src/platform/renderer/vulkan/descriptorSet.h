@@ -21,11 +21,10 @@ namespace vktest
 	class descriptorSet
 	{
 	public:
-		descriptorSet();
+		descriptorSet(VkDevice);
 
 		void destroy();
 		void destroyPool();
-		void setDeivce(VkDevice);
 		engine::error checkError();
 		
 		void clearBindings();

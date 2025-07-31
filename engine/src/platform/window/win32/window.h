@@ -48,9 +48,10 @@ namespace engine
 		void toggleCursor();
 		engine::error checkError();
 		void startPolling();
-		engine::error makeRenderingContext();
 		void pollInput();
 		bool isKeyPressed(key);
+
+		engine::withError<VkSurfaceKHR> makeVulkunSurface(VkInstance instance);
 
 		HWND getHandle();
 		HINSTANCE getInstance() const;

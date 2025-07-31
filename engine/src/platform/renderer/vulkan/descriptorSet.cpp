@@ -46,12 +46,23 @@ namespace vktest
 		vkDestroyDescriptorPool(mDevice, mPool, nullptr);
 	}
 
-	descriptorSet::descriptorSet()
+	descriptorSet::descriptorSet(VkDevice device)
 		:
-		mDevice(VK_NULL_HANDLE),
+		mDevice(device),
 		mDescriptorSetLayout(VK_NULL_HANDLE),
 		mDescriptorSet(VK_NULL_HANDLE)
-	{}
+	{
+		if (mDevice)
+		{
+			std::call_once(
+				isPoolCreated,
+				[&]()->void
+				{
+					mErr = pool.initPool(mDevice);
+				}
+			);
+		}
+	}
 
 	void descriptorSet::destroy()
 	{
@@ -63,19 +74,6 @@ namespace vktest
 		pool.destory();
 	}
 
-	void descriptorSet::setDeivce(VkDevice device)
-	{
-		mDevice = device;
-
-		std::call_once(
-			isPoolCreated,
-			[&]()->void
-			{
-				mErr = pool.initPool(mDevice);
-			}
-		);
-	}
-
 	engine::error descriptorSet::checkError()
 	{
 		return mErr;
@@ -84,6 +82,7 @@ namespace vktest
 	void descriptorSet::clearBindings()
 	{
 		mBindings.clear();
+		mSource.clear();
 	}
 
 	void descriptorSet::addBinding(VkDescriptorSetLayoutBinding binding, VkWriteDescriptorSet source)

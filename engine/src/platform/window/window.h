@@ -4,6 +4,9 @@
 #include "base/context/context.h"
 #include "core/events/events.h"
 
+typedef struct VkInstance_T* VkInstance;
+typedef struct VkSurfaceKHR_T* VkSurfaceKHR;
+
 namespace engine
 {
 	class window
@@ -28,7 +31,7 @@ namespace engine
 		window(const window&) = delete;
 		window& operator=(const window&) = delete;
 
-		virtual engine::error makeRenderingContext() = 0;
+		virtual engine::withError<VkSurfaceKHR> makeVulkunSurface(VkInstance instance) = 0;
 		virtual void startPolling() = 0;
 		virtual void swapBuffers() const = 0;
 		virtual engine::error checkError() = 0;

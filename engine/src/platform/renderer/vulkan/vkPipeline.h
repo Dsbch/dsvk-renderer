@@ -11,13 +11,12 @@ namespace vktest
 	class classicGraphicPipeline
 	{
 	public:
-		classicGraphicPipeline();
+		classicGraphicPipeline(VkDevice device);
 
 		void destroy();
 
 		engine::error checkError();
 
-		void setDevice(VkDevice device);
 		engine::error buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 
@@ -49,19 +48,16 @@ namespace vktest
 		VkPipelineDepthStencilStateCreateInfo mDepthStencil;
 		VkPipelineRenderingCreateInfo mRenderInfo;
 		VkFormat mColorAttachmentformat;
-
-		void clear();
 	};
 
 	class computePipeline
 	{
 	public:
-		computePipeline();
+		computePipeline(VkDevice device);
 
 		void destroy();
 		engine::error checkError();
 
-		void setDevice(VkDevice device);
 		void setShader(VkShaderModule computeShader);
 		engine::error buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		
