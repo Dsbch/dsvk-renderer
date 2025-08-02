@@ -5,21 +5,6 @@
 
 namespace vktest
 {
-	engine::error swapChain::resize(uint32_t width, uint32_t height)
-	{
-		vkDeviceWaitIdle(mDevice);
-
-		vkDestroyImageView(mDevice, mDrawImage.imageView, nullptr);
-		vmaDestroyImage(mAllocator, mDrawImage.image, mDrawImage.allocation);
-
-		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
-
-		for (int i = 0; i < mSwapchainImageViews.size(); i++)
-			vkDestroyImageView(mDevice, mSwapchainImageViews[i], nullptr);
-
-		return createSwapChain(width, height);
-	}
-
 	frameData& swapChain::getCurrentFrameData()
 	{
 		return mFrames[mFrameNumber % FRAME_OVERLAP];
@@ -60,6 +45,61 @@ namespace vktest
 	VkFormat swapChain::getSwapChainImageFormat()
 	{
 		return mSwapchainImageFormat;
+	}
+
+	void swapChain::present(VkQueue graphicQueue, uint32_t swapChainImageIndex)
+	{
+		//prepare present
+		// this will put the image we just rendered to into the visible window.
+		// we want to wait on the _renderSemaphore for that, 
+		// as its necessary that drawing commands have finished before the image is displayed to the user
+		VkPresentInfoKHR presentInfo = vktest::present_info();
+
+		presentInfo.pSwapchains = &mSwapchain;
+		presentInfo.swapchainCount = 1;
+
+		presentInfo.pWaitSemaphores = &getCurrentFrameData().renderSemaphore;
+		presentInfo.waitSemaphoreCount = 1;
+
+		presentInfo.pImageIndices = &swapChainImageIndex;
+
+		vkQueuePresentKHR(graphicQueue, &presentInfo);
+	}
+
+	engine::withError<uint32_t> swapChain::acquireImageIndex()
+	{
+		uint32_t result = 0;
+		VkResult e = vkAcquireNextImageKHR(mDevice, mSwapchain, 1000000000, getCurrentFrameData().swapchainSemaphore, nullptr, &result);
+		if (e == VK_ERROR_OUT_OF_DATE_KHR || e != VK_SUCCESS)
+		{
+			return { vkResultToStr(e) };
+		}
+
+		return result;
+	}
+
+
+	engine::error swapChain::waitOnCurrentFence()
+	{
+		auto result = vkWaitForFences(mDevice, 1, &getCurrentFrameData().renderFence, true, 1000000000);
+		if (result != VK_SUCCESS)
+			return { vkResultToStr(result) };
+
+		// reset fence to reuse.
+		result = vkResetFences(mDevice, 1, &getCurrentFrameData().renderFence);
+		if (result != VK_SUCCESS)
+			return { vkResultToStr(result) };
+
+		return {};
+	}
+
+	engine::error swapChain::resetCommandBuffer()
+	{
+		auto result = vkResetCommandBuffer(getCurrentFrameData().commandBuffer, 0);
+		if (result != VK_SUCCESS)
+			return { vkResultToStr(result) };
+
+		return {};
 	}
 
 	VkExtent2D& swapChain::getSwapChainExtent()
@@ -168,7 +208,7 @@ namespace vktest
 	{
 		vkDeviceWaitIdle(mDevice);
 
-		for (int i = 0; i < FRAME_OVERLAP; i++) 
+		for (int i = 0; i < FRAME_OVERLAP; i++)
 		{
 			vkDestroyCommandPool(mDevice, mFrames[i].commandPool, nullptr);
 			vkDestroyFence(mDevice, mFrames[i].renderFence, nullptr);

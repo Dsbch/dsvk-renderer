@@ -97,6 +97,11 @@ namespace vktest
 		// Descriptor set for image.
 		descriptorSet mDescriptorSet;
 
+		// immediate submit structures for immedeate commands on GPU.
+		VkFence _immFence;
+		VkCommandBuffer _immCommandBuffer;
+		VkCommandPool _immCommandPool;
+
 		void clear(VkCommandBuffer);
 		void draw_geometry(VkCommandBuffer cmd);
 
@@ -108,6 +113,8 @@ namespace vktest
 		void init_vulkan(engine::window* window);
 		void init_descriptors();
 		void set_descriptor_bindings();
+
+		void init_immidiate_submit();
 
 		void printGPU()
 		{

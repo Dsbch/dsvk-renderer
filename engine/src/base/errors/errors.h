@@ -3,7 +3,8 @@
 #include <pch.h>
 
 namespace engine {
-	class error {
+	class error 
+	{
 	private:
 		std::string mValue;
 	public:

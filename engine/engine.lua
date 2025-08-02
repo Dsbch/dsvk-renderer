@@ -38,6 +38,8 @@ project "engine"
       "../vendor/glm",
       "../vendor/stb",
       "../vendor/entt/src",
+      "../vendor/meshoptimizer/src",
+      "../vendor/cgltf",
    }
 
    files
@@ -50,11 +52,12 @@ project "engine"
    {
       "spdlog",
       "glm",
+      "meshoptimizer",
    }
 
    flags
    {
-    "FatalWarnings",
+    -- "FatalWarnings",
    }
 
    filter "system:windows"

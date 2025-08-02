@@ -53,11 +53,10 @@ namespace vktest
 		void destroy();
 
 		VkFormat getImageFormat();
-		engine::error resize(uint32_t width, uint32_t height);
 		frameData& getCurrentFrameData();
 		vulkanImage& getDrawImage();
+		
 		void inrement();
-
 		void pickImageExtent();
 
 		VkExtent2D& getSwapChainExtent();
@@ -65,6 +64,11 @@ namespace vktest
 		std::vector<VkImage> getSwapChainImages();
 		std::vector<VkImageView> getSwapChainImageViews();
 		VkFormat getSwapChainImageFormat();
+		
+		engine::withError<uint32_t> acquireImageIndex();
+		engine::error waitOnCurrentFence();
+		engine::error resetCommandBuffer();
+		void present(VkQueue graphicQueue, uint32_t swapChainImageIndex);
 	private:
 		engine::error createSwapChain(uint32_t width, uint32_t height);
 

@@ -3,6 +3,128 @@
 #define VMA_IMPLEMENTATION
 #include "renderer.h"
 
+#include "platform/renderer/vertex.h"
+
+#define CGLTF_IMPLEMENTATION
+#include <cgltf.h>
+
+static bool loadMeshFromGLTF(const std::filesystem::path& path,
+	std::vector<engine::vertex>& outVertices,
+	std::vector<uint32_t>& outIndices)
+{
+	std::ifstream file(path, std::ios::binary | std::ios::ate);
+	if (!file)
+		return false;
+
+	size_t size = file.tellg();
+	file.seekg(0);
+	std::vector<uint8_t> fileData(size);
+	file.read(reinterpret_cast<char*>(fileData.data()), size);
+
+	cgltf_options options = {};
+	cgltf_data* data = nullptr;
+	if (cgltf_parse(&options, fileData.data(), fileData.size(), &data) != cgltf_result_success)
+		return false;
+
+	if (cgltf_load_buffers(&options, data, path.parent_path().string().c_str()) != cgltf_result_success)
+	{
+		cgltf_free(data);
+		return false;
+	}
+
+	outVertices.clear();
+	outIndices.clear();
+
+	for (size_t mi = 0; mi < data->meshes_count; ++mi)
+	{
+		const cgltf_mesh& mesh = data->meshes[mi];
+		for (size_t pri = 0; pri < mesh.primitives_count; ++pri)
+		{
+			const cgltf_primitive& prim = mesh.primitives[pri];
+			if (prim.type != cgltf_primitive_type_triangles)
+				continue;
+
+			std::vector<engine::vertex> tempVertices;
+			size_t vertexCount = 0;
+
+			glm::vec3* positions = nullptr;
+			glm::vec3* normals = nullptr;
+			glm::vec2* texcoords = nullptr;
+
+			for (size_t ai = 0; ai < prim.attributes_count; ++ai)
+			{
+				const cgltf_attribute& attr = prim.attributes[ai];
+				const cgltf_accessor* accessor = attr.data;
+				const uint8_t* buffer = reinterpret_cast<const uint8_t*>(accessor->buffer_view->buffer->data) +
+					accessor->buffer_view->offset + accessor->offset;
+
+				if (std::string(attr.name) == "POSITION")
+				{
+					vertexCount = accessor->count;
+					positions = new glm::vec3[vertexCount];
+					for (size_t i = 0; i < vertexCount; ++i)
+						std::memcpy(&positions[i], buffer + i * accessor->stride, sizeof(glm::vec3));
+				}
+				else if (std::string(attr.name) == "NORMAL")
+				{
+					normals = new glm::vec3[vertexCount];
+					for (size_t i = 0; i < vertexCount; ++i)
+						std::memcpy(&normals[i], buffer + i * accessor->stride, sizeof(glm::vec3));
+				}
+				else if (std::string(attr.name) == "TEXCOORD_0")
+				{
+					texcoords = new glm::vec2[vertexCount];
+					for (size_t i = 0; i < vertexCount; ++i)
+						std::memcpy(&texcoords[i], buffer + i * accessor->stride, sizeof(glm::vec2));
+				}
+			}
+
+			tempVertices.reserve(vertexCount);
+			for (size_t i = 0; i < vertexCount; ++i)
+			{
+				engine::vertex v = {};
+				if (positions)  v.position = positions[i];
+				if (normals)    v.normal = normals[i];
+				if (texcoords)  v.textureCoords = texcoords[i];
+				tempVertices.push_back(v);
+			}
+
+			delete[] positions;
+			delete[] normals;
+			delete[] texcoords;
+
+			// Append to global vertex buffer
+			uint32_t baseIndex = static_cast<uint32_t>(outVertices.size());
+			outVertices.insert(outVertices.end(), tempVertices.begin(), tempVertices.end());
+
+			// Indices
+			const cgltf_accessor* indexAccessor = prim.indices;
+			const uint8_t* buffer = reinterpret_cast<const uint8_t*>(indexAccessor->buffer_view->buffer->data) +
+				indexAccessor->buffer_view->offset + indexAccessor->offset;
+
+			for (size_t i = 0; i < indexAccessor->count; ++i)
+			{
+				uint32_t index = 0;
+				switch (indexAccessor->component_type)
+				{
+				case cgltf_component_type_r_16u:
+					index = reinterpret_cast<const uint16_t*>(buffer)[i]; break;
+				case cgltf_component_type_r_32u:
+					index = reinterpret_cast<const uint32_t*>(buffer)[i]; break;
+				case cgltf_component_type_r_8u:
+					index = reinterpret_cast<const uint8_t*>(buffer)[i]; break;
+				default: break;
+				}
+				outIndices.push_back(baseIndex + index);
+			}
+		}
+	}
+
+	cgltf_free(data);
+
+	return true;
+}
+
 struct ComputePushConstants
 {
 	glm::mat4 view;
@@ -27,7 +149,18 @@ namespace vktest
 		mDescriptorSet(VK_NULL_HANDLE),
 		mComputePipeline(VK_NULL_HANDLE),
 		mSwapChain(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE)
-	{};
+	{
+		LOGINFO("loading mesh");
+
+		std::string str = "../assets/horse_statue_01_4k.glb";
+		std::filesystem::path pathObj(str);
+
+		std::vector<engine::vertex> v;
+		std::vector<uint32_t> i;
+
+		if (loadMeshFromGLTF(pathObj, v, i))
+			LOGINFO("mesh loaded");
+	};
 
 	vulkanRenderer::~vulkanRenderer()
 	{
@@ -57,6 +190,8 @@ namespace vktest
 		init_descriptors();
 
 		init_pipelines();
+
+		init_immidiate_submit();
 	}
 
 	void vulkanRenderer::init_pipelines()
@@ -273,6 +408,26 @@ namespace vktest
 			LOGERROR(mErr.err());
 	}
 
+	void vulkanRenderer::init_immidiate_submit()
+	{
+		VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+		VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+		VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_immFence));
+		_mainDeletionQueue.push_function([=]() { vkDestroyFence(_device, _immFence, nullptr); });
+
+		VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_immCommandPool));
+
+		// allocate the default command buffer that we will use for rendering
+		VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_immCommandPool, 1);
+
+		VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_immCommandBuffer));
+
+		_mainDeletionQueue.push_function([=]() {
+			vkDestroyCommandPool(_device, _immCommandPool, nullptr);
+			});
+	}
+
 	void vulkanRenderer::clear(VkCommandBuffer cmd)
 	{
 		// bind the gradient drawing compute pipeline
@@ -288,24 +443,30 @@ namespace vktest
 
 	void vulkanRenderer::draw()
 	{
-		mSwapChain.pickImageExtent();
-
-		//wait until the gpu has finished rendering the last frame. Timeout of 1 second
-		VK_CHECK(vkWaitForFences(_device, 1, &mSwapChain.getCurrentFrameData().renderFence, true, 1000000000));
-
-		//request image from the swapchain.
-		// keep in mind that we use swapChain semaphore as signaling here.
-		uint32_t swapchainImageIndex;
-		VkResult e = vkAcquireNextImageKHR(_device, mSwapChain.getSwapChain(), 1000000000, mSwapChain.getCurrentFrameData().swapchainSemaphore, nullptr, &swapchainImageIndex);
-		if (e == VK_ERROR_OUT_OF_DATE_KHR) {
+		auto waitResult = mSwapChain.waitOnCurrentFence();
+		if (waitResult)
+		{
+			mErr = waitResult.err();
 			return;
 		}
 
-		// reset fence to reuse.
-		VK_CHECK(vkResetFences(_device, 1, &mSwapChain.getCurrentFrameData().renderFence));
+		mSwapChain.pickImageExtent();
 
-		//now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
-		VK_CHECK(vkResetCommandBuffer(mSwapChain.getCurrentFrameData().commandBuffer, 0));
+		// request image from the swapchain.
+		// keep in mind that we use swapChain semaphore as signaling here.
+		auto indexResult = mSwapChain.acquireImageIndex();
+		if (!indexResult)
+		{
+			mErr = indexResult.err();
+			return;
+		}
+
+		auto resetRes = mSwapChain.resetCommandBuffer();
+		if (resetRes)
+		{
+			mErr = resetRes.err();
+			return;
+		}
 
 		//naming it cmd for shorter writing
 		VkCommandBuffer cmd = mSwapChain.getCurrentFrameData().commandBuffer;
@@ -329,20 +490,19 @@ namespace vktest
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
 		vkinit::transition_image(cmd, mSwapChain.getDrawImage().image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 		// copy from the draw image into the swapchain
-		vkinit::copy_image_to_image(cmd, mSwapChain.getDrawImage().image, mSwapChain.getSwapChainImages()[swapchainImageIndex], mSwapChain.getDrawImage().imageExtent, mSwapChain.getSwapChainExtent());
+		vkinit::copy_image_to_image(cmd, mSwapChain.getDrawImage().image, mSwapChain.getSwapChainImages()[indexResult.value()], mSwapChain.getDrawImage().imageExtent, mSwapChain.getSwapChainExtent());
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
-		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		// set swapchain image layout to Present so we can draw it
-		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)
 		VK_CHECK(vkEndCommandBuffer(cmd));
-
 
 		//prepare the submission to the queue. 
 		//we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
@@ -364,26 +524,13 @@ namespace vktest
 		// this will put the image we just rendered to into the visible window.
 		// we want to wait on the _renderSemaphore for that, 
 		// as its necessary that drawing commands have finished before the image is displayed to the user
-		VkPresentInfoKHR presentInfo = vktest::present_info();
-
-		presentInfo.pSwapchains = &mSwapChain.getSwapChain();
-		presentInfo.swapchainCount = 1;
-
-		presentInfo.pWaitSemaphores = &mSwapChain.getCurrentFrameData().renderSemaphore;
-		presentInfo.waitSemaphoreCount = 1;
-
-		presentInfo.pImageIndices = &swapchainImageIndex;
-
-		vkQueuePresentKHR(_graphicsQueue, &presentInfo);
-
-
-		//increase the number of frames drawn
-		mSwapChain.inrement();
+		mSwapChain.present(_graphicsQueue, indexResult.value());
 	}
 
 	void vulkanRenderer::resize(uint32_t width, uint32_t height)
 	{
-		mSwapChain.resize(width, height);
+		mSwapChain.destroy();
+		mSwapChain.init(width, height, _graphicsQueueFamily);
 
 		// reconfigure source for destroyed imageView.
 		mDescriptorSet.clearBindings();

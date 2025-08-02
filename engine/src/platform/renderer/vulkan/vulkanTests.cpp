@@ -2,8 +2,10 @@
 
 #include "vulkanTests.h"
 #include "platform/window/win32/window.h"
-
 #include "renderer.h"
+
+#include "platform/renderer/vertex.h"
+#include <glm/glm.hpp>
 
 // app part.
 namespace vktest
@@ -99,6 +101,8 @@ namespace vktest
 
 			// do rendering here.
 			mRenderer->draw();
+			if (mRenderer->checkError())
+				LOGERROR(mRenderer->checkError().err());
 		}
 	}
 
