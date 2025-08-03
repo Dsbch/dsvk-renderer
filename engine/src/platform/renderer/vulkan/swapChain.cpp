@@ -147,7 +147,7 @@ namespace vktest
 		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		VkImageCreateInfo rimg_info = vkinit::image_create_info(mDrawImage.imageFormat, drawImageUsages, drawImageExtent);
+		VkImageCreateInfo rimg_info = vkinit::image_create_info(mDrawImage.imageFormat, drawImageUsages, mDrawImage.imageExtent);
 
 		//for the draw image, we want to allocate it from gpu local memory
 		VmaAllocationCreateInfo rimg_allocinfo = {};
@@ -172,7 +172,7 @@ namespace vktest
 		VkImageUsageFlags depthImageUsages{};
 		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-		VkImageCreateInfo dimg_info = vkinit::image_create_info(mDepthImage.imageFormat, depthImageUsages, drawImageExtent);
+		VkImageCreateInfo dimg_info = vkinit::image_create_info(mDepthImage.imageFormat, depthImageUsages, mDepthImage.imageExtent);
 
 		//allocate and create the image
 		createImageRes = vmaCreateImage(mAllocator, &dimg_info, &rimg_allocinfo, &mDepthImage.image, &mDepthImage.allocation, nullptr);

@@ -13,8 +13,7 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	std::vector<uint32_t>& outIndices)
 {
 	std::ifstream file(path, std::ios::binary | std::ios::ate);
-	if (!file)
-		return false;
+	if (!file) return false;
 
 	size_t size = file.tellg();
 	file.seekg(0);
@@ -23,11 +22,11 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 
 	cgltf_options options = {};
 	cgltf_data* data = nullptr;
+
 	if (cgltf_parse(&options, fileData.data(), fileData.size(), &data) != cgltf_result_success)
 		return false;
 
-	if (cgltf_load_buffers(&options, data, path.parent_path().string().c_str()) != cgltf_result_success)
-	{
+	if (cgltf_load_buffers(&options, data, path.parent_path().string().c_str()) != cgltf_result_success) {
 		cgltf_free(data);
 		return false;
 	}
@@ -35,93 +34,78 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	outVertices.clear();
 	outIndices.clear();
 
-	for (size_t mi = 0; mi < data->meshes_count; ++mi)
-	{
+	for (size_t mi = 0; mi < data->meshes_count; ++mi) {
 		const cgltf_mesh& mesh = data->meshes[mi];
-		for (size_t pri = 0; pri < mesh.primitives_count; ++pri)
-		{
+
+		for (size_t pri = 0; pri < mesh.primitives_count; ++pri) {
 			const cgltf_primitive& prim = mesh.primitives[pri];
 			if (prim.type != cgltf_primitive_type_triangles)
 				continue;
 
-			std::vector<engine::vertex> tempVertices;
-			size_t vertexCount = 0;
+			const cgltf_accessor* positionAccessor = nullptr;
+			const cgltf_accessor* normalAccessor = nullptr;
+			const cgltf_accessor* texcoordAccessor = nullptr;
 
-			glm::vec3* positions = nullptr;
-			glm::vec3* normals = nullptr;
-			glm::vec2* texcoords = nullptr;
-
-			for (size_t ai = 0; ai < prim.attributes_count; ++ai)
-			{
+			for (size_t ai = 0; ai < prim.attributes_count; ++ai) {
 				const cgltf_attribute& attr = prim.attributes[ai];
-				const cgltf_accessor* accessor = attr.data;
-				const uint8_t* buffer = reinterpret_cast<const uint8_t*>(accessor->buffer_view->buffer->data) +
-					accessor->buffer_view->offset + accessor->offset;
-
-				if (std::string(attr.name) == "POSITION")
-				{
-					vertexCount = accessor->count;
-					positions = new glm::vec3[vertexCount];
-					for (size_t i = 0; i < vertexCount; ++i)
-						std::memcpy(&positions[i], buffer + i * accessor->stride, sizeof(glm::vec3));
-				}
-				else if (std::string(attr.name) == "NORMAL")
-				{
-					normals = new glm::vec3[vertexCount];
-					for (size_t i = 0; i < vertexCount; ++i)
-						std::memcpy(&normals[i], buffer + i * accessor->stride, sizeof(glm::vec3));
-				}
-				else if (std::string(attr.name) == "TEXCOORD_0")
-				{
-					texcoords = new glm::vec2[vertexCount];
-					for (size_t i = 0; i < vertexCount; ++i)
-						std::memcpy(&texcoords[i], buffer + i * accessor->stride, sizeof(glm::vec2));
-				}
+				if (strcmp(attr.name, "POSITION") == 0) positionAccessor = attr.data;
+				else if (strcmp(attr.name, "NORMAL") == 0) normalAccessor = attr.data;
+				else if (strcmp(attr.name, "TEXCOORD_0") == 0) texcoordAccessor = attr.data;
 			}
 
-			tempVertices.reserve(vertexCount);
-			for (size_t i = 0; i < vertexCount; ++i)
-			{
-				engine::vertex v = {};
-				if (positions)  v.position = positions[i];
-				if (normals)    v.normal = normals[i];
-				if (texcoords)  v.textureCoords = texcoords[i];
-				tempVertices.push_back(v);
-			}
+			if (!positionAccessor || positionAccessor->component_type != cgltf_component_type_r_32f || positionAccessor->type != cgltf_type_vec3)
+				continue;
 
-			delete[] positions;
-			delete[] normals;
-			delete[] texcoords;
-
-			// Append to global vertex buffer
+			size_t vertexCount = positionAccessor->count;
 			uint32_t baseIndex = static_cast<uint32_t>(outVertices.size());
-			outVertices.insert(outVertices.end(), tempVertices.begin(), tempVertices.end());
+
+			for (size_t i = 0; i < vertexCount; ++i) {
+				engine::vertex v = {};
+
+				float pos[3] = {};
+				cgltf_accessor_read_float(positionAccessor, i, pos, 3);
+				v.position = glm::vec3(pos[0], pos[1], pos[2]);
+
+				if (normalAccessor) {
+					float norm[3] = {};
+					cgltf_accessor_read_float(normalAccessor, i, norm, 3);
+					v.normal = glm::vec3(norm[0], norm[1], norm[2]);
+				}
+
+				if (texcoordAccessor) {
+					float uv[2] = {};
+					cgltf_accessor_read_float(texcoordAccessor, i, uv, 2);
+					v.textureCoords = glm::vec2(uv[0], uv[1]);
+				}
+
+				outVertices.push_back(v);
+			}
 
 			// Indices
-			const cgltf_accessor* indexAccessor = prim.indices;
-			const uint8_t* buffer = reinterpret_cast<const uint8_t*>(indexAccessor->buffer_view->buffer->data) +
-				indexAccessor->buffer_view->offset + indexAccessor->offset;
+			if (prim.indices) {
+				const cgltf_accessor* indexAccessor = prim.indices;
+				const uint8_t* buffer = reinterpret_cast<const uint8_t*>(
+					indexAccessor->buffer_view->buffer->data) +
+					indexAccessor->buffer_view->offset + indexAccessor->offset;
 
-			for (size_t i = 0; i < indexAccessor->count; ++i)
-			{
-				uint32_t index = 0;
-				switch (indexAccessor->component_type)
-				{
-				case cgltf_component_type_r_16u:
-					index = reinterpret_cast<const uint16_t*>(buffer)[i]; break;
-				case cgltf_component_type_r_32u:
-					index = reinterpret_cast<const uint32_t*>(buffer)[i]; break;
-				case cgltf_component_type_r_8u:
-					index = reinterpret_cast<const uint8_t*>(buffer)[i]; break;
-				default: break;
+				for (size_t i = 0; i < indexAccessor->count; ++i) {
+					uint32_t index = 0;
+					switch (indexAccessor->component_type) {
+					case cgltf_component_type_r_16u:
+						index = reinterpret_cast<const uint16_t*>(buffer)[i]; break;
+					case cgltf_component_type_r_32u:
+						index = reinterpret_cast<const uint32_t*>(buffer)[i]; break;
+					case cgltf_component_type_r_8u:
+						index = reinterpret_cast<const uint8_t*>(buffer)[i]; break;
+					default: continue;
+					}
+					outIndices.push_back(baseIndex + index);
 				}
-				outIndices.push_back(baseIndex + index);
 			}
 		}
 	}
 
 	cgltf_free(data);
-
 	return true;
 }
 
@@ -129,6 +113,8 @@ struct ComputePushConstants
 {
 	glm::mat4 view;
 	glm::mat4 projection;
+	VkDeviceAddress vertexBuffer;
+	VkDeviceAddress indexBuffer;
 };
 
 namespace vktest
@@ -234,7 +220,7 @@ namespace vktest
 		}
 
 		VkShaderModule triangleVertexShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkSimple.vert.spv", _device, &triangleVertexShader)) {
+		if (!vkinit::load_shader_module("../assets/shaders/vkSimpleBDA.vert.spv", _device, &triangleVertexShader)) {
 			LOGERROR("Error when building the triangle vertex shader module");
 		}
 		else {
@@ -416,6 +402,7 @@ namespace vktest
 		LOGINFO("loading mesh");
 
 		std::string str = "../assets/horse_statue_01_4k.glb";
+		//std::string str = "../assets/cube.glb";
 		std::filesystem::path pathObj(str);
 
 		std::vector<engine::vertex> v;
@@ -432,7 +419,7 @@ namespace vktest
 		if (err)
 			LOGINFO(err.err());
 
-		LOGINFO("SUCCESS");
+		LOGINFO("SUCCESS index len: {}, vertex len: {}", i.size(), v.size());
 
 		_mainDeletionQueue.push_function([&] {
 			mIndex.destroy();
@@ -496,12 +483,11 @@ namespace vktest
 		// we will overwrite it all so we dont care about what was the older layout
 		vkinit::transition_image(cmd, mSwapChain.getDrawImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-		vkinit::transition_image(cmd, mSwapChain.getDepthImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
 		// draw with compute, clear image.
 		clear(cmd);
 
 		vkinit::transition_image(cmd, mSwapChain.getDrawImage().image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		vkinit::transition_image(cmd, mSwapChain.getDepthImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 		draw_geometry(cmd);
 
@@ -561,11 +547,10 @@ namespace vktest
 	{
 		//begin a render pass connected to our draw image.
 		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(mSwapChain.getDrawImage().imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
 		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(mSwapChain.getDepthImage().imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 		VkRenderingInfo renderInfo = vkinit::rendering_info(mSwapChain.getDrawImage().imageExtent, &colorAttachment, &depthAttachment);
-		
+
 		vkCmdBeginRendering(cmd, &renderInfo);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline.getPipeline().first);
@@ -593,11 +578,13 @@ namespace vktest
 		ComputePushConstants pc;
 		pc.view = mCamera.getCameraTransform();
 		pc.projection = mCamera.getProjection();
+		pc.vertexBuffer = mVertex.getBuffer().bufferAddress;
+		pc.indexBuffer = mIndex.getBuffer().bufferAddress;
 
 		vkCmdPushConstants(cmd, mGraphicsPipeline.getPipeline().second, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ComputePushConstants), &pc);
 
 		//launch a draw command to draw 3 vertices
-		vkCmdDraw(cmd, 3, 1, 0, 0);
+		vkCmdDraw(cmd, 67164, 1, 0, 0);
 
 		vkCmdEndRendering(cmd);
 	}

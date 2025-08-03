@@ -470,8 +470,7 @@ namespace vkinit
 		return renderInfo;
 	}
 
-	inline VkRenderingInfo rendering_info(VkExtent3D renderExtent, VkRenderingAttachmentInfo* colorAttachment,
-		VkRenderingAttachmentInfo* depthAttachment)
+	inline VkRenderingInfo rendering_info(VkExtent3D renderExtent, VkRenderingAttachmentInfo* colorAttachment, VkRenderingAttachmentInfo* depthAttachment)
 	{
 		VkRenderingInfo renderInfo{};
 		renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;

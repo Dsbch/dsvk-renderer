@@ -8,12 +8,18 @@
 
 namespace engine 
 {
-	struct vertex 
-	{
+	struct vertex {
 		glm::vec3 position;
+		float _pad0;
+
 		glm::vec2 textureCoords;
+		glm::vec2 _pad1;
+
 		glm::vec3 normal;
+		float _pad2;
+
 		glm::vec3 tangent;
+		float _pad3;
 	};
 
 	struct instanceAttributes
