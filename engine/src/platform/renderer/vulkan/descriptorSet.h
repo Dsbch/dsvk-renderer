@@ -21,10 +21,10 @@ namespace vktest
 	class descriptorSet
 	{
 	public:
-		descriptorSet(VkDevice);
+		descriptorSet();
 
+		void init(VkDevice device);
 		void destroy();
-		void destroyPool();
 		engine::error checkError();
 		
 		void clearBindings();
@@ -33,6 +33,7 @@ namespace vktest
 		
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getDescriptorSet();
 		
+		static void destroyPool();
 	private:
 		static descriptorPool pool;
 		static std::once_flag isPoolCreated;

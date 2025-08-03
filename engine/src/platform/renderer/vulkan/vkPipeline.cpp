@@ -3,9 +3,9 @@
 
 namespace vktest
 {
-	classicGraphicPipeline::classicGraphicPipeline(VkDevice device)
+	classicGraphicPipeline::classicGraphicPipeline()
 		:
-		mDevice(device),
+		mDevice(VK_NULL_HANDLE),
 		mPipeline(VK_NULL_HANDLE),
 		mPipelineLayout(VK_NULL_HANDLE),
 		mInputAssembly(),
@@ -31,6 +31,11 @@ namespace vktest
 		mShaderStages.clear();
 	}
 
+	void classicGraphicPipeline::init(VkDevice device)
+	{
+		mDevice = device;
+	}
+
 	void classicGraphicPipeline::destroy()
 	{
 		vkDestroyPipelineLayout(mDevice, mPipelineLayout, nullptr);
@@ -47,7 +52,7 @@ namespace vktest
 		return { mPipeline, mPipelineLayout };
 	}
 
-	engine::error classicGraphicPipeline::buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets)
+	engine::error classicGraphicPipeline::build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets)
 	{
 		//build the pipeline layout that controls the inputs/outputs of the shader
 		VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
@@ -239,13 +244,18 @@ namespace vktest
 		mDepthStencil.maxDepthBounds = 1.f;
 	}
 
-	computePipeline::computePipeline(VkDevice device)
+	computePipeline::computePipeline()
 		:
-		mDevice(device),
+		mDevice(VK_NULL_HANDLE),
 		mPipeline(VK_NULL_HANDLE),
 		mPipelineLayout(VK_NULL_HANDLE),
-		mComputeShaderStage() 
+		mComputeShaderStage()
 	{
+	}
+
+	void computePipeline::init(VkDevice device)
+	{
+		mDevice = device;
 	}
 
 	void computePipeline::destroy()
@@ -269,7 +279,7 @@ namespace vktest
 		return { mPipeline, mPipelineLayout };
 	}
 
-	engine::error computePipeline::buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets)
+	engine::error computePipeline::build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets)
 	{
 		VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
 

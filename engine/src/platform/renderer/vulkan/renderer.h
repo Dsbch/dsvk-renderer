@@ -8,6 +8,8 @@
 #include "vkPipeline.h"
 #include "descriptorSet.h"
 #include "swapChain.h"
+#include "immediateSubmit.h"
+#include "vulkanBuffer.h"
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -50,8 +52,11 @@ namespace vktest
 	public:
 		vulkanRenderer(std::shared_ptr<engine::context> ctx);
 		~vulkanRenderer();
+
 		engine::error checkError();
+		
 		void init(engine::window* window);
+		
 		void draw(); // TODO: figure out what to pass here, some abstraction over vertex/index data and materials.
 
 		void resize(uint32_t width, uint32_t height);
@@ -64,6 +69,7 @@ namespace vktest
 		std::shared_ptr<engine::context> mCtx;
 		engine::fpsCamera mCamera;
 		engine::error mErr;
+		immediateSubmit mImmediateSubmit;
 
 		// VMA.
 		VmaAllocator _allocator;
@@ -94,18 +100,31 @@ namespace vktest
 		// Graphics pipeline for geometry.
 		classicGraphicPipeline mGraphicsPipeline;
 
+		// TODO: figure out descriptorSets.
+		// I need to add default descriptors for example:
+		// 1. For all vertex data SSBO bindless.
+		// 2. For all index data SSBO bindless.
+		// 3. For all textures that can be used bindless 2dsampler.
+		// 4. Also I will need to use pushConstants to signal max size for all of them.
+		// 5. And I will need also put in push constants some info about materials, where each material is stored.
+		//    While info about what material to use should accesable in a sepparate ssbo, perharps in perinstance ssbo?
+		// 6. Also I need to figure out how to iterate through perinstance things in ssbo in meshShader.
 		// Descriptor set for image.
 		descriptorSet mDescriptorSet;
+		// ^^^^^^^^^ TODO: move stuff above to some sort of a struct or a class.
 
-		// immediate submit structures for immedeate commands on GPU.
-		VkFence _immFence;
-		VkCommandBuffer _immCommandBuffer;
-		VkCommandPool _immCommandPool;
+
+		// Stuff below for rendering only.
+		vulkanBuffer mVertex;
+		vulkanBuffer mIndex;
+		void initMesh();
+		// ^^^^^ vertex index buffers.
 
 		void clear(VkCommandBuffer);
 		void draw_geometry(VkCommandBuffer cmd);
 
 		void init_pipelines();
+		void init_immediate_submit();
 		void init_background_pipelines();
 		void init_triangle_pipeline();
 
@@ -113,8 +132,6 @@ namespace vktest
 		void init_vulkan(engine::window* window);
 		void init_descriptors();
 		void set_descriptor_bindings();
-
-		void init_immidiate_submit();
 
 		void printGPU()
 		{

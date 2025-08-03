@@ -4,19 +4,11 @@
 
 #include <vma/vk_mem_alloc.h>
 #include <VkBootstrap.h>
+#include "vkHelper.h"
 
 namespace vktest
 {
 	const static uint32_t FRAME_OVERLAP = 3;
-
-	struct vulkanImage
-	{
-		VkImage image;
-		VkImageView imageView;
-		VmaAllocation allocation;
-		VkExtent3D imageExtent;
-		VkFormat imageFormat;
-	};
 
 	struct frameData
 	{
@@ -27,14 +19,23 @@ namespace vktest
 		VkFence renderFence;
 	};
 
-	class swapChain
+	struct vulkanImage
+	{
+		VkImage image;
+		VkImageView imageView;
+		VmaAllocation allocation;
+		VkExtent3D imageExtent;
+		VkFormat imageFormat;
+	};
+
+	struct swapChain
 	{
 	public:
-		swapChain(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU) :
-			mAllocator(vma),
-			mDevice(device),
-			mSurface(surface),
-			mChosenGPU(chosenGPU),
+		swapChain() :
+			mAllocator(VK_NULL_HANDLE),
+			mDevice(VK_NULL_HANDLE),
+			mSurface(VK_NULL_HANDLE),
+			mChosenGPU(VK_NULL_HANDLE),
 			mSwapchain(VK_NULL_HANDLE),
 			mSwapchainImageFormat(VK_FORMAT_B8G8R8A8_UNORM),
 			mSwapchainExtent(),
@@ -49,12 +50,15 @@ namespace vktest
 		{
 		}
 
-		engine::error init(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
+		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU);
+		engine::error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
 		void destroy();
 
-		VkFormat getImageFormat();
+		VkFormat getDrawImageFormat();
+		VkFormat getDepthImageFormt();
 		frameData& getCurrentFrameData();
 		vulkanImage& getDrawImage();
+		vulkanImage& getDepthImage();
 		
 		void inrement();
 		void pickImageExtent();
@@ -89,6 +93,7 @@ namespace vktest
 		VkExtent2D mSwapchainExtent;
 		
 		vulkanImage mDrawImage;
+		vulkanImage mDepthImage;
 
 		uint32_t mFrameNumber;
 		// frame data, relates to swap chain.

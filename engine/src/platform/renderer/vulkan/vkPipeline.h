@@ -8,16 +8,17 @@
 
 namespace vktest
 {
-	class classicGraphicPipeline
+	struct classicGraphicPipeline
 	{
 	public:
-		classicGraphicPipeline(VkDevice device);
+		classicGraphicPipeline();
 
+		void init(VkDevice device);
+		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		void destroy();
 
 		engine::error checkError();
 
-		engine::error buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 
 		void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
@@ -50,16 +51,17 @@ namespace vktest
 		VkFormat mColorAttachmentformat;
 	};
 
-	class computePipeline
+	struct computePipeline
 	{
 	public:
-		computePipeline(VkDevice device);
+		computePipeline();
 
+		void init(VkDevice device);
+		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		void destroy();
 		engine::error checkError();
 
 		void setShader(VkShaderModule computeShader);
-		engine::error buildPipeline(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 	private:

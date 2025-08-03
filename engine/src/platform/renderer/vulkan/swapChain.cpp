@@ -1,7 +1,6 @@
 #include <pch.h>
 
 #include "swapChain.h"
-#include "vkHelper.h"
 
 namespace vktest
 {
@@ -13,6 +12,11 @@ namespace vktest
 	vulkanImage& swapChain::getDrawImage()
 	{
 		return mDrawImage;
+	}
+
+	vulkanImage& swapChain::getDepthImage()
+	{
+		return mDepthImage;
 	}
 
 	void swapChain::inrement()
@@ -162,15 +166,40 @@ namespace vktest
 		if (createImageViewRes != VK_SUCCESS)
 			return vkResultToStr(createImageViewRes);
 
+		// Create depth image.
+		mDepthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+		mDepthImage.imageExtent = mDrawImage.imageExtent;
+		VkImageUsageFlags depthImageUsages{};
+		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+		VkImageCreateInfo dimg_info = vkinit::image_create_info(mDepthImage.imageFormat, depthImageUsages, drawImageExtent);
+
+		//allocate and create the image
+		createImageRes = vmaCreateImage(mAllocator, &dimg_info, &rimg_allocinfo, &mDepthImage.image, &mDepthImage.allocation, nullptr);
+		if (createImageRes != VK_SUCCESS)
+			return vkResultToStr(createImageRes);
+
+		//build a image-view for the draw image to use for rendering
+		VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(mDepthImage.imageFormat, mDepthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+		createImageViewRes = vkCreateImageView(mDevice, &dview_info, nullptr, &mDepthImage.imageView);
+		if (createImageViewRes != VK_SUCCESS)
+			return vkResultToStr(createImageViewRes);
+
 		return {};
 	}
 
-	VkFormat swapChain::getImageFormat()
+	VkFormat swapChain::getDrawImageFormat()
 	{
 		return mDrawImage.imageFormat;
 	}
 
-	engine::error swapChain::init(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
+	VkFormat swapChain::getDepthImageFormt()
+	{
+		return mDepthImage.imageFormat;
+	}
+
+	engine::error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
 	{
 		VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
@@ -204,6 +233,14 @@ namespace vktest
 		return createSwapChain(width, height);
 	}
 
+	void swapChain::init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU)
+	{
+		mAllocator = vma;
+		mDevice = device;
+		mSurface = surface;
+		mChosenGPU = chosenGPU;
+	}
+
 	void swapChain::destroy()
 	{
 		vkDeviceWaitIdle(mDevice);
@@ -218,6 +255,9 @@ namespace vktest
 
 		vkDestroyImageView(mDevice, mDrawImage.imageView, nullptr);
 		vmaDestroyImage(mAllocator, mDrawImage.image, mDrawImage.allocation);
+
+		vkDestroyImageView(mDevice, mDepthImage.imageView, nullptr);
+		vmaDestroyImage(mAllocator, mDepthImage.image, mDepthImage.allocation);
 
 		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
 

@@ -145,21 +145,12 @@ namespace vktest
 		_graphicsQueue(),
 		_graphicsQueueFamily(),
 		mCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height),
-		mGraphicsPipeline(VK_NULL_HANDLE),
-		mDescriptorSet(VK_NULL_HANDLE),
-		mComputePipeline(VK_NULL_HANDLE),
-		mSwapChain(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE)
+		mGraphicsPipeline(),
+		mDescriptorSet(),
+		mComputePipeline(),
+		mImmediateSubmit(),
+		mSwapChain()
 	{
-		LOGINFO("loading mesh");
-
-		std::string str = "../assets/horse_statue_01_4k.glb";
-		std::filesystem::path pathObj(str);
-
-		std::vector<engine::vertex> v;
-		std::vector<uint32_t> i;
-
-		if (loadMeshFromGLTF(pathObj, v, i))
-			LOGINFO("mesh loaded");
 	};
 
 	vulkanRenderer::~vulkanRenderer()
@@ -191,13 +182,27 @@ namespace vktest
 
 		init_pipelines();
 
-		init_immidiate_submit();
+		init_immediate_submit();
+
+		initMesh();
 	}
 
 	void vulkanRenderer::init_pipelines()
 	{
 		init_background_pipelines();
 		init_triangle_pipeline();
+	}
+
+	void vulkanRenderer::init_immediate_submit()
+	{
+		// init immidiate submit.
+		mErr = mImmediateSubmit.init(_device, _graphicsQueue, _graphicsQueueFamily);
+		if (mErr)
+			return;
+
+		_mainDeletionQueue.push_function([&] {
+			mImmediateSubmit.destroy();
+			});
 	}
 
 	void vulkanRenderer::init_background_pipelines()
@@ -209,10 +214,9 @@ namespace vktest
 			fmt::print("Error when building the compute shader \n");
 		}
 
-		mComputePipeline = { _device };
+		mComputePipeline.init(_device);
 		mComputePipeline.setShader(computeDrawShader);
-
-		mComputePipeline.buildPipeline(VK_NULL_HANDLE, { mDescriptorSet.getDescriptorSet().second });
+		mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSet.getDescriptorSet().second });
 
 		vkDestroyShaderModule(_device, computeDrawShader, nullptr);
 
@@ -242,7 +246,7 @@ namespace vktest
 		pushConstant.size = sizeof(ComputePushConstants);
 		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-		mGraphicsPipeline = { _device };
+		mGraphicsPipeline.init(_device);
 		//connecting the vertex and pixel shaders to the pipeline
 		mGraphicsPipeline.setShaders(triangleVertexShader, triangleFragShader);
 		//it will draw triangles
@@ -255,15 +259,14 @@ namespace vktest
 		mGraphicsPipeline.setMultisamplingNone();
 		//no blending
 		mGraphicsPipeline.disableBlending();
-		//no depth testing
-		mGraphicsPipeline.disableDepthtest();
+		mGraphicsPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 		//connect the image format we will draw into, from draw image
-		mGraphicsPipeline.setColorAttachmentFormat(mSwapChain.getImageFormat());
-		mGraphicsPipeline.setDepthFormat(VK_FORMAT_UNDEFINED);
+		mGraphicsPipeline.setColorAttachmentFormat(mSwapChain.getDrawImageFormat());
+		mGraphicsPipeline.setDepthFormat(mSwapChain.getDepthImageFormt());
 
 		//finally build the pipeline.
-		mGraphicsPipeline.buildPipeline(&pushConstant, {});
+		mGraphicsPipeline.build(&pushConstant, {});
 
 		//clean structures.
 		vkDestroyShaderModule(_device, triangleFragShader, nullptr);
@@ -359,9 +362,9 @@ namespace vktest
 
 	void vulkanRenderer::init_swapchain(uint32_t width, uint32_t height)
 	{
-		mSwapChain = { _allocator, _device, _surface, _chosenGPU };
+		mSwapChain.init(_allocator, _device, _surface, _chosenGPU);
 
-		mErr = mSwapChain.init(width, height, _graphicsQueueFamily);
+		mErr = mSwapChain.build(width, height, _graphicsQueueFamily);
 		if (mErr)
 			return;
 
@@ -373,12 +376,12 @@ namespace vktest
 
 	void vulkanRenderer::init_descriptors()
 	{
-		mDescriptorSet = { _device };
+		mDescriptorSet.init(_device);
 
 		set_descriptor_bindings();
 
 		_mainDeletionQueue.push_function([&]() { mDescriptorSet.destroy(); });
-		_mainDeletionQueue.push_function([&]() { mDescriptorSet.destroyPool(); });
+		_mainDeletionQueue.push_function([&]() { descriptorSet::destroyPool(); });
 	}
 
 	void vulkanRenderer::set_descriptor_bindings()
@@ -408,23 +411,35 @@ namespace vktest
 			LOGERROR(mErr.err());
 	}
 
-	void vulkanRenderer::init_immidiate_submit()
+	void vulkanRenderer::initMesh()
 	{
-		VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-		VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		LOGINFO("loading mesh");
 
-		VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_immFence));
-		_mainDeletionQueue.push_function([=]() { vkDestroyFence(_device, _immFence, nullptr); });
+		std::string str = "../assets/horse_statue_01_4k.glb";
+		std::filesystem::path pathObj(str);
 
-		VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_immCommandPool));
+		std::vector<engine::vertex> v;
+		std::vector<uint32_t> i;
 
-		// allocate the default command buffer that we will use for rendering
-		VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_immCommandPool, 1);
+		if (loadMeshFromGLTF(pathObj, v, i))
+			LOGINFO("mesh loaded");
 
-		VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_immCommandBuffer));
+		mVertex.init(_device, _allocator);
+		mIndex.init(_device, _allocator);
 
-		_mainDeletionQueue.push_function([=]() {
-			vkDestroyCommandPool(_device, _immCommandPool, nullptr);
+		auto err = mVertex.build(mImmediateSubmit, v.data(), v.size() * sizeof(engine::vertex), v.size());
+		err = mIndex.build(mImmediateSubmit, i.data(), i.size() * sizeof(uint32_t), i.size());
+		if (err)
+			LOGINFO(err.err());
+
+		LOGINFO("SUCCESS");
+
+		_mainDeletionQueue.push_function([&] {
+			mIndex.destroy();
+			});
+
+		_mainDeletionQueue.push_function([&] {
+			mVertex.destroy();
 			});
 	}
 
@@ -481,6 +496,8 @@ namespace vktest
 		// we will overwrite it all so we dont care about what was the older layout
 		vkinit::transition_image(cmd, mSwapChain.getDrawImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
+		vkinit::transition_image(cmd, mSwapChain.getDepthImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
 		// draw with compute, clear image.
 		clear(cmd);
 
@@ -530,7 +547,7 @@ namespace vktest
 	void vulkanRenderer::resize(uint32_t width, uint32_t height)
 	{
 		mSwapChain.destroy();
-		mSwapChain.init(width, height, _graphicsQueueFamily);
+		mSwapChain.build(width, height, _graphicsQueueFamily);
 
 		// reconfigure source for destroyed imageView.
 		mDescriptorSet.clearBindings();
@@ -545,7 +562,10 @@ namespace vktest
 		//begin a render pass connected to our draw image.
 		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(mSwapChain.getDrawImage().imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-		VkRenderingInfo renderInfo = vkinit::rendering_info(mSwapChain.getDrawImage().imageExtent, &colorAttachment, nullptr);
+		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(mSwapChain.getDepthImage().imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+		VkRenderingInfo renderInfo = vkinit::rendering_info(mSwapChain.getDrawImage().imageExtent, &colorAttachment, &depthAttachment);
+		
 		vkCmdBeginRendering(cmd, &renderInfo);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline.getPipeline().first);
