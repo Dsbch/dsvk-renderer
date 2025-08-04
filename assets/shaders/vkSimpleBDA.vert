@@ -20,8 +20,7 @@ layout(buffer_reference, std430) readonly buffer indexBuffer{
 
 layout( push_constant ) uniform constants
 {
-	mat4 view;
-	mat4 projection;
+	mat4 viewProjection;
 	vertexBuffer vb;
 	indexBuffer ib;
 } pushConstants;
@@ -38,7 +37,7 @@ void main()
 	uint i = pushConstants.ib.indices[gl_VertexIndex];
 	vertex v = pushConstants.vb.vertices[i];
 
-	gl_Position = pushConstants.projection*pushConstants.view*vec4(14.0f*v.position, 1.0f);
+	gl_Position = pushConstants.viewProjection*vec4(14.0f*v.position, 1.0f);
 
 	outColor = hash(v.position);
 }

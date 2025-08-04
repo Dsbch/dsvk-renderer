@@ -111,8 +111,7 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 
 struct ComputePushConstants
 {
-	glm::mat4 view;
-	glm::mat4 projection;
+	glm::mat4 viewProjection;
 	VkDeviceAddress vertexBuffer;
 	VkDeviceAddress indexBuffer;
 };
@@ -576,8 +575,7 @@ namespace vktest
 
 		// set push constants.
 		ComputePushConstants pc;
-		pc.view = mCamera.getCameraTransform();
-		pc.projection = mCamera.getProjection();
+		pc.viewProjection = mCamera.getProjection() * mCamera.getCameraTransform();
 		pc.vertexBuffer = mVertex.getBuffer().bufferAddress;
 		pc.indexBuffer = mIndex.getBuffer().bufferAddress;
 

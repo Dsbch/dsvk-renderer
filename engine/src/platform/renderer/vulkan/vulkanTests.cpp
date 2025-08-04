@@ -93,7 +93,7 @@ namespace vktest
 					auto offset = static_cast<engine::mouseMoveEvent*>(event.get())->getMouseOffset();
 
 					mRenderer->changeYaw(float(offset.x) * 0.1f);
-					mRenderer->changePitch(float(offset.y) * 0.1f);
+					mRenderer->changePitch(float(-offset.y) * 0.1f);
 				}
 			}
 
