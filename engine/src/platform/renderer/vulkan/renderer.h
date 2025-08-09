@@ -110,13 +110,16 @@ namespace vktest
 		//    While info about what material to use should accesable in a sepparate ssbo, perharps in perinstance ssbo?
 		// 6. Also I need to figure out how to iterate through perinstance things in ssbo in meshShader.
 		// Descriptor set for image.
-		descriptorSet mDescriptorSet;
+		descriptorSet mDescriptorSetCompute;
+		descriptorSet mDescriptorSetMesh;
 		// ^^^^^^^^^ TODO: move stuff above to some sort of a struct or a class.
 
 
 		// Stuff below for rendering only.
 		vulkanBuffer mVertex;
 		vulkanBuffer mIndex;
+		vulkanBuffer mTriangles;
+		vulkanBuffer mMeshlets;
 		void initMesh();
 		// ^^^^^ vertex index buffers.
 
@@ -128,10 +131,14 @@ namespace vktest
 		void init_background_pipelines();
 		void init_triangle_pipeline();
 
+		void loadExtensions();
+
 		void init_swapchain(uint32_t width, uint32_t height);
 		void init_vulkan(engine::window* window);
 		void init_descriptors();
-		void set_descriptor_bindings();
+		void set_trinagle_descriptor_bindings();
+		void set_compute_descriptors();
+
 
 		void printGPU()
 		{

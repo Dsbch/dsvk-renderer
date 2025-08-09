@@ -18,6 +18,10 @@ namespace vktest
 					{
 						.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 						.descriptorCount = maxDescriptors
+					},
+					{
+						.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+						.descriptorCount = maxDescriptors
 					}
 		};
 

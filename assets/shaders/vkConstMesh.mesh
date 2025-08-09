@@ -1,0 +1,90 @@
+//dxc -T ms_6_5 -E msmain -fspv-reflect -spirv -Fo meshlet_ms.spv vkConstMesh.mesh
+//dxc -T ps_6_5 -E psmain -fspv-reflect -spirv -Fo meshlet_ps.spv vkConstMesh.mesh
+#ifdef __spirv__
+#define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
+#else
+#define DEFINE_AS_PUSH_CONSTANT
+#endif
+
+// INPUT START.
+// vertex struct.
+struct vertex {
+    float3 position;
+    float  _pad0;
+
+    float2 textureCoords;
+    float2 _pad1;
+
+    float3 normal;
+    float  _pad2;
+
+    float3 tangent;
+    float  _pad3;
+};
+
+struct meshlet 
+{
+	uint vertexOffset;
+	uint triangleOffset;
+	uint vertexCount;
+	uint triangleCount;
+};
+
+StructuredBuffer<vertex> vertexBuffer : register(t0, space0);
+StructuredBuffer<uint> indexBuffer : register(t1, space0);
+StructuredBuffer<uint> triangleBuffer : register(t2, space0);
+StructuredBuffer<meshlet> meshletBuffer : register(t3, space0);
+
+struct pushConstants {
+    float4x4 viewProjection;
+};
+
+DEFINE_AS_PUSH_CONSTANT pushConstants push;
+// INPUT END.
+
+struct meshOutput
+{
+    float4 position : SV_POSITION;
+    float3 color    : COLOR;
+};
+
+[outputtopology("triangle")]
+[numthreads(128, 1, 1)]
+void msmain(
+                 uint       gtid : SV_GroupThreadID, 
+                 uint       gid  : SV_GroupID, 
+    out indices  uint3      triangles[128], 
+    out vertices meshOutput vertices[64]) 
+{
+    meshlet m = meshletBuffer[gid];
+    SetMeshOutputCounts(m.vertexCount, m.triangleCount);
+       
+    if (gtid < m.triangleCount) 
+    {
+        uint first = triangleBuffer[m.triangleOffset + gtid];
+        uint second = triangleBuffer[m.triangleOffset + gtid + 1];
+        uint third = triangleBuffer[m.triangleOffset + gtid + 2];
+        
+        triangles[gtid] = uint3(first, second, third);
+    }
+
+    if (gtid < m.vertexCount) 
+    {
+        uint vertexIndex = m.vertexOffset + gtid;        
+        vertexIndex = indexBuffer[vertexIndex];
+
+        vertices[gtid].position = mul(push.viewProjection, float4(10.0*vertexBuffer[vertexIndex].position, 1.0));
+        
+        float3 color = float3(
+            float(gid & 1),
+            float(gid & 3) / 4,
+            float(gid & 7) / 8);
+
+        vertices[gtid].color = color;
+    }
+}
+
+float4 psmain(meshOutput input) : SV_TARGET
+{
+    return float4(input.color, 1);
+}

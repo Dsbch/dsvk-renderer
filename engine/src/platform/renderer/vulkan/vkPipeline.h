@@ -14,7 +14,7 @@ namespace vktest
 		classicGraphicPipeline();
 
 		void init(VkDevice device);
-		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
+		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets, bool meshShaderPipeline = false);
 		void destroy();
 
 		engine::error checkError();
@@ -22,6 +22,7 @@ namespace vktest
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 
 		void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
+		void setShaders(VkShaderModule taskShader, VkShaderModule meshShader, VkShaderModule fragmentShader);
 		void setInputTopology(VkPrimitiveTopology topology);
 		void setPolygonMode(VkPolygonMode mode);
 		void setCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
@@ -62,7 +63,7 @@ namespace vktest
 		engine::error checkError();
 
 		void setShader(VkShaderModule computeShader);
-		
+
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 	private:
 		engine::error mErr;

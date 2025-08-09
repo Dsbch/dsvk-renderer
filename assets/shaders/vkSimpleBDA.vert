@@ -1,3 +1,4 @@
+// glslc vkSimpleBDA.vert -o vkSimpleBDA.vert.spv
 #version 450
 #extension GL_EXT_buffer_reference : require
 

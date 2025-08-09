@@ -52,7 +52,7 @@ namespace vktest
 		return { mPipeline, mPipelineLayout };
 	}
 
-	engine::error classicGraphicPipeline::build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets)
+	engine::error classicGraphicPipeline::build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets, bool meshShaderPipeline)
 	{
 		//build the pipeline layout that controls the inputs/outputs of the shader
 		VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
@@ -104,8 +104,8 @@ namespace vktest
 
 		pipelineInfo.stageCount = (uint32_t)mShaderStages.size();
 		pipelineInfo.pStages = mShaderStages.data();
-		pipelineInfo.pVertexInputState = &_vertexInputInfo;
-		pipelineInfo.pInputAssemblyState = &mInputAssembly;
+		pipelineInfo.pVertexInputState = meshShaderPipeline ? nullptr : &_vertexInputInfo;
+		pipelineInfo.pInputAssemblyState = meshShaderPipeline ? nullptr : &mInputAssembly;
 		pipelineInfo.pViewportState = &viewportState;
 		pipelineInfo.pRasterizationState = &mRasterizer;
 		pipelineInfo.pMultisampleState = &mMultisampling;
@@ -139,6 +139,18 @@ namespace vktest
 
 		mShaderStages.push_back(
 			vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "main"));
+	}
+
+	void classicGraphicPipeline::setShaders(VkShaderModule taskShader, VkShaderModule meshShader, VkShaderModule fragmentShader)
+	{
+		mShaderStages.clear();
+
+		if (taskShader != VK_NULL_HANDLE)
+			mShaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_TASK_BIT_EXT, taskShader, "tsmain"));
+
+		mShaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_MESH_BIT_EXT, meshShader, "msmain"));
+
+		mShaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "psmain"));
 	}
 
 	void classicGraphicPipeline::setInputTopology(VkPrimitiveTopology topology)

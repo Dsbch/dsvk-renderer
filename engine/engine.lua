@@ -42,6 +42,8 @@ project "engine"
       "../vendor/cgltf",
    }
 
+   defines("_CRT_SECURE_NO_WARNINGS")
+
    files
    {
       "src/**.cpp",
@@ -57,8 +59,15 @@ project "engine"
 
    flags
    {
-    -- "FatalWarnings",
+    "FatalWarnings",
    }
+
+   files {
+      "../assets/shaders/**"
+   }
+
+   filter { "files:assets/shaders/**" }
+        buildaction "None"
 
    filter "system:windows"
        systemversion "latest"

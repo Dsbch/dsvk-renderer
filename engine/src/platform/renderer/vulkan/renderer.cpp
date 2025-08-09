@@ -8,6 +8,8 @@
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
+#include <meshoptimizer.h>
+
 static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	std::vector<engine::vertex>& outVertices,
 	std::vector<uint32_t>& outIndices)
@@ -109,15 +111,15 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	return true;
 }
 
-struct ComputePushConstants
+struct pushConstants
 {
 	glm::mat4 viewProjection;
-	VkDeviceAddress vertexBuffer;
-	VkDeviceAddress indexBuffer;
 };
 
 namespace vktest
 {
+	PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT = nullptr;
+
 	vulkanRenderer::vulkanRenderer(std::shared_ptr<engine::context> ctx)
 		:
 		mCtx(ctx),
@@ -131,7 +133,7 @@ namespace vktest
 		_graphicsQueueFamily(),
 		mCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height),
 		mGraphicsPipeline(),
-		mDescriptorSet(),
+		mDescriptorSetCompute(),
 		mComputePipeline(),
 		mImmediateSubmit(),
 		mSwapChain()
@@ -161,15 +163,15 @@ namespace vktest
 	{
 		init_vulkan(window);
 
+		init_immediate_submit();
+
+		initMesh();
+
 		init_swapchain(window->getWidth(), window->getHeight());
 
 		init_descriptors();
 
 		init_pipelines();
-
-		init_immediate_submit();
-
-		initMesh();
 	}
 
 	void vulkanRenderer::init_pipelines()
@@ -201,7 +203,7 @@ namespace vktest
 
 		mComputePipeline.init(_device);
 		mComputePipeline.setShader(computeDrawShader);
-		mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSet.getDescriptorSet().second });
+		mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
 
 		vkDestroyShaderModule(_device, computeDrawShader, nullptr);
 
@@ -211,15 +213,15 @@ namespace vktest
 	void vulkanRenderer::init_triangle_pipeline()
 	{
 		VkShaderModule triangleFragShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkSimple.frag.spv", _device, &triangleFragShader)) {
+		if (!vkinit::load_shader_module("../assets/shaders/meshlet_ps.spv", _device, &triangleFragShader)) {
 			LOGERROR("Error when building the triangle fragment shader module");
 		}
 		else {
 			LOGINFO("Triangle fragment shader succesfully loaded");
 		}
 
-		VkShaderModule triangleVertexShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkSimpleBDA.vert.spv", _device, &triangleVertexShader)) {
+		VkShaderModule meshShader;
+		if (!vkinit::load_shader_module("../assets/shaders/meshlet_ms.spv", _device, &meshShader)) {
 			LOGERROR("Error when building the triangle vertex shader module");
 		}
 		else {
@@ -228,12 +230,12 @@ namespace vktest
 
 		VkPushConstantRange pushConstant{};
 		pushConstant.offset = 0;
-		pushConstant.size = sizeof(ComputePushConstants);
-		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		pushConstant.size = sizeof(pushConstants);
+		pushConstant.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
 
 		mGraphicsPipeline.init(_device);
 		//connecting the vertex and pixel shaders to the pipeline
-		mGraphicsPipeline.setShaders(triangleVertexShader, triangleFragShader);
+		mGraphicsPipeline.setShaders(VK_NULL_HANDLE, meshShader, triangleFragShader);
 		//it will draw triangles
 		mGraphicsPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 		//filled triangles
@@ -251,13 +253,20 @@ namespace vktest
 		mGraphicsPipeline.setDepthFormat(mSwapChain.getDepthImageFormt());
 
 		//finally build the pipeline.
-		mGraphicsPipeline.build(&pushConstant, {});
+		mGraphicsPipeline.build(&pushConstant, { mDescriptorSetMesh.getDescriptorSet().second }, true);
 
 		//clean structures.
 		vkDestroyShaderModule(_device, triangleFragShader, nullptr);
-		vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+		vkDestroyShaderModule(_device, meshShader, nullptr);
 
 		_mainDeletionQueue.push_function([&]() { mGraphicsPipeline.destroy(); });
+	}
+
+	void vulkanRenderer::loadExtensions()
+	{
+		vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(_device, "vkCmdDrawMeshTasksEXT");
+		if (!vkCmdDrawMeshTasksEXT)
+			LOGERROR("can't load vkCmdDrawMeshTasksEXT");
 	}
 
 	void vulkanRenderer::init_vulkan(engine::window* window)
@@ -272,6 +281,12 @@ namespace vktest
 #endif // DEBUG
 			.require_api_version(1, 3, 0)
 			.build();
+		if (!inst_ret)
+		{
+			mErr = { inst_ret.error().message() };
+			LOGERROR(mErr.err());
+			return;
+		}
 
 		vkb::Instance vkb_inst = inst_ret.value();
 
@@ -295,26 +310,57 @@ namespace vktest
 		// Print all gpus.
 		printGPU();
 
-		//vulkan 1.3 features
-		VkPhysicalDeviceVulkan13Features features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
-		features.dynamicRendering = true;
-		features.synchronization2 = true;
+		VkPhysicalDeviceMultiviewFeaturesKHR multiviewFeatures{};
+		multiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
+		multiviewFeatures.multiview = VK_TRUE; // enable base multiview
+		multiviewFeatures.pNext = nullptr;
 
-		//vulkan 1.2 features
-		VkPhysicalDeviceVulkan12Features features12{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
-		features12.bufferDeviceAddress = true;
-		features12.descriptorIndexing = true;
+		VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures{};
+		shadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+		shadingRateFeatures.primitiveFragmentShadingRate = VK_TRUE;
+		shadingRateFeatures.pNext = &multiviewFeatures;
+
+		VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
+		meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+		meshShaderFeatures.meshShader = VK_TRUE;
+		meshShaderFeatures.taskShader = VK_TRUE; // if using task shader
+		meshShaderFeatures.multiviewMeshShader = VK_TRUE;
+		meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_TRUE;
+		meshShaderFeatures.pNext = &shadingRateFeatures;
+
+		// Chain to Vulkan 1.3 features
+		VkPhysicalDeviceVulkan13Features features13{};
+		features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+		features13.dynamicRendering = VK_TRUE;
+		features13.synchronization2 = VK_TRUE;
+		features13.pNext = &meshShaderFeatures;
+
+		// Vulkan 1.2 features
+		VkPhysicalDeviceVulkan12Features features12{};
+		features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+		features12.bufferDeviceAddress = VK_TRUE;
+		features12.descriptorIndexing = VK_TRUE;
+		features12.pNext = &features13;
 
 		//use vkbootstrap to select a gpu. 
 		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features
 		vkb::PhysicalDeviceSelector selector{ vkb_inst };
-		vkb::PhysicalDevice physicalDevice = selector
+		auto selectedRes = selector
 			.set_minimum_version(1, 3)
-			.set_required_features_13(features)
 			.set_required_features_12(features12)
+			.add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
+			//.add_required_extension(VK_NV_MESH_SHADER_EXTENSION_NAME)
+			.add_required_extension(VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME)
 			.set_surface(_surface)
-			.select()
-			.value();
+			.select();
+		if (!selectedRes)
+		{
+			mErr = { selectedRes.error().message() };
+			LOGERROR(mErr.err());
+			return;
+		}
+
+		vkb::PhysicalDevice physicalDevice = selectedRes.value();
 
 		//create the final vulkan device
 		vkb::DeviceBuilder deviceBuilder{ physicalDevice };
@@ -340,6 +386,8 @@ namespace vktest
 		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 		vmaCreateAllocator(&allocatorInfo, &_allocator);
 
+		loadExtensions();
+
 		_mainDeletionQueue.push_function([&]() {
 			vmaDestroyAllocator(_allocator);
 			});
@@ -361,15 +409,18 @@ namespace vktest
 
 	void vulkanRenderer::init_descriptors()
 	{
-		mDescriptorSet.init(_device);
+		mDescriptorSetCompute.init(_device);
+		mDescriptorSetMesh.init(_device);
 
-		set_descriptor_bindings();
+		set_trinagle_descriptor_bindings();
+		set_compute_descriptors();
 
-		_mainDeletionQueue.push_function([&]() { mDescriptorSet.destroy(); });
+		_mainDeletionQueue.push_function([&]() { mDescriptorSetCompute.destroy(); });
+		_mainDeletionQueue.push_function([&]() { mDescriptorSetMesh.destroy(); });
 		_mainDeletionQueue.push_function([&]() { descriptorSet::destroyPool(); });
 	}
 
-	void vulkanRenderer::set_descriptor_bindings()
+	void vulkanRenderer::set_compute_descriptors()
 	{
 		VkDescriptorSetLayoutBinding imageBind{};
 		imageBind.binding = 0;
@@ -390,8 +441,92 @@ namespace vktest
 		source.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 		source.pImageInfo = &imgInfo;
 
-		mDescriptorSet.addBinding(imageBind, source);
-		mErr = mDescriptorSet.build(VK_SHADER_STAGE_COMPUTE_BIT);
+		mDescriptorSetCompute.addBinding(imageBind, source);
+		mErr = mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT);
+		if (mErr)
+			LOGERROR(mErr.err());
+	}
+
+	void vulkanRenderer::set_trinagle_descriptor_bindings()
+	{
+		VkDescriptorSetLayoutBinding bufferBinds[4] = {};
+		for (uint32_t i = 0; i < 4; ++i)
+		{
+			bufferBinds[i].binding = i;
+			bufferBinds[i].descriptorCount = 1;
+			bufferBinds[i].stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
+			bufferBinds[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		}
+
+		VkDescriptorBufferInfo bufferInfos[4] = {};
+		VkWriteDescriptorSet sourceBuffer[4] = {};
+
+		bufferInfos[0].buffer = mVertex.getBuffer().buffer;
+		bufferInfos[0].offset = 0;
+		bufferInfos[0].range = VK_WHOLE_SIZE;
+
+		sourceBuffer[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		sourceBuffer[0].pNext = nullptr;
+		sourceBuffer[0].dstSet = VK_NULL_HANDLE;        // будет установлен позже
+		sourceBuffer[0].dstBinding = 0;
+		sourceBuffer[0].dstArrayElement = 0;
+		sourceBuffer[0].descriptorCount = 1;
+		sourceBuffer[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		sourceBuffer[0].pImageInfo = nullptr;
+		sourceBuffer[0].pBufferInfo = &bufferInfos[0];
+		sourceBuffer[0].pTexelBufferView = nullptr;
+
+		bufferInfos[1].buffer = mIndex.getBuffer().buffer;
+		bufferInfos[1].offset = 0;
+		bufferInfos[1].range = VK_WHOLE_SIZE;
+
+		sourceBuffer[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		sourceBuffer[1].pNext = nullptr;
+		sourceBuffer[1].dstSet = VK_NULL_HANDLE;
+		sourceBuffer[1].dstBinding = 1;
+		sourceBuffer[1].dstArrayElement = 0;
+		sourceBuffer[1].descriptorCount = 1;
+		sourceBuffer[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		sourceBuffer[1].pImageInfo = nullptr;
+		sourceBuffer[1].pBufferInfo = &bufferInfos[1];
+		sourceBuffer[1].pTexelBufferView = nullptr;
+
+		bufferInfos[2].buffer = mTriangles.getBuffer().buffer;
+		bufferInfos[2].offset = 0;
+		bufferInfos[2].range = VK_WHOLE_SIZE;
+
+		sourceBuffer[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		sourceBuffer[2].pNext = nullptr;
+		sourceBuffer[2].dstSet = VK_NULL_HANDLE;
+		sourceBuffer[2].dstBinding = 2;
+		sourceBuffer[2].dstArrayElement = 0;
+		sourceBuffer[2].descriptorCount = 1;
+		sourceBuffer[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		sourceBuffer[2].pImageInfo = nullptr;
+		sourceBuffer[2].pBufferInfo = &bufferInfos[2];
+		sourceBuffer[2].pTexelBufferView = nullptr;
+
+		bufferInfos[3].buffer = mMeshlets.getBuffer().buffer;
+		bufferInfos[3].offset = 0;
+		bufferInfos[3].range = VK_WHOLE_SIZE;
+
+		sourceBuffer[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		sourceBuffer[3].pNext = nullptr;
+		sourceBuffer[3].dstSet = VK_NULL_HANDLE;
+		sourceBuffer[3].dstBinding = 3;
+		sourceBuffer[3].dstArrayElement = 0;
+		sourceBuffer[3].descriptorCount = 1;
+		sourceBuffer[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		sourceBuffer[3].pImageInfo = nullptr;
+		sourceBuffer[3].pBufferInfo = &bufferInfos[3];
+		sourceBuffer[3].pTexelBufferView = nullptr;
+
+		for (uint32_t i = 0; i < 4; ++i)
+		{
+			mDescriptorSetMesh.addBinding(bufferBinds[i], sourceBuffer[i]);
+		}
+
+		mErr = mDescriptorSetMesh.build(VK_SHADER_STAGE_MESH_BIT_EXT);
 		if (mErr)
 			LOGERROR(mErr.err());
 	}
@@ -410,15 +545,83 @@ namespace vktest
 		if (loadMeshFromGLTF(pathObj, v, i))
 			LOGINFO("mesh loaded");
 
+		LOGINFO("SUCCESS index len: {}, vertex len: {}", i.size(), v.size());
+
+		LOGINFO("meshopt start");
+
+		const size_t kMaxVertices = 64;
+		const size_t kMaxTriangles = 124;
+		const float  kConeWeight = 0.0f;
+
+		const size_t maxMeshlets = meshopt_buildMeshletsBound(i.size(), kMaxVertices, kMaxTriangles);
+
+		std::vector<meshopt_Meshlet> meshlets;
+		std::vector<uint32_t> meshletVertices;
+		std::vector<uint8_t> meshletTriangles;
+
+		meshlets.resize(maxMeshlets);
+		meshletVertices.resize(maxMeshlets * kMaxVertices);
+		meshletTriangles.resize(maxMeshlets * kMaxTriangles * 3);
+
+		size_t meshletCount = meshopt_buildMeshlets(
+			meshlets.data(),							// Output: array of meshopt_Meshlet
+			meshletVertices.data(),						// Output: array of uint32_t - meshlet to mesh index mappings
+			meshletTriangles.data(),					// Output: array of uint8_t - triangle indices
+			i.data(),									// Input: pointer mesh vertex indices
+			i.size(),									// Input: number of vertex indices
+			reinterpret_cast<const float*>(v.data()),	// Input: pointer to vertex positions
+			v.size(),									// Input: number of vertex positions	
+			sizeof(engine::vertex),						// Input: stride of vertex position elements
+			kMaxVertices,								// Input: maximum number of vertices per meshlet
+			kMaxTriangles,								// Input: maximum number of triangles per meshlet
+			kConeWeight									// Input: cone weight (we'll discuss this eventually...maybe)
+		);
+
+		auto& last = meshlets[meshletCount - 1];
+		meshletVertices.resize(last.vertex_offset + last.vertex_count);
+		meshletTriangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+		meshlets.resize(meshletCount);
+
+		LOGINFO(
+			"meshOpt end vertexCount: {}, triagnleCount: {}, meshletsCount: {}, indexBufferCount: {}",
+			v.size(),
+			meshletTriangles.size(),
+			meshlets.size(),
+			meshletVertices.size()
+		);
+
+		std::vector<uint32_t> meshletTriangles32;
+		for (auto k : meshletTriangles)
+			meshletTriangles32.push_back(uint32_t(k));
+
 		mVertex.init(_device, _allocator);
 		mIndex.init(_device, _allocator);
+		mTriangles.init(_device, _allocator);
+		mMeshlets.init(_device, _allocator);
 
 		auto err = mVertex.build(mImmediateSubmit, v.data(), v.size() * sizeof(engine::vertex), v.size());
-		err = mIndex.build(mImmediateSubmit, i.data(), i.size() * sizeof(uint32_t), i.size());
 		if (err)
-			LOGINFO(err.err());
+			LOGERROR(err.err());
 
-		LOGINFO("SUCCESS index len: {}, vertex len: {}", i.size(), v.size());
+		err = mIndex.build(mImmediateSubmit, meshletVertices.data(), meshletVertices.size() * sizeof(uint32_t), meshletVertices.size());
+		if (err)
+			LOGERROR(err.err());
+
+		err = mMeshlets.build(mImmediateSubmit, meshlets.data(), meshlets.size() * sizeof(meshopt_Meshlet), meshlets.size());
+		if (err)
+			LOGERROR(err.err());
+
+		err = mTriangles.build(mImmediateSubmit, meshletTriangles32.data(), meshletTriangles32.size() * sizeof(uint32_t), meshletTriangles32.size());
+		if (err)
+			LOGERROR(err.err());
+
+		_mainDeletionQueue.push_function([&] {
+			mMeshlets.destroy();
+			});
+
+		_mainDeletionQueue.push_function([&] {
+			mTriangles.destroy();
+			});
 
 		_mainDeletionQueue.push_function([&] {
 			mIndex.destroy();
@@ -435,7 +638,7 @@ namespace vktest
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().first);
 
 		// bind the descriptor set containing the draw image for the compute pipeline
-		auto set = mDescriptorSet.getDescriptorSet().first;
+		auto set = mDescriptorSetCompute.getDescriptorSet().first;
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().second, 0, 1, &set, 0, nullptr);
 
 		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
@@ -535,9 +738,10 @@ namespace vktest
 		mSwapChain.build(width, height, _graphicsQueueFamily);
 
 		// reconfigure source for destroyed imageView.
-		mDescriptorSet.clearBindings();
-		mDescriptorSet.destroy();
-		set_descriptor_bindings();
+		mDescriptorSetCompute.clearBindings();
+		mDescriptorSetCompute.destroy();
+
+		set_compute_descriptors();
 
 		mCamera.changeViewPort(width, height);
 	}
@@ -574,15 +778,18 @@ namespace vktest
 		vkCmdSetScissor(cmd, 0, 1, &scissor);
 
 		// set push constants.
-		ComputePushConstants pc;
+		pushConstants pc;
 		pc.viewProjection = mCamera.getProjection() * mCamera.getCameraTransform();
-		pc.vertexBuffer = mVertex.getBuffer().bufferAddress;
-		pc.indexBuffer = mIndex.getBuffer().bufferAddress;
 
-		vkCmdPushConstants(cmd, mGraphicsPipeline.getPipeline().second, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ComputePushConstants), &pc);
+		vkCmdPushConstants(cmd, mGraphicsPipeline.getPipeline().second, VK_SHADER_STAGE_MESH_BIT_EXT, 0, sizeof(pushConstants), &pc);
+
+		// bind the descriptor set.
+		auto set = mDescriptorSetMesh.getDescriptorSet().first;
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline.getPipeline().second, 0, 1, &set, 0, nullptr);
 
 		//launch a draw command to draw 3 vertices
-		vkCmdDraw(cmd, 67164, 1, 0, 0);
+		//vkCmdDraw(cmd, 67164, 1, 0, 0);
+		vkCmdDrawMeshTasksEXT(cmd, 244, 1, 1);
 
 		vkCmdEndRendering(cmd);
 	}
