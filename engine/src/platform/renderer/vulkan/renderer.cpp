@@ -531,12 +531,14 @@ namespace vktest
 			LOGERROR(mErr.err());
 	}
 
+	static size_t meshCount = 0;
+
 	void vulkanRenderer::initMesh()
 	{
 		LOGINFO("loading mesh");
 
 		std::string str = "../assets/horse_statue_01_4k.glb";
-		//std::string str = "../assets/cube.glb";
+		//std::string str = "../assets/cube26.glb";
 		std::filesystem::path pathObj(str);
 
 		std::vector<engine::vertex> v;
@@ -550,10 +552,20 @@ namespace vktest
 		LOGINFO("meshopt start");
 
 		const size_t kMaxVertices = 64;
-		const size_t kMaxTriangles = 124;
-		const float  kConeWeight = 0.0f;
+		const size_t kMaxTriangles = 64;
+		const float  kConeWeight = 0.5f;
 
-		const size_t maxMeshlets = meshopt_buildMeshletsBound(i.size(), kMaxVertices, kMaxTriangles);
+		std::vector<unsigned int> remap(i.size());
+		size_t vertex_count = meshopt_generateVertexRemap(&remap[0], i.data(), i.size(),
+			&v[0].position, v.size(), sizeof(engine::vertex));
+
+		std::vector<engine::vertex> newVert(vertex_count);
+		std::vector<uint32_t> newIndex(i.size());
+
+		meshopt_remapIndexBuffer(newIndex.data(), i.data(), i.size(), &remap[0]);
+		meshopt_remapVertexBuffer(newVert.data(), v.data(), v.size(), sizeof(engine::vertex), &remap[0]);
+
+		const size_t maxMeshlets = meshopt_buildMeshletsBound(newIndex.size(), kMaxVertices, kMaxTriangles);
 
 		std::vector<meshopt_Meshlet> meshlets;
 		std::vector<uint32_t> meshletVertices;
@@ -567,10 +579,10 @@ namespace vktest
 			meshlets.data(),							// Output: array of meshopt_Meshlet
 			meshletVertices.data(),						// Output: array of uint32_t - meshlet to mesh index mappings
 			meshletTriangles.data(),					// Output: array of uint8_t - triangle indices
-			i.data(),									// Input: pointer mesh vertex indices
-			i.size(),									// Input: number of vertex indices
-			reinterpret_cast<const float*>(v.data()),	// Input: pointer to vertex positions
-			v.size(),									// Input: number of vertex positions	
+			newIndex.data(),									// Input: pointer mesh vertex indices
+			newIndex.size(),									// Input: number of vertex indices
+			&newVert[0].position.x,						// Input: pointer to vertex positions
+			newVert.size(),									// Input: number of vertex positions	
 			sizeof(engine::vertex),						// Input: stride of vertex position elements
 			kMaxVertices,								// Input: maximum number of vertices per meshlet
 			kMaxTriangles,								// Input: maximum number of triangles per meshlet
@@ -582,24 +594,46 @@ namespace vktest
 		meshletTriangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
 		meshlets.resize(meshletCount);
 
+		std::vector<uint32_t> meshletTrianglesU32;
+		for (auto& m : meshlets) {
+			// Save triangle offset for current meshlet
+			uint32_t triangleOffset = static_cast<uint32_t>(meshletTrianglesU32.size());
+
+			// Repack to uint32_t
+			for (uint32_t i = 0; i < m.triangle_count; ++i) {
+				uint32_t i0 = 3 * i + 0 + m.triangle_offset;
+				uint32_t i1 = 3 * i + 1 + m.triangle_offset;
+				uint32_t i2 = 3 * i + 2 + m.triangle_offset;
+
+				uint8_t  vIdx0 = meshletTriangles[i0];
+				uint8_t  vIdx1 = meshletTriangles[i1];
+				uint8_t  vIdx2 = meshletTriangles[i2];
+				uint32_t packed = ((static_cast<uint32_t>(vIdx0) & 0xFF) << 0) |
+					((static_cast<uint32_t>(vIdx1) & 0xFF) << 8) |
+					((static_cast<uint32_t>(vIdx2) & 0xFF) << 16);
+				meshletTrianglesU32.push_back(packed);
+			}
+
+			// Update triangle offset for current meshlet
+			m.triangle_offset = triangleOffset;
+		}
+
 		LOGINFO(
 			"meshOpt end vertexCount: {}, triagnleCount: {}, meshletsCount: {}, indexBufferCount: {}",
-			v.size(),
+			newVert.size(),
 			meshletTriangles.size(),
 			meshlets.size(),
 			meshletVertices.size()
 		);
 
-		std::vector<uint32_t> meshletTriangles32;
-		for (auto k : meshletTriangles)
-			meshletTriangles32.push_back(uint32_t(k));
+		meshCount = meshlets.size();
 
 		mVertex.init(_device, _allocator);
 		mIndex.init(_device, _allocator);
 		mTriangles.init(_device, _allocator);
 		mMeshlets.init(_device, _allocator);
 
-		auto err = mVertex.build(mImmediateSubmit, v.data(), v.size() * sizeof(engine::vertex), v.size());
+		auto err = mVertex.build(mImmediateSubmit, newVert.data(), newVert.size() * sizeof(engine::vertex), newVert.size());
 		if (err)
 			LOGERROR(err.err());
 
@@ -611,7 +645,7 @@ namespace vktest
 		if (err)
 			LOGERROR(err.err());
 
-		err = mTriangles.build(mImmediateSubmit, meshletTriangles32.data(), meshletTriangles32.size() * sizeof(uint32_t), meshletTriangles32.size());
+		err = mTriangles.build(mImmediateSubmit, meshletTrianglesU32.data(), meshletTrianglesU32.size() * sizeof(uint32_t), meshletTrianglesU32.size());
 		if (err)
 			LOGERROR(err.err());
 
@@ -789,7 +823,7 @@ namespace vktest
 
 		//launch a draw command to draw 3 vertices
 		//vkCmdDraw(cmd, 67164, 1, 0, 0);
-		vkCmdDrawMeshTasksEXT(cmd, 244, 1, 1);
+		vkCmdDrawMeshTasksEXT(cmd, uint32_t(meshCount), 1, 1);
 
 		vkCmdEndRendering(cmd);
 	}

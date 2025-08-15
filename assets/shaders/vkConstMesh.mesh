@@ -1,5 +1,6 @@
-//dxc -T ms_6_5 -E msmain -fspv-reflect -spirv -Fo meshlet_ms.spv vkConstMesh.mesh
-//dxc -T ps_6_5 -E psmain -fspv-reflect -spirv -Fo meshlet_ps.spv vkConstMesh.mesh
+//dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -Fo meshlet_ms.spv vkConstMesh.mesh
+//dxc -T ps_6_9 -E psmain -spirv -Fo meshlet_ps.spv vkConstMesh.mesh
+// add -fspv-reflect flag only for debug.
 #ifdef __spirv__
 #define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
 #else
@@ -8,7 +9,8 @@
 
 // INPUT START.
 // vertex struct.
-struct vertex {
+struct vertex 
+{
     float3 position;
     float  _pad0;
 
@@ -31,8 +33,8 @@ struct meshlet
 };
 
 StructuredBuffer<vertex> vertexBuffer : register(t0, space0);
-StructuredBuffer<uint> indexBuffer : register(t1, space0);
-StructuredBuffer<uint> triangleBuffer : register(t2, space0);
+StructuredBuffer<uint> vertexIndexBuffer : register(t1, space0);
+StructuredBuffer<uint> primitiveBuffer : register(t2, space0);
 StructuredBuffer<meshlet> meshletBuffer : register(t3, space0);
 
 struct pushConstants {
@@ -49,31 +51,38 @@ struct meshOutput
 };
 
 [outputtopology("triangle")]
-[numthreads(128, 1, 1)]
+[numthreads(64, 1, 1)]
 void msmain(
                  uint       gtid : SV_GroupThreadID, 
                  uint       gid  : SV_GroupID, 
-    out indices  uint3      triangles[128], 
+    out indices  uint3      triangles[64], 
     out vertices meshOutput vertices[64]) 
 {
     meshlet m = meshletBuffer[gid];
     SetMeshOutputCounts(m.vertexCount, m.triangleCount);
        
-    if (gtid < m.triangleCount) 
-    {
-        uint first = triangleBuffer[m.triangleOffset + gtid];
-        uint second = triangleBuffer[m.triangleOffset + gtid + 1];
-        uint third = triangleBuffer[m.triangleOffset + gtid + 2];
-        
-        triangles[gtid] = uint3(first, second, third);
+   if (gtid < m.triangleCount) {
+        //
+        // meshopt stores the triangle offset in bytes since it stores the
+        // triangle indices as 3 consecutive bytes. 
+        //
+        // Since we repacked those 3 bytes to a 32-bit uint, our offset is now
+        // aligned to 4 and we can easily grab it as a uint without any 
+        // additional offset math.
+        //
+        uint packed = primitiveBuffer[m.triangleOffset + gtid];
+        uint vIdx0  = (packed >>  0) & 0xFF;
+        uint vIdx1  = (packed >>  8) & 0xFF;
+        uint vIdx2  = (packed >> 16) & 0xFF;
+        triangles[gtid] = uint3(vIdx0, vIdx1, vIdx2);
     }
 
     if (gtid < m.vertexCount) 
     {
-        uint vertexIndex = m.vertexOffset + gtid;        
-        vertexIndex = indexBuffer[vertexIndex];
+        uint vertexIndex = m.vertexOffset + gtid;      
+        vertexIndex = vertexIndexBuffer[vertexIndex];
 
-        vertices[gtid].position = mul(push.viewProjection, float4(10.0*vertexBuffer[vertexIndex].position, 1.0));
+        vertices[gtid].position = mul(push.viewProjection, float4(25.0*vertexBuffer[vertexIndex].position, 1.0));
         
         float3 color = float3(
             float(gid & 1),

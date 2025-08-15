@@ -27,14 +27,16 @@ namespace vktest
 			return stagingBuffer.err();
 
 		void* mappedData = nullptr;
-		vmaMapMemory(mAllocator, stagingBuffer.value().allocation, &mappedData);
+		auto mapResult = vmaMapMemory(mAllocator, stagingBuffer.value().allocation, &mappedData);
+		if (mapResult != VK_SUCCESS)
+			return { vkResultToStr(mapResult) };
 
 		std::memcpy(mappedData, data, sizeInBytes);
 
-		is.submit(
+		auto err = is.submit(
 			[&](VkCommandBuffer cmd)
 			{
-				VkBufferCopy copy {};
+				VkBufferCopy copy{};
 				copy.dstOffset = 0;
 				copy.srcOffset = 0;
 				copy.size = sizeInBytes;
@@ -42,6 +44,8 @@ namespace vktest
 				vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
 			}
 		);
+		if (err)
+			return err;
 
 		vmaUnmapMemory(mAllocator, stagingBuffer.value().allocation);
 
