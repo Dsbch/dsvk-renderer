@@ -17,6 +17,8 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 
+#include "vulkanImage.h"
+
 #define VK_CHECK(x)                                                 \
     {\
 		VkResult err = x;                                               \
@@ -112,8 +114,12 @@ namespace vktest
 		// Descriptor set for image.
 		descriptorSet mDescriptorSetCompute;
 		descriptorSet mDescriptorSetMesh;
+		std::vector<vulkanImage> mAlbedoTextures;
+		VkSampler mImageSampler;
 		// ^^^^^^^^^ TODO: move stuff above to some sort of a struct or a class.
 
+		void clear(VkCommandBuffer);
+		void draw_geometry(VkCommandBuffer cmd);
 
 		// Stuff below for rendering only.
 		vulkanBuffer mVertex;
@@ -123,21 +129,18 @@ namespace vktest
 		void initMesh();
 		// ^^^^^ vertex index buffers.
 
-		void clear(VkCommandBuffer);
-		void draw_geometry(VkCommandBuffer cmd);
-
+		void init_vulkan(engine::window* window);
 		void init_pipelines();
 		void init_immediate_submit();
 		void init_background_pipelines();
 		void init_triangle_pipeline();
-
 		void loadExtensions();
-
 		void init_swapchain(uint32_t width, uint32_t height);
-		void init_vulkan(engine::window* window);
 		void init_descriptors();
 		void set_trinagle_descriptor_bindings();
 		void set_compute_descriptors();
+		void initTextures();
+		void initAlbedoTextures();
 
 
 		void printGPU()

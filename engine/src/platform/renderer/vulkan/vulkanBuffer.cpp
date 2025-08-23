@@ -3,11 +3,6 @@
 
 namespace vktest
 {
-	engine::error vulkanBuffer::checkError()
-	{
-		return mErr;
-	}
-
 	void vulkanBuffer::init(VkDevice device, VmaAllocator allocator)
 	{
 		mDevice = device;
@@ -22,16 +17,11 @@ namespace vktest
 
 		mBuffer = createBufRes.value();
 
-		auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+		auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
 		if (!stagingBuffer)
 			return stagingBuffer.err();
 
-		void* mappedData = nullptr;
-		auto mapResult = vmaMapMemory(mAllocator, stagingBuffer.value().allocation, &mappedData);
-		if (mapResult != VK_SUCCESS)
-			return { vkResultToStr(mapResult) };
-
-		std::memcpy(mappedData, data, sizeInBytes);
+		std::memcpy(stagingBuffer.value().info.pMappedData, data, sizeInBytes);
 
 		auto err = is.submit(
 			[&](VkCommandBuffer cmd)
@@ -46,8 +36,6 @@ namespace vktest
 		);
 		if (err)
 			return err;
-
-		vmaUnmapMemory(mAllocator, stagingBuffer.value().allocation);
 
 		destroyBuffer(mAllocator, stagingBuffer.value());
 
@@ -64,7 +52,7 @@ namespace vktest
 		return mBuffer;
 	}
 
-	engine::withError<allocatedBuffer> vulkanBuffer::createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+	engine::withError<allocatedBuffer> vulkanBuffer::createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, bool useMemmoryMap)
 	{
 		VkBufferCreateInfo bufferInfo = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 		bufferInfo.pNext = nullptr;
@@ -74,7 +62,10 @@ namespace vktest
 
 		VmaAllocationCreateInfo vmaallocInfo = {};
 		vmaallocInfo.usage = memoryUsage;
-		vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+		if (useMemmoryMap)
+			vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
 		allocatedBuffer newBuffer;
 
 		auto result = vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.info);

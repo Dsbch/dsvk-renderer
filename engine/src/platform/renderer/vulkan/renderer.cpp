@@ -9,6 +9,8 @@
 #include <cgltf.h>
 
 #include <meshoptimizer.h>
+#include <glm/gtc/quaternion.hpp>
+#include <stb_image.h>
 
 static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	std::vector<engine::vertex>& outVertices,
@@ -22,7 +24,7 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	std::vector<uint8_t> fileData(size);
 	file.read(reinterpret_cast<char*>(fileData.data()), size);
 
-	cgltf_options options = {};
+	cgltf_options options{};
 	cgltf_data* data = nullptr;
 
 	if (cgltf_parse(&options, fileData.data(), fileData.size(), &data) != cgltf_result_success)
@@ -36,74 +38,118 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	outVertices.clear();
 	outIndices.clear();
 
-	for (size_t mi = 0; mi < data->meshes_count; ++mi) {
-		const cgltf_mesh& mesh = data->meshes[mi];
+	// --- Helper functions ---
+	auto getNodeLocalTransform = [](const cgltf_node* node) -> glm::mat4 {
+		if (node->has_matrix) {
+			glm::mat4 m;
+			memcpy(&m[0][0], node->matrix, sizeof(float) * 16);
+			return m;
+		}
+		else {
+			glm::vec3 translation(0.0f);
+			if (node->translation) translation = glm::vec3(node->translation[0], node->translation[1], node->translation[2]);
+
+			glm::quat rotation(1, 0, 0, 0);
+			if (node->rotation) rotation = glm::quat(node->rotation[3], node->rotation[0], node->rotation[1], node->rotation[2]);
+
+			glm::vec3 scale(1.0f);
+			if (node->scale) scale = glm::vec3(node->scale[0], node->scale[1], node->scale[2]);
+
+			return glm::translate(glm::mat4(1.0f), translation)
+				* glm::mat4_cast(rotation)
+				* glm::scale(glm::mat4(1.0f), scale);
+		}
+		};
+
+	std::function<glm::mat4(const cgltf_node*)> getNodeWorldTransform = [&](const cgltf_node* node) -> glm::mat4 {
+		if (!node->parent) return getNodeLocalTransform(node);
+		return getNodeWorldTransform(node->parent) * getNodeLocalTransform(node);
+		};
+
+	auto processPrimitive = [&](const cgltf_primitive& prim, const glm::mat4& transform) {
+		if (prim.type != cgltf_primitive_type_triangles) return;
+
+		const cgltf_accessor* positionAccessor = nullptr;
+		const cgltf_accessor* normalAccessor = nullptr;
+		const cgltf_accessor* texcoordAccessor = nullptr;
+
+		for (size_t ai = 0; ai < prim.attributes_count; ++ai) {
+			const cgltf_attribute& attr = prim.attributes[ai];
+			switch (attr.type) {
+			case cgltf_attribute_type_position: positionAccessor = attr.data; break;
+			case cgltf_attribute_type_normal: normalAccessor = attr.data; break;
+			case cgltf_attribute_type_texcoord: texcoordAccessor = attr.data; break;
+			default: break;
+			}
+		}
+
+		if (!positionAccessor || positionAccessor->component_type != cgltf_component_type_r_32f || positionAccessor->type != cgltf_type_vec3)
+			return;
+
+		uint32_t baseIndex = static_cast<uint32_t>(outVertices.size());
+
+		// --- Vertices ---
+		for (size_t i = 0; i < positionAccessor->count; ++i) {
+			engine::vertex v{};
+
+			float pos[3]{};
+			cgltf_accessor_read_float(positionAccessor, i, pos, 3);
+			glm::vec4 localPos(pos[0], pos[1], pos[2], 1.0f);
+			v.position = glm::vec3(transform * localPos);
+
+			if (normalAccessor) {
+				float norm[3]{};
+				cgltf_accessor_read_float(normalAccessor, i, norm, 3);
+				glm::vec3 n(norm[0], norm[1], norm[2]);
+				v.normal = glm::normalize(glm::mat3(glm::transpose(glm::inverse(transform))) * n);
+			}
+
+			if (texcoordAccessor) {
+				float uv[2]{};
+				cgltf_accessor_read_float(texcoordAccessor, i, uv, 2);
+				v.textureCoords = glm::vec2(uv[0], uv[1]);
+			}
+
+			outVertices.push_back(v);
+		}
+
+		// --- Indices ---
+		if (prim.indices) {
+			const cgltf_accessor* indexAccessor = prim.indices;
+			const uint8_t* bufferStart = reinterpret_cast<const uint8_t*>(
+				indexAccessor->buffer_view->buffer->data) +
+				indexAccessor->buffer_view->offset + indexAccessor->offset;
+
+			size_t stride = indexAccessor->stride ? indexAccessor->stride :
+				(indexAccessor->component_type == cgltf_component_type_r_16u ? 2 :
+					indexAccessor->component_type == cgltf_component_type_r_32u ? 4 : 1);
+
+			for (size_t i = 0; i < indexAccessor->count; ++i) {
+				const uint8_t* elem = bufferStart + i * stride;
+				uint32_t index = 0;
+
+				switch (indexAccessor->component_type) {
+				case cgltf_component_type_r_16u: index = *reinterpret_cast<const uint16_t*>(elem); break;
+				case cgltf_component_type_r_32u: index = *reinterpret_cast<const uint32_t*>(elem); break;
+				case cgltf_component_type_r_8u:  index = *reinterpret_cast<const uint8_t*>(elem); break;
+				default: continue;
+				}
+
+				outIndices.push_back(baseIndex + index);
+			}
+		}
+		};
+
+	// --- Main loop: iterate nodes ---
+	for (size_t ni = 0; ni < data->nodes_count; ++ni) {
+		const cgltf_node* node = &data->nodes[ni];
+		if (!node->mesh) continue;
+
+		glm::mat4 transform = getNodeWorldTransform(node);
+		const cgltf_mesh& mesh = *node->mesh;
 
 		for (size_t pri = 0; pri < mesh.primitives_count; ++pri) {
-			const cgltf_primitive& prim = mesh.primitives[pri];
-			if (prim.type != cgltf_primitive_type_triangles)
-				continue;
-
-			const cgltf_accessor* positionAccessor = nullptr;
-			const cgltf_accessor* normalAccessor = nullptr;
-			const cgltf_accessor* texcoordAccessor = nullptr;
-
-			for (size_t ai = 0; ai < prim.attributes_count; ++ai) {
-				const cgltf_attribute& attr = prim.attributes[ai];
-				if (strcmp(attr.name, "POSITION") == 0) positionAccessor = attr.data;
-				else if (strcmp(attr.name, "NORMAL") == 0) normalAccessor = attr.data;
-				else if (strcmp(attr.name, "TEXCOORD_0") == 0) texcoordAccessor = attr.data;
-			}
-
-			if (!positionAccessor || positionAccessor->component_type != cgltf_component_type_r_32f || positionAccessor->type != cgltf_type_vec3)
-				continue;
-
-			size_t vertexCount = positionAccessor->count;
-			uint32_t baseIndex = static_cast<uint32_t>(outVertices.size());
-
-			for (size_t i = 0; i < vertexCount; ++i) {
-				engine::vertex v = {};
-
-				float pos[3] = {};
-				cgltf_accessor_read_float(positionAccessor, i, pos, 3);
-				v.position = glm::vec3(pos[0], pos[1], pos[2]);
-
-				if (normalAccessor) {
-					float norm[3] = {};
-					cgltf_accessor_read_float(normalAccessor, i, norm, 3);
-					v.normal = glm::vec3(norm[0], norm[1], norm[2]);
-				}
-
-				if (texcoordAccessor) {
-					float uv[2] = {};
-					cgltf_accessor_read_float(texcoordAccessor, i, uv, 2);
-					v.textureCoords = glm::vec2(uv[0], uv[1]);
-				}
-
-				outVertices.push_back(v);
-			}
-
-			// Indices
-			if (prim.indices) {
-				const cgltf_accessor* indexAccessor = prim.indices;
-				const uint8_t* buffer = reinterpret_cast<const uint8_t*>(
-					indexAccessor->buffer_view->buffer->data) +
-					indexAccessor->buffer_view->offset + indexAccessor->offset;
-
-				for (size_t i = 0; i < indexAccessor->count; ++i) {
-					uint32_t index = 0;
-					switch (indexAccessor->component_type) {
-					case cgltf_component_type_r_16u:
-						index = reinterpret_cast<const uint16_t*>(buffer)[i]; break;
-					case cgltf_component_type_r_32u:
-						index = reinterpret_cast<const uint32_t*>(buffer)[i]; break;
-					case cgltf_component_type_r_8u:
-						index = reinterpret_cast<const uint8_t*>(buffer)[i]; break;
-					default: continue;
-					}
-					outIndices.push_back(baseIndex + index);
-				}
-			}
+			processPrimitive(mesh.primitives[pri], transform);
 		}
 	}
 
@@ -116,157 +162,41 @@ struct pushConstants
 	glm::mat4 viewProjection;
 };
 
+static size_t meshletsCount = 0;
+
 namespace vktest
 {
 	PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT = nullptr;
 
-	vulkanRenderer::vulkanRenderer(std::shared_ptr<engine::context> ctx)
-		:
-		mCtx(ctx),
-		mErr(),
-		_instance(VK_NULL_HANDLE),
-		_debug_messenger(VK_NULL_HANDLE),
-		_chosenGPU(VK_NULL_HANDLE),
-		_device(VK_NULL_HANDLE),
-		_surface(VK_NULL_HANDLE),
-		_graphicsQueue(),
-		_graphicsQueueFamily(),
-		mCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height),
-		mGraphicsPipeline(),
-		mDescriptorSetCompute(),
-		mComputePipeline(),
-		mImmediateSubmit(),
-		mSwapChain()
-	{
-	};
-
-	vulkanRenderer::~vulkanRenderer()
-	{
-		//make sure the gpu has stopped doing its things
-		vkDeviceWaitIdle(_device);
-
-		_mainDeletionQueue.flush();
-
-		vkDestroySurfaceKHR(_instance, _surface, nullptr);
-
-		vkDestroyDevice(_device, nullptr);
-		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
-		vkDestroyInstance(_instance, nullptr);
-	}
-
-	engine::error vulkanRenderer::checkError()
-	{
-		return mErr;
-	}
-
 	void vulkanRenderer::init(engine::window* window)
 	{
 		init_vulkan(window);
-
-		init_immediate_submit();
-
-		initMesh();
-
-		init_swapchain(window->getWidth(), window->getHeight());
-
-		init_descriptors();
-
-		init_pipelines();
-	}
-
-	void vulkanRenderer::init_pipelines()
-	{
-		init_background_pipelines();
-		init_triangle_pipeline();
-	}
-
-	void vulkanRenderer::init_immediate_submit()
-	{
-		// init immidiate submit.
-		mErr = mImmediateSubmit.init(_device, _graphicsQueue, _graphicsQueueFamily);
 		if (mErr)
 			return;
 
-		_mainDeletionQueue.push_function([&] {
-			mImmediateSubmit.destroy();
-			});
-	}
+		init_immediate_submit();
+		if (mErr)
+			return;
 
-	void vulkanRenderer::init_background_pipelines()
-	{
-		//layout code
-		VkShaderModule computeDrawShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkSimple.comp.spv", _device, &computeDrawShader))
-		{
-			fmt::print("Error when building the compute shader \n");
-		}
+		initMesh();
+		if (mErr)
+			return;
 
-		mComputePipeline.init(_device);
-		mComputePipeline.setShader(computeDrawShader);
-		mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
+		init_swapchain(window->getWidth(), window->getHeight());
+		if (mErr)
+			return;
 
-		vkDestroyShaderModule(_device, computeDrawShader, nullptr);
+		initTextures();
+		if (mErr)
+			return;
 
-		_mainDeletionQueue.push_function([&]() { mComputePipeline.destroy(); });
-	}
+		init_descriptors();
+		if (mErr)
+			return;
 
-	void vulkanRenderer::init_triangle_pipeline()
-	{
-		VkShaderModule triangleFragShader;
-		if (!vkinit::load_shader_module("../assets/shaders/meshlet_ps.spv", _device, &triangleFragShader)) {
-			LOGERROR("Error when building the triangle fragment shader module");
-		}
-		else {
-			LOGINFO("Triangle fragment shader succesfully loaded");
-		}
-
-		VkShaderModule meshShader;
-		if (!vkinit::load_shader_module("../assets/shaders/meshlet_ms.spv", _device, &meshShader)) {
-			LOGERROR("Error when building the triangle vertex shader module");
-		}
-		else {
-			LOGINFO("Triangle vertex shader succesfully loaded");
-		}
-
-		VkPushConstantRange pushConstant{};
-		pushConstant.offset = 0;
-		pushConstant.size = sizeof(pushConstants);
-		pushConstant.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
-
-		mGraphicsPipeline.init(_device);
-		//connecting the vertex and pixel shaders to the pipeline
-		mGraphicsPipeline.setShaders(VK_NULL_HANDLE, meshShader, triangleFragShader);
-		//it will draw triangles
-		mGraphicsPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		//filled triangles
-		mGraphicsPipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
-		//no backface culling
-		mGraphicsPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-		//no multisampling
-		mGraphicsPipeline.setMultisamplingNone();
-		//no blending
-		mGraphicsPipeline.disableBlending();
-		mGraphicsPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-		//connect the image format we will draw into, from draw image
-		mGraphicsPipeline.setColorAttachmentFormat(mSwapChain.getDrawImageFormat());
-		mGraphicsPipeline.setDepthFormat(mSwapChain.getDepthImageFormt());
-
-		//finally build the pipeline.
-		mGraphicsPipeline.build(&pushConstant, { mDescriptorSetMesh.getDescriptorSet().second }, true);
-
-		//clean structures.
-		vkDestroyShaderModule(_device, triangleFragShader, nullptr);
-		vkDestroyShaderModule(_device, meshShader, nullptr);
-
-		_mainDeletionQueue.push_function([&]() { mGraphicsPipeline.destroy(); });
-	}
-
-	void vulkanRenderer::loadExtensions()
-	{
-		vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(_device, "vkCmdDrawMeshTasksEXT");
-		if (!vkCmdDrawMeshTasksEXT)
-			LOGERROR("can't load vkCmdDrawMeshTasksEXT");
+		init_pipelines();
+		if (mErr)
+			return;
 	}
 
 	void vulkanRenderer::init_vulkan(engine::window* window)
@@ -340,7 +270,11 @@ namespace vktest
 		features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 		features12.bufferDeviceAddress = VK_TRUE;
 		features12.descriptorIndexing = VK_TRUE;
+		features12.runtimeDescriptorArray = VK_TRUE;
 		features12.pNext = &features13;
+
+		VkPhysicalDeviceFeatures deviceFeatures{};
+		deviceFeatures.samplerAnisotropy = VK_TRUE;
 
 		//use vkbootstrap to select a gpu. 
 		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features
@@ -348,9 +282,8 @@ namespace vktest
 		auto selectedRes = selector
 			.set_minimum_version(1, 3)
 			.set_required_features_12(features12)
+			.set_required_features(deviceFeatures)
 			.add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
-			//.add_required_extension(VK_NV_MESH_SHADER_EXTENSION_NAME)
-			.add_required_extension(VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME)
 			.set_surface(_surface)
 			.select();
 		if (!selectedRes)
@@ -384,12 +317,29 @@ namespace vktest
 		allocatorInfo.device = _device;
 		allocatorInfo.instance = _instance;
 		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-		vmaCreateAllocator(&allocatorInfo, &_allocator);
+		auto vmaResult = vmaCreateAllocator(&allocatorInfo, &_allocator);
+		if (vmaResult != VK_SUCCESS)
+		{
+			mErr = { vkResultToStr(vmaResult) };
+			return;
+		}
 
 		loadExtensions();
 
 		_mainDeletionQueue.push_function([&]() {
 			vmaDestroyAllocator(_allocator);
+			});
+	}
+
+	void vulkanRenderer::init_immediate_submit()
+	{
+		// init immidiate submit.
+		mErr = mImmediateSubmit.init(_device, _graphicsQueue, _graphicsQueueFamily);
+		if (mErr)
+			return;
+
+		_mainDeletionQueue.push_function([&] {
+			mImmediateSubmit.destroy();
 			});
 	}
 
@@ -409,8 +359,13 @@ namespace vktest
 
 	void vulkanRenderer::init_descriptors()
 	{
-		mDescriptorSetCompute.init(_device);
-		mDescriptorSetMesh.init(_device);
+		mErr = mDescriptorSetCompute.init(_device, _chosenGPU);
+		if (mErr)
+			return;
+
+		mErr = mDescriptorSetMesh.init(_device, _chosenGPU);
+		if (mErr)
+			return;
 
 		set_trinagle_descriptor_bindings();
 		set_compute_descriptors();
@@ -420,125 +375,231 @@ namespace vktest
 		_mainDeletionQueue.push_function([&]() { descriptorSet::destroyPool(); });
 	}
 
+	void vulkanRenderer::loadExtensions()
+	{
+		vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(_device, "vkCmdDrawMeshTasksEXT");
+		if (!vkCmdDrawMeshTasksEXT)
+			mErr = { "can't load extensions" };
+	}
+
+	void vulkanRenderer::init_pipelines()
+	{
+		init_background_pipelines();
+		if (mErr)
+			return;
+
+		init_triangle_pipeline();
+		if (mErr)
+			return;
+
+	}
+
+	void vulkanRenderer::init_background_pipelines()
+	{
+		//layout code
+		VkShaderModule computeDrawShader;
+		if (!vkinit::load_shader_module("../assets/shaders/vkCompute.spv", _device, &computeDrawShader))
+		{
+			mErr = { "Error when building the compute shader" };
+			return;
+		}
+
+		mComputePipeline.init(_device);
+		mComputePipeline.setShader(computeDrawShader);
+		mErr = mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
+		if (mErr)
+			return;
+
+		vkDestroyShaderModule(_device, computeDrawShader, nullptr);
+
+		_mainDeletionQueue.push_function([&]() { mComputePipeline.destroy(); });
+	}
+
+	void vulkanRenderer::init_triangle_pipeline()
+	{
+		VkShaderModule triangleFragShader;
+		if (!vkinit::load_shader_module("../assets/shaders/vkMeshPs.spv", _device, &triangleFragShader))
+		{
+			mErr = { "Error when building meshlet shader." };
+			return;
+		}
+
+		VkShaderModule meshShader;
+		if (!vkinit::load_shader_module("../assets/shaders/vkMeshMs.spv", _device, &meshShader))
+		{
+			mErr = { "Error when building pixel shader." };
+			return;
+		}
+
+		VkPushConstantRange pushConstant{};
+		pushConstant.offset = 0;
+		pushConstant.size = sizeof(pushConstants);
+		pushConstant.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
+
+		mGraphicsPipeline.init(_device);
+		//connecting the vertex and pixel shaders to the pipeline
+		mGraphicsPipeline.setShaders(VK_NULL_HANDLE, meshShader, triangleFragShader);
+		//it will draw triangles
+		mGraphicsPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		//filled triangles
+		mGraphicsPipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
+		//no backface culling
+		mGraphicsPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+		//no multisampling
+		mGraphicsPipeline.setMultisamplingNone();
+		//no blending
+		mGraphicsPipeline.disableBlending();
+		mGraphicsPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+		//connect the image format we will draw into, from draw image
+		mGraphicsPipeline.setColorAttachmentFormat(mSwapChain.getDrawImageFormat());
+		mGraphicsPipeline.setDepthFormat(mSwapChain.getDepthImageFormat());
+
+		//finally build the pipeline.
+		mErr = mGraphicsPipeline.build(&pushConstant, { mDescriptorSetMesh.getDescriptorSet().second }, true);
+		if (mErr)
+			return;
+
+		//clean structures.
+		vkDestroyShaderModule(_device, triangleFragShader, nullptr);
+		vkDestroyShaderModule(_device, meshShader, nullptr);
+
+		_mainDeletionQueue.push_function([&]() { mGraphicsPipeline.destroy(); });
+	}
+
 	void vulkanRenderer::set_compute_descriptors()
 	{
-		VkDescriptorSetLayoutBinding imageBind{};
-		imageBind.binding = 0;
-		imageBind.descriptorCount = 1;
-		imageBind.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		std::vector<VkDescriptorImageInfo> imgInfo = {
+			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDrawImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL, }
+		};
 
-		VkDescriptorImageInfo imgInfo{};
-		imgInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		imgInfo.imageView = mSwapChain.getDrawImage().imageView;
+		mDescriptorSetCompute.addBinding(
+			descriptorSet::getLayoutBindingInfo(0, uint32_t(imgInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		);
 
-		VkWriteDescriptorSet source = {};
-		source.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		source.pNext = nullptr;
-		source.dstBinding = 0;
-		// will be set by descriptorSet class.
-		source.dstSet = nullptr;
-		source.descriptorCount = 1;
-		source.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		source.pImageInfo = &imgInfo;
+		mDescriptorSetCompute.addWrite(descriptorSet::getWriteInfo(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, imgInfo));
 
-		mDescriptorSetCompute.addBinding(imageBind, source);
 		mErr = mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT);
 		if (mErr)
-			LOGERROR(mErr.err());
+			return;
 	}
 
 	void vulkanRenderer::set_trinagle_descriptor_bindings()
 	{
-		VkDescriptorSetLayoutBinding bufferBinds[4] = {};
-		for (uint32_t i = 0; i < 4; ++i)
+		std::vector<VkDescriptorBufferInfo> vertexInfo = {
+			{.buffer = mVertex.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE },
+		};
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(0, uint32_t(vertexInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addWrite(descriptorSet::getWriteInfo(0, vertexInfo));
+
+		std::vector<VkDescriptorBufferInfo> indexInfo = {
+			{.buffer = mIndex.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE },
+		};
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(1, uint32_t(indexInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addWrite(descriptorSet::getWriteInfo(1, indexInfo));
+
+		std::vector<VkDescriptorBufferInfo> primitiveInfo = {
+			{.buffer = mTriangles.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE },
+		};
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(2, uint32_t(primitiveInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addWrite(descriptorSet::getWriteInfo(2, primitiveInfo));
+
+		std::vector<VkDescriptorBufferInfo> meshletInfo = {
+			{.buffer = mMeshlets.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE },
+		};
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(3, uint32_t(meshletInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addWrite(descriptorSet::getWriteInfo(3, meshletInfo));
+
+		// !!!!!!!!!!!!!!!!!!!!!!! load albedo images.
+
+		// get sampler.
+		auto sampler = descriptorSet::createSampler(_device);
+		if (!sampler)
 		{
-			bufferBinds[i].binding = i;
-			bufferBinds[i].descriptorCount = 1;
-			bufferBinds[i].stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
-			bufferBinds[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			mErr = sampler.err();
+			return;
 		}
 
-		VkDescriptorBufferInfo bufferInfos[4] = {};
-		VkWriteDescriptorSet sourceBuffer[4] = {};
+		mImageSampler = sampler.value();
 
-		bufferInfos[0].buffer = mVertex.getBuffer().buffer;
-		bufferInfos[0].offset = 0;
-		bufferInfos[0].range = VK_WHOLE_SIZE;
+		_mainDeletionQueue.push_function([&]() { vkDestroySampler(_device, mImageSampler, nullptr); });
 
-		sourceBuffer[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		sourceBuffer[0].pNext = nullptr;
-		sourceBuffer[0].dstSet = VK_NULL_HANDLE;        // будет установлен позже
-		sourceBuffer[0].dstBinding = 0;
-		sourceBuffer[0].dstArrayElement = 0;
-		sourceBuffer[0].descriptorCount = 1;
-		sourceBuffer[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		sourceBuffer[0].pImageInfo = nullptr;
-		sourceBuffer[0].pBufferInfo = &bufferInfos[0];
-		sourceBuffer[0].pTexelBufferView = nullptr;
-
-		bufferInfos[1].buffer = mIndex.getBuffer().buffer;
-		bufferInfos[1].offset = 0;
-		bufferInfos[1].range = VK_WHOLE_SIZE;
-
-		sourceBuffer[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		sourceBuffer[1].pNext = nullptr;
-		sourceBuffer[1].dstSet = VK_NULL_HANDLE;
-		sourceBuffer[1].dstBinding = 1;
-		sourceBuffer[1].dstArrayElement = 0;
-		sourceBuffer[1].descriptorCount = 1;
-		sourceBuffer[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		sourceBuffer[1].pImageInfo = nullptr;
-		sourceBuffer[1].pBufferInfo = &bufferInfos[1];
-		sourceBuffer[1].pTexelBufferView = nullptr;
-
-		bufferInfos[2].buffer = mTriangles.getBuffer().buffer;
-		bufferInfos[2].offset = 0;
-		bufferInfos[2].range = VK_WHOLE_SIZE;
-
-		sourceBuffer[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		sourceBuffer[2].pNext = nullptr;
-		sourceBuffer[2].dstSet = VK_NULL_HANDLE;
-		sourceBuffer[2].dstBinding = 2;
-		sourceBuffer[2].dstArrayElement = 0;
-		sourceBuffer[2].descriptorCount = 1;
-		sourceBuffer[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		sourceBuffer[2].pImageInfo = nullptr;
-		sourceBuffer[2].pBufferInfo = &bufferInfos[2];
-		sourceBuffer[2].pTexelBufferView = nullptr;
-
-		bufferInfos[3].buffer = mMeshlets.getBuffer().buffer;
-		bufferInfos[3].offset = 0;
-		bufferInfos[3].range = VK_WHOLE_SIZE;
-
-		sourceBuffer[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		sourceBuffer[3].pNext = nullptr;
-		sourceBuffer[3].dstSet = VK_NULL_HANDLE;
-		sourceBuffer[3].dstBinding = 3;
-		sourceBuffer[3].dstArrayElement = 0;
-		sourceBuffer[3].descriptorCount = 1;
-		sourceBuffer[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		sourceBuffer[3].pImageInfo = nullptr;
-		sourceBuffer[3].pBufferInfo = &bufferInfos[3];
-		sourceBuffer[3].pTexelBufferView = nullptr;
-
-		for (uint32_t i = 0; i < 4; ++i)
+		// add write for each albedo image.
+		std::vector<VkDescriptorImageInfo> imageInfos;
+		for (auto& i : mAlbedoTextures)
 		{
-			mDescriptorSetMesh.addBinding(bufferBinds[i], sourceBuffer[i]);
+			VkDescriptorImageInfo info{};
+			info.sampler = mImageSampler;
+			info.imageView = i.image.view;
+			info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfos.push_back(info);
 		}
 
-		mErr = mDescriptorSetMesh.build(VK_SHADER_STAGE_MESH_BIT_EXT);
+		// add binding for desired number of albedo textures.
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(4, uint32_t(imageInfos.size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+		);
+		mDescriptorSetMesh.addWrite(descriptorSet::getWriteInfo(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfos));
+
+		mErr = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
 		if (mErr)
-			LOGERROR(mErr.err());
+			return;
 	}
 
-	static size_t meshCount = 0;
+	void vulkanRenderer::initTextures()
+	{
+		initAlbedoTextures();
+		if (mErr)
+			return;
+	}
 
+	void vulkanRenderer::initAlbedoTextures()
+	{
+		//TODO: MOVE CALL BELOW TO ASSEETMANAGER.
+#ifdef VULKAN
+		stbi_set_flip_vertically_on_load(true);
+#endif // VULKAN
+
+		int width, height, nrChannels;
+		uint8_t* data = stbi_load("../assets/textures/backpack_albedo.jpg", &width, &height, &nrChannels, 4);
+		if (!data)
+		{
+			mErr = { "can't load texture" };
+			return;
+		}
+
+		VkImageUsageFlags usage = 0;
+		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;       // Needed to copy/upload from a staging buffer
+		usage |= VK_IMAGE_USAGE_SAMPLED_BIT;            // Needed to read in a shader
+		// Optional if you generate mipmaps on GPU:
+		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;       // To generate mipmaps
+
+		vulkanImage crntImage;
+		crntImage.init(_device, _allocator);
+		mErr = crntImage.build(mImmediateSubmit, data, VkExtent3D{ .width = uint32_t(width), .height = uint32_t(height), .depth = 1 }, VK_FORMAT_R8G8B8A8_UNORM, usage, false);
+		if (mErr)
+			return;
+
+		stbi_image_free(data);
+
+		mAlbedoTextures.push_back(crntImage);
+
+		_mainDeletionQueue.push_function([&]() {
+			for (auto& i : mAlbedoTextures)
+			{
+				i.destroy();
+			}
+			});
+	}
+}
+
+namespace vktest
+{
 	void vulkanRenderer::initMesh()
 	{
 		LOGINFO("loading mesh");
 
-		std::string str = "../assets/horse_statue_01_4k.glb";
-		//std::string str = "../assets/cube26.glb";
+		std::string str = "../assets/backpack.glb";
 		std::filesystem::path pathObj(str);
 
 		std::vector<engine::vertex> v;
@@ -579,10 +640,10 @@ namespace vktest
 			meshlets.data(),							// Output: array of meshopt_Meshlet
 			meshletVertices.data(),						// Output: array of uint32_t - meshlet to mesh index mappings
 			meshletTriangles.data(),					// Output: array of uint8_t - triangle indices
-			newIndex.data(),									// Input: pointer mesh vertex indices
-			newIndex.size(),									// Input: number of vertex indices
+			newIndex.data(),							// Input: pointer mesh vertex indices
+			newIndex.size(),							// Input: number of vertex indices
 			&newVert[0].position.x,						// Input: pointer to vertex positions
-			newVert.size(),									// Input: number of vertex positions	
+			newVert.size(),								// Input: number of vertex positions	
 			sizeof(engine::vertex),						// Input: stride of vertex position elements
 			kMaxVertices,								// Input: maximum number of vertices per meshlet
 			kMaxTriangles,								// Input: maximum number of triangles per meshlet
@@ -626,7 +687,7 @@ namespace vktest
 			meshletVertices.size()
 		);
 
-		meshCount = meshlets.size();
+		meshletsCount = meshlets.size();
 
 		mVertex.init(_device, _allocator);
 		mIndex.init(_device, _allocator);
@@ -666,6 +727,45 @@ namespace vktest
 			});
 	}
 
+	vulkanRenderer::vulkanRenderer(std::shared_ptr<engine::context> ctx)
+		:
+		mCtx(ctx),
+		mErr(),
+		_instance(VK_NULL_HANDLE),
+		_debug_messenger(VK_NULL_HANDLE),
+		_chosenGPU(VK_NULL_HANDLE),
+		_device(VK_NULL_HANDLE),
+		_surface(VK_NULL_HANDLE),
+		_graphicsQueue(),
+		_graphicsQueueFamily(),
+		mCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height),
+		mGraphicsPipeline(),
+		mDescriptorSetCompute(),
+		mComputePipeline(),
+		mImmediateSubmit(),
+		mSwapChain()
+	{
+	};
+
+	vulkanRenderer::~vulkanRenderer()
+	{
+		//make sure the gpu has stopped doing its things
+		vkDeviceWaitIdle(_device);
+
+		_mainDeletionQueue.flush();
+
+		vkDestroySurfaceKHR(_instance, _surface, nullptr);
+
+		vkDestroyDevice(_device, nullptr);
+		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
+		vkDestroyInstance(_instance, nullptr);
+	}
+
+	engine::error vulkanRenderer::checkError()
+	{
+		return mErr;
+	}
+
 	void vulkanRenderer::clear(VkCommandBuffer cmd)
 	{
 		// bind the gradient drawing compute pipeline
@@ -676,7 +776,7 @@ namespace vktest
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().second, 0, 1, &set, 0, nullptr);
 
 		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
-		vkCmdDispatch(cmd, uint32_t(std::ceil(double(mSwapChain.getDrawImage().imageExtent.width) / 16.0)), uint32_t(std::ceil(double(mSwapChain.getDrawImage().imageExtent.height) / 16.0)), 1);
+		vkCmdDispatch(cmd, uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().width) / 16.0)), uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().height) / 16.0)), 1);
 	}
 
 	void vulkanRenderer::draw()
@@ -717,22 +817,22 @@ namespace vktest
 
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
-		vkinit::transition_image(cmd, mSwapChain.getDrawImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		vkinit::transition_image(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 		// draw with compute, clear image.
 		clear(cmd);
 
-		vkinit::transition_image(cmd, mSwapChain.getDrawImage().image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		vkinit::transition_image(cmd, mSwapChain.getDepthImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		vkinit::transition_image(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		vkinit::transition_image(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 		draw_geometry(cmd);
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
-		vkinit::transition_image(cmd, mSwapChain.getDrawImage().image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		vkinit::transition_image(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 		// copy from the draw image into the swapchain
-		vkinit::copy_image_to_image(cmd, mSwapChain.getDrawImage().image, mSwapChain.getSwapChainImages()[indexResult.value()], mSwapChain.getDrawImage().imageExtent, mSwapChain.getSwapChainExtent());
+		vkinit::copy_image_to_image(cmd, mSwapChain.getDrawImage(), mSwapChain.getSwapChainImages()[indexResult.value()], mSwapChain.getDrawImageExtent(), mSwapChain.getSwapChainExtent());
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
 		vkinit::transition_image(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -783,10 +883,10 @@ namespace vktest
 	void vulkanRenderer::draw_geometry(VkCommandBuffer cmd)
 	{
 		//begin a render pass connected to our draw image.
-		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(mSwapChain.getDrawImage().imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(mSwapChain.getDepthImage().imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(mSwapChain.getDrawImageView(), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-		VkRenderingInfo renderInfo = vkinit::rendering_info(mSwapChain.getDrawImage().imageExtent, &colorAttachment, &depthAttachment);
+		VkRenderingInfo renderInfo = vkinit::rendering_info(mSwapChain.getDrawImageExtent(), &colorAttachment, &depthAttachment);
 
 		vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -796,8 +896,8 @@ namespace vktest
 		VkViewport viewport = {};
 		viewport.x = 0;
 		viewport.y = 0;
-		viewport.width = float(mSwapChain.getDrawImage().imageExtent.width);
-		viewport.height = float(mSwapChain.getDrawImage().imageExtent.height);
+		viewport.width = float(mSwapChain.getDrawImageExtent().width);
+		viewport.height = float(mSwapChain.getDrawImageExtent().height);
 		viewport.minDepth = 0.f;
 		viewport.maxDepth = 1.f;
 
@@ -806,8 +906,8 @@ namespace vktest
 		VkRect2D scissor = {};
 		scissor.offset.x = 0;
 		scissor.offset.y = 0;
-		scissor.extent.width = (mSwapChain.getDrawImage().imageExtent.width);
-		scissor.extent.height = (mSwapChain.getDrawImage().imageExtent.height);
+		scissor.extent.width = (mSwapChain.getDrawImageExtent().width);
+		scissor.extent.height = (mSwapChain.getDrawImageExtent().height);
 
 		vkCmdSetScissor(cmd, 0, 1, &scissor);
 
@@ -823,7 +923,7 @@ namespace vktest
 
 		//launch a draw command to draw 3 vertices
 		//vkCmdDraw(cmd, 67164, 1, 0, 0);
-		vkCmdDrawMeshTasksEXT(cmd, uint32_t(meshCount), 1, 1);
+		vkCmdDrawMeshTasksEXT(cmd, uint32_t(meshletsCount), 1, 1);
 
 		vkCmdEndRendering(cmd);
 	}

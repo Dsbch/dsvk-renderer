@@ -17,7 +17,7 @@ namespace vktest
 		VkDeviceAddress bufferAddress;
 	};
 
-	class vulkanBuffer
+	struct vulkanBuffer
 	{
 	public:
 		vulkanBuffer()
@@ -30,8 +30,7 @@ namespace vktest
 					.info = {},
 				}
 				),
-			mAllocator(VK_NULL_HANDLE),
-			mErr()
+			mAllocator(VK_NULL_HANDLE)
 		{
 		}
 
@@ -40,14 +39,12 @@ namespace vktest
 		void destroy();
 
 		allocatedBuffer getBuffer();
-		engine::error checkError();
+
+		static engine::withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, bool useMemmoryMap = false);
+		static void destroyBuffer(VmaAllocator allocator, allocatedBuffer buf);
 	private:
-		engine::error mErr;
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
 		allocatedBuffer mBuffer;
-
-		static engine::withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-		static void destroyBuffer(VmaAllocator allocator, allocatedBuffer buf);
 	};
 }

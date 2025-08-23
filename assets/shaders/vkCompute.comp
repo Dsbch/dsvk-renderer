@@ -1,0 +1,10 @@
+//dxc -T cs_6_9 -E main -spirv -Fo vkCompute.spv vkCompute.comp
+
+RWTexture2D<min16float4> image[] : register(u0, space0);
+
+[numthreads(16, 16, 1)]
+void main(uint3 DTid : SV_DispatchThreadID)
+{
+    // Write a white pixel into the target texel
+    image[0][DTid.xy] = min16float4(1.0f, 1.0f, 1.0f, 1.0f);
+}

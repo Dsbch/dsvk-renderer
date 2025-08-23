@@ -9,14 +9,44 @@ namespace vktest
 		return mFrames[mFrameNumber % FRAME_OVERLAP];
 	}
 
-	vulkanImage& swapChain::getDrawImage()
+	VkFormat swapChain::getDrawImageFormat()
 	{
-		return mDrawImage;
+		return mDrawImage.image.format;
 	}
 
-	vulkanImage& swapChain::getDepthImage()
+	VkFormat swapChain::getDepthImageFormat()
 	{
-		return mDepthImage;
+		return mDepthImage.image.format;
+	}
+
+	VkExtent3D swapChain::getDrawImageExtent()
+	{
+		return mDrawImage.image.extent;
+	}
+
+	VkExtent3D swapChain::getDepthImageExtent()
+	{
+		return mDepthImage.image.extent;
+	}
+
+	VkImage swapChain::getDrawImage()
+	{
+		return mDrawImage.image.image;
+	}
+
+	VkImage swapChain::getDepthImage()
+	{
+		return mDepthImage.image.image;
+	}
+
+	VkImageView swapChain::getDrawImageView()
+	{
+		return mDrawImage.image.view;
+	}
+
+	VkImageView swapChain::getDepthImageView()
+	{
+		return mDepthImage.image.view;
 	}
 
 	void swapChain::inrement()
@@ -26,9 +56,9 @@ namespace vktest
 
 	void swapChain::pickImageExtent()
 	{
-		// here we pick needed height and width of our image to draw.
-		mDrawImage.imageExtent.height = std::min(mSwapchainExtent.height, mDrawImage.imageExtent.height);
-		mDrawImage.imageExtent.width = std::min(mSwapchainExtent.width, mDrawImage.imageExtent.width);
+		// here we pick needed height and width of our images.
+		mDrawImage.image.extent.height = std::min(mSwapchainExtent.height, mDrawImage.image.extent.height);
+		mDrawImage.image.extent.width = std::min(mSwapchainExtent.width, mDrawImage.image.extent.width);
 	}
 
 	VkSwapchainKHR& swapChain::getSwapChain()
@@ -130,73 +160,35 @@ namespace vktest
 		mSwapchainImages = result.value().get_images().value();
 		mSwapchainImageViews = result.value().get_image_views().value();
 
-		//draw image size will match the window
+		// build drawImage.
 		VkExtent3D drawImageExtent = {
 			width,
 			height,
 			1
 		};
 
-		//hardcoding the draw format to 32 bit float
-		mDrawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-		mDrawImage.imageExtent = drawImageExtent;
+		mDrawImage.image.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		mDrawImage.image.extent = drawImageExtent;
 
 		VkImageUsageFlags drawImageUsages{};
 		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		
+		auto err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false);
+		if (err)
+			return err;
 
-		VkImageCreateInfo rimg_info = vkinit::image_create_info(mDrawImage.imageFormat, drawImageUsages, mDrawImage.imageExtent);
-
-		//for the draw image, we want to allocate it from gpu local memory
-		VmaAllocationCreateInfo rimg_allocinfo = {};
-		rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		rimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-		//allocate and create the image
-		auto createImageRes = vmaCreateImage(mAllocator, &rimg_info, &rimg_allocinfo, &mDrawImage.image, &mDrawImage.allocation, nullptr);
-		if (createImageRes != VK_SUCCESS)
-			return vkResultToStr(createImageRes);
-
-		//build a image-view for the draw image to use for rendering
-		VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(mDrawImage.imageFormat, mDrawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
-
-		auto createImageViewRes = vkCreateImageView(mDevice, &rview_info, nullptr, &mDrawImage.imageView);
-		if (createImageViewRes != VK_SUCCESS)
-			return vkResultToStr(createImageViewRes);
-
-		// Create depth image.
-		mDepthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
-		mDepthImage.imageExtent = mDrawImage.imageExtent;
+		// build depth image.
 		VkImageUsageFlags depthImageUsages{};
 		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-		VkImageCreateInfo dimg_info = vkinit::image_create_info(mDepthImage.imageFormat, depthImageUsages, mDepthImage.imageExtent);
-
-		//allocate and create the image
-		createImageRes = vmaCreateImage(mAllocator, &dimg_info, &rimg_allocinfo, &mDepthImage.image, &mDepthImage.allocation, nullptr);
-		if (createImageRes != VK_SUCCESS)
-			return vkResultToStr(createImageRes);
-
-		//build a image-view for the draw image to use for rendering
-		VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(mDepthImage.imageFormat, mDepthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-		createImageViewRes = vkCreateImageView(mDevice, &dview_info, nullptr, &mDepthImage.imageView);
-		if (createImageViewRes != VK_SUCCESS)
-			return vkResultToStr(createImageViewRes);
+		err = mDepthImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false);
+		if (err)
+			return err;
 
 		return {};
-	}
-
-	VkFormat swapChain::getDrawImageFormat()
-	{
-		return mDrawImage.imageFormat;
-	}
-
-	VkFormat swapChain::getDepthImageFormt()
-	{
-		return mDepthImage.imageFormat;
 	}
 
 	engine::error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
@@ -239,6 +231,9 @@ namespace vktest
 		mDevice = device;
 		mSurface = surface;
 		mChosenGPU = chosenGPU;
+
+		mDrawImage.init(mDevice, mAllocator);
+		mDepthImage.init(mDevice, mAllocator);
 	}
 
 	void swapChain::destroy()
@@ -253,11 +248,8 @@ namespace vktest
 			vkDestroySemaphore(mDevice, mFrames[i].swapchainSemaphore, nullptr);
 		}
 
-		vkDestroyImageView(mDevice, mDrawImage.imageView, nullptr);
-		vmaDestroyImage(mAllocator, mDrawImage.image, mDrawImage.allocation);
-
-		vkDestroyImageView(mDevice, mDepthImage.imageView, nullptr);
-		vmaDestroyImage(mAllocator, mDepthImage.image, mDepthImage.allocation);
+		mDepthImage.destroy();
+		mDrawImage.destroy();
 
 		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
 

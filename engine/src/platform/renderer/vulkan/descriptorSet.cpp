@@ -5,15 +5,18 @@ namespace vktest
 {
 	std::once_flag descriptorSet::isPoolCreated;
 	descriptorPool descriptorSet::pool;
+	float descriptorSet::maxFiltering;
 
 	engine::error descriptorPool::initPool(VkDevice device)
 	{
 		const uint32_t maxDescriptorSets = 100;
 		const uint32_t maxDescriptors = 100;
+		const uint32_t maxTextureDescriptors = 1000;
 
 		mDevice = device;
 
-		// TODO: rewrite? or just leave here.
+		// TODO: create new pool when we reach VK_ERROR_OUT_OF_POOL_MEMORY or VK_ERROR_FRAGMENTED_POOL.
+		// see https://vkguide.dev/docs/new_chapter_4/descriptor_abstractions/
 		std::vector<VkDescriptorPoolSize> poolSizes = {
 					{
 						.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -22,6 +25,10 @@ namespace vktest
 					{
 						.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 						.descriptorCount = maxDescriptors
+					},
+					{
+						.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+						.descriptorCount = maxTextureDescriptors
 					}
 		};
 
@@ -58,20 +65,29 @@ namespace vktest
 	{
 	}
 
-	void descriptorSet::init(VkDevice device)
+	engine::error descriptorSet::init(VkDevice device, VkPhysicalDevice physicalDevice)
 	{
 		mDevice = device;
 
+		engine::error err;
 		if (mDevice)
 		{
+
 			std::call_once(
 				isPoolCreated,
 				[&]()->void
 				{
-					mErr = pool.initPool(mDevice);
+					err = pool.initPool(mDevice);
+
+					VkPhysicalDeviceProperties deviceProps;
+					vkGetPhysicalDeviceProperties(physicalDevice, &deviceProps);
+
+					maxFiltering = deviceProps.limits.maxSamplerAnisotropy;
 				}
 			);
 		}
+
+		return err;
 	}
 
 	void descriptorSet::destroy()
@@ -84,21 +100,20 @@ namespace vktest
 		pool.destory();
 	}
 
-	engine::error descriptorSet::checkError()
-	{
-		return mErr;
-	}
-
 	void descriptorSet::clearBindings()
 	{
 		mBindings.clear();
 		mSource.clear();
 	}
 
-	void descriptorSet::addBinding(VkDescriptorSetLayoutBinding binding, VkWriteDescriptorSet source)
+	void descriptorSet::addBinding(VkDescriptorSetLayoutBinding binding)
 	{
 		mBindings.push_back(binding);
-		mSource.push_back(source);
+	}
+
+	void descriptorSet::addWrite(const std::vector<VkWriteDescriptorSet>& source)
+	{
+		mSource.push_back({ source });
 	}
 
 	engine::error descriptorSet::build(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
@@ -118,9 +133,10 @@ namespace vktest
 		// set sources for each binding.
 		for (auto& s : mSource)
 		{
-			s.dstSet = mDescriptorSet;
+			for (auto& e : s)
+				e.dstSet = mDescriptorSet;
 
-			vkUpdateDescriptorSets(mDevice, 1, &s, 0, nullptr);
+			vkUpdateDescriptorSets(mDevice, uint32_t(s.size()), s.data(), 0, nullptr);
 		}
 
 		return {};
@@ -129,6 +145,94 @@ namespace vktest
 	std::pair<VkDescriptorSet, VkDescriptorSetLayout> descriptorSet::getDescriptorSet()
 	{
 		return { mDescriptorSet, mDescriptorSetLayout };
+	}
+
+	VkDescriptorSetLayoutBinding descriptorSet::getLayoutBindingInfo(uint32_t binding, uint32_t descriptorCount, VkDescriptorType type)
+	{
+		VkDescriptorSetLayoutBinding layout{};
+		layout.binding = binding;
+		layout.descriptorCount = descriptorCount;
+		layout.descriptorType = type;
+
+		return layout;
+	}
+
+	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, VkDescriptorType imageType, const std::vector<VkDescriptorImageInfo>& imgInfo)
+	{
+		std::vector<VkWriteDescriptorSet> result{};
+		result.reserve(imgInfo.size());
+
+		for (int i = 0; i < imgInfo.size(); i++)
+		{
+			VkWriteDescriptorSet write = {};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.pNext = nullptr;
+			write.dstBinding = dstBinding;
+
+			// will be set by descriptorSet class.
+			write.dstSet = nullptr;
+
+			write.descriptorCount = 1;
+			write.dstArrayElement = i;
+			write.descriptorType = imageType;
+			write.pImageInfo = &imgInfo[i];
+
+			result.push_back(write);
+		}
+
+		return result;
+	}
+
+	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, const std::vector <VkDescriptorBufferInfo>& bufferInfo)
+	{
+		std::vector<VkWriteDescriptorSet> result;
+		result.reserve(bufferInfo.size());
+
+		for (int i = 0; i < bufferInfo.size(); i++)
+		{
+			VkWriteDescriptorSet write = {};
+
+			// will be set later.
+			write.dstSet = VK_NULL_HANDLE;
+
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.pNext = nullptr;
+			write.dstBinding = dstBinding;
+			write.dstArrayElement = i;
+			write.descriptorCount = 1;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			write.pImageInfo = nullptr;
+			write.pBufferInfo = &bufferInfo[i];
+			write.pTexelBufferView = nullptr;
+
+			result.push_back(write);
+		}
+
+		return result;
+	}
+
+	engine::withError<VkSampler> descriptorSet::createSampler(VkDevice device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressModeU, VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW, VkBool32 anisotropyEnable, VkBorderColor borderColor, VkBool32 unnormalizedCoordinates)
+	{
+		VkSamplerCreateInfo samplerInfo{};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = magFilter;
+		samplerInfo.minFilter = minFilter;
+		samplerInfo.mipmapMode = mipmapMode;
+		samplerInfo.addressModeU = addressModeU;
+		samplerInfo.addressModeV = addressModeV;
+		samplerInfo.addressModeW = addressModeW;
+
+		samplerInfo.anisotropyEnable = anisotropyEnable;
+		samplerInfo.maxAnisotropy = maxFiltering;
+		samplerInfo.borderColor = borderColor;
+		samplerInfo.unnormalizedCoordinates = unnormalizedCoordinates;
+
+		VkSampler sampler;
+		VkResult res = vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
+		if (res != VK_SUCCESS)
+			return { vkResultToStr(res) };
+
+		return sampler;
 	}
 
 	engine::withError<VkDescriptorSetLayout> descriptorSet::buildLayout(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)

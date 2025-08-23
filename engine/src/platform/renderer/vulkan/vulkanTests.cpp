@@ -31,7 +31,7 @@ namespace vktest
 		cv.wait([&] { return mWindow.get(); });
 
 		mRenderer->init(static_cast<engine::winApiWindow*>(mWindow.get()));
-		if (mRenderer->checkError())
+		if (mErr = mRenderer->checkError(); mErr)
 			return;
 	}
 

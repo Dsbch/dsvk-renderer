@@ -4,7 +4,9 @@
 
 #include <vma/vk_mem_alloc.h>
 #include <VkBootstrap.h>
+
 #include "vkHelper.h"
+#include "vulkanImage.h"
 
 namespace vktest
 {
@@ -17,15 +19,6 @@ namespace vktest
 
 		VkSemaphore swapchainSemaphore, renderSemaphore;
 		VkFence renderFence;
-	};
-
-	struct vulkanImage
-	{
-		VkImage image;
-		VkImageView imageView;
-		VmaAllocation allocation;
-		VkExtent3D imageExtent;
-		VkFormat imageFormat;
 	};
 
 	struct swapChain
@@ -54,12 +47,20 @@ namespace vktest
 		engine::error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
 		void destroy();
 
-		VkFormat getDrawImageFormat();
-		VkFormat getDepthImageFormt();
 		frameData& getCurrentFrameData();
-		vulkanImage& getDrawImage();
-		vulkanImage& getDepthImage();
 		
+		VkFormat getDrawImageFormat();
+		VkFormat getDepthImageFormat();
+
+		VkExtent3D getDrawImageExtent();
+		VkExtent3D getDepthImageExtent();
+
+		VkImage getDrawImage();
+		VkImage getDepthImage();
+		
+		VkImageView getDrawImageView();
+		VkImageView getDepthImageView();
+
 		void inrement();
 		void pickImageExtent();
 

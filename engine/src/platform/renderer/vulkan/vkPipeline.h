@@ -17,8 +17,6 @@ namespace vktest
 		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets, bool meshShaderPipeline = false);
 		void destroy();
 
-		engine::error checkError();
-
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 
 		void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
@@ -36,8 +34,6 @@ namespace vktest
 		void disableDepthtest();
 		void enableDepthtest(bool depthWriteEnable, VkCompareOp op);
 	private:
-		engine::error mErr;
-
 		VkDevice mDevice;
 		VkPipeline mPipeline;
 		VkPipelineLayout mPipelineLayout;

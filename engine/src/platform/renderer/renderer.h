@@ -27,4 +27,42 @@ namespace engine
 		error mErr;
 		std::shared_ptr<context> mCtx;
 	};
+
+
+	// Код ниже просто для накидки на будущую архитектуру мешей/текстур.
+	//struct mesh
+	//{
+	//	std::vector<uint32_t> vertexBuffer;
+	//	std::vector<uint32_t> indexBuffer;
+
+	//	bool isMeshlets;
+	//	std::vector<uint32_t> primitiveBuffer;
+	//	std::vector<uint32_t> vertexIndexBuffer;
+	//};
+
+	//struct meshHandle
+	//{
+	//	// погугли сколько лод левелов делать + как их делать :).
+	//	std::array<mesh, 4> lodLevels;
+
+	//	// функция для определения хеша.
+	//	uint32_t getHesh() const;
+	//};
+
+	//class shaderProgram
+	//{
+	//public:
+	//	shaderProgram(const std::vector<uint8_t>& fragmestSPIRV, const std::vector<uint8_t>& vertexSPIRV);
+	//	shaderProgram(const std::vector<uint8_t>& meshShaderSPIRV, const std::vector<uint8_t>& vertexSPIRV);
+	//	
+	//	virtual ~shaderProgram() = default;
+
+	//private:
+	//	//std::map<>
+	//};
+
+	//struct material
+	//{
+
+	//};
 }

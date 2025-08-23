@@ -42,11 +42,6 @@ namespace vktest
 		vkDestroyPipeline(mDevice, mPipeline, nullptr);
 	}
 
-	engine::error classicGraphicPipeline::checkError()
-	{
-		return mErr;
-	}
-
 	std::pair<VkPipeline, VkPipelineLayout> classicGraphicPipeline::getPipeline()
 	{
 		return { mPipeline, mPipelineLayout };

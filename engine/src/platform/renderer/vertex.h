@@ -8,7 +8,7 @@
 
 namespace engine 
 {
-	struct vertex 
+	struct vertex
 	{
 		glm::vec3 position;
 		float _pad0;
