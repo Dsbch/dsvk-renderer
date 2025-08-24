@@ -571,12 +571,13 @@ namespace vktest
 		VkImageUsageFlags usage = 0;
 		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;       // Needed to copy/upload from a staging buffer
 		usage |= VK_IMAGE_USAGE_SAMPLED_BIT;            // Needed to read in a shader
+		usage |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;	// GPU only memmory.
 		// Optional if you generate mipmaps on GPU:
 		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;       // To generate mipmaps
 
 		vulkanImage crntImage;
 		crntImage.init(_device, _allocator);
-		mErr = crntImage.build(mImmediateSubmit, data, VkExtent3D{ .width = uint32_t(width), .height = uint32_t(height), .depth = 1 }, VK_FORMAT_R8G8B8A8_UNORM, usage, false);
+		mErr = crntImage.build(mImmediateSubmit, data, VkExtent3D{ .width = uint32_t(width), .height = uint32_t(height), .depth = 1 }, VK_FORMAT_R8G8B8A8_UNORM, usage, true);
 		if (mErr)
 			return;
 

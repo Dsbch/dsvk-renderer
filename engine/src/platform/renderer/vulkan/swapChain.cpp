@@ -175,6 +175,7 @@ namespace vktest
 		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		drawImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		
 		auto err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false);
 		if (err)
@@ -183,6 +184,7 @@ namespace vktest
 		// build depth image.
 		VkImageUsageFlags depthImageUsages{};
 		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		depthImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 		err = mDepthImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false);
 		if (err)

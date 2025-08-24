@@ -206,7 +206,7 @@ namespace vkinit
 		vkCmdBlitImage2(cmd, &blitInfo);
 	}
 
-	inline VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+	inline VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels = 1)
 	{
 		VkImageCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -217,7 +217,7 @@ namespace vkinit
 		info.format = format;
 		info.extent = extent;
 
-		info.mipLevels = 1;
+		info.mipLevels = mipLevels;
 		info.arrayLayers = 1;
 
 		//for MSAA. we will not be using it by default, so default it to 1 sample per pixel.
@@ -230,9 +230,8 @@ namespace vkinit
 		return info;
 	}
 
-	inline VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+	inline VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags, uint32_t mipLevels = 1)
 	{
-		// build a image-view for the depth image to use for rendering
 		VkImageViewCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		info.pNext = nullptr;
@@ -240,8 +239,8 @@ namespace vkinit
 		info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		info.image = image;
 		info.format = format;
+		info.subresourceRange.levelCount = mipLevels;
 		info.subresourceRange.baseMipLevel = 0;
-		info.subresourceRange.levelCount = 1;
 		info.subresourceRange.baseArrayLayer = 0;
 		info.subresourceRange.layerCount = 1;
 		info.subresourceRange.aspectMask = aspectFlags;

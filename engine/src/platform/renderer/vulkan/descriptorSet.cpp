@@ -222,6 +222,10 @@ namespace vktest
 		samplerInfo.addressModeV = addressModeV;
 		samplerInfo.addressModeW = addressModeW;
 
+		samplerInfo.minLod = 0.0f; // Optional
+		samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+		samplerInfo.mipLodBias = 0.0f; // Optional
+
 		samplerInfo.anisotropyEnable = anisotropyEnable;
 		samplerInfo.maxAnisotropy = maxFiltering;
 		samplerInfo.borderColor = borderColor;
