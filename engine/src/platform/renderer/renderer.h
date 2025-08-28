@@ -52,8 +52,8 @@ namespace engine
 	//class shaderProgram
 	//{
 	//public:
-	//	shaderProgram(const std::vector<uint8_t>& fragmestSPIRV, const std::vector<uint8_t>& vertexSPIRV);
-	//	shaderProgram(const std::vector<uint8_t>& meshShaderSPIRV, const std::vector<uint8_t>& vertexSPIRV);
+	//	shaderProgram(const std::vector<uint8_t>& vertexSPIRV, const std::vector<uint8_t>& fragmestSPIRV);
+	//	shaderProgram(const std::vector<uint8_t>& meshShaderSPIRV, const std::vector<uint8_t>& fragmestSPIRV);
 	//	
 	//	virtual ~shaderProgram() = default;
 

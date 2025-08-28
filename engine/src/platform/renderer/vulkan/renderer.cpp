@@ -398,7 +398,7 @@ namespace vktest
 	{
 		//layout code
 		VkShaderModule computeDrawShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkCompute.spv", _device, &computeDrawShader))
+		if (!vkinit::load_shader_module("../assets/shaders/vkCompiled/vkCompute.spv", _device, &computeDrawShader))
 		{
 			mErr = { "Error when building the compute shader" };
 			return;
@@ -418,14 +418,14 @@ namespace vktest
 	void vulkanRenderer::init_triangle_pipeline()
 	{
 		VkShaderModule triangleFragShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkMeshPs.spv", _device, &triangleFragShader))
+		if (!vkinit::load_shader_module("../assets/shaders/vkCompiled/vkMeshPs.spv", _device, &triangleFragShader))
 		{
 			mErr = { "Error when building meshlet shader." };
 			return;
 		}
 
 		VkShaderModule meshShader;
-		if (!vkinit::load_shader_module("../assets/shaders/vkMeshMs.spv", _device, &meshShader))
+		if (!vkinit::load_shader_module("../assets/shaders/vkCompiled/vkMeshMs.spv", _device, &meshShader))
 		{
 			mErr = { "Error when building pixel shader." };
 			return;
