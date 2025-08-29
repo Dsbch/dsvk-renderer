@@ -28,7 +28,6 @@ namespace engine
 		std::shared_ptr<context> mCtx;
 	};
 
-
 	// Код ниже просто для накидки на будущую архитектуру мешей/текстур.
 	//struct mesh
 	//{
@@ -56,13 +55,45 @@ namespace engine
 	//	shaderProgram(const std::vector<uint8_t>& meshShaderSPIRV, const std::vector<uint8_t>& fragmestSPIRV);
 	//	
 	//	virtual ~shaderProgram() = default;
-
 	//private:
-	//	//std::map<>
 	//};
 
 	//struct material
 	//{
+	// std::shared_ptr<shaderProgram> shader;
+	// 
+	// std::shared_ptr<texture> albedoTexture;
+	// std::shared_ptr<texture> roughnessTexture;
+	// std::shared_ptr<texture> normalTexture;
+	// std::shared_ptr<texture> metalicTexture;
+	// std::shared_ptr<texture> aoTexture;
+	//};
 
+	//struct model
+	//{
+	//	material mat;
+	//	meshHandle mesh;
+	//	glm::mat4 transform;
+	//	// Скорее всего тут будет инфа с анимациями или ещё чем-то.
+	//};
+
+	// Про этот класс не особо уверен, скорее всего лучше будет сделать его таким образом,
+	// что всегда будет thread на фоне который будет заниматся обновлением данных на gpu со всеми локировками, 
+	// этот вопрос нужно очень хорошо изучить.
+	// 
+	// Можно его разбить на несколько, но при этом он не должен быть в курсе за ECS вообще.
+	// Конечно будет ECS класс выше, который будет просто собирать model структуру и дергать addToRender и render.
+	// 
+	// Этот класс будет ответственнен за:
+	// 1. Инстансинг
+	// 2. Culling on GPU
+	// 3. И короче всем :).
+	//class renderer
+	//{
+	//public:
+	//	// Добавление в очередь на рендер.
+	//	virtual void addToRender(const model& m) = 0;
+	//	// Рендер всей очереди.
+	//	virtual void render() = 0;
 	//};
 }

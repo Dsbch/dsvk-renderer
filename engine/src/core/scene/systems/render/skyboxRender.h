@@ -18,14 +18,6 @@ namespace engine
 		void onRender(entt::registry& registry);
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 	private:
-		error mError;
-
-		std::unique_ptr<vertexArrayObject> mVAO;
-		std::unique_ptr<arrayObject> mVBO;
-		std::unique_ptr<arrayObject> mEBO;
-
-		void render(entt::registry& registry, const renderer* renderer, const fpsCamera& camera);
-
 		friend class renderSystems;
 	};
 }

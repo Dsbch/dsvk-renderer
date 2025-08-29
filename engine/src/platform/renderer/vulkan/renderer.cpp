@@ -943,4 +943,8 @@ namespace vktest
 	{
 		mCamera.changePitch(pitch);
 	}
+
+	void vulkanRenderer::test()
+	{
+	}
 }

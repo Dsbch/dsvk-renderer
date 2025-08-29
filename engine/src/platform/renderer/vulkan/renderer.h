@@ -67,6 +67,8 @@ namespace vktest
 		void changeCameraPos(glm::vec3);
 		void changeYaw(float);
 		void changePitch(float);
+
+		void test();
 	private:
 		std::shared_ptr<engine::context> mCtx;
 		engine::fpsCamera mCamera;

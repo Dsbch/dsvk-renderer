@@ -37,9 +37,6 @@ namespace engine
 		}
 
 		mRenderer->clear();
-
-		mCoreRender->render(registry, mRenderer.get(), *selectedCam);
-		mSkyboxRender->render(registry, mRenderer.get(), *selectedCam);
 	}
 
 	void renderSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)

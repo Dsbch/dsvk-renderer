@@ -92,6 +92,7 @@ namespace vktest
 
 	void descriptorSet::destroy()
 	{
+		clearBindings();
 		vkDestroyDescriptorSetLayout(mDevice, mDescriptorSetLayout, nullptr);
 	}
 
@@ -103,7 +104,7 @@ namespace vktest
 	void descriptorSet::clearBindings()
 	{
 		mBindings.clear();
-		mSource.clear();
+		mWrite.clear();
 	}
 
 	void descriptorSet::addBinding(VkDescriptorSetLayoutBinding binding)
@@ -113,7 +114,7 @@ namespace vktest
 
 	void descriptorSet::addWrite(const std::vector<VkWriteDescriptorSet>& source)
 	{
-		mSource.push_back({ source });
+		mWrite.push_back({ source });
 	}
 
 	engine::error descriptorSet::build(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
@@ -131,7 +132,7 @@ namespace vktest
 		mDescriptorSet = allocRes.value();
 
 		// set sources for each binding.
-		for (auto& s : mSource)
+		for (auto& s : mWrite)
 		{
 			for (auto& e : s)
 				e.dstSet = mDescriptorSet;
@@ -241,9 +242,8 @@ namespace vktest
 
 	engine::withError<VkDescriptorSetLayout> descriptorSet::buildLayout(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
 	{
-		for (auto& b : mBindings) {
+		for (auto& b : mBindings)
 			b.stageFlags |= shaderStages;
-		}
 
 		VkDescriptorSetLayoutCreateInfo info = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 		info.pNext = pNext;

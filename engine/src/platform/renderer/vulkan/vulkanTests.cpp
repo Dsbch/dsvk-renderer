@@ -85,6 +85,9 @@ namespace vktest
 					case engine::key::d:
 						mRenderer->changeCameraPos(glm::vec3(0.1f, 0.0f, 0.0f));
 						break;
+					case engine::key::t:
+						mRenderer->test();
+						break;
 					}
 				}
 

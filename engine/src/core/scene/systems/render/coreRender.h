@@ -7,49 +7,6 @@
 
 namespace engine
 {
-	typedef uint32_t entityID;
-
-	typedef size_t materialID;
-
-	struct meshBoundaries
-	{
-		size_t fromVBO;
-		size_t toVBO;
-
-		size_t fromEBO;
-		size_t toEBO;
-	};
-
-	typedef uint32_t meshID;
-	typedef size_t instanceAttrIndex;
-	typedef size_t drawCommandIndex;
-	typedef size_t instanceSlotID;
-
-	struct drawCommand
-	{
-		drawElementsCommand command;
-		size_t index;
-	};
-
-	struct coreRenderData
-	{
-		std::map<meshID, meshBoundaries> boundaries;
-		std::unique_ptr<dynamicArrayObject> EBO;
-		std::unique_ptr<dynamicArrayObject> VBO;
-
-		std::unique_ptr<dynamicArrayObject> instanceBuffer;
-		std::unique_ptr<vertexArrayObject> VAO;
-		
-		std::unique_ptr<dynamicArrayObject> indirectBuffer;
-		std::map<meshID, drawCommand> drawCommands;
-		
-		std::map<entityID, instanceAttrIndex> instanceBufferIndex;
-		std::map<meshID, instanceSlotID> occupiedSlots;
-		std::queue<instanceSlotID> freeSlots;
-		size_t instancesPerMesh;
-		size_t meshesPerMaterial;
-	};
-
 	class coreRender : public system
 	{
 	public:
@@ -59,14 +16,6 @@ namespace engine
 		void onRender(entt::registry& registry);
 		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 	private:
-		std::map<materialID, coreRenderData> mData;
-
-		void resizeOnNeed(coreRenderData&, const std::vector<vertex>& vbo, const std::vector<uint32_t> ebo, uint32_t meshUID);
-		void addEntities(entt::registry& registry);
-		void updateData(entt::registry& registry);
-		void deleteEntities(entt::registry& registry);
-		void render(entt::registry& registry, const renderer* renderer, const fpsCamera& camera);
-
 		friend class renderSystems;
 	};
 }
