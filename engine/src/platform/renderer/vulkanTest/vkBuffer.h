@@ -2,11 +2,12 @@
 
 #include <pch.h>
 
+#include "vkHelper.h"
 #include <vma/vk_mem_alloc.h>
 
-#include "VulkanImmediateSubmit.h"
+#include "immediateSubmit.h"
 
-namespace engine
+namespace vktest
 {
 	struct allocatedBuffer
 	{

@@ -10,31 +10,32 @@ namespace engine
 		rgba = 4,
 	};
 
+	inline imageChannel intToChannel(int channel)
+	{
+		switch (channel)
+		{
+		case 1:
+			return grayscale;
+		case 3:
+			return rgb;
+		case 4:
+			return rgba;
+		default:
+			return grayscale;
+		}
+	}
+
 	class texture
 	{
 	public:
 		texture(const texture&) = delete;
-		virtual ~texture() = default;
+		
 		texture(uint8_t* data, int width, int heigth, imageChannel channel) : mWidth(width), mHeight(heigth), mChannel(channel) {};
-		virtual engine::error bind() = 0;
-		virtual const uint32_t getID() const = 0;
-		virtual const uint32_t getSlotID() const = 0;
+		virtual ~texture() = default;
+		virtual uint32_t hash() const = 0;
+		error checkError() const { return mErr; };
 	protected:
-		uint32_t mWidth;
-		uint32_t mHeight;
-		imageChannel mChannel;
-	};
-
-	class cubeMap
-	{
-	public:
-		cubeMap(const std::array<uint8_t*, 6> data, int width, int heigth, imageChannel channel) : mWidth(width), mHeight(heigth), mChannel(channel) {};
-		cubeMap(const cubeMap&) = delete;
-		virtual ~cubeMap() = default;
-		virtual engine::error bind() = 0;
-		virtual const uint32_t getID() const = 0;
-		virtual const uint32_t getSlotID() const = 0;
-	protected:
+		error mErr;
 		uint32_t mWidth;
 		uint32_t mHeight;
 		imageChannel mChannel;

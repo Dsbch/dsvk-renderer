@@ -11,6 +11,7 @@
 #include <meshoptimizer.h>
 #include <glm/gtc/quaternion.hpp>
 #include <stb_image.h>
+#include "renderer.h"
 
 static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	std::vector<engine::vertex>& outVertices,
@@ -532,6 +533,7 @@ namespace vktest
 			info.sampler = mImageSampler;
 			info.imageView = i.image.view;
 			info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
 			imageInfos.push_back(info);
 		}
 
@@ -948,3 +950,4 @@ namespace vktest
 	{
 	}
 }
+

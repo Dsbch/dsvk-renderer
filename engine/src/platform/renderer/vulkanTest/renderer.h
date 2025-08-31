@@ -9,7 +9,7 @@
 #include "descriptorSet.h"
 #include "swapChain.h"
 #include "immediateSubmit.h"
-#include "vulkanBuffer.h"
+#include "vkBuffer.h"
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -17,7 +17,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 
-#include "vulkanImage.h"
+#include "vkImage.h"
 
 #define VK_CHECK(x)                                                 \
     {\

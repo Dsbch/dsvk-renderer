@@ -9,9 +9,7 @@ int main(int argc, char* argv[])
 		ctx->config.inner.wnd.width = 300;
 		ctx->config.inner.wnd.height = 400;
 
-		std::unique_ptr<engine::window> window = nullptr;
-
-		auto testApp = vktest::vulkanTest(ctx);
+		auto testApp = engine::vulkanTest(ctx);
 		if (auto err = testApp.checkError(); err)
 		{
 			LOGERROR(err.err());

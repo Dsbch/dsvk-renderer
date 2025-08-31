@@ -5,11 +5,13 @@
 #include <vma/vk_mem_alloc.h>
 #include <VkBootstrap.h>
 
-#include "vkHelper.h"
+#include "helper.h"
 #include "vulkanImage.h"
 
-namespace vktest
+namespace engine
 {
+	VkPresentInfoKHR presentInfo();
+
 	const static uint32_t FRAME_OVERLAP = 3;
 
 	struct frameData
@@ -48,7 +50,7 @@ namespace vktest
 		void destroy();
 
 		frameData& getCurrentFrameData();
-		
+
 		VkFormat getDrawImageFormat();
 		VkFormat getDepthImageFormat();
 

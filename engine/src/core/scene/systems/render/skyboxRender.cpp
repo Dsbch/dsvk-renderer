@@ -1,7 +1,6 @@
 #include <pch.h>
 
 #include "skyboxRender.h"
-#include "platform/renderer/rendererFactory.h"
 #include "core/scene/components.h"
 
 namespace engine

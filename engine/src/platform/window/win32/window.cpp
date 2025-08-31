@@ -16,7 +16,7 @@ typedef HGLRC(WINAPI* PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC hDC, HGLRC hShareCo
 
 namespace engine
 {
-	engine::error winApiWindow::createWndClassErr;
+	error winApiWindow::createWndClassErr;
 	std::once_flag winApiWindow::isWindowClassCreated;
 	WNDCLASSEX winApiWindow::wndClass;
 	std::map<HWND, winApiWindow*> winApiWindow::hwndTable;

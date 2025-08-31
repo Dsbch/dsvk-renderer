@@ -1,9 +1,7 @@
 #include <pch.h>
+#include "vkBuffer.h"
 
-#include "vulkanBuffer.h"
-#include "helper.h"
-
-namespace engine
+namespace vktest
 {
 	void vulkanBuffer::init(VkDevice device, VmaAllocator allocator)
 	{

@@ -2,23 +2,22 @@
 
 #include "vulkanTests.h"
 #include "platform/window/win32/window.h"
-#include "renderer.h"
+#include "vulkanRenderer.h"
 
 #include "platform/renderer/vertex.h"
 #include <glm/glm.hpp>
 
-// app part.
-namespace vktest
+namespace engine
 {
-	vulkanTest::vulkanTest(std::shared_ptr<engine::context> ctx) :
+	vulkanTest::vulkanTest(std::shared_ptr<context> ctx) :
 		mCtx(ctx),
-		mRenderer(std::make_unique<vulkanRenderer>(ctx)),
+		mRenderer(nullptr),
 		mWindow(nullptr)
 	{
-		engine::cond cv;
+		cond cv;
 		mCtx->mThreadPool->start(
 			[&]() -> void {
-				mWindow = engine::windowFactory::createWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
+				mWindow = makeWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
 				if (mErr = mWindow->checkError(); mErr)
 					return;
 
@@ -30,12 +29,12 @@ namespace vktest
 
 		cv.wait([&] { return mWindow.get(); });
 
-		mRenderer->init(static_cast<engine::winApiWindow*>(mWindow.get()));
-		if (mErr = mRenderer->checkError(); mErr)
-			return;
+		mRenderer = std::move(std::make_unique<vulkanRenderer>(ctx, mWindow));
+
+		LOGINFO("{}, chosen GPU: {}", mRenderer->getVersion(), mRenderer->getGpuName());
 	}
 
-	engine::error vulkanTest::checkError()
+	error vulkanTest::checkError()
 	{
 		return mErr;
 	}
@@ -53,60 +52,59 @@ namespace vktest
 			{
 				auto event = mCtx->mEventDispatcher->getEvent();
 
-				if (event->getEventType() == engine::close)
+				if (event->getEventType() == close)
 				{
 					LOGINFO("app was closed");
 					return;
 				}
 
-				if (event->getEventType() == engine::windowResize)
+				if (event->getEventType() == windowResize)
 				{
-					auto resizeEvent = static_cast<engine::windowResizeEvent*>(event.get());
+					auto resizeEvent = static_cast<windowResizeEvent*>(event.get());
 
-					mRenderer->resize(resizeEvent->getWidth(), resizeEvent->getHeight());
+					mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 				}
 
-				if (event->getEventType() == engine::keyDown)
-				{
-					auto e = static_cast<engine::keyDownEvent*>(event.get());
+				//		if (event->getEventType() == keyDown)
+				//		{
+				//			auto e = static_cast<keyDownEvent*>(event.get());
 
 
-					switch (e->getKey())
-					{
-					case engine::key::w:
-						mRenderer->changeCameraPos(glm::vec3(0.0f, 0.0f, 0.1f));
-						break;
-					case engine::key::s:
-						mRenderer->changeCameraPos(glm::vec3(0.0f, 0.0f, -0.1f));
-						break;
-					case engine::key::a:
-						mRenderer->changeCameraPos(glm::vec3(-0.1f, 0.0f, 0.0f));
-						break;
-					case engine::key::d:
-						mRenderer->changeCameraPos(glm::vec3(0.1f, 0.0f, 0.0f));
-						break;
-					case engine::key::t:
-						mRenderer->test();
-						break;
-					}
-				}
+				//			switch (e->getKey())
+				//			{
+				//			case key::w:
+				//				mRenderer->changeCameraPos(glm::vec3(0.0f, 0.0f, 0.1f));
+				//				break;
+				//			case key::s:
+				//				mRenderer->changeCameraPos(glm::vec3(0.0f, 0.0f, -0.1f));
+				//				break;
+				//			case key::a:
+				//				mRenderer->changeCameraPos(glm::vec3(-0.1f, 0.0f, 0.0f));
+				//				break;
+				//			case key::d:
+				//				mRenderer->changeCameraPos(glm::vec3(0.1f, 0.0f, 0.0f));
+				//				break;
+				//			case key::t:
+				//				mRenderer->test();
+				//				break;
+				//			}
+				//		}
 
-				if (event->getEventType() == engine::eventType::mouseMove)
-				{
-					auto offset = static_cast<engine::mouseMoveEvent*>(event.get())->getMouseOffset();
+				//		if (event->getEventType() == eventType::mouseMove)
+				//		{
+				//			auto offset = static_cast<mouseMoveEvent*>(event.get())->getMouseOffset();
 
-					mRenderer->changeYaw(float(offset.x) * 0.1f);
-					mRenderer->changePitch(float(-offset.y) * 0.1f);
-				}
+				//			mRenderer->changeYaw(float(offset.x) * 0.1f);
+				//			mRenderer->changePitch(float(-offset.y) * 0.1f);
+				//		}
 			}
 
 			mWindow->pollInput();
 
 			// do rendering here.
-			mRenderer->draw();
+			mRenderer->render();
 			if (mRenderer->checkError())
 				LOGERROR(mRenderer->checkError().err());
 		}
 	}
-
 }

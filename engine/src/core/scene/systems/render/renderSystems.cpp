@@ -1,13 +1,12 @@
 #include <pch.h>
 #include "renderSystems.h"
-#include "platform/renderer/rendererFactory.h"
 
 namespace engine
 {
 	renderSystems::renderSystems(std::shared_ptr<context> ctx, fpsCamera camera)
 		:
 		system(ctx),
-		mRenderer(rendererFactory::createRenderer(ctx)),
+		mRenderer(nullptr),
 		mDefaultCamera(camera),
 		mCoreRender(std::make_unique<coreRender>(ctx)),
 		mSkyboxRender(std::make_unique<skyboxRender>(ctx))
@@ -35,8 +34,6 @@ namespace engine
 				break;
 			}
 		}
-
-		mRenderer->clear();
 	}
 
 	void renderSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)

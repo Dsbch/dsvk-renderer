@@ -1,7 +1,6 @@
 #include <pch.h>
 
 #include "coreRender.h"
-#include "platform/renderer/rendererFactory.h"
 
 namespace engine
 {

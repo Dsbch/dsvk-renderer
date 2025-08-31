@@ -1,7 +1,9 @@
 #include <pch.h>
-#include "descriptorSet.h"
 
-namespace vktest
+#include "helper.h"
+#include "vulkanDescriptorSet.h"
+
+namespace engine
 {
 	std::once_flag descriptorSet::isPoolCreated;
 	descriptorPool descriptorSet::pool;
@@ -52,7 +54,7 @@ namespace vktest
 	{
 	}
 
-	void descriptorPool::destory()
+	void descriptorPool::destroy()
 	{
 		vkDestroyDescriptorPool(mDevice, mPool, nullptr);
 	}
@@ -98,7 +100,7 @@ namespace vktest
 
 	void descriptorSet::destroyPool()
 	{
-		pool.destory();
+		pool.destroy();
 	}
 
 	void descriptorSet::clearBindings()
@@ -158,7 +160,7 @@ namespace vktest
 		return layout;
 	}
 
-	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, VkDescriptorType imageType, const std::vector<VkDescriptorImageInfo>& imgInfo)
+	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, VkDescriptorType descriptorType, const std::vector<VkDescriptorImageInfo>& imgInfo)
 	{
 		std::vector<VkWriteDescriptorSet> result{};
 		result.reserve(imgInfo.size());
@@ -175,7 +177,7 @@ namespace vktest
 
 			write.descriptorCount = 1;
 			write.dstArrayElement = i;
-			write.descriptorType = imageType;
+			write.descriptorType = descriptorType;
 			write.pImageInfo = &imgInfo[i];
 
 			result.push_back(write);

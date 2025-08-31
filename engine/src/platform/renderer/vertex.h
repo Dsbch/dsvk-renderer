@@ -4,9 +4,10 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
-#include "vertexArrayObject.h"
 
-namespace engine 
+#include "shader.h"
+
+namespace engine
 {
 	struct vertex
 	{
@@ -28,34 +29,47 @@ namespace engine
 		glm::mat4 modelMatrix;
 	};
 
-	class vertexDescriber : public attributesDescriber 
+	struct mesh
 	{
-	private:
-		uint32_t mBufferObjectID;
-	public:
-		vertexDescriber(uint32_t vboID) : mBufferObjectID(vboID) {}
-		std::vector<attributeInfo> info() const;
+		std::vector<vertex> vertexBuffer;
+		std::vector<uint32_t> indexBuffer;
+
+		bool isMeshlets;
+		std::vector<uint32_t> primitiveBuffer;
+		std::vector<uint32_t> vertexIndexBuffer;
 	};
 
-	class instancedAttrDescriber : public attributesDescriber
+	struct meshHandle
 	{
-	private:
-		uint32_t mBufferObjectID;
-	public:
-		instancedAttrDescriber(uint32_t vboID) : mBufferObjectID(vboID) {}
-		std::vector<attributeInfo> info() const;
+		std::array<mesh, 4> lodLevels;
+
+		uint32_t getHesh() const
+		{
+			if (lodLevels.size() == 0)
+				return 0;
+
+			return crc32(reinterpret_cast<const uint8_t*>(lodLevels.front().vertexBuffer.data()), lodLevels.front().vertexBuffer.size());
+		}
 	};
 
-	struct drawElementsCommand
+	struct material
 	{
-		uint32_t vertexCount;	// amount of vertexes for the model.
-		uint32_t instanceCount; // amount of instances to draw.
-		uint32_t firstIndex;	// offset into index buffer.
-		uint32_t baseVertex;	// offset into vertex buffer.
-		uint32_t baseInstance;	// offset into perInstace buffer.
+		std::shared_ptr<shader> pixelShader;
+
+		std::shared_ptr<texture> albedoTexture;
+		std::shared_ptr<texture> roughnessTexture;
+		std::shared_ptr<texture> normalTexture;
+		std::shared_ptr<texture> metalicTexture;
+		std::shared_ptr<texture> aoTexture;
+	};
+
+	struct model
+	{
+		material mat;
+		meshHandle mesh;
+		instanceAttributes instanceAttributes;
 	};
 }
 
 static_assert(std::is_trivially_constructible_v<engine::vertex>&& std::is_standard_layout_v<engine::vertex>);
 static_assert(std::is_trivially_constructible_v<engine::instanceAttributes>&& std::is_standard_layout_v<engine::instanceAttributes>);
-static_assert(std::is_trivially_constructible_v<engine::drawElementsCommand>&& std::is_standard_layout_v<engine::drawElementsCommand>);

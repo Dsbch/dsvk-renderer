@@ -3,7 +3,6 @@
 #include <pch.h>
 
 #include "core/scene/systems/system.h"
-#include "platform/renderer/arrayObject.h"
 #include "platform/renderer/renderer.h"
 
 namespace engine

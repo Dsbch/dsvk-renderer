@@ -20,3 +20,4 @@
 #include <base/logger/logger.h>
 #include <base/profiling/profiling.h>
 #include <base/errors/errors.h>
+#include <base/hash/hash.h>

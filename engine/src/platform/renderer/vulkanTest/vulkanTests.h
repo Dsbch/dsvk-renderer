@@ -5,22 +5,22 @@
 #include "platform/window/window.h"
 #include "base/context/context.h"
 
-namespace engine
+namespace vktest
 {
 	class vulkanRenderer;
 
 	class vulkanTest
 	{
 	public:
-		vulkanTest(std::shared_ptr<context> ctx);
-		error checkError();
+		vulkanTest(std::shared_ptr<engine::context> ctx);
+		engine::error checkError();
 		~vulkanTest();
 
 		void run();
 	private:
-		error mErr;
-		std::shared_ptr<context> mCtx;
-		std::shared_ptr<window> mWindow;
+		engine::error mErr;
+		std::shared_ptr<engine::context> mCtx;
+		std::shared_ptr<engine::window> mWindow;
 		std::unique_ptr<vulkanRenderer> mRenderer;
 	};
 }

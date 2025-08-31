@@ -23,7 +23,7 @@ namespace engine
 	protected:
 		error mErr;
 		std::shared_ptr<context> mCtx;
-		std::unique_ptr<window> mWindow;
+		std::shared_ptr<window> mWindow;
 		bool mRunning;
 	private:
 		std::unique_ptr<layerStack> mLayerStack;

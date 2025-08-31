@@ -3,7 +3,6 @@
 #include "core/layers/layerStack.h"
 #include "core/layers/layer.h"
 #include "platform/window/window.h"
-#include "platform/window/windowFactory.h"
 
 namespace engine
 {
@@ -47,7 +46,7 @@ namespace engine
 		cond cv;
 		mCtx->mThreadPool->start(
 			[&]() -> void {
-				mWindow = windowFactory::createWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
+				mWindow = makeWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
 				if (mErr = mWindow->checkError(); mErr)
 					return;
 

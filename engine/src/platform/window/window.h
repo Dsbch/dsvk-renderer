@@ -41,4 +41,6 @@ namespace engine
 		virtual uint32_t getWidth() const = 0;
 		virtual uint32_t getHeight() const = 0;
 	};
+
+	std::shared_ptr<window> makeWindow(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor);
 }

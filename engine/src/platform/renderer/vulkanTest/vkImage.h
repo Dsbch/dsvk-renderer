@@ -4,20 +4,12 @@
 #include <VkBootstrap.h>
 #include <vma/vk_mem_alloc.h>
 
-#include "vulkanImmediateSubmit.h"
-#include "vulkanBuffer.h"
-#include "helper.h"
+#include "immediateSubmit.h"
+#include "vkHelper.h"
+#include "vkBuffer.h"
 
-namespace engine
+namespace vktest
 {
-	void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
-	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels = 1);
-	VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags, uint32_t mipLevels = 1);
-
-	void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
-
-	void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent3D srcSize, VkExtent2D dstSize);
-
 	struct allocatedImage
 	{
 		VkImage image;
@@ -31,7 +23,7 @@ namespace engine
 	{
 	public:
 		allocatedImage image;
-
+		
 		void init(VkDevice device, VmaAllocator allocator);
 		engine::error build(immediateSubmit is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
 		engine::error build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
