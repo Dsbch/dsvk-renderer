@@ -697,19 +697,19 @@ namespace vktest
 		mTriangles.init(_device, _allocator);
 		mMeshlets.init(_device, _allocator);
 
-		auto err = mVertex.build(mImmediateSubmit, newVert.data(), newVert.size() * sizeof(engine::vertex), newVert.size());
+		auto err = mVertex.build(mImmediateSubmit, newVert.data(), newVert.size() * sizeof(engine::vertex), newVert.size() * sizeof(engine::vertex));
 		if (err)
 			LOGERROR(err.err());
 
-		err = mIndex.build(mImmediateSubmit, meshletVertices.data(), meshletVertices.size() * sizeof(uint32_t), meshletVertices.size());
+		err = mIndex.build(mImmediateSubmit, meshletVertices.data(), meshletVertices.size() * sizeof(uint32_t), meshletVertices.size() * sizeof(uint32_t));
 		if (err)
 			LOGERROR(err.err());
 
-		err = mMeshlets.build(mImmediateSubmit, meshlets.data(), meshlets.size() * sizeof(meshopt_Meshlet), meshlets.size());
+		err = mMeshlets.build(mImmediateSubmit, meshlets.data(), meshlets.size() * sizeof(meshopt_Meshlet), meshlets.size() * sizeof(meshopt_Meshlet));
 		if (err)
 			LOGERROR(err.err());
 
-		err = mTriangles.build(mImmediateSubmit, meshletTrianglesU32.data(), meshletTrianglesU32.size() * sizeof(uint32_t), meshletTrianglesU32.size());
+		err = mTriangles.build(mImmediateSubmit, meshletTrianglesU32.data(), meshletTrianglesU32.size() * sizeof(uint32_t), meshletTrianglesU32.size() * sizeof(uint32_t));
 		if (err)
 			LOGERROR(err.err());
 

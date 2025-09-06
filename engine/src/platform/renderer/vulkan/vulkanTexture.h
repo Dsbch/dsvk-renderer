@@ -14,6 +14,7 @@ namespace engine
 		~vulkanTexture();
 		uint32_t hash() const;
 	private:
+		uint32_t mHash;
 		vulkanImage mImage;
 	};
 }

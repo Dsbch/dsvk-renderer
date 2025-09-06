@@ -11,6 +11,7 @@
 #include "vulkanImmediateSubmit.h"
 #include "vulkanShader.h"
 #include "vulkanTexture.h"
+#include "registry.h"
 
 namespace engine
 {
@@ -22,6 +23,9 @@ namespace engine
 		descPool,
 		descSet,
 		computePipe,
+		buffRegistry,
+		texRegistry,
+		sampler,
 	};
 
 	struct destroyTask
@@ -34,7 +38,46 @@ namespace engine
 			swapChain* sChain;
 			descriptorSet* descSet;
 			computePipeline* computePipe;
+			bufferRegistry* buffRegistry;
+			textureRegistry* texRegistry;
+			VkSampler* sampler;
 		};
+	};
+
+	struct computePipelineBindings
+	{
+		uint32_t descriptorSet;
+
+		uint32_t textureBinding;
+	};
+
+	struct geometryPipelineBindings
+	{
+		uint32_t descriptorSet;
+
+		uint32_t vertexBinding;
+		uint32_t indexBinding;
+		uint32_t primitiveBinding;
+		uint32_t meshletBinding;
+
+		uint32_t albedoBinding;
+		uint32_t normalBinding;
+		uint32_t roughnessBinding;
+		uint32_t metalicBinding;
+		uint32_t aoBinding;
+	};
+
+	struct pipelineData
+	{
+		classicGraphicPipeline pipeline;
+		bufferRegistry perInstanceRegistry;
+	};
+
+	struct limits
+	{
+		uint32_t maxStorageBuffers;
+		uint32_t maxCombinedImageSamplers;
+		float maxFiltering;
 	};
 
 	class vulkanRenderer : public renderer
@@ -55,34 +98,60 @@ namespace engine
 		void clear(VkCommandBuffer cmd);
 
 		void initVulkan();
+		void setDefaultBindings();
 		void loadExtensions();
 		void initImmediateSubmit();
 		void initSwapchain(uint32_t width, uint32_t height);
+		void initRegistry();
 		void initDescriptors();
-		void setGraphicsDescriptorBindings();
 		void setBackgroundDescriptors();
+		void setGeometryDescriptors();
+		void updateGeometryDescriptors();
 		void initPipelines();
 		void initBackgroundPipeline();
-		void initGraphicsPipeline();
+		void setLimits();
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
-
 		VkInstance mInstance;
-		VkDebugUtilsMessengerEXT mDebugMessenger;
 		VkPhysicalDevice mPhysicalDevice;
+		limits mPhysicalDeviceLimits;
+		VkDebugUtilsMessengerEXT mDebugMessenger;
+
 		VkSurfaceKHR mSurface;
 		swapChain mSwapChain;
+
 		VkQueue mGraphicsQueue;
 		uint32_t mGraphicsQueueFamily;
 		immediateSubmit mImmediateSubmit;
+
+		computePipelineBindings mComputeBinding;
 		computePipeline mComputePipeline;
-		classicGraphicPipeline mGraphicsPipeline;
+
 		descriptorSet mDescriptorSetCompute;
-		descriptorSet mDescriptorSetPixel;
-		descriptorSet mDescriptorSetMesh;
+
 
 		void flushDeletonQueue();
 		std::deque<destroyTask> mDeletionQueue;
+
+		// Below stuff for geometry pass.
+		VkSampler mSampler;
+		geometryPipelineBindings mGeometryBinding;
+		descriptorSet mDescriptorSetPixel;
+		descriptorSet mDescriptorSetMesh;
+
+		bufferRegistry mVertexRegistry;
+		bufferRegistry mIndexRegistry;
+		bufferRegistry mPrimitiveRegistry;
+		bufferRegistry mMeshletRegistry;
+
+		textureRegistry mAlbedoRegistry;
+		textureRegistry mRoughnessRegistry;
+		textureRegistry mNormalRegistry;
+		textureRegistry mMetalicRegistry;
+		textureRegistry mAoRegistry;
+
+		typedef vulkanShader pixelShader;
+		std::map<pixelShader, pipelineData> mGeometryPipelines;
 	};
 }

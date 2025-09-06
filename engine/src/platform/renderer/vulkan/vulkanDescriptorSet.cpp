@@ -7,18 +7,15 @@ namespace engine
 {
 	std::once_flag descriptorSet::isPoolCreated;
 	descriptorPool descriptorSet::pool;
-	float descriptorSet::maxFiltering;
-
+	
 	engine::error descriptorPool::initPool(VkDevice device)
 	{
-		const uint32_t maxDescriptorSets = 100;
-		const uint32_t maxDescriptors = 100;
-		const uint32_t maxTextureDescriptors = 1000;
+		const uint32_t maxDescriptorSets = 1000;
+		const uint32_t maxDescriptors = 1048576*4;
+		const uint32_t maxTextureDescriptors = 1048576*5;
 
 		mDevice = device;
 
-		// TODO: create new pool when we reach VK_ERROR_OUT_OF_POOL_MEMORY or VK_ERROR_FRAGMENTED_POOL.
-		// see https://vkguide.dev/docs/new_chapter_4/descriptor_abstractions/
 		std::vector<VkDescriptorPoolSize> poolSizes = {
 					{
 						.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -80,11 +77,6 @@ namespace engine
 				[&]()->void
 				{
 					err = pool.initPool(mDevice);
-
-					VkPhysicalDeviceProperties deviceProps;
-					vkGetPhysicalDeviceProperties(physicalDevice, &deviceProps);
-
-					maxFiltering = deviceProps.limits.maxSamplerAnisotropy;
 				}
 			);
 		}
@@ -106,6 +98,11 @@ namespace engine
 	void descriptorSet::clearBindings()
 	{
 		mBindings.clear();
+		mWrite.clear();
+	}
+
+	void descriptorSet::clearWrites()
+	{
 		mWrite.clear();
 	}
 
@@ -143,6 +140,17 @@ namespace engine
 		}
 
 		return {};
+	}
+
+	void descriptorSet::updateWrite()
+	{
+		for (auto& s : mWrite)
+		{
+			for (auto& e : s)
+				e.dstSet = mDescriptorSet;
+
+			vkUpdateDescriptorSets(mDevice, uint32_t(s.size()), s.data(), 0, nullptr);
+		}
 	}
 
 	std::pair<VkDescriptorSet, VkDescriptorSetLayout> descriptorSet::getDescriptorSet()
@@ -214,7 +222,7 @@ namespace engine
 		return result;
 	}
 
-	engine::withError<VkSampler> descriptorSet::createSampler(VkDevice device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressModeU, VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW, VkBool32 anisotropyEnable, VkBorderColor borderColor, VkBool32 unnormalizedCoordinates)
+	engine::withError<VkSampler> descriptorSet::createSampler(VkDevice device, float maxFiltering, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressModeU, VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW, VkBool32 anisotropyEnable, VkBorderColor borderColor, VkBool32 unnormalizedCoordinates)
 	{
 		VkSamplerCreateInfo samplerInfo{};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

@@ -33,6 +33,8 @@ namespace engine
 	{
 		if (!loadShaderModule(mSrc, mDevice, &mShaderModule))
 			mErr = error{"can't create shader"};
+
+		mHash = crc32(reinterpret_cast<const uint8_t*>(mSrc.data()), mSrc.size());
 	}
 
 	vulkanShader::~vulkanShader()
@@ -42,7 +44,7 @@ namespace engine
 
 	uint32_t vulkanShader::hash() const
 	{
-		return crc32(reinterpret_cast<const uint8_t*>(mSrc.data()), mSrc.size());
+		return mHash;
 	}
 
 	void vulkanShader::setPushConstant(const pushConstant& pc)

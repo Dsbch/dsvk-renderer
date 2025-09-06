@@ -29,15 +29,21 @@ namespace engine
 					.info = {},
 				}
 				),
-			mAllocator(VK_NULL_HANDLE)
+			mAllocator(VK_NULL_HANDLE),
+			mLoadedBytes(0),
+			mByteSize(0)
 		{
 		}
 
 		void init(VkDevice device, VmaAllocator allocator);
-		engine::error build(immediateSubmit is, void* data, size_t sizeInBytes, size_t len);
+		engine::error build(immediateSubmit is, void* data, size_t sizeInBytes, size_t validBytes);
+		engine::error updateBuffer(immediateSubmit is, void* data, size_t sizeInBytes, size_t offset);
 		void destroy();
 
 		allocatedBuffer getBuffer();
+
+		size_t getSize() const;
+		size_t getLoadedBytes() const;
 
 		static engine::withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, bool useMemmoryMap = false);
 		static void destroyBuffer(VmaAllocator allocator, allocatedBuffer buf);
@@ -45,5 +51,8 @@ namespace engine
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
 		allocatedBuffer mBuffer;
+
+		size_t mLoadedBytes;
+		size_t mByteSize;
 	};
 }

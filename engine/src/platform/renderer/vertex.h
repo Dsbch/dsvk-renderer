@@ -6,6 +6,7 @@
 #include <glm/mat3x3.hpp>
 
 #include "shader.h"
+#include "texture.h"
 
 namespace engine
 {
@@ -24,31 +25,55 @@ namespace engine
 		float _pad3;
 	};
 
+	struct materialOffset
+	{
+		uint32_t albedo;
+		uint32_t roughness;
+		uint32_t normal;
+		uint32_t metalic;
+		uint32_t ao;
+	};
+
+	struct meshOffset
+	{
+		uint32_t vertex;
+		uint32_t index;
+		uint32_t primitive;
+		uint32_t meshlet;
+	};
+
 	struct instanceAttributes
 	{
+		materialOffset textureOffset;
+		meshOffset meshOffset;
 		glm::mat4 modelMatrix;
 	};
 
 	struct mesh
 	{
-		std::vector<vertex> vertexBuffer;
+		std::shared_ptr<std::vector<vertex>> vertexBuffer;
 		std::vector<uint32_t> indexBuffer;
-
-		bool isMeshlets;
 		std::vector<uint32_t> primitiveBuffer;
 		std::vector<uint32_t> vertexIndexBuffer;
 	};
 
-	struct meshHandle
+	struct lodMesh
 	{
 		std::array<mesh, 4> lodLevels;
 
-		uint32_t getHesh() const
+		uint32_t hash = 0;
+
+		uint32_t getHash()
 		{
 			if (lodLevels.size() == 0)
 				return 0;
 
-			return crc32(reinterpret_cast<const uint8_t*>(lodLevels.front().vertexBuffer.data()), lodLevels.front().vertexBuffer.size());
+			if (hash != 0)
+				return hash;
+
+			hash = crc32(reinterpret_cast<const uint8_t*>(lodLevels.front().vertexBuffer->data()), lodLevels.front().vertexBuffer->size());
+
+			return hash;
 		}
 	};
 
@@ -66,7 +91,7 @@ namespace engine
 	struct model
 	{
 		material mat;
-		meshHandle mesh;
+		lodMesh mesh;
 		instanceAttributes instanceAttributes;
 	};
 }

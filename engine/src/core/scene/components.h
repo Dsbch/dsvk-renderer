@@ -1,7 +1,6 @@
 #pragma once
 
 #include <pch.h>
-#include <random>
 #include <glm/gtc/type_ptr.inl>
 #include "core/camera/camera.h"
 #include "core/events/events.h"
@@ -11,15 +10,6 @@
 
 namespace engine
 {
-	static uint32_t genUID()
-	{
-		static std::random_device rd;
-		static std::mt19937 gen(rd());
-		static std::uniform_int_distribution<uint32_t> distrib(0, UINT32_MAX);
-
-		return distrib(gen);
-	}
-
 	struct uidComponent
 	{
 		uint32_t uid;

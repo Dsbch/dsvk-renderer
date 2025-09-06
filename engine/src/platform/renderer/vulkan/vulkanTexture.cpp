@@ -20,6 +20,8 @@ namespace engine
 		mErr = mImage.build(is, data, VkExtent3D{ .width = uint32_t(width), .height = uint32_t(heigth), .depth = 1 }, VK_FORMAT_R8G8B8A8_UNORM, usage, true);
 		if (mErr)
 			return;
+
+		mHash = crc32(data, width*heigth);
 	}
 
 	vulkanTexture::~vulkanTexture()
@@ -29,6 +31,6 @@ namespace engine
 
 	uint32_t vulkanTexture::hash() const
 	{
-		return 0;
+		return mHash;
 	}
 }

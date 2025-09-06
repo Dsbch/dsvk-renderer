@@ -27,9 +27,11 @@ namespace engine
 		void destroy();
 		
 		void clearBindings();
+		void clearWrites();
 		void addBinding(VkDescriptorSetLayoutBinding binding);
 		void addWrite(const std::vector<VkWriteDescriptorSet>& source);
 		engine::error build(VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+		void updateWrite();
 		
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getDescriptorSet();
 
@@ -40,6 +42,7 @@ namespace engine
 		
 		static engine::withError<VkSampler> createSampler(
 			VkDevice device,
+			float maxFiltering,
 			VkFilter magFilter = VK_FILTER_LINEAR,
 			VkFilter minFilter = VK_FILTER_LINEAR,
 			VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
@@ -54,8 +57,7 @@ namespace engine
 		static void destroyPool();
 	private:
 		static descriptorPool pool;
-		static std::once_flag isPoolCreated;
-		static float maxFiltering;
+		static std::once_flag isPoolCreated;;
 
 		VkDevice mDevice;
 		VkDescriptorSet mDescriptorSet;

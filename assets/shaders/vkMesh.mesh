@@ -32,10 +32,10 @@ struct meshlet
 	uint triangleCount;
 };
 
-StructuredBuffer<vertex> vertexBuffer : register(t0, space0);
-StructuredBuffer<uint> vertexIndexBuffer : register(t1, space0);
-StructuredBuffer<uint> primitiveBuffer : register(t2, space0);
-StructuredBuffer<meshlet> meshletBuffer : register(t3, space0);
+StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t1, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t2, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t3, space0);
 
 Texture2D albedo[] : register(t4, space0);
 SamplerState albedoSamplers[] : register(s4, space0);
@@ -62,7 +62,7 @@ void msmain(
     out indices  uint3      triangles[64], 
     out vertices meshOutput vertices[64]) 
 {
-    meshlet m = meshletBuffer[gid];
+    meshlet m = meshletBuffer[0][gid];
     SetMeshOutputCounts(m.vertexCount, m.triangleCount);
        
    if (gtid < m.triangleCount) {
@@ -74,7 +74,7 @@ void msmain(
         // aligned to 4 and we can easily grab it as a uint without any 
         // additional offset math.
         //
-        uint packed = primitiveBuffer[m.triangleOffset + gtid];
+        uint packed = primitiveBuffer[0][m.triangleOffset + gtid];
         uint vIdx0  = (packed >>  0) & 0xFF;
         uint vIdx1  = (packed >>  8) & 0xFF;
         uint vIdx2  = (packed >> 16) & 0xFF;
@@ -84,9 +84,9 @@ void msmain(
     if (gtid < m.vertexCount) 
     {
         uint vertexIndex = m.vertexOffset + gtid;      
-        vertexIndex = vertexIndexBuffer[vertexIndex];
+        vertexIndex = vertexIndexBuffer[0][vertexIndex];
 
-        vertices[gtid].position = mul(push.viewProjection, float4(vertexBuffer[vertexIndex].position, 1.0));
+        vertices[gtid].position = mul(push.viewProjection, float4(vertexBuffer[0][vertexIndex].position, 1.0));
         
         float3 color = float3(
             float(gid & 1),
@@ -94,7 +94,7 @@ void msmain(
             float(gid & 7) / 8);
 
         vertices[gtid].color = color;
-        vertices[gtid].uv = vertexBuffer[vertexIndex].textureCoords;
+        vertices[gtid].uv = vertexBuffer[0][vertexIndex].textureCoords;
     }
 }
 

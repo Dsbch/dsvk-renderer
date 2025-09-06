@@ -15,7 +15,8 @@ namespace engine
 		mMultisampling(),
 		mDepthStencil(),
 		mRenderInfo(),
-		mColorAttachmentformat()
+		mColorAttachmentformat(),
+		mID(genUID())
 	{
 		mInputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 

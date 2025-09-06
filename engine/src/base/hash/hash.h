@@ -1,4 +1,5 @@
 #include <pch.h>
+#include <random>
 
 namespace engine
 {
@@ -29,5 +30,14 @@ namespace engine
 		}
 
 		return crc ^ 0xFFFFFFFFu;
+	}
+
+	inline uint32_t genUID()
+	{
+		static std::random_device rd;
+		static std::mt19937 gen(rd());
+		static std::uniform_int_distribution<uint32_t> distrib(0, UINT32_MAX);
+
+		return distrib(gen);
 	}
 }
