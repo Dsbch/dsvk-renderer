@@ -17,6 +17,7 @@ namespace engine
 		uint32_t id;
 		uint32_t offset;
 		uint32_t bufferIndex;
+		VmaVirtualAllocation vAllocation;
 
 		bool operator<(const bufferHandle& other) const {
 			return other.id < id;
@@ -26,6 +27,7 @@ namespace engine
 	struct bufferWithHandles
 	{
 		vulkanBuffer buffer;
+		VmaVirtualBlock vBlock;
 		std::set<bufferHandle> bufferHandles;
 	};
 
@@ -33,7 +35,7 @@ namespace engine
 	{
 	public:
 		void init(VkDevice device, VmaAllocator allocator, immediateSubmit immSubmit);
-		withError<bufferHandle> addBlock(uint32_t id, void* data, size_t sizeInBytes);
+		withError<bufferHandle> addBlock(uint32_t id, void* data, size_t sizeInBytes, size_t newSize = newBufferSize);
 		void deleteBlock(const bufferHandle& handle);
 		void destroy();
 		bool needDecriptorUpdate() const;

@@ -119,6 +119,7 @@ namespace engine
 
 	void vulkanRenderer::addToRender(const model& m)
 	{
+		updateGeometryDescriptors();
 	}
 
 	void vulkanRenderer::render()
@@ -374,6 +375,8 @@ namespace engine
 			.roughnessBinding = 6,
 			.metalicBinding = 7,
 			.aoBinding = 8,
+			.perInstanceBinding = 9,
+			.perMeshletBinding = 10,
 		};
 	}
 
@@ -488,10 +491,6 @@ namespace engine
 		if (mErr)
 			return;
 
-		mErr = mDescriptorSetPixel.init(mDevice, mPhysicalDevice);
-		if (mErr)
-			return;
-
 		setBackgroundDescriptors();
 		if (mErr)
 			return;
@@ -502,7 +501,6 @@ namespace engine
 
 		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetCompute });
 		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetMesh });
-		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetPixel });
 		mDeletionQueue.push_back(destroyTask{ .type = descPool });
 	}
 
@@ -538,15 +536,17 @@ namespace engine
 		mDescriptorSetMesh.addBinding(mMetalicRegistry.getLayoutBinding(mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers));
 		mDescriptorSetMesh.addBinding(mAoRegistry.getLayoutBinding(mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers));
 
+		// add binding for per instance attributes.
+		// we have unique buffer per pipeline.
+		// managed differently from other bindings.
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perMeshletBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+
+		mErr = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
+		if (mErr)
+			return;
+
 		updateGeometryDescriptors();
-
-		mErr = mDescriptorSetMesh.build(VK_SHADER_STAGE_MESH_BIT_EXT);
-		if (mErr)
-			return;
-
-		mErr = mDescriptorSetPixel.build(VK_SHADER_STAGE_FRAGMENT_BIT);
-		if (mErr)
-			return;
 	}
 
 	void vulkanRenderer::updateGeometryDescriptors()
@@ -615,6 +615,32 @@ namespace engine
 			mDescriptorSetMesh.addWrite(mAoRegistry.getWriteInfo(mGeometryBinding.aoBinding));
 			mDescriptorSetMesh.updateWrite();
 		}
+	}
+
+	// Should be called before each rendering.
+	void vulkanRenderer::updateGeometryPerInstaceDescriptors(pipelineData& data)
+	{
+		// TODO: assemble perMeshlet buffer.
+		for (auto& i : data.perInstanceBuffer)
+		{
+		}
+
+		mErr = data.perMeshletBuffer.updateBuffer(mImmediateSubmit, data.perMeshletData.data(), data.perMeshletData.size() * sizeof(uint32_t), 0);
+		if (mErr)
+			return;
+
+		mDescriptorSetMesh.clearWrites();
+		
+		mDescriptorSetMesh.addWrite(data.perInstanceRegistry.getWriteInfo(mGeometryBinding.perInstanceBinding));
+		VkDescriptorBufferInfo writeInfo{ .buffer = data.perMeshletBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE };
+		mDescriptorSetMesh.addWrite(
+			descriptorSet::getWriteInfo(
+				mGeometryBinding.perMeshletBinding,
+				{ writeInfo }
+			)
+		);
+		
+		mDescriptorSetMesh.updateWrite();
 	}
 
 	void vulkanRenderer::flushDeletonQueue()

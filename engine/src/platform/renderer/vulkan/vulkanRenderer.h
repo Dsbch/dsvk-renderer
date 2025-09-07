@@ -65,12 +65,18 @@ namespace engine
 		uint32_t roughnessBinding;
 		uint32_t metalicBinding;
 		uint32_t aoBinding;
+
+		uint32_t perInstanceBinding;
+		uint32_t perMeshletBinding;
 	};
 
 	struct pipelineData
 	{
 		classicGraphicPipeline pipeline;
 		bufferRegistry perInstanceRegistry;
+		std::vector<instanceAttributes> perInstanceBuffer;
+		vulkanBuffer perMeshletBuffer;
+		std::vector<uint32_t> perMeshletData;
 	};
 
 	struct limits
@@ -107,6 +113,7 @@ namespace engine
 		void setBackgroundDescriptors();
 		void setGeometryDescriptors();
 		void updateGeometryDescriptors();
+		void updateGeometryPerInstaceDescriptors(pipelineData& data);
 		void initPipelines();
 		void initBackgroundPipeline();
 		void setLimits();
@@ -137,7 +144,6 @@ namespace engine
 		// Below stuff for geometry pass.
 		VkSampler mSampler;
 		geometryPipelineBindings mGeometryBinding;
-		descriptorSet mDescriptorSetPixel;
 		descriptorSet mDescriptorSetMesh;
 
 		bufferRegistry mVertexRegistry;

@@ -194,7 +194,7 @@ namespace engine
 		return result;
 	}
 
-	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, const std::vector <VkDescriptorBufferInfo>& bufferInfo)
+	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, const std::vector<VkDescriptorBufferInfo>& bufferInfo)
 	{
 		std::vector<VkWriteDescriptorSet> result;
 		result.reserve(bufferInfo.size());
