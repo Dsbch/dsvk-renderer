@@ -67,13 +67,16 @@ namespace engine
 		uint32_t aoBinding;
 
 		uint32_t perInstanceBinding;
+		uint32_t perMeshletBinding;
 	};
 
 	struct pipelineData
 	{
 		classicGraphicPipeline pipeline;
-		std::vector<instanceAttributes> perInstanceBuffer;
 		bufferRegistry perInstanceRegistry;
+		std::vector<instanceAttributes> perInstanceBuffer;
+		vulkanBuffer perMeshletBuffer;
+		std::vector<uint32_t> perMeshletData;
 	};
 
 	struct limits
@@ -110,7 +113,7 @@ namespace engine
 		void setBackgroundDescriptors();
 		void setGeometryDescriptors();
 		void updateGeometryDescriptors();
-		void updateGeometryPerInstaceDescriptors();
+		void updateGeometryPerInstaceDescriptors(pipelineData& data);
 		void initPipelines();
 		void initBackgroundPipeline();
 		void setLimits();

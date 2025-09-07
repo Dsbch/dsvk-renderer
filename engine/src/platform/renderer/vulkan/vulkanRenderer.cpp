@@ -120,7 +120,6 @@ namespace engine
 	void vulkanRenderer::addToRender(const model& m)
 	{
 		updateGeometryDescriptors();
-		updateGeometryPerInstaceDescriptors();
 	}
 
 	void vulkanRenderer::render()
@@ -377,6 +376,7 @@ namespace engine
 			.metalicBinding = 7,
 			.aoBinding = 8,
 			.perInstanceBinding = 9,
+			.perMeshletBinding = 10,
 		};
 	}
 
@@ -540,13 +540,13 @@ namespace engine
 		// we have unique buffer per pipeline.
 		// managed differently from other bindings.
 		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perMeshletBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
 
 		mErr = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
 		if (mErr)
 			return;
 
 		updateGeometryDescriptors();
-		updateGeometryPerInstaceDescriptors();
 	}
 
 	void vulkanRenderer::updateGeometryDescriptors()
@@ -617,14 +617,30 @@ namespace engine
 		}
 	}
 
-	void vulkanRenderer::updateGeometryPerInstaceDescriptors()
+	// Should be called before each rendering.
+	void vulkanRenderer::updateGeometryPerInstaceDescriptors(pipelineData& data)
 	{
-		for (auto& [k, v] : mGeometryPipelines)
+		// TODO: assemble perMeshlet buffer.
+		for (auto& i : data.perInstanceBuffer)
 		{
-			mDescriptorSetMesh.clearWrites();
-			mDescriptorSetMesh.addWrite(v.perInstanceRegistry.getWriteInfo(mGeometryBinding.perInstanceBinding));
-			mDescriptorSetMesh.updateWrite();
 		}
+
+		mErr = data.perMeshletBuffer.updateBuffer(mImmediateSubmit, data.perMeshletData.data(), data.perMeshletData.size() * sizeof(uint32_t), 0);
+		if (mErr)
+			return;
+
+		mDescriptorSetMesh.clearWrites();
+		
+		mDescriptorSetMesh.addWrite(data.perInstanceRegistry.getWriteInfo(mGeometryBinding.perInstanceBinding));
+		VkDescriptorBufferInfo writeInfo{ .buffer = data.perMeshletBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE };
+		mDescriptorSetMesh.addWrite(
+			descriptorSet::getWriteInfo(
+				mGeometryBinding.perMeshletBinding,
+				{ writeInfo }
+			)
+		);
+		
+		mDescriptorSetMesh.updateWrite();
 	}
 
 	void vulkanRenderer::flushDeletonQueue()
