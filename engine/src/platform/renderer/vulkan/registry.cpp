@@ -13,7 +13,7 @@ namespace engine
 		mNeedUpdate = false;
 	}
 
-	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, void* data, size_t sizeInBytes)
+	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, void* data, size_t sizeInBytes, size_t newSize)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
@@ -26,12 +26,19 @@ namespace engine
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
 			auto crntBuffer = mBuffers[i];
-			if (crntBuffer.buffer.getSize() - crntBuffer.buffer.getLoadedBytes() >= sizeInBytes)
+
+			VmaVirtualAllocationCreateInfo allocateInfo{
+				.size = sizeInBytes,
+			};
+			VmaVirtualAllocation vAllocation{};
+
+			if (vmaVirtualAllocate(crntBuffer.vBlock, &allocateInfo, &vAllocation, 0) == VK_SUCCESS)
 			{
 				auto handle = bufferHandle{
 						.id = id,
 						.offset = uint32_t(crntBuffer.buffer.getLoadedBytes()),
 						.bufferIndex = i,
+						.vAllocation = vAllocation,
 				};
 
 				crntBuffer.bufferHandles.insert(handle);
@@ -47,13 +54,28 @@ namespace engine
 		vulkanBuffer newBuffer{};
 		newBuffer.init(mDevice, mAllocator);
 
-		size_t allocateSize = newBufferSize;
-		if (sizeInBytes > newBufferSize)
+		if (sizeInBytes > newSize)
 		{
-			allocateSize = sizeInBytes;
+			newSize = sizeInBytes;
 		}
 
-		auto err = newBuffer.build(mImmSubmit, data, allocateSize, sizeInBytes);
+		VmaVirtualBlockCreateInfo vBlockInfo{
+			.size = newSize,
+		};
+		VmaVirtualBlock vBlock;
+
+		if (vmaCreateVirtualBlock(&vBlockInfo, &vBlock) != VK_SUCCESS)
+			return error{ "can't create virtual block" };
+
+		VmaVirtualAllocationCreateInfo allocateInfo{
+			.size = sizeInBytes,
+		};
+		VmaVirtualAllocation vAllocation{};
+
+		if (vmaVirtualAllocate(vBlock, &allocateInfo, &vAllocation, 0) != VK_SUCCESS)
+			return error{ "can't allocate in virtual block" };
+
+		auto err = newBuffer.build(mImmSubmit, data, newSize, sizeInBytes);
 		if (err)
 			return err;
 
@@ -61,11 +83,13 @@ namespace engine
 				.id = id,
 				.offset = uint32_t(0),
 				.bufferIndex = uint32_t(mBuffers.size()),
+				.vAllocation = vAllocation,
 		};
 
 		mBuffers.push_back(
 			bufferWithHandles{
 			.buffer = newBuffer,
+			.vBlock = vBlock,
 			}
 			);
 
@@ -76,13 +100,13 @@ namespace engine
 		return handle;
 	}
 
-	// TODO: add VmaVirtualBlock usage to use freed space.
 	void bufferRegistry::deleteBlock(const bufferHandle& handle)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
 			if (mBuffers[i].bufferHandles.erase(handle) != 0)
 			{
+				vmaVirtualFree(mBuffers[i].vBlock, handle.vAllocation);
 				mNeedUpdate = true;
 				return;
 			}
