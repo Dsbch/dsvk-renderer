@@ -19,6 +19,7 @@ namespace engine
 
 		uint32_t hash() const;
 		void setPushConstant(const pushConstant&);
+		pushConstant getPushConstant() const;
 	private:
 		uint32_t mHash;
 		const std::vector<std::uint32_t> mSrc;

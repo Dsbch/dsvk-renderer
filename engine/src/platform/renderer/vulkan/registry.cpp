@@ -13,7 +13,7 @@ namespace engine
 		mNeedUpdate = false;
 	}
 
-	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, void* data, size_t sizeInBytes, size_t newSize)
+	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, const void* data, size_t sizeInBytes, size_t newSize)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{

@@ -34,12 +34,18 @@ namespace engine
 		uint32_t ao;
 	};
 
+	struct bindlessOffset
+	{
+		uint32_t bufferIndex;
+		uint32_t offset;
+	};
+
 	struct meshOffset
 	{
-		uint32_t vertex;
-		uint32_t index;
-		uint32_t primitive;
-		uint32_t meshlet;
+		bindlessOffset vertex;
+		bindlessOffset index;
+		bindlessOffset primitive;
+		bindlessOffset meshlet;
 	};
 
 	struct instanceAttributes
@@ -49,12 +55,23 @@ namespace engine
 		glm::mat4 modelMatrix;
 	};
 
+	struct meshlet
+	{
+		/* offsets within meshlet_vertices and meshlet_triangles arrays with meshlet data */
+		uint32_t vertex_offset;
+		uint32_t triangle_offset;
+
+		/* number of vertices and triangles used in the meshlet; data is stored in consecutive range defined by offset and count */
+		uint32_t vertex_count;
+		uint32_t triangle_count;
+	};
+
 	struct mesh
 	{
 		std::shared_ptr<std::vector<vertex>> vertexBuffer;
 		std::vector<uint32_t> indexBuffer;
 		std::vector<uint32_t> primitiveBuffer;
-		std::vector<uint32_t> vertexIndexBuffer;
+		std::vector<meshlet> meshletBuffer;
 	};
 
 	struct lodMesh
@@ -90,6 +107,7 @@ namespace engine
 
 	struct model
 	{
+		uint32_t id;
 		material mat;
 		lodMesh mesh;
 		instanceAttributes instanceAttributes;

@@ -36,8 +36,8 @@ namespace engine
 		}
 
 		void init(VkDevice device, VmaAllocator allocator);
-		engine::error build(immediateSubmit is, void* data, size_t sizeInBytes, size_t validBytes);
-		engine::error updateBuffer(immediateSubmit is, void* data, size_t sizeInBytes, size_t offset);
+		engine::error build(immediateSubmit is, const void* data, size_t sizeInBytes, size_t validBytes);
+		engine::error updateBuffer(immediateSubmit is, const void* data, size_t sizeInBytes, size_t offset);
 		void destroy();
 
 		allocatedBuffer getBuffer();

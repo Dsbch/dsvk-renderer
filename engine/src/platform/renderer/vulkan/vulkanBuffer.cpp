@@ -11,7 +11,7 @@ namespace engine
 		mAllocator = allocator;
 	}
 
-	error vulkanBuffer::build(immediateSubmit is, void* data, size_t sizeInBytes, size_t validBytes)
+	error vulkanBuffer::build(immediateSubmit is, const void* data, size_t sizeInBytes, size_t validBytes)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -53,7 +53,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanBuffer::updateBuffer(immediateSubmit is, void* data, size_t sizeInBytes, size_t offset)
+	error vulkanBuffer::updateBuffer(immediateSubmit is, const void* data, size_t sizeInBytes, size_t offset)
 	{
 		if (sizeInBytes + mLoadedBytes >= mByteSize)
 			return error{ "buffer overflow" };
