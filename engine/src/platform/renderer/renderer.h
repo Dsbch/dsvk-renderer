@@ -18,7 +18,8 @@ namespace engine
 		virtual std::string getGpuName() const = 0;
 		virtual error checkError() const = 0;
 		virtual void changeViewPort(uint32_t width, uint32_t height) = 0;
-		virtual void addToRender(const model& m) = 0;
+		virtual error addToRender(model& m) = 0;
+		virtual void remove(const model& m) = 0;
 		virtual void render() = 0;
 
 		virtual withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src) = 0;

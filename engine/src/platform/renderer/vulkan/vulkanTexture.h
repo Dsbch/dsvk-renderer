@@ -16,5 +16,7 @@ namespace engine
 	private:
 		uint32_t mHash;
 		vulkanImage mImage;
+
+		friend class vulkanRenderer;
 	};
 }

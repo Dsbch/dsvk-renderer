@@ -73,8 +73,8 @@ namespace engine
 	struct pipelineData
 	{
 		classicGraphicPipeline pipeline;
-		bufferRegistry perInstanceRegistry;
-		std::vector<instanceAttributes> perInstanceBuffer;
+		vulkanBuffer perInstanceBuffer;
+		std::vector<instanceAttributes> perInstanceData;
 		vulkanBuffer perMeshletBuffer;
 		std::vector<uint32_t> perMeshletData;
 	};
@@ -95,12 +95,14 @@ namespace engine
 		std::string getGpuName() const;
 		error checkError() const;
 		void changeViewPort(uint32_t width, uint32_t height);
-		void addToRender(const model& m);
+		error addToRender(model& m);
+		void remove(const model& m);
 		void render();
 
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel);
 	private:
+		void geometryPass(VkCommandBuffer cmd);
 		void clear(VkCommandBuffer cmd);
 
 		void initVulkan();
@@ -113,10 +115,12 @@ namespace engine
 		void setBackgroundDescriptors();
 		void setGeometryDescriptors();
 		void updateGeometryDescriptors();
+		void uploadPerInstanceData(pipelineData& data);
 		void updateGeometryPerInstaceDescriptors(pipelineData& data);
 		void initPipelines();
 		void initBackgroundPipeline();
 		void setLimits();
+		withError<pipelineData> createPipelineData(std::shared_ptr<shader> pixelShader);
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
@@ -157,7 +161,7 @@ namespace engine
 		textureRegistry mMetalicRegistry;
 		textureRegistry mAoRegistry;
 
-		typedef vulkanShader pixelShader;
+		typedef std::shared_ptr<shader> pixelShader;
 		std::map<pixelShader, pipelineData> mGeometryPipelines;
 	};
 }

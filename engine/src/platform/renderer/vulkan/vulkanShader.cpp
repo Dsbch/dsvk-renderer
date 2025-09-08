@@ -51,4 +51,8 @@ namespace engine
 	{
 		mPushConstant = pc;
 	}
+	pushConstant vulkanShader::getPushConstant() const
+	{
+		return mPushConstant;
+	}
 }

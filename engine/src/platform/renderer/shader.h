@@ -24,6 +24,11 @@ namespace engine
 		virtual error checkError() const { return mErr; };
 		virtual uint32_t hash() const = 0;
 		virtual void setPushConstant(const pushConstant&) = 0;
+		virtual pushConstant getPushConstant() const = 0;
+		bool operator<(const shader& other) const
+		{
+			return other.hash() < hash();
+		}
 	protected:
 		error mErr;
 		pushConstant mPushConstant;
