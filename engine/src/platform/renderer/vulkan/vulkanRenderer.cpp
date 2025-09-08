@@ -220,6 +220,40 @@ namespace engine
 
 	void vulkanRenderer::remove(const model& m)
 	{
+		if (auto pipeData = mGeometryPipelines.find(m.mat.pixelShader); pipeData == mGeometryPipelines.end())
+		{
+			return;
+		}
+
+		if (m.mat.albedoTexture)
+		{
+			mAlbedoRegistry.deleteTexture(m.instanceAttributes.textureOffset.albedo);
+		}
+
+		if (m.mat.normalTexture)
+		{
+			mAlbedoRegistry.deleteTexture(m.instanceAttributes.textureOffset.normal);
+		}
+
+		if (m.mat.roughnessTexture)
+		{
+			mAlbedoRegistry.deleteTexture(m.instanceAttributes.textureOffset.roughness);
+		}
+
+		if (m.mat.metalicTexture)
+		{
+			mAlbedoRegistry.deleteTexture(m.instanceAttributes.textureOffset.metalic);
+		}
+
+		if (m.mat.aoTexture)
+		{
+			mAlbedoRegistry.deleteTexture(m.instanceAttributes.textureOffset.ao);
+		}
+
+		mVertexRegistry.deleteBlock(m.mesh.hash);
+		mIndexRegistry.deleteBlock(m.mesh.hash);
+		mPrimitiveRegistry.deleteBlock(m.mesh.hash);
+		mMeshletRegistry.deleteBlock(m.mesh.hash);
 	}
 
 	void vulkanRenderer::render()

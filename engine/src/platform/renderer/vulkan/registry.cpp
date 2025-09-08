@@ -100,13 +100,13 @@ namespace engine
 		return handle;
 	}
 
-	void bufferRegistry::deleteBlock(const bufferHandle& handle)
+	void bufferRegistry::deleteBlock(uint32_t id)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
-			if (mBuffers[i].bufferHandles.erase(handle) != 0)
+			if (auto found = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); found != mBuffers[i].bufferHandles.end())
 			{
-				vmaVirtualFree(mBuffers[i].vBlock, handle.vAllocation);
+				vmaVirtualFree(mBuffers[i].vBlock, found->vAllocation);
 				mNeedUpdate = true;
 				return;
 			}
