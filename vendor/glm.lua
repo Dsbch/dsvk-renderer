@@ -2,6 +2,7 @@ project "glm"
    kind "StaticLib"
    language "C"
    architecture "x64"
+   warnings "off"
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")

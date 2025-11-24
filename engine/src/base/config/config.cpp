@@ -72,7 +72,6 @@ namespace engine
 		j = nlohmann::json{
 			{"width", p.width},
 			{"height", p.height},
-			{"isFullscreen", p.isFullscreen},
 			{"name", p.name},
 			{"showCursor", p.showCursor},
 		};
@@ -82,7 +81,6 @@ namespace engine
 	{
 		j.at("width").get_to(p.width);
 		j.at("height").get_to(p.height);
-		j.at("isFullscreen").get_to(p.isFullscreen);
 		j.at("name").get_to(p.name);
 		j.at("showCursor").get_to(p.showCursor);
 	}

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <pch.h>
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 #include "platform/renderer/renderer.h"
 
@@ -94,7 +94,7 @@ namespace engine
 		std::string getVersion() const;
 		std::string getGpuName() const;
 		error checkError() const;
-		void changeViewPort(uint32_t width, uint32_t height);
+		error changeViewPort(uint32_t width, uint32_t height);
 		error addToRender(model& m);
 		void remove(const model& m);
 		void render();
@@ -140,7 +140,6 @@ namespace engine
 		computePipeline mComputePipeline;
 
 		descriptorSet mDescriptorSetCompute;
-
 
 		void flushDeletonQueue();
 		std::deque<destroyTask> mDeletionQueue;

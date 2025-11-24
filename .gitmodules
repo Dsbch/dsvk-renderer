@@ -25,3 +25,6 @@
 [submodule "vendor/cgltf"]
 	path = vendor/cgltf
 	url = https://github.com/jkuhlmann/cgltf.git
+[submodule "vendor/glfw"]
+	path = vendor/glfw
+	url = https://github.com/glfw/glfw.git

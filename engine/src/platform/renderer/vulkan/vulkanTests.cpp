@@ -1,11 +1,12 @@
 #include <pch.h>
 
 #include "vulkanTests.h"
-#include "platform/window/win32/window.h"
 #include "vulkanRenderer.h"
 
 #include "platform/renderer/vertex.h"
 #include <glm/glm.hpp>
+
+#include <GLFW/glfw3.h>
 
 namespace engine
 {
@@ -14,20 +15,9 @@ namespace engine
 		mRenderer(nullptr),
 		mWindow(nullptr)
 	{
-		cond cv;
-		mCtx->mThreadPool->start(
-			[&]() -> void {
-				mWindow = makeWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
-				if (mErr = mWindow->checkError(); mErr)
-					return;
-
-				cv.notifyOne();
-
-				mWindow->startPolling();
-			}
-		);
-
-		cv.wait([&] { return mWindow.get(); });
+		mWindow = std::make_shared<window>(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.showCursor);
+		if (mErr = mWindow->checkError(); mErr)
+			return;
 
 		mRenderer = std::move(std::make_unique<vulkanRenderer>(ctx, mWindow));
 
@@ -47,6 +37,8 @@ namespace engine
 	{
 		while (true)
 		{
+			mWindow->pollInput();
+
 			// process events.
 			while (mCtx->mEventDispatcher->hasEvents())
 			{
@@ -62,7 +54,28 @@ namespace engine
 				{
 					auto resizeEvent = static_cast<windowResizeEvent*>(event.get());
 
-					mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+					LOGINFO("window resized {} {}", resizeEvent->getWidth(), resizeEvent->getHeight());
+
+					mErr = mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+					if (mErr)
+					{
+						LOGERROR(mErr.err());
+						return;
+					}
+				}
+
+				if (event->getEventType() == keyDown)
+				{
+					auto e = static_cast<keyDownEvent*>(event.get());
+
+					if (e->getKey() == w)
+						mWindow->toggleCursor();
+
+					if (e->getKey() == q)
+						mWindow->setWidthHeight(mWindow->getWidth()+100, mWindow->getHeight()+100);
+
+					if (e->getKey() == r)
+						mWindow->setWidthHeight(mWindow->getWidth() - 100, mWindow->getHeight() - 100);
 				}
 
 				//		if (event->getEventType() == keyDown)
@@ -99,12 +112,13 @@ namespace engine
 				//		}
 			}
 
-			mWindow->pollInput();
-
 			// do rendering here.
 			mRenderer->render();
-			if (mRenderer->checkError())
+			if (mErr = mRenderer->checkError(); mErr)
+			{
 				LOGERROR(mRenderer->checkError().err());
+				return;
+			}
 		}
 	}
 }

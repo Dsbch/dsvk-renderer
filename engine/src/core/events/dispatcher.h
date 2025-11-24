@@ -9,7 +9,9 @@ namespace engine
 	class eventDispatcher 
 	{
 	private:
-		std::mutex mU;
+		std::mutex mDispatchMU;
+		std::mutex mQueueMU;
+
 		std::map<eventType, std::list<std::function<void(std::shared_ptr<baseEvent>)>>> mEventMap;
 		std::queue<std::shared_ptr<baseEvent>> mQueue;
 	public:
@@ -17,6 +19,6 @@ namespace engine
 		void dispatch(std::shared_ptr<baseEvent>);
 		void queueEvent(std::shared_ptr<baseEvent>);
 		std::shared_ptr<baseEvent> getEvent();
-		bool hasEvents() const;
+		bool hasEvents();
 	};
 }

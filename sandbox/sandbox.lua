@@ -9,9 +9,6 @@ project "sandbox"
 
    filter { "options:gfxapi=vulkan" }
       defines { "VULKAN" }
-   
-   filter { "options:osio=winapi" }
-      defines { "WIN32API" }
 
    files
    {
@@ -19,9 +16,9 @@ project "sandbox"
       "src/**.h",
    }
 
-   flags
+   fatalwarnings
    {
-    "FatalWarnings",
+    "All",
    }
 
    includedirs {
@@ -39,10 +36,8 @@ project "sandbox"
       "engine",
    }
 
-   flags
-   {
-    "FatalWarnings",
-   }
+   filter "system:windows"
+        buildoptions { "/utf-8" }
 
    filter "system:windows"
        systemversion "latest"

@@ -64,7 +64,7 @@ namespace engine
 		return mDepthImage.image.view;
 	}
 
-	void swapChain::inrement()
+	void swapChain::increment()
 	{
 		mFrameNumber++;
 	}
@@ -96,7 +96,7 @@ namespace engine
 		return mSwapchainImageFormat;
 	}
 
-	void swapChain::present(VkQueue graphicQueue, uint32_t swapChainImageIndex)
+	engine::error swapChain::present(VkQueue graphicQueue, uint32_t swapChainImageIndex)
 	{
 		//prepare present
 		// this will put the image we just rendered to into the visible window.
@@ -112,14 +112,18 @@ namespace engine
 
 		presInfo.pImageIndices = &swapChainImageIndex;
 
-		vkQueuePresentKHR(graphicQueue, &presInfo);
+		auto result = vkQueuePresentKHR(graphicQueue, &presInfo);
+		if (result != VK_SUCCESS)
+			return vkResultToStr(result);
+
+		return {};
 	}
 
 	engine::withError<uint32_t> swapChain::acquireImageIndex()
 	{
 		uint32_t result = 0;
 		VkResult e = vkAcquireNextImageKHR(mDevice, mSwapchain, 1000000000, getCurrentFrameData().swapchainSemaphore, nullptr, &result);
-		if (e == VK_ERROR_OUT_OF_DATE_KHR || e != VK_SUCCESS)
+		if (e != VK_SUCCESS)
 		{
 			return { vkResultToStr(e) };
 		}
@@ -269,6 +273,8 @@ namespace engine
 		mDrawImage.destroy();
 
 		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
+
+		mSwapchain = VK_NULL_HANDLE;
 
 		for (int i = 0; i < mSwapchainImageViews.size(); i++)
 			vkDestroyImageView(mDevice, mSwapchainImageViews[i], nullptr);

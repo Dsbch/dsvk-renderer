@@ -101,16 +101,20 @@ namespace engine
 		return mErr;
 	}
 
-	void vulkanRenderer::changeViewPort(uint32_t width, uint32_t height)
+	error vulkanRenderer::changeViewPort(uint32_t width, uint32_t height)
 	{
 		mSwapChain.destroy();
-		mSwapChain.build(width, height, mGraphicsQueueFamily);
+		mErr = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		if (mErr)
+			return mErr;
 
 		// reconfigure source for destroyed imageView.
 		mDescriptorSetCompute.clearBindings();
 		mDescriptorSetCompute.destroy();
 
 		setBackgroundDescriptors();
+
+		return mErr;
 	}
 
 	void vulkanRenderer::clear(VkCommandBuffer cmd)
@@ -351,11 +355,15 @@ namespace engine
 			return;
 		}
 
-		//prepare present
+		// prepare present
 		// this will put the image we just rendered to into the visible window.
 		// we want to wait on the _renderSemaphore for that, 
 		// as its necessary that drawing commands have finished before the image is displayed to the user
-		mSwapChain.present(mGraphicsQueue, indexResult.value());
+		mErr = mSwapChain.present(mGraphicsQueue, indexResult.value());
+		if (mErr)
+			return;
+				
+		mSwapChain.increment();
 	}
 
 	void vulkanRenderer::geometryPass(VkCommandBuffer cmd)

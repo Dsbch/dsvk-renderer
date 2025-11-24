@@ -2,7 +2,7 @@
 #include <pch.h>
 
 #include <VkBootstrap.h>
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 #include "vulkanImmediateSubmit.h"
 #include "vulkanBuffer.h"

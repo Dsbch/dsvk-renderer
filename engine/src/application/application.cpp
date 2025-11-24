@@ -43,20 +43,9 @@ namespace engine
 
 	error application::createWindow()
 	{
-		cond cv;
-		mCtx->mThreadPool->start(
-			[&]() -> void {
-				mWindow = makeWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
-				if (mErr = mWindow->checkError(); mErr)
-					return;
-
-				cv.notifyOne();
-
-				mWindow->startPolling();
-			}
-		);
-
-		cv.wait([&] {return mWindow.get(); });
+		mWindow = std::make_shared<window>(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.showCursor);
+		if (mErr = mWindow->checkError(); mErr)
+			return mErr;
 
 		return {};
 	}

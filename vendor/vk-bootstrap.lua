@@ -3,6 +3,7 @@ project "vk-bootstrap"
    language "C++"
    architecture "x64"
    cppdialect "C++20"
+   warnings "off"
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
@@ -13,7 +14,7 @@ project "vk-bootstrap"
       if vulkanSDK then
          includedirs { os.getenv("VK_SDK_PATH") .. "/Include" }
       else
-         error("VK_SDK_PATH environment variable is not set, install vulkanSDK or add VK_SDK_PATH to ENV.")
+         error("VK_SDK_PATH environment variable is not set, install vulkanSDK then add VK_SDK_PATH to ENV.")
       end
    
    includedirs { "vk-bootstrap/src" }   

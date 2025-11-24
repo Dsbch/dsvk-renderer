@@ -49,7 +49,7 @@ namespace vktest
 		return mDepthImage.image.view;
 	}
 
-	void swapChain::inrement()
+	void swapChain::increment()
 	{
 		mFrameNumber++;
 	}

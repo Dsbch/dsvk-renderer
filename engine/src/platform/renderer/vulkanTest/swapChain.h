@@ -2,7 +2,7 @@
 
 #include <pch.h>
 
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 #include <VkBootstrap.h>
 
 #include "vkHelper.h"
@@ -61,7 +61,7 @@ namespace vktest
 		VkImageView getDrawImageView();
 		VkImageView getDepthImageView();
 
-		void inrement();
+		void increment();
 		void pickImageExtent();
 
 		VkExtent2D& getSwapChainExtent();

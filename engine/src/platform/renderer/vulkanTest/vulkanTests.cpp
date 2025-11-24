@@ -1,7 +1,7 @@
 #include <pch.h>
 
 #include "vulkanTests.h"
-#include "platform/window/win32/window.h"
+#include "platform/window/window.h"
 #include "renderer.h"
 
 #include "platform/renderer/vertex.h"
@@ -15,22 +15,11 @@ namespace vktest
 		mRenderer(std::make_unique<vulkanRenderer>(ctx)),
 		mWindow(nullptr)
 	{
-		engine::cond cv;
-		mCtx->mThreadPool->start(
-			[&]() -> void {
-				mWindow = engine::makeWindow(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.isFullscreen, mCtx->config.inner.app.name, mCtx->config.inner.wnd.showCursor);
-				if (mErr = mWindow->checkError(); mErr)
-					return;
+		mWindow = std::make_shared<engine::window>(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.showCursor);
+		if (mErr = mWindow->checkError(); mErr)
+			return;
 
-				cv.notifyOne();
-
-				mWindow->startPolling();
-			}
-		);
-
-		cv.wait([&] { return mWindow.get(); });
-
-		mRenderer->init(static_cast<engine::winApiWindow*>(mWindow.get()));
+		mRenderer->init(mWindow.get());
 		if (mErr = mRenderer->checkError(); mErr)
 			return;
 	}

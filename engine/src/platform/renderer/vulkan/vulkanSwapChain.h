@@ -2,7 +2,7 @@
 
 #include <pch.h>
 
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 #include <VkBootstrap.h>
 
 #include "helper.h"
@@ -63,7 +63,7 @@ namespace engine
 		VkImageView getDrawImageView();
 		VkImageView getDepthImageView();
 
-		void inrement();
+		void increment();
 		void pickImageExtent();
 
 		VkExtent2D& getSwapChainExtent();
@@ -75,7 +75,7 @@ namespace engine
 		engine::withError<uint32_t> acquireImageIndex();
 		engine::error waitOnCurrentFence();
 		engine::error resetCommandBuffer();
-		void present(VkQueue graphicQueue, uint32_t swapChainImageIndex);
+		engine::error present(VkQueue graphicQueue, uint32_t swapChainImageIndex);
 	private:
 		engine::error createSwapChain(uint32_t width, uint32_t height);
 

@@ -36,7 +36,6 @@ namespace engine
 	{
 		uint32_t width = 1920;
 		uint32_t height = 1080;
-		bool isFullscreen = false;
 		bool showCursor = true;
 		std::string name = "engine";
 	};

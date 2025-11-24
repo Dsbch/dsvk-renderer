@@ -20,9 +20,6 @@ project "engine"
          error("VK_SDK_PATH environment variable is not set, install vulkanSDK or add VK_SDK_PATH to ENV.")
       end
 
-   filter { "options:osio=winapi" }
-      defines { "WIN32API" }
-
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
 
@@ -40,6 +37,7 @@ project "engine"
       "../vendor/entt/src",
       "../vendor/meshoptimizer/src",
       "../vendor/cgltf",
+      "../vendor/glfw/include",
    }
 
    defines("_CRT_SECURE_NO_WARNINGS")
@@ -55,16 +53,21 @@ project "engine"
       "spdlog",
       "glm",
       "meshoptimizer",
+      "glfw",
    }
 
-   flags
+   fatalwarnings 
+   { 
+      "All" 
+   }
+
+   files 
    {
-    "FatalWarnings",
-   }
-
-   files {
       "../assets/shaders/**"
    }
+
+   filter "system:windows"
+        buildoptions { "/utf-8" }
 
    filter { "files:assets/shaders/**" }
         buildaction "None"

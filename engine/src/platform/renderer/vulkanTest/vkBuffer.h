@@ -3,7 +3,7 @@
 #include <pch.h>
 
 #include "vkHelper.h"
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 #include "immediateSubmit.h"
 

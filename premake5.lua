@@ -14,17 +14,6 @@ workspace "dsengine"
    }
 
    newoption {
-      trigger     = "osio",
-      value       = "API",
-      description = "Choose a particular osio API for os",
-      default     = "winapi",
-      category    = "Build Options",
-      allowed = {
-         { "winapi" },
-      }
-   }
-
-   newoption {
       trigger     = "mode",
       value       = "work mode",
       description = "Choose a particular build mode",
@@ -49,3 +38,4 @@ workspace "dsengine"
    include "sandbox/sandbox.lua"
    include "vendor/vk-bootstrap.lua"
    include "vendor/meshoptimizer.lua"
+   include "vendor/glfw.lua"

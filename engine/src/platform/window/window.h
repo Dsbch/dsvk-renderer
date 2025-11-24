@@ -7,40 +7,53 @@
 typedef struct VkInstance_T* VkInstance;
 typedef struct VkSurfaceKHR_T* VkSurfaceKHR;
 
+struct GLFWwindow;
+
 namespace engine
 {
+
 	class window
 	{
-	protected:
-		std::string mName;
-		uint32_t mWidth, mHeight;
-		engine::error mErr;
-		bool mIsFullscreen;
-		bool mShowCursor;
-		std::shared_ptr<context> mCtx;
 	public:
 		window(
 			std::shared_ptr<context> ctx,
 			const std::string& name,
 			std::uint32_t width,
 			std::uint32_t heigth,
-			bool isFullscreen,
 			bool showCuresor);
-		virtual ~window() = default;
+		~window();
+
+		error checkError();
+		withError<VkSurfaceKHR> makeVulkunSurface(VkInstance instance);
+		void swapBuffers() const;
+		void toggleCursor();
+		void setWidthHeight(uint32_t width, uint32_t height);
+		void pollInput();
+		bool isKeyPressed(key);
+		uint32_t getWidth() const;
+		uint32_t getHeight() const;
 
 		window(const window&) = delete;
 		window& operator=(const window&) = delete;
+	private:
+		static void keyCallback(GLFWwindow* wnd, int key, int scancode, int action, int mods);
+		static void mouseKeyCallback(GLFWwindow* wnd, int button, int action, int mods);
+		static void mouseCallback(GLFWwindow* wnd, double xpos, double ypos);
+		static void windowCloseCallback(GLFWwindow* wnd);
+		static void framebufferSizeCallback(GLFWwindow* wnd, int width, int height);
+		
+		static std::once_flag initFlag;
 
-		virtual engine::withError<VkSurfaceKHR> makeVulkunSurface(VkInstance instance) = 0;
-		virtual void startPolling() = 0;
-		virtual void swapBuffers() const = 0;
-		virtual engine::error checkError() = 0;
-		virtual void toggleCursor() = 0;
-		virtual void pollInput() = 0;
-		virtual bool isKeyPressed(key) = 0;
-		virtual uint32_t getWidth() const = 0;
-		virtual uint32_t getHeight() const = 0;
+		std::shared_ptr<context> mCtx;
+
+		std::mutex mEvenetQueueMu;
+		std::map<key, std::shared_ptr<baseEvent>> mKeyDown;
+		std::queue<std::shared_ptr<baseEvent>> mEventQueue;
+
+		GLFWwindow* mWnd;
+		std::string mName;
+		uint32_t mWidth, mHeight;
+		error mErr;
+		bool mShowCursor;
 	};
-
-	std::shared_ptr<window> makeWindow(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool isFullscreen, const std::string& applicationName, bool showCursor);
 }
