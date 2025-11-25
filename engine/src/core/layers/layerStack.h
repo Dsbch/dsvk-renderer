@@ -11,9 +11,9 @@ namespace engine
 		std::vector<std::unique_ptr<layer>> mLayerStack;
 		std::vector<std::unique_ptr<layer>> mOverlayStack;
 	public:
-		void onEvent(std::shared_ptr<baseEvent>);
-		void onRender();
-		void onUpdate();
+		error onEvent(std::shared_ptr<baseEvent>);
+		error onRender();
+		error onUpdate();
 		void pushLayer(std::unique_ptr<layer>&& l);
 		void pushOverlay(std::unique_ptr<layer>&& l);
 		error checkError() const;

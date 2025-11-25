@@ -1,5 +1,4 @@
-#include <platform/renderer/vulkan/vulkanTests.h>
-
+#include <application/application.h>
 
 // GLOBAL TODO:
 // Right now I need to:
@@ -9,25 +8,25 @@
 //    Also perMeshletBuffer should be updated each frame (basicly reupload of uin32_t) and inside shader it will be just one buffer without descriptor indexing.
 // 2. Setup task shader.
 // 3. Debug and suffer.
-//
 
 int main(int argc, char* argv[])
 {
 	try
 	{
-		auto ctx = std::make_shared<engine::context>(engine::cfg<engine::main>{});
-
-		ctx->config.inner.wnd.width = 300;
-		ctx->config.inner.wnd.height = 400;
-
-		auto testApp = engine::vulkanTest(ctx);
-		if (auto err = testApp.checkError(); err)
+		engine::application app;
+		engine::error err = app.checkError();
+		if (err)
 		{
 			LOGERROR(err.err());
 			return 0;
 		}
 
-		testApp.run();
+		err = app.run();
+		if (err)
+		{
+			LOGERROR(err.err());
+			return 0;
+		}
 	}
 	catch (const std::exception& exc)
 	{

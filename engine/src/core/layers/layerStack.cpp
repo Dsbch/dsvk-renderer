@@ -3,45 +3,67 @@
 
 namespace engine
 {
-	void layerStack::onEvent(std::shared_ptr<baseEvent> e)
+	error layerStack::onEvent(std::shared_ptr<baseEvent> e)
 	{
+		error err;
+
 		for (auto begin = mOverlayStack.rbegin(); begin != mOverlayStack.rend(); begin++)
 		{
-			if ((*begin)->onEvent(e))
-				return;
+			err = (*begin)->onEvent(e);
+			if (err)
+				return err;
 		}
 
 		for (auto begin = mLayerStack.rbegin(); begin != mLayerStack.rend(); begin++)
 		{
-			if ((*begin)->onEvent(e))
-				return;
+			err = (*begin)->onEvent(e);
+			if (err)
+				return err;
 		}
+
+		return err;
 	}
 
-	void layerStack::onRender()
+	error layerStack::onRender()
 	{
+		error err;
+
 		for (auto& l : mLayerStack)
 		{
-			l->onRender();
+			err = l->onRender();
+			if (err)
+				return err;
 		}
 
 		for (auto& l : mOverlayStack)
 		{
-			l->onRender();
+			err = l->onRender();
+			if (err)
+				return err;
 		}
+	
+		return err;
 	}
 
-	void layerStack::onUpdate()
+	error layerStack::onUpdate()
 	{
+		error err;
+
 		for (auto& l : mLayerStack)
 		{
-			l->onUpdate();
+			err = l->onUpdate();
+			if (err)
+				return err;
 		}
 
 		for (auto& l : mOverlayStack)
 		{
-			l->onUpdate();
+			err = l->onUpdate();
+			if (err)
+				return err;
 		}
+
+		return err;
 	}
 
 	void layerStack::pushLayer(std::unique_ptr<layer>&& l)

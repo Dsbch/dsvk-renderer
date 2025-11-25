@@ -29,7 +29,8 @@ namespace engine
 
 	vulkanRenderer::vulkanRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window)
 		:
-		renderer(ctx, window)
+		renderer(ctx, window),
+		mWindowMinimized(false)
 	{
 		initVulkan();
 		if (mErr)
@@ -103,10 +104,20 @@ namespace engine
 
 	error vulkanRenderer::changeViewPort(uint32_t width, uint32_t height)
 	{
+		if (width == 0 || height == 0)
+		{
+			mWindowMinimized = true;
+			return {};
+		}
+		else
+		{
+			mWindowMinimized = false;
+		}
+
 		mSwapChain.destroy();
-		mErr = mSwapChain.build(width, height, mGraphicsQueueFamily);
-		if (mErr)
-			return mErr;
+		auto swapChainErr = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		if (swapChainErr)
+			return swapChainErr;
 
 		// reconfigure source for destroyed imageView.
 		mDescriptorSetCompute.clearBindings();
@@ -114,7 +125,7 @@ namespace engine
 
 		setBackgroundDescriptors();
 
-		return mErr;
+		return {};
 	}
 
 	void vulkanRenderer::clear(VkCommandBuffer cmd)
@@ -260,13 +271,15 @@ namespace engine
 		mMeshletRegistry.deleteBlock(m.mesh.hash);
 	}
 
-	void vulkanRenderer::render()
+	error vulkanRenderer::render()
 	{
+		if (mWindowMinimized)
+			return {};
+
 		auto waitResult = mSwapChain.waitOnCurrentFence();
 		if (waitResult)
 		{
-			mErr = waitResult.err();
-			return;
+			return waitResult.err();
 		}
 
 		mSwapChain.pickImageExtent();
@@ -276,15 +289,26 @@ namespace engine
 		auto indexResult = mSwapChain.acquireImageIndex();
 		if (!indexResult)
 		{
-			mErr = indexResult.err();
-			return;
+			if (indexResult.err().err() == "VK_ERROR_OUT_OF_DATE_KHR")
+			{
+				mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(mWindow->getFbWidth(), mWindow->getFbHeight()));
+				
+				return {};
+			}
+
+			return indexResult.err();
 		}
+
+		auto resetResult = mSwapChain.resetCurrentFence(); if (waitResult)
+			if (resetResult)
+			{
+				return resetResult.err();
+			}
 
 		auto resetRes = mSwapChain.resetCommandBuffer();
 		if (resetRes)
 		{
-			mErr = resetRes.err();
-			return;
+			return resetRes.err();
 		}
 
 		//naming it cmd for shorter writing
@@ -297,8 +321,7 @@ namespace engine
 		auto vkResult = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
 		if (vkResult != VK_SUCCESS)
 		{
-			mErr = vkResultToStr(vkResult);
-			return;
+			return vkResultToStr(vkResult);
 		}
 
 		// transition our main draw image into general layout so we can write into it
@@ -311,7 +334,9 @@ namespace engine
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-		geometryPass(cmd);
+		auto err = geometryPass(cmd);
+		if (err)
+			return err;
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -330,8 +355,7 @@ namespace engine
 		vkResult = vkEndCommandBuffer(cmd);
 		if (vkResult != VK_SUCCESS)
 		{
-			mErr = vkResultToStr(vkResult);
-			return;
+			return vkResultToStr(vkResult);
 		}
 
 		//prepare the submission to the queue. 
@@ -351,31 +375,46 @@ namespace engine
 		vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getCurrentFrameData().renderFence);
 		if (vkResult != VK_SUCCESS)
 		{
-			mErr = vkResultToStr(vkResult);
-			return;
+			return vkResultToStr(vkResult);
 		}
 
 		// prepare present
 		// this will put the image we just rendered to into the visible window.
 		// we want to wait on the _renderSemaphore for that, 
 		// as its necessary that drawing commands have finished before the image is displayed to the user
-		mErr = mSwapChain.present(mGraphicsQueue, indexResult.value());
-		if (mErr)
-			return;
-				
+		auto presentErr = mSwapChain.present(mGraphicsQueue, indexResult.value());
+		if (presentErr)
+		{
+			if (presentErr.err() == "VK_ERROR_OUT_OF_DATE_KHR")
+			{
+				mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(mWindow->getFbWidth(), mWindow->getFbHeight()));
+
+				return {};
+			}
+
+			return presentErr;
+		}
+
 		mSwapChain.increment();
+
+		return {};
 	}
 
-	void vulkanRenderer::geometryPass(VkCommandBuffer cmd)
+	error vulkanRenderer::geometryPass(VkCommandBuffer cmd)
 	{
 		updateGeometryDescriptors();
-
+		
+		error err;
 		for (auto& [k, v] : mGeometryPipelines)
 		{
-			updateGeometryPerInstaceDescriptors(v);
+			err = updateGeometryPerInstaceDescriptors(v);
+			if (err)
+				return err;
 
 			// TODO: ADD GEOMETRY PASS.
 		}
+
+		return {};
 	}
 
 	withError<std::shared_ptr<shader>> vulkanRenderer::makeShader(const std::vector<uint32_t>& src)
@@ -396,7 +435,7 @@ namespace engine
 		return vkTexture;
 	}
 
-	void vulkanRenderer::initVulkan()
+	error vulkanRenderer::initVulkan()
 	{
 		vkb::InstanceBuilder builder;
 
@@ -409,8 +448,7 @@ namespace engine
 			.build();
 		if (!inst_ret)
 		{
-			mErr = { inst_ret.error().message() };
-			return;
+			return { inst_ret.error().message() };
 		}
 
 		vkb::Instance vkb_inst = inst_ret.value();
@@ -421,8 +459,7 @@ namespace engine
 		auto surfaceResult = mWindow->makeVulkunSurface(mInstance);
 		if (!surfaceResult)
 		{
-			mErr = surfaceResult.err();
-			return;
+			return surfaceResult.err();
 		}
 
 		mSurface = surfaceResult.value();
@@ -475,8 +512,7 @@ namespace engine
 			.select();
 		if (!selectedRes)
 		{
-			mErr = { selectedRes.error().message() };
-			return;
+			return { selectedRes.error().message() };
 		}
 
 		vkb::PhysicalDevice physicalDevice = selectedRes.value();
@@ -500,16 +536,17 @@ namespace engine
 		auto vmaResult = vmaCreateAllocator(&allocatorInfo, &mAllocator);
 		if (vmaResult != VK_SUCCESS)
 		{
-			mErr = { vkResultToStr(vmaResult) };
-			return;
+			return { vkResultToStr(vmaResult) };
 		}
 
 		loadExtensions();
 
 		mDeletionQueue.push_back(destroyTask{ .type = allocator, .allocator = mAllocator });
+
+		return {};
 	}
 
-	void vulkanRenderer::setDefaultBindings()
+	error vulkanRenderer::setDefaultBindings()
 	{
 		mComputeBinding = computePipelineBindings{
 			.descriptorSet = 0,
@@ -530,37 +567,39 @@ namespace engine
 			.perInstanceBinding = 9,
 			.perMeshletBinding = 10,
 		};
+
+		return {};
 	}
 
-	void vulkanRenderer::initPipelines()
+	error vulkanRenderer::initPipelines()
 	{
-		initBackgroundPipeline();
-		if (mErr)
-			return;
+		return initBackgroundPipeline();
 	}
 
-	void vulkanRenderer::initBackgroundPipeline()
+	error vulkanRenderer::initBackgroundPipeline()
 	{
 		VkShaderModule computeDrawShader;
 		auto shader = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkCompute.spv", this);
 		if (!shader)
 		{
-			mErr = shader.err();
-			return;
+			return shader.err();
 		}
 
 		computeDrawShader = static_cast<vulkanShader*>(shader.value().get())->mShaderModule;
 
 		mComputePipeline.init(mDevice);
 		mComputePipeline.setShader(computeDrawShader);
-		mErr = mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
-		if (mErr)
-			return;
+		
+		auto buildErr = mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
+		if (buildErr)
+			return buildErr;
 
 		mDeletionQueue.push_back(destroyTask{ .type = computePipe, .computePipe = &mComputePipeline });
+
+		return {};
 	}
 
-	void vulkanRenderer::setLimits()
+	error vulkanRenderer::setLimits()
 	{
 		VkPhysicalDeviceProperties props{};
 		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
@@ -568,6 +607,8 @@ namespace engine
 		mPhysicalDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
 		mPhysicalDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
 		mPhysicalDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
+
+		return {};
 	}
 
 	withError<pipelineData> vulkanRenderer::createPipelineData(std::shared_ptr<shader> pixelShader)
@@ -628,34 +669,40 @@ namespace engine
 		return result;
 	}
 
-	void vulkanRenderer::initImmediateSubmit()
+	error vulkanRenderer::initImmediateSubmit()
 	{
-		mErr = mImmediateSubmit.init(mDevice, mGraphicsQueue, mGraphicsQueueFamily);
-		if (mErr)
-			return;
+		auto err = mImmediateSubmit.init(mDevice, mGraphicsQueue, mGraphicsQueueFamily);
+		if (err)
+			return err;
 
 		mDeletionQueue.push_back(destroyTask{ .type = iSub, .iSubmit = &mImmediateSubmit });
+
+		return {};
 	}
 
-	void vulkanRenderer::loadExtensions()
+	error vulkanRenderer::loadExtensions()
 	{
 		vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksEXT");
 		if (!vkCmdDrawMeshTasksEXT)
-			mErr = { "can't load extensions" };
+			return { "can't load extensions" };
+
+		return {};
 	}
 
-	void vulkanRenderer::initSwapchain(uint32_t width, uint32_t height)
+	error vulkanRenderer::initSwapchain(uint32_t width, uint32_t height)
 	{
 		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice);
 
-		mErr = mSwapChain.build(width, height, mGraphicsQueueFamily);
-		if (mErr)
-			return;
+		auto err = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		if (err)
+			return err;
 
 		mDeletionQueue.push_back(destroyTask{ .type = sChain, .sChain = &mSwapChain });
+
+		return {};
 	}
 
-	void vulkanRenderer::initRegistry()
+	error vulkanRenderer::initRegistry()
 	{
 		mVertexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
 		mIndexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
@@ -670,8 +717,7 @@ namespace engine
 		auto samp = descriptorSet::createSampler(mDevice, mPhysicalDeviceLimits.maxFiltering);
 		if (!samp)
 		{
-			mErr = samp.err();
-			return;
+			return samp.err();
 		}
 
 		mSampler = samp.value();
@@ -689,32 +735,36 @@ namespace engine
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mNormalRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAoRegistry });
+
+		return {};
 	}
 
-	void vulkanRenderer::initDescriptors()
+	error vulkanRenderer::initDescriptors()
 	{
-		mErr = mDescriptorSetCompute.init(mDevice, mPhysicalDevice);
-		if (mErr)
-			return;
+		auto err = mDescriptorSetCompute.init(mDevice, mPhysicalDevice);
+		if (err)
+			return err;
 
-		mErr = mDescriptorSetMesh.init(mDevice, mPhysicalDevice);
-		if (mErr)
-			return;
+		err = mDescriptorSetMesh.init(mDevice, mPhysicalDevice);
+		if (err)
+			return err;
 
-		setBackgroundDescriptors();
-		if (mErr)
-			return;
+		err = setBackgroundDescriptors();
+		if (err)
+			return err;
 
-		setGeometryDescriptors();
-		if (mErr)
-			return;
+		err = setGeometryDescriptors();
+		if (err)
+			return err;
 
 		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetCompute });
 		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetMesh });
 		mDeletionQueue.push_back(destroyTask{ .type = descPool });
+
+		return {};
 	}
 
-	void vulkanRenderer::setBackgroundDescriptors()
+	error vulkanRenderer::setBackgroundDescriptors()
 	{
 		std::vector<VkDescriptorImageInfo> imgInfo = {
 			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDrawImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL, }
@@ -726,12 +776,10 @@ namespace engine
 
 		mDescriptorSetCompute.addWrite(descriptorSet::getWriteInfo(mComputeBinding.textureBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, imgInfo));
 
-		mErr = mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT);
-		if (mErr)
-			return;
+		return mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT);
 	}
 
-	void vulkanRenderer::setGeometryDescriptors()
+	error vulkanRenderer::setGeometryDescriptors()
 	{
 		// add bindings for buffers.
 		mDescriptorSetMesh.addBinding(mVertexRegistry.getLayoutBinding(mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers));
@@ -752,11 +800,13 @@ namespace engine
 		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perMeshletBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
-		mErr = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
-		if (mErr)
-			return;
+		auto err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
+		if (err)
+			return err;
 
 		updateGeometryDescriptors();
+
+		return {};
 	}
 
 	// Should be called before each geometry pass.
@@ -828,22 +878,24 @@ namespace engine
 		}
 	}
 
-	void vulkanRenderer::uploadPerInstanceData(pipelineData& data)
+	error vulkanRenderer::uploadPerInstanceData(pipelineData& data)
 	{
-		mErr = data.perMeshletBuffer.updateBuffer(mImmediateSubmit, data.perMeshletData.data(), data.perMeshletData.size() * sizeof(uint32_t), 0);
-		if (mErr)
-			return;
+		auto err = data.perMeshletBuffer.updateBuffer(mImmediateSubmit, data.perMeshletData.data(), data.perMeshletData.size() * sizeof(uint32_t), 0);
+		if (err)
+			return err;
 
-		mErr = data.perInstanceBuffer.updateBuffer(mImmediateSubmit, data.perInstanceData.data(), data.perInstanceData.size() * sizeof(instanceAttributes), 0);
-		if (mErr)
-			return;
+		err = data.perInstanceBuffer.updateBuffer(mImmediateSubmit, data.perInstanceData.data(), data.perInstanceData.size() * sizeof(instanceAttributes), 0);
+		if (err)
+			return err;
+
+		return {};
 	}
 
-	void vulkanRenderer::updateGeometryPerInstaceDescriptors(pipelineData& data)
+	error vulkanRenderer::updateGeometryPerInstaceDescriptors(pipelineData& data)
 	{
-		uploadPerInstanceData(data);
-		if (mErr)
-			return;
+		auto err = uploadPerInstanceData(data);
+		if (err)
+			return err;
 
 		mDescriptorSetMesh.clearWrites();
 
@@ -864,6 +916,8 @@ namespace engine
 		);
 
 		mDescriptorSetMesh.updateWrite();
+
+		return {};
 	}
 
 	void vulkanRenderer::flushDeletonQueue()

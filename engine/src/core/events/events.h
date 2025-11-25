@@ -64,6 +64,16 @@ namespace engine
 		uint32_t getHeight() const { return mHeight; };
 	};
 
+	class windowFrameBufferResizeEvent : public baseEvent
+	{
+	private:
+		uint32_t mWidth, mHeight;
+	public:
+		windowFrameBufferResizeEvent(uint32_t width, uint32_t height) : baseEvent(eventType::windowResize), mWidth(width), mHeight(height) {};
+		uint32_t getWidth() const { return mWidth; };
+		uint32_t getHeight() const { return mHeight; };
+	};
+
 	class closeEvent : public baseEvent
 	{
 	public:

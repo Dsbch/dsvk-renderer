@@ -52,12 +52,12 @@ namespace engine
 
 	error application::createLayerStack()
 	{
-		pushLayer(std::make_unique<worldLayer>(mCtx));
+		pushLayer(std::make_unique<worldLayer>(mCtx, mWindow));
 
 		return mLayerStack->checkError();
 	}
 
-	void application::update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
+	error application::update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
 	{
 		auto k = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
 		for (uint32_t i = 0; mCtx->timer.toMS(mCtx->timer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
@@ -75,24 +75,35 @@ namespace engine
 					mRunning = false;
 				}
 
-				mLayerStack->onEvent(e);
+				auto err = mLayerStack->onEvent(e);
+				if (err)
+					return err;
 			}
 
 			// run updates.
-			mLayerStack->onUpdate();
+			auto err = mLayerStack->onUpdate();
+			if (err)
+				return err;
 
 			nextGameUpdate += updateShift;
 		}
+
+		return {};
 	}
 
-	void application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
+	error application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
 	{
 		if (mCtx->timer.toMS(mCtx->timer.getTimeSinceStart()) >= nextRender)
 		{
-			mLayerStack->onRender();
+			auto err = mLayerStack->onRender();
+			if (err)
+				return err;
+
 			mWindow->swapBuffers();
 			nextRender += renderShift;
 		}
+
+		return {};
 	}
 
 	application::application()
@@ -131,7 +142,7 @@ namespace engine
 		mLayerStack->pushOverlay(std::move(l));
 	}
 
-	void application::run()
+	error application::run()
 	{
 		mRunning = true;
 
@@ -144,8 +155,15 @@ namespace engine
 
 		while (mRunning)
 		{
-			update(nextGameUpdate, updateShift, maxFrameSkip);
-			onRender(nextRender, renderShift);
+			auto err = update(nextGameUpdate, updateShift, maxFrameSkip);
+			if (err)
+				return err;
+
+			err = onRender(nextRender, renderShift);
+			if (err)
+				return err;
 		}
+
+		return {};
 	}
 }

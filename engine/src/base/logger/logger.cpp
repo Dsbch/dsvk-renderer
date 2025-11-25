@@ -24,7 +24,7 @@ namespace engine
 
 	void logger::initLogger(const std::string& app_name, const std::string& pattern, engine::logger::level level)
 	{
-		mLogger = spdlog::stdout_logger_mt(app_name);
+		mLogger = spdlog::stdout_color_mt(app_name);
 		mLogger->set_level(spdlog::level::level_enum(level));
 		mLogger->set_pattern(pattern);
 	}

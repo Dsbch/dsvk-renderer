@@ -46,7 +46,7 @@ namespace engine
 		}
 
 		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU);
-		engine::error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
+		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
 		void destroy();
 
 		frameData& getCurrentFrameData();
@@ -72,12 +72,13 @@ namespace engine
 		std::vector<VkImageView> getSwapChainImageViews();
 		VkFormat getSwapChainImageFormat();
 		
-		engine::withError<uint32_t> acquireImageIndex();
-		engine::error waitOnCurrentFence();
-		engine::error resetCommandBuffer();
-		engine::error present(VkQueue graphicQueue, uint32_t swapChainImageIndex);
+		withError<uint32_t> acquireImageIndex();
+		error waitOnCurrentFence();
+		error resetCurrentFence();
+		error resetCommandBuffer();
+		error present(VkQueue graphicQueue, uint32_t swapChainImageIndex);
 	private:
-		engine::error createSwapChain(uint32_t width, uint32_t height);
+		error createSwapChain(uint32_t width, uint32_t height);
 
 		// VMA.
 		VmaAllocator mAllocator;

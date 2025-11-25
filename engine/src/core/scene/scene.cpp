@@ -11,52 +11,76 @@ namespace engine
 	// user systems.
 	std::vector<std::unique_ptr<system>> scene::mUserSystems;
 
-	scene::scene(std::shared_ptr<context> ctx)
+	scene::scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
 		:
-		mSceneRegistry(), mCtx(ctx), mSystems(), mSceneCamera(ctx, ctx->config.inner.camera.fov, ctx->config.inner.camera.nearPlane, ctx->config.inner.camera.farPlane, ctx->config.inner.wnd.width, ctx->config.inner.wnd.height)
+		mSceneRegistry(), mCtx(ctx), mSystems()
 	{
 		// core engine systems.
-		addSystem(std::make_unique<renderSystems>(mCtx, mSceneCamera));
+		addSystem(std::make_unique<renderSystems>(mCtx, wnd));
 		addSystem(std::make_unique<cameraSystems>(mCtx));
 	}
 
-	void scene::onRender()
+	error scene::onRender()
 	{
+		error err;
+
 		for (auto& s : mUserSystems)
 		{
-			s->onRender(mSceneRegistry);
+			err = s->onRender(mSceneRegistry);
+			if (err)
+				return err;
 		}
 
 		for (auto& s : mSystems)
 		{
-			s->onRender(mSceneRegistry);
+			err = s->onRender(mSceneRegistry);
+			if (err)
+				return err;
 		}
+
+		return err;
 	}
 
-	void scene::onEvent(std::shared_ptr<baseEvent> e)
+	error scene::onEvent(std::shared_ptr<baseEvent> e)
 	{
+		error err;
+
 		for (auto& s : mUserSystems)
 		{
-			s->onEvent(mSceneRegistry, e);
+			err = s->onEvent(mSceneRegistry, e);
+			if (err)
+				return err;
 		}
 
 		for (auto& s : mSystems)
 		{
-			s->onEvent(mSceneRegistry, e);
+			err = s->onEvent(mSceneRegistry, e);
+			if (err)
+				return err;
 		}
+
+		return err;
 	}
 
-	void scene::onUpdate()
+	error scene::onUpdate()
 	{
+		error err;
+
 		for (auto& s : mUserSystems)
 		{
 			s->onUpdate(mSceneRegistry);
+			if (err)
+				return err;
 		}
 
 		for (auto& s : mSystems)
 		{
 			s->onUpdate(mSceneRegistry);
+			if (err)
+				return err;
 		}
+	
+		return err;
 	}
 
 	error scene::checkError() const

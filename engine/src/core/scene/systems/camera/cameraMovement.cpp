@@ -16,18 +16,19 @@ namespace engine
 		return {};
 	}
 
-	void cameraMovement::onRender(entt::registry& registry)
+	error cameraMovement::onRender(entt::registry& registry)
 	{
+		return {};
 	}
 
-	void cameraMovement::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
+	error cameraMovement::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
 		// TODO: figure out how to apply application settings to it.
 		for (auto [entity, camera, input] : registry.view<fpsCameraComponent, inputListenerComponent>().each())
 		{
 			if (e->getEventType() == eventType::windowResize)
 			{
-				auto resizeEvent = static_cast<windowResizeEvent*>(e.get());
+				auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
 				camera.camera->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 			}
 
@@ -67,10 +68,13 @@ namespace engine
 				camera.camera->changePitch(float(-offset.y) * 0.1f);
 			}
 		}
+
+		return {};
 	}
 
-	void cameraMovement::onUpdate(entt::registry& registry)
+	error cameraMovement::onUpdate(entt::registry& registry)
 	{
+		return {};
 	}
 
 	void cameraMovement::spawnDefaultCamera(entt::registry& registry) const

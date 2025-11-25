@@ -6,6 +6,7 @@
 #include "core/events/events.h"
 #include "core/camera/camera.h"
 #include "core/scene/systems/system.h"
+#include "platform/window/window.h"
 
 namespace engine
 {
@@ -14,11 +15,11 @@ namespace engine
 	class scene
 	{
 	public:
-		scene(std::shared_ptr<context> ctx);
+		scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
 	
-		void onRender();
-		void onEvent(std::shared_ptr<baseEvent> e);
-		void onUpdate();
+		error onRender();
+		error onEvent(std::shared_ptr<baseEvent> e);
+		error onUpdate();
 		
 		error checkError() const;
 
@@ -29,7 +30,6 @@ namespace engine
 		static void addUserSystem(std::unique_ptr<system>&&);
 	protected:
 		std::shared_ptr<context> mCtx;
-		fpsCamera mSceneCamera;
 	
 	private:
 		static std::vector<std::unique_ptr<system>> mUserSystems;

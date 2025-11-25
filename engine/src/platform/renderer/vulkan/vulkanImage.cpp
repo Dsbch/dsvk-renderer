@@ -312,6 +312,7 @@ namespace engine
 	
 		image.view = VK_NULL_HANDLE;
 		image.image = VK_NULL_HANDLE;
+		image.allocation = VK_NULL_HANDLE;
 	}
 
 	engine::withError<allocatedImage> vulkanImage::createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)

@@ -11,9 +11,9 @@ namespace engine
 	public:
 		cameraMovement(std::shared_ptr<context> ctx);
 		error checkError();
-		void onRender(entt::registry& registry);
-		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
-		void onUpdate(entt::registry& registry);
+		error onRender(entt::registry& registry);
+		error onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
+		error onUpdate(entt::registry& registry);
 	private:
 		void spawnDefaultCamera(entt::registry& registry) const;
 	};

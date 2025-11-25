@@ -138,11 +138,15 @@ namespace engine
 		if (result != VK_SUCCESS)
 			return { vkResultToStr(result) };
 
-		// reset fence to reuse.
-		result = vkResetFences(mDevice, 1, &getCurrentFrameData().renderFence);
+		return {};
+	}
+
+	error swapChain::resetCurrentFence()
+	{
+		auto result = vkResetFences(mDevice, 1, &getCurrentFrameData().renderFence);
 		if (result != VK_SUCCESS)
 			return { vkResultToStr(result) };
-
+	
 		return {};
 	}
 

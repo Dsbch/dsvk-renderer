@@ -18,7 +18,7 @@ namespace engine
 
 		void pushLayer(std::unique_ptr<layer>&&);
 		void pushOverlay(std::unique_ptr<layer>&&);
-		void run();
+		error run();
 		error checkError();
 	protected:
 		error mErr;
@@ -32,7 +32,7 @@ namespace engine
 		error initApplication();
 		error createWindow();
 		error createLayerStack();
-		void update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
-		void onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
+		error update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
+		error onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
 	};
 }

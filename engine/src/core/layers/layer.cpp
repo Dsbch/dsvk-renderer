@@ -13,9 +13,9 @@ namespace engine
 
     }
 
-    worldLayer::worldLayer(std::shared_ptr<context> ctx)
+    worldLayer::worldLayer(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
         :
-            layer(ctx), mScene(std::make_shared<scene>(mCtx))
+            layer(ctx), mScene(std::make_shared<scene>(mCtx, wnd))
     {
     }
 
@@ -23,21 +23,23 @@ namespace engine
     {
     }
 
-    bool worldLayer::onEvent(std::shared_ptr<baseEvent> e)
+    error worldLayer::onEvent(std::shared_ptr<baseEvent> e)
     {
-        mScene->onEvent(e);
+        auto err = mScene->onEvent(e);
+        if (err)
+            return err;
 
-        return true;
+        return {};
     }
 
-    void worldLayer::onRender()
+    error worldLayer::onRender()
     {
-        mScene->onRender();
+        return mScene->onRender();
     }
 
-    void worldLayer::onUpdate()
+    error worldLayer::onUpdate()
     {
-        mScene->onUpdate();
+        return mScene->onUpdate();
     }
 
     error worldLayer::checkError() const

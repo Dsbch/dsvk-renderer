@@ -126,12 +126,20 @@ namespace engine
     {
         if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
         {
+            wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(width, height));
+        }
+    }
+
+    void window::windowSizeCallback(GLFWwindow* wnd, int width, int height)
+    {
+        if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
+        {
             wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<windowResizeEvent>(width, height));
         }
     }
 
 	window::window(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool showCuresor)
-		: mCtx(ctx), mName(name), mWidth(width), mHeight(heigth), mErr(), mShowCursor(showCuresor)
+		: mCtx(ctx), mWnd(nullptr), mName(name), mErr(), mShowCursor(showCuresor)
 	{
 		std::call_once(initFlag, [&] {
 			if (glfwInit() != GLFW_TRUE)
@@ -155,7 +163,7 @@ namespace engine
         glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
         glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-		mWnd = glfwCreateWindow(mWidth, mHeight, name.c_str(), monitor, NULL);
+		mWnd = glfwCreateWindow(width, heigth, name.c_str(), monitor, NULL);
 		if (!mWnd)
 		{
 			mErr = { "can't create window {}", name };
@@ -173,6 +181,7 @@ namespace engine
         glfwSetCursorPosCallback(mWnd, mouseCallback);
         glfwSetWindowCloseCallback(mWnd, windowCloseCallback);
         glfwSetFramebufferSizeCallback(mWnd, framebufferSizeCallback);
+        glfwSetWindowSizeCallback(mWnd, windowSizeCallback);
 	}
 
 	window::~window()
@@ -214,9 +223,6 @@ namespace engine
 
     void window::setWidthHeight(uint32_t width, uint32_t height)
     {
-        mWidth = width;
-        mHeight = height;
-
         glfwSetWindowSize(mWnd, width, height);
     }
 
@@ -247,11 +253,33 @@ namespace engine
 
     uint32_t window::getWidth() const
     {
-        return mWidth;
+        int width, height;
+        glfwGetWindowSize(mWnd, &width, &height);
+
+        return width;
     }
     
     uint32_t window::getHeight() const
     {
-        return mHeight;
+        int width, height;
+        glfwGetWindowSize(mWnd, &width, &height);
+
+        return height;
+    }
+
+    uint32_t window::getFbWidth() const
+    {
+        int width, height;
+        glfwGetFramebufferSize(mWnd, &width, &height);
+
+        return width;
+    }
+
+    uint32_t window::getFbHeight() const
+    {
+        int width, height;
+        glfwGetFramebufferSize(mWnd, &width, &height);
+
+        return height;
     }
 }

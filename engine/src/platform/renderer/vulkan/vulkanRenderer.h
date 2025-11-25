@@ -97,30 +97,33 @@ namespace engine
 		error changeViewPort(uint32_t width, uint32_t height);
 		error addToRender(model& m);
 		void remove(const model& m);
-		void render();
+		error render();
 
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel);
 	private:
-		void geometryPass(VkCommandBuffer cmd);
+		error geometryPass(VkCommandBuffer cmd);
 		void clear(VkCommandBuffer cmd);
 
-		void initVulkan();
-		void setDefaultBindings();
-		void loadExtensions();
-		void initImmediateSubmit();
-		void initSwapchain(uint32_t width, uint32_t height);
-		void initRegistry();
-		void initDescriptors();
-		void setBackgroundDescriptors();
-		void setGeometryDescriptors();
+		error initVulkan();
+		error setLimits();
+		error setDefaultBindings();
+		error initImmediateSubmit();
+		error initSwapchain(uint32_t width, uint32_t height);
+		error initRegistry();
+		error initDescriptors();
+		error initPipelines();
+		
+		error loadExtensions();
+		error setBackgroundDescriptors();
+		error setGeometryDescriptors();
 		void updateGeometryDescriptors();
-		void uploadPerInstanceData(pipelineData& data);
-		void updateGeometryPerInstaceDescriptors(pipelineData& data);
-		void initPipelines();
-		void initBackgroundPipeline();
-		void setLimits();
+		error uploadPerInstanceData(pipelineData& data);
+		error updateGeometryPerInstaceDescriptors(pipelineData& data);
+		error initBackgroundPipeline();
 		withError<pipelineData> createPipelineData(std::shared_ptr<shader> pixelShader);
+
+		bool mWindowMinimized;
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;

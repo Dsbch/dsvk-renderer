@@ -11,9 +11,9 @@ namespace engine
 		cameraSystems(std::shared_ptr<context> ctx);
 
 		error checkError();
-		void onUpdate(entt::registry& registry);
-		void onRender(entt::registry& registry);
-		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
+		error onUpdate(entt::registry& registry);
+		error onRender(entt::registry& registry);
+		error onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 	private:
 		std::unique_ptr<cameraMovement> mCameraMovement;
 	};

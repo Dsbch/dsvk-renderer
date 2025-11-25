@@ -17,18 +17,18 @@ namespace engine
 		return {};
 	}
 
-	void cameraSystems::onUpdate(entt::registry& registry)
+	error cameraSystems::onUpdate(entt::registry& registry)
 	{
-		mCameraMovement->onUpdate(registry);
+		return mCameraMovement->onUpdate(registry);
 	}
 
-	void cameraSystems::onRender(entt::registry& registry)
+	error cameraSystems::onRender(entt::registry& registry)
 	{
-		mCameraMovement->onRender(registry);
+		return mCameraMovement->onRender(registry);
 	}
 
-	void cameraSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
+	error cameraSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
-		mCameraMovement->onEvent(registry, e);
+		return mCameraMovement->onEvent(registry, e);
 	}
 }

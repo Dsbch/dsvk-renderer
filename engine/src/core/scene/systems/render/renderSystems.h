@@ -2,8 +2,7 @@
 
 #include <pch.h>
 #include "core/scene/systems/system.h"
-#include "coreRender.h"
-#include "skyboxRender.h"
+#include "platform/window/window.h"
 
 namespace engine
 {
@@ -11,16 +10,13 @@ namespace engine
 		public system
 	{
 	public:
-		renderSystems(std::shared_ptr<context> ctx, fpsCamera camera);
+		renderSystems(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
 	
 		error checkError();
-		void onUpdate(entt::registry& registry);
-		void onRender(entt::registry& registry);
-		void onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
+		error onUpdate(entt::registry& registry);
+		error onRender(entt::registry& registry);
+		error onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 	private:
-		fpsCamera mDefaultCamera;
-		std::unique_ptr<renderer> mRenderer;
-		std::unique_ptr<coreRender> mCoreRender;
-		std::unique_ptr<skyboxRender> mSkyboxRender;
+		std::shared_ptr<renderer> mRenderer;
 	};
 }
