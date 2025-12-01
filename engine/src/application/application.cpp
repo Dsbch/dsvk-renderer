@@ -35,8 +35,10 @@ namespace engine
 			logger::initLogger(mCtx->config.inner.app.name, mCtx->config.inner.log.pattern, mCtx->config.inner.log.level);
 		}
 
+#ifdef DEBUG
 		if (auto err = mCtx->config.checkError(); err)
 			LOGERROR("{}", err.err());
+#endif // DEBUG
 
 		return {};
 	}

@@ -93,8 +93,10 @@ namespace vktest
 
 			// do rendering here.
 			mRenderer->draw();
+#ifdef DEBUG
 			if (mRenderer->checkError())
 				LOGERROR(mRenderer->checkError().err());
+#endif // DEBUG
 		}
 	}
 

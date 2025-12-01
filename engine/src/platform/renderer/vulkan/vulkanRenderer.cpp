@@ -130,7 +130,7 @@ namespace engine
 
 	void vulkanRenderer::clear(VkCommandBuffer cmd)
 	{
-		// bind the gradient drawing compute pipeline
+		// bind the compute pipeline
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().first);
 
 		// bind the descriptor set containing the draw image for the compute pipeline
@@ -608,7 +608,14 @@ namespace engine
 		mPhysicalDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
 		mPhysicalDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
 
-		return {};
+		LOGINFO(
+			"vulkan limits maxCombinedImageSamplers {}, maxStorageBuffers {}, maxFiltering {}",
+			mPhysicalDeviceLimits.maxCombinedImageSamplers,
+			mPhysicalDeviceLimits.maxStorageBuffers,
+			mPhysicalDeviceLimits.maxFiltering
+		);
+
+		return {};																					
 	}
 
 	withError<pipelineData> vulkanRenderer::createPipelineData(std::shared_ptr<shader> pixelShader)
@@ -741,11 +748,11 @@ namespace engine
 
 	error vulkanRenderer::initDescriptors()
 	{
-		auto err = mDescriptorSetCompute.init(mDevice, mPhysicalDevice);
+		auto err = mDescriptorSetMesh.init(mDevice, mPhysicalDevice, poolConstraints{ .maxTextureDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers, .maxStorageDescriptors = mPhysicalDeviceLimits.maxStorageBuffers });
 		if (err)
 			return err;
-
-		err = mDescriptorSetMesh.init(mDevice, mPhysicalDevice);
+		
+		err = mDescriptorSetCompute.init(mDevice, mPhysicalDevice);
 		if (err)
 			return err;
 
@@ -782,23 +789,23 @@ namespace engine
 	error vulkanRenderer::setGeometryDescriptors()
 	{
 		// add bindings for buffers.
-		mDescriptorSetMesh.addBinding(mVertexRegistry.getLayoutBinding(mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers));
-		mDescriptorSetMesh.addBinding(mIndexRegistry.getLayoutBinding(mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers));
-		mDescriptorSetMesh.addBinding(mPrimitiveRegistry.getLayoutBinding(mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers));
-		mDescriptorSetMesh.addBinding(mMeshletRegistry.getLayoutBinding(mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers));
+		mDescriptorSetMesh.addBinding(mVertexRegistry.getLayoutBinding(mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6));
+		mDescriptorSetMesh.addBinding(mIndexRegistry.getLayoutBinding(mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6));
+		mDescriptorSetMesh.addBinding(mPrimitiveRegistry.getLayoutBinding(mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6));
+		mDescriptorSetMesh.addBinding(mMeshletRegistry.getLayoutBinding(mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6));
 
 		// add bindings for textures.
-		mDescriptorSetMesh.addBinding(mAlbedoRegistry.getLayoutBinding(mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers));
-		mDescriptorSetMesh.addBinding(mNormalRegistry.getLayoutBinding(mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers));
-		mDescriptorSetMesh.addBinding(mRoughnessRegistry.getLayoutBinding(mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers));
-		mDescriptorSetMesh.addBinding(mMetalicRegistry.getLayoutBinding(mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers));
-		mDescriptorSetMesh.addBinding(mAoRegistry.getLayoutBinding(mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers));
+		mDescriptorSetMesh.addBinding(mAlbedoRegistry.getLayoutBinding(mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5));
+		mDescriptorSetMesh.addBinding(mNormalRegistry.getLayoutBinding(mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5));
+		mDescriptorSetMesh.addBinding(mRoughnessRegistry.getLayoutBinding(mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5));
+		mDescriptorSetMesh.addBinding(mMetalicRegistry.getLayoutBinding(mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5));
+		mDescriptorSetMesh.addBinding(mAoRegistry.getLayoutBinding(mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5));
 
 		// add binding for per instance attributes.
 		// we have unique buffer per pipeline.
 		// managed differently from other bindings.
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perMeshletBinding, mPhysicalDeviceLimits.maxStorageBuffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perMeshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
 		auto err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
 		if (err)

@@ -163,7 +163,7 @@ namespace engine
         glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
         glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-		mWnd = glfwCreateWindow(width, heigth, name.c_str(), monitor, NULL);
+		mWnd = glfwCreateWindow(width, heigth, name.c_str(), monitor, nullptr);
 		if (!mWnd)
 		{
 			mErr = { "can't create window {}", name };

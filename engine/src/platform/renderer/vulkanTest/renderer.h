@@ -19,12 +19,17 @@
 
 #include "vkImage.h"
 
-#define VK_CHECK(x)                                                 \
-    {\
-		VkResult err = x;                                               \
-		if (err != VK_SUCCESS)                                          \
-			LOGERROR(vktest::vkResultToStr(err));                               \
-	}\
+#ifdef DEBUG
+#define VK_CHECK(x)                                        \
+        {                                                      \
+            VkResult err = (x);                                \
+            if (err != VK_SUCCESS) {                           \
+                LOGERROR(vktest::vkResultToStr(err));          \
+            }                                                  \
+        }
+#else
+#define VK_CHECK(x) (x)
+#endif
 
 namespace vktest
 {

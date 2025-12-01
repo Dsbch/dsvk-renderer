@@ -34,8 +34,8 @@ namespace engine
 
 	struct wnd
 	{
-		uint32_t width = 640;
-		uint32_t height = 480;
+		uint32_t width = 1920;
+		uint32_t height = 1080;
 		bool showCursor = true;
 		std::string name = "engine";
 	};

@@ -57,22 +57,15 @@ namespace vktest
 		vkDestroyDescriptorPool(mDevice, mPool, nullptr);
 	}
 
-	descriptorSet::descriptorSet()
-		:
-		mDevice(VK_NULL_HANDLE),
-		mDescriptorSetLayout(VK_NULL_HANDLE),
-		mDescriptorSet(VK_NULL_HANDLE)
-	{
-	}
-
 	engine::error descriptorSet::init(VkDevice device, VkPhysicalDevice physicalDevice)
 	{
 		mDevice = device;
+		mDescriptorSetLayout = VK_NULL_HANDLE;
+		mDescriptorSet = VK_NULL_HANDLE;
 
 		engine::error err;
 		if (mDevice)
 		{
-
 			std::call_once(
 				isPoolCreated,
 				[&]()->void

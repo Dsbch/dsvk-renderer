@@ -100,6 +100,8 @@ namespace engine
 		return handle;
 	}
 
+	// TODO: figure out what to do when we free a lot of buffers, but then we also do not use them.
+	// Need some sort of background clean every few frames?
 	void bufferRegistry::deleteBlock(uint32_t id)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)

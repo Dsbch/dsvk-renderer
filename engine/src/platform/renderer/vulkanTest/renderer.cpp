@@ -11,7 +11,6 @@
 #include <meshoptimizer.h>
 #include <glm/gtc/quaternion.hpp>
 #include <stb_image.h>
-#include "renderer.h"
 
 static bool loadMeshFromGLTF(const std::filesystem::path& path,
 	std::vector<engine::vertex>& outVertices,
@@ -608,8 +607,7 @@ namespace vktest
 		std::vector<engine::vertex> v;
 		std::vector<uint32_t> i;
 
-		if (loadMeshFromGLTF(pathObj, v, i))
-			LOGINFO("mesh loaded");
+		loadMeshFromGLTF(pathObj, v, i);
 
 		LOGINFO("SUCCESS index len: {}, vertex len: {}", i.size(), v.size());
 
@@ -698,20 +696,29 @@ namespace vktest
 		mMeshlets.init(_device, _allocator);
 
 		auto err = mVertex.build(mImmediateSubmit, newVert.data(), newVert.size() * sizeof(engine::vertex), newVert.size() * sizeof(engine::vertex));
+#ifdef DEBUG
 		if (err)
 			LOGERROR(err.err());
+#endif // DEBUG
+
 
 		err = mIndex.build(mImmediateSubmit, meshletVertices.data(), meshletVertices.size() * sizeof(uint32_t), meshletVertices.size() * sizeof(uint32_t));
+#ifdef DEBUG
 		if (err)
 			LOGERROR(err.err());
+#endif // DEBUG
 
 		err = mMeshlets.build(mImmediateSubmit, meshlets.data(), meshlets.size() * sizeof(meshopt_Meshlet), meshlets.size() * sizeof(meshopt_Meshlet));
+#ifdef DEBUG
 		if (err)
 			LOGERROR(err.err());
+#endif // DEBUG
 
 		err = mTriangles.build(mImmediateSubmit, meshletTrianglesU32.data(), meshletTrianglesU32.size() * sizeof(uint32_t), meshletTrianglesU32.size() * sizeof(uint32_t));
+#ifdef DEBUG
 		if (err)
 			LOGERROR(err.err());
+#endif // DEBUG
 
 		_mainDeletionQueue.push_function([&] {
 			mMeshlets.destroy();

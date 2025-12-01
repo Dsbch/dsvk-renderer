@@ -7,76 +7,114 @@ namespace engine
 {
 	std::once_flag descriptorSet::isPoolCreated;
 	descriptorPool descriptorSet::pool;
-	
-	engine::error descriptorPool::initPool(VkDevice device)
-	{
-		const uint32_t maxDescriptorSets = 1000;
-		const uint32_t maxDescriptors = 1048576*4;
-		const uint32_t maxTextureDescriptors = 1048576*5;
 
+	void descriptorSet::destroyPool()
+	{
+		pool.destroy();
+	}
+
+	void descriptorPool::init(VkDevice device, poolConstraints constraints)
+	{
+		mCurrentPool = VK_NULL_HANDLE;
+		
 		mDevice = device;
 
-		std::vector<VkDescriptorPoolSize> poolSizes = {
+		mConstraints = constraints;
+
+		mPoolSizes = {
 					{
 						.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-						.descriptorCount = maxDescriptors
-					},
-					{
-						.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-						.descriptorCount = maxDescriptors
+						.descriptorCount = mConstraints.maxTextureDescriptors
 					},
 					{
 						.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-						.descriptorCount = maxTextureDescriptors
+						.descriptorCount = mConstraints.maxTextureDescriptors
+					},
+					{
+						.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+						.descriptorCount = mConstraints.maxStorageDescriptors
 					}
 		};
+	}
 
-		VkDescriptorPoolCreateInfo pool_info = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-		pool_info.flags = 0;
-		pool_info.maxSets = maxDescriptorSets;
-		pool_info.poolSizeCount = (uint32_t)poolSizes.size();
-		pool_info.pPoolSizes = poolSizes.data();
+	void descriptorPool::destroy()
+	{
+		for (auto& p : mPoolsInUse)
+			vkDestroyDescriptorPool(mDevice, p, nullptr);
 
-		auto result = vkCreateDescriptorPool(mDevice, &pool_info, nullptr, &mPool);
+		vkDestroyDescriptorPool(mDevice, mCurrentPool, nullptr);
+	}
+
+	error descriptorPool::createPool()
+	{
+		if (mCurrentPool != VK_NULL_HANDLE)
+		{
+			mPoolsInUse.push_back(mCurrentPool);
+
+			mCurrentPool = VK_NULL_HANDLE;
+		}
+
+		VkDescriptorPoolCreateInfo poolInfo = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+		poolInfo.flags = 0;
+		poolInfo.maxSets = mConstraints.getMaxSetsPerPool();
+		poolInfo.poolSizeCount = (uint32_t)mPoolSizes.size();
+		poolInfo.pPoolSizes = mPoolSizes.data();
+
+		auto result = vkCreateDescriptorPool(mDevice, &poolInfo, nullptr, &mCurrentPool);
 		if (result != VK_SUCCESS)
 			return { vkResultToStr(result) };
 
 		return {};
 	}
 
-	descriptorPool::descriptorPool()
-		:
-		mPool(VK_NULL_HANDLE),
-		mDevice(VK_NULL_HANDLE)
+	withError<VkDescriptorSet> descriptorPool::allocate(VkDescriptorSetLayout layout)
 	{
+		if (mCurrentPool == VK_NULL_HANDLE)
+		{
+			auto err = createPool();
+			if (err)
+				return err;
+		}
+
+		VkDescriptorSetAllocateInfo allocInfo = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		allocInfo.pNext = nullptr;
+		allocInfo.descriptorPool = mCurrentPool;
+		allocInfo.descriptorSetCount = 1;
+		allocInfo.pSetLayouts = &layout;
+
+		VkDescriptorSet ds;
+		auto result = vkAllocateDescriptorSets(mDevice, &allocInfo, &ds);
+		if (result != VK_SUCCESS && result != VK_ERROR_OUT_OF_POOL_MEMORY && result != VK_ERROR_FRAGMENTED_POOL)
+			return { vkResultToStr(result) };
+
+		if (result == VK_ERROR_OUT_OF_POOL_MEMORY || result == VK_ERROR_FRAGMENTED_POOL)
+		{
+			auto err = createPool();
+			if (err)
+				return err;
+
+			allocInfo.descriptorPool = mCurrentPool;
+
+			auto result = vkAllocateDescriptorSets(mDevice, &allocInfo, &ds);
+			if (result != VK_SUCCESS)
+				return { vkResultToStr(result) };
+		}
+
+		return ds;
 	}
 
-	void descriptorPool::destroy()
-	{
-		vkDestroyDescriptorPool(mDevice, mPool, nullptr);
-	}
-
-	descriptorSet::descriptorSet()
-		:
-		mDevice(VK_NULL_HANDLE),
-		mDescriptorSetLayout(VK_NULL_HANDLE),
-		mDescriptorSet(VK_NULL_HANDLE)
-	{
-	}
-
-	engine::error descriptorSet::init(VkDevice device, VkPhysicalDevice physicalDevice)
+	error descriptorSet::init(VkDevice device, VkPhysicalDevice physicalDevice, poolConstraints constraints)
 	{
 		mDevice = device;
 
-		engine::error err;
+		error err;
 		if (mDevice)
 		{
-
 			std::call_once(
 				isPoolCreated,
 				[&]()->void
 				{
-					err = pool.initPool(mDevice);
+					pool.init(mDevice, constraints);
 				}
 			);
 		}
@@ -88,11 +126,6 @@ namespace engine
 	{
 		clearBindings();
 		vkDestroyDescriptorSetLayout(mDevice, mDescriptorSetLayout, nullptr);
-	}
-
-	void descriptorSet::destroyPool()
-	{
-		pool.destroy();
 	}
 
 	void descriptorSet::clearBindings()
@@ -116,7 +149,7 @@ namespace engine
 		mWrite.push_back({ source });
 	}
 
-	engine::error descriptorSet::build(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
+	error descriptorSet::build(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
 	{
 		auto buildLayoutRes = buildLayout(shaderStages, pNext, flags);
 		if (!buildLayoutRes)
@@ -124,7 +157,7 @@ namespace engine
 
 		mDescriptorSetLayout = buildLayoutRes.value();
 
-		auto allocRes = allocate();
+		auto allocRes = pool.allocate(mDescriptorSetLayout);
 		if (!allocRes)
 			return allocRes.err();
 
@@ -222,7 +255,7 @@ namespace engine
 		return result;
 	}
 
-	engine::withError<VkSampler> descriptorSet::createSampler(VkDevice device, float maxFiltering, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressModeU, VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW, VkBool32 anisotropyEnable, VkBorderColor borderColor, VkBool32 unnormalizedCoordinates)
+	withError<VkSampler> descriptorSet::createSampler(VkDevice device, float maxFiltering, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressModeU, VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW, VkBool32 anisotropyEnable, VkBorderColor borderColor, VkBool32 unnormalizedCoordinates)
 	{
 		VkSamplerCreateInfo samplerInfo{};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -250,7 +283,7 @@ namespace engine
 		return sampler;
 	}
 
-	engine::withError<VkDescriptorSetLayout> descriptorSet::buildLayout(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
+	withError<VkDescriptorSetLayout> descriptorSet::buildLayout(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
 	{
 		for (auto& b : mBindings)
 			b.stageFlags |= shaderStages;
@@ -268,19 +301,8 @@ namespace engine
 		return set;
 	}
 
-	engine::withError<VkDescriptorSet> descriptorSet::allocate()
+	uint32_t poolConstraints::getMaxSetsPerPool()
 	{
-		VkDescriptorSetAllocateInfo allocInfo = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
-		allocInfo.pNext = nullptr;
-		allocInfo.descriptorPool = pool.mPool;
-		allocInfo.descriptorSetCount = 1;
-		allocInfo.pSetLayouts = &mDescriptorSetLayout;
-
-		VkDescriptorSet ds;
-		auto result = vkAllocateDescriptorSets(mDevice, &allocInfo, &ds);
-		if (result != VK_SUCCESS)
-			return { vkResultToStr(result) };
-
-		return ds;
+		return maxStorageDescriptors + maxTextureDescriptors;
 	}
 }

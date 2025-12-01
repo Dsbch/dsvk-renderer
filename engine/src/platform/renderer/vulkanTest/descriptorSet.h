@@ -18,11 +18,9 @@ namespace vktest
 		void destory();
 	};
 
-	class descriptorSet
+	struct descriptorSet
 	{
 	public:
-		descriptorSet();
-
 		engine::error init(VkDevice device, VkPhysicalDevice physicalDevice);
 		void destroy();
 		
