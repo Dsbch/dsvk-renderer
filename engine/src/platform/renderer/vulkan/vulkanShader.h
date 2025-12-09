@@ -27,5 +27,6 @@ namespace engine
 		VkShaderModule mShaderModule;
 
 		friend class vulkanRenderer;
+		friend struct pipelineData;
 	};
 }

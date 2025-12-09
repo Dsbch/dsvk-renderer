@@ -26,6 +26,15 @@ namespace engine
 			: tag(tag) {}
 	};
 
+	struct deleteComponent {};
+	struct applyTransformComponent {};
+
+	struct transformComponent
+	{
+		glm::mat4 transform;
+		transformComponent(glm::mat4 transform) : transform(transform) {}
+	};
+
 	struct meshComponent
 	{
 		uint32_t uid;
@@ -38,20 +47,6 @@ namespace engine
 		meshComponent(std::shared_ptr<std::vector<vertex>> meshData, std::shared_ptr<std::vector<uint32_t>> indexData, uint32_t uid)
 			: meshData(meshData), indexData(indexData), uid(uid) {}
 	};
-
-	struct deleteComponent {};
-	struct applyTransformComponent {};
-
-	struct transformComponent
-	{
-		glm::mat4 transform;
-		transformComponent(glm::mat4 transform) : transform(transform) {}
-	};
-
-	static void hashCombine(std::size_t& seed, std::size_t hash)
-	{
-		seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-	}
 
 	struct materialComponent
 	{

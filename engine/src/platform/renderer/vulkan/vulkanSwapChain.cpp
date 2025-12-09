@@ -96,7 +96,7 @@ namespace engine
 		return mSwapchainImageFormat;
 	}
 
-	engine::error swapChain::present(VkQueue graphicQueue, uint32_t swapChainImageIndex)
+	error swapChain::present(VkQueue graphicQueue, uint32_t swapChainImageIndex)
 	{
 		//prepare present
 		// this will put the image we just rendered to into the visible window.
@@ -119,7 +119,7 @@ namespace engine
 		return {};
 	}
 
-	engine::withError<uint32_t> swapChain::acquireImageIndex()
+	withError<uint32_t> swapChain::acquireImageIndex()
 	{
 		uint32_t result = 0;
 		VkResult e = vkAcquireNextImageKHR(mDevice, mSwapchain, 1000000000, getCurrentFrameData().swapchainSemaphore, nullptr, &result);
@@ -132,7 +132,7 @@ namespace engine
 	}
 
 
-	engine::error swapChain::waitOnCurrentFence()
+	error swapChain::waitOnCurrentFence()
 	{
 		auto result = vkWaitForFences(mDevice, 1, &getCurrentFrameData().renderFence, true, 1000000000);
 		if (result != VK_SUCCESS)
@@ -150,7 +150,7 @@ namespace engine
 		return {};
 	}
 
-	engine::error swapChain::resetCommandBuffer()
+	error swapChain::resetCommandBuffer()
 	{
 		auto result = vkResetCommandBuffer(getCurrentFrameData().commandBuffer, 0);
 		if (result != VK_SUCCESS)
@@ -164,7 +164,7 @@ namespace engine
 		return mSwapchainExtent;
 	}
 
-	engine::error swapChain::createSwapChain(uint32_t width, uint32_t height)
+	error swapChain::createSwapChain(uint32_t width, uint32_t height)
 	{
 		vkb::SwapchainBuilder swapchainBuilder{ mChosenGPU, mDevice, mSurface };
 
@@ -216,7 +216,7 @@ namespace engine
 		return {};
 	}
 
-	engine::error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
+	error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
 	{
 		VkCommandPoolCreateInfo commandPoolInfo = commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);

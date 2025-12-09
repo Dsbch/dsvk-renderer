@@ -32,11 +32,12 @@ namespace engine
 			};
 			VmaVirtualAllocation vAllocation{};
 
-			if (vmaVirtualAllocate(crntBuffer.vBlock, &allocateInfo, &vAllocation, 0) == VK_SUCCESS)
+			VkDeviceSize offset = 0;
+			if (vmaVirtualAllocate(crntBuffer.vBlock, &allocateInfo, &vAllocation, &offset) == VK_SUCCESS)
 			{
 				auto handle = bufferHandle{
 						.id = id,
-						.offset = uint32_t(crntBuffer.buffer.getLoadedBytes()),
+						.offset = uint32_t(offset),
 						.bufferIndex = i,
 						.vAllocation = vAllocation,
 				};
@@ -72,7 +73,8 @@ namespace engine
 		};
 		VmaVirtualAllocation vAllocation{};
 
-		if (vmaVirtualAllocate(vBlock, &allocateInfo, &vAllocation, 0) != VK_SUCCESS)
+		VkDeviceSize offset = 0;
+		if (vmaVirtualAllocate(vBlock, &allocateInfo, &vAllocation, &offset) != VK_SUCCESS)
 			return error{ "can't allocate in virtual block" };
 
 		auto err = newBuffer.build(mImmSubmit, data, newSize, sizeInBytes);
@@ -81,7 +83,7 @@ namespace engine
 
 		auto handle = bufferHandle{
 				.id = id,
-				.offset = uint32_t(0),
+				.offset = uint32_t(offset),
 				.bufferIndex = uint32_t(mBuffers.size()),
 				.vAllocation = vAllocation,
 		};
@@ -100,9 +102,7 @@ namespace engine
 		return handle;
 	}
 
-	// TODO: figure out what to do when we free a lot of buffers, but then we also do not use them.
-	// Need some sort of background clean every few frames?
-	void bufferRegistry::deleteBlock(uint32_t id)
+	bool bufferRegistry::deleteBlock(uint32_t id)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
@@ -110,10 +110,11 @@ namespace engine
 			{
 				vmaVirtualFree(mBuffers[i].vBlock, found->vAllocation);
 				mNeedUpdate = true;
-				return;
+				return true;
 			}
 		}
 
+		return false;
 	}
 
 	void bufferRegistry::destroy()
@@ -142,6 +143,11 @@ namespace engine
 		}
 
 		return descriptorSet::getWriteInfo(binding, bufferInfo);
+	}
+
+	void bufferRegistry::setUpdated()
+	{
+		mNeedUpdate = false;
 	}
 
 	bool bufferRegistry::needDecriptorUpdate() const
@@ -177,6 +183,11 @@ namespace engine
 	// it's a by product of not storing textures in CPU RAM.
 	void textureRegistry::destroy()
 	{
+	}
+
+	void textureRegistry::setUpdated()
+	{
+		mNeedUpdate = false;
 	}
 
 	bool textureRegistry::needDecriptorUpdate() const

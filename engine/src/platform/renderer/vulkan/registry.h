@@ -1,3 +1,4 @@
+#pragma once
 #include <pch.h>
 
 #include "platform/renderer/vertex.h"
@@ -36,8 +37,9 @@ namespace engine
 	public:
 		void init(VkDevice device, VmaAllocator allocator, immediateSubmit immSubmit);
 		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, size_t newSize = newBufferSize);
-		void deleteBlock(uint32_t id);
+		bool deleteBlock(uint32_t id);
 		void destroy();
+		void setUpdated();
 		bool needDecriptorUpdate() const;
 
 		VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t binding, uint32_t maxDescriptorCount) const;
@@ -59,6 +61,7 @@ namespace engine
 		uint32_t addTexture(uint32_t id, const vulkanImage& texture);
 		void deleteTexture(uint32_t offset);
 		void destroy();
+		void setUpdated();
 		bool needDecriptorUpdate() const;
 
 		VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t binding, uint32_t maxDescriptorCount) const;

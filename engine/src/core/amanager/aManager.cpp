@@ -100,4 +100,48 @@ namespace engine
 
 		return texture.value();
 	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultTaskShader(renderer* r)
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshAs.spv";
+
+		return loadShader(path, r);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultMeshShader(renderer* r)
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshMs.spv";
+
+		return loadShader(path, r);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultPixelShader(renderer* r)
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshPs.spv";
+
+		return loadShader(path, r);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultComputeShader(renderer* r)
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkCompute.spv";
+
+		return loadShader(path, r);
+#endif // VULKAN
+
+		return error{"not implemented"};
+	}
 }

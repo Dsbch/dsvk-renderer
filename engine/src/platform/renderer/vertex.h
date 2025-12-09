@@ -24,54 +24,52 @@ namespace engine
 		glm::vec3 tangent;
 		float _pad3;
 	};
-
-	struct materialOffset
+	
+	// Task shader buffer, to get meshlet and instanceAttrs.
+	struct meshletToInstance
 	{
-		uint32_t albedo;
-		uint32_t roughness;
-		uint32_t normal;
-		uint32_t metalic;
-		uint32_t ao;
+		uint32_t instanceIndex;
+		uint32_t instanceOffset;
+
+		uint32_t meshletIndex;
+		uint32_t meshletOffset;
 	};
 
-	struct bindlessOffset
+	struct perInstanceAttr
 	{
-		uint32_t bufferIndex;
-		uint32_t offset;
-	};
+		// TODO: figure out how to handle index updates for textures.
+		uint32_t albedoIndex;
+		uint32_t roughnessIndex;
+		uint32_t normalIndex;
+		uint32_t metalicIndex;
+		uint32_t aoIndex;
 
-	struct meshOffset
-	{
-		bindlessOffset vertex;
-		bindlessOffset index;
-		bindlessOffset primitive;
-		bindlessOffset meshlet;
-	};
+		uint32_t _pad0[3];
 
-	struct instanceAttributes
-	{
-		materialOffset textureOffset;
-		meshOffset meshOffset;
 		glm::mat4 modelMatrix;
 	};
 
 	struct meshlet
 	{
-		/* offsets within meshlet_vertices and meshlet_triangles arrays with meshlet data */
-		uint32_t vertex_offset;
-		uint32_t triangle_offset;
+		uint32_t indexBufferIndex;
+		uint32_t indexBufferOffset;
 
-		/* number of vertices and triangles used in the meshlet; data is stored in consecutive range defined by offset and count */
-		uint32_t vertex_count;
-		uint32_t triangle_count;
+		uint32_t vertexBufferIndex;
+		uint32_t vertexBufferOffset;
+		uint32_t vertexCount;
+
+		uint32_t triangleBufferIndex;
+		uint32_t triangleBufferOffset;
+		uint32_t triangleCount;
 	};
+
 
 	struct mesh
 	{
 		std::shared_ptr<std::vector<vertex>> vertexBuffer;
-		std::vector<uint32_t> indexBuffer;
-		std::vector<uint32_t> primitiveBuffer;
-		std::vector<meshlet> meshletBuffer;
+		std::shared_ptr<std::vector<uint32_t>> indexBuffer;
+		std::shared_ptr<std::vector<uint32_t>> primitiveBuffer;
+		std::shared_ptr<std::vector<meshlet>> meshletBuffer;
 	};
 
 	struct lodMesh
@@ -110,9 +108,9 @@ namespace engine
 		uint32_t id;
 		material mat;
 		lodMesh mesh;
-		instanceAttributes instanceAttributes;
+		perInstanceAttr instanceAttributes;
 	};
 }
 
 static_assert(std::is_trivially_constructible_v<engine::vertex>&& std::is_standard_layout_v<engine::vertex>);
-static_assert(std::is_trivially_constructible_v<engine::instanceAttributes>&& std::is_standard_layout_v<engine::instanceAttributes>);
+static_assert(std::is_trivially_constructible_v<engine::perInstanceAttr>&& std::is_standard_layout_v<engine::perInstanceAttr>);

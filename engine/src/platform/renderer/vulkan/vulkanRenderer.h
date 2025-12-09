@@ -12,6 +12,7 @@
 #include "vulkanShader.h"
 #include "vulkanTexture.h"
 #include "registry.h"
+#include "pipelineData.h"
 
 namespace engine
 {
@@ -60,23 +61,14 @@ namespace engine
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
 
+		uint32_t perInstanceBinding;
+		uint32_t meshletToInstanceBinding;
+
 		uint32_t albedoBinding;
 		uint32_t normalBinding;
 		uint32_t roughnessBinding;
 		uint32_t metalicBinding;
 		uint32_t aoBinding;
-
-		uint32_t perInstanceBinding;
-		uint32_t perMeshletBinding;
-	};
-
-	struct pipelineData
-	{
-		classicGraphicPipeline pipeline;
-		vulkanBuffer perInstanceBuffer;
-		std::vector<instanceAttributes> perInstanceData;
-		vulkanBuffer perMeshletBuffer;
-		std::vector<uint32_t> perMeshletData;
 	};
 
 	struct limits
@@ -86,6 +78,12 @@ namespace engine
 		float maxFiltering;
 	};
 
+	// TODO:
+	// 1. I think I should use bufferRegistry for all buffers even for perInstanceBuffer and perMeshletBuffer, only exception is meshletToInstanceBuffer.
+	//	  And simply add two indexes and two offsets for meshlet and perInstance buffers in meshletToInstanceBuffer.
+	//    I won't need to worry about defragmentation because it just won't happen, I only need two more fields per buffer in mesheltToInstanceBuffer.
+	// 2. Figure out a mechanism that will update texture indexes in instanceBuffer, actully I won't even need to update descriptor set after I update instance buffer.
+	//    But I will need to keep track of each model index and offset in that buffer to update them later in meshletToInstance buffer.
 	class vulkanRenderer : public renderer
 	{
 	public:
@@ -96,7 +94,7 @@ namespace engine
 		error checkError() const;
 		error changeViewPort(uint32_t width, uint32_t height);
 		error addToRender(model& m);
-		void remove(const model& m);
+		void removeFromRender(const model& m);
 		error render();
 
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
@@ -118,10 +116,7 @@ namespace engine
 		error setBackgroundDescriptors();
 		error setGeometryDescriptors();
 		void updateGeometryDescriptors();
-		error uploadPerInstanceData(pipelineData& data);
-		error updateGeometryPerInstaceDescriptors(pipelineData& data);
 		error initBackgroundPipeline();
-		withError<pipelineData> createPipelineData(std::shared_ptr<shader> pixelShader);
 
 		bool mWindowMinimized;
 
@@ -166,4 +161,54 @@ namespace engine
 		typedef std::shared_ptr<shader> pixelShader;
 		std::map<pixelShader, pipelineData> mGeometryPipelines;
 	};
+
+	inline VkRenderingAttachmentInfo depthAttachmentInfo(
+		VkImageView view, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+	{
+		VkRenderingAttachmentInfo depthAttachment{};
+		depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+		depthAttachment.pNext = nullptr;
+
+		depthAttachment.imageView = view;
+		depthAttachment.imageLayout = layout;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depthAttachment.clearValue.depthStencil.depth = 0.f;
+
+		return depthAttachment;
+	}
+
+	inline VkRenderingAttachmentInfo attachmentInfo(
+		VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+	{
+		VkRenderingAttachmentInfo colorAttachment{};
+		colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+		colorAttachment.pNext = nullptr;
+
+		colorAttachment.imageView = view;
+		colorAttachment.imageLayout = layout;
+		colorAttachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		if (clear) {
+			colorAttachment.clearValue = *clear;
+		}
+
+		return colorAttachment;
+	}
+
+	inline VkRenderingInfo renderingInfo(VkExtent3D renderExtent, VkRenderingAttachmentInfo* colorAttachment, VkRenderingAttachmentInfo* depthAttachment)
+	{
+		VkRenderingInfo renderInfo{};
+		renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+		renderInfo.pNext = nullptr;
+
+		renderInfo.renderArea = VkRect2D{ VkOffset2D { 0, 0 }, VkExtent2D{.width = renderExtent.width, .height = renderExtent.height} };
+		renderInfo.layerCount = 1;
+		renderInfo.colorAttachmentCount = 1;
+		renderInfo.pColorAttachments = colorAttachment;
+		renderInfo.pDepthAttachment = depthAttachment;
+		renderInfo.pStencilAttachment = nullptr;
+
+		return renderInfo;
+	}
 }

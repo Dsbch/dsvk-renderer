@@ -3,7 +3,8 @@
 #include <pch.h>
 
 namespace engine {
-	class error 
+	// TODO: add errors.Is functional like in go. Should compare only pointers or at least error codes.
+	class error
 	{
 	private:
 		std::string mValue;
@@ -20,7 +21,8 @@ namespace engine {
 	template<typename ...T>
 	inline error::error(const std::string& fmtStr, T&&... args)
 		: mValue(fmt::format(fmt::runtime(fmtStr), std::forward<T>(args)...))
-	{}
+	{
+	}
 
 	template<typename T>
 	class withError
@@ -114,7 +116,7 @@ namespace engine {
 			return mStorage.value;
 		}
 
-		const T& value() const 
+		const T& value() const
 		{
 			if (!mHasValue) throw std::logic_error("Accessing value when error is present");
 			return mStorage.value;
@@ -132,7 +134,7 @@ namespace engine {
 			return mStorage.err;
 		}
 
-		const error& err() const 
+		const error& err() const
 		{
 			if (mHasValue) throw std::logic_error("Accessing error when value is present");
 			return mStorage.err;
@@ -152,9 +154,11 @@ namespace engine {
 			error err;
 
 			Storage()
-			{}
+			{
+			}
 			~Storage()
-			{}
+			{
+			}
 		} mStorage;
 
 		bool mHasValue = false;

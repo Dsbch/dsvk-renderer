@@ -11,6 +11,10 @@ namespace engine
 	class aManager
 	{
 	public:
+		withError<std::shared_ptr<shader>> getDefaultTaskShader(renderer* r);
+		withError<std::shared_ptr<shader>> getDefaultMeshShader(renderer* r);
+		withError<std::shared_ptr<shader>> getDefaultPixelShader(renderer* r);
+		withError<std::shared_ptr<shader>> getDefaultComputeShader(renderer* r);
 		withError<std::shared_ptr<shader>> loadShader(const std::string& shaderPath, renderer* r);
 		withError<std::shared_ptr<texture>> loadTexture(const std::string& path, renderer* r);
 	private:
