@@ -38,6 +38,11 @@ project "sandbox"
 
    filter "system:windows"
         buildoptions { "/utf-8" }
+        defines 
+        { 
+           "_GLM_WIN32",
+           "_CRT_SECURE_NO_WARNINGS"
+        }
 
    filter "system:windows"
        systemversion "latest"

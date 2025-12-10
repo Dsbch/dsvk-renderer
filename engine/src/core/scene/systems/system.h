@@ -1,10 +1,8 @@
 #pragma once
 
 #include <pch.h>
-#include <entt/entt.hpp>
 #include "base/context/context.h"
-#include "core/camera/camera.h"
-#include "core/scene/components.h"
+#include <entt/entt.hpp>
 
 namespace engine
 {

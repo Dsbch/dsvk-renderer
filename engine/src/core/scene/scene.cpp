@@ -3,8 +3,8 @@
 #include "base/profiling/profiling.h"
 #include "core/scene/entity.h"
 #include "core/scene/components.h"
-#include "core/scene/systems/render/renderSystems.h"
-#include "core/scene/systems/camera/cameraSystems.h"
+#include "core/scene/systems/render/renderSystem.h"
+#include "core/scene/systems/camera/cameraSystem.h"
 
 namespace engine
 {
@@ -16,8 +16,8 @@ namespace engine
 		mSceneRegistry(), mCtx(ctx), mSystems()
 	{
 		// core engine systems.
-		addSystem(std::make_unique<renderSystems>(mCtx, wnd));
-		addSystem(std::make_unique<cameraSystems>(mCtx));
+		addSystem(std::make_unique<renderSystem>(mCtx, wnd));
+		addSystem(std::make_unique<cameraSystem>(mCtx));
 	}
 
 	error scene::onRender()

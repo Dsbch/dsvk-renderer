@@ -1,21 +1,22 @@
 #pragma once
 
 #include <pch.h>
-#include "cameraMovement.h"
+#include "core/scene/systems/system.h"
+#include "platform/window/window.h"
 
 namespace engine
 {
-	class cameraSystems : public system
+	class renderSystem :
+		public system
 	{
 	public:
-		cameraSystems(std::shared_ptr<context> ctx);
-
+		renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
+	
 		error checkError();
 		error onUpdate(entt::registry& registry);
 		error onRender(entt::registry& registry);
 		error onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
 	private:
-		std::unique_ptr<cameraMovement> mCameraMovement;
+		std::shared_ptr<renderer> mRenderer;
 	};
 }
-

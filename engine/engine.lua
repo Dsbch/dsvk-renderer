@@ -51,7 +51,6 @@ project "engine"
    links
    {
       "spdlog",
-      "glm",
       "meshoptimizer",
       "glfw",
    }
@@ -67,7 +66,12 @@ project "engine"
    }
 
    filter "system:windows"
-        buildoptions { "/utf-8" }
+         buildoptions { "/utf-8" }
+         defines 
+         { 
+            "_GLM_WIN32",
+            "_CRT_SECURE_NO_WARNINGS"
+         }
 
    filter { "files:assets/shaders/**" }
         buildaction "None"

@@ -33,7 +33,6 @@ workspace "dsengine"
 
    include "engine/engine.lua"
    include "vendor/spdlog.lua"   
-   include "vendor/glm.lua"
    include "editor/editor.lua"
    include "sandbox/sandbox.lua"
    include "vendor/vk-bootstrap.lua"

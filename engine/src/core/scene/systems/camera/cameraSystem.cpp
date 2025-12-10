@@ -1,27 +1,31 @@
 #include <pch.h>
 
-#include "cameraMovement.h"
-#include "core/scene/components.h"
+#include <core/scene/components.h>
+#include "cameraSystem.h"
 
 namespace engine
 {
-	cameraMovement::cameraMovement(std::shared_ptr<context> ctx)
-		:
-		system(ctx)
+	cameraSystem::cameraSystem(std::shared_ptr<context> ctx)
+		: system(ctx)
 	{
 	}
 
-	error cameraMovement::checkError()
-	{
-		return {};
-	}
-
-	error cameraMovement::onRender(entt::registry& registry)
+	error cameraSystem::checkError()
 	{
 		return {};
 	}
 
-	error cameraMovement::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
+	error cameraSystem::onUpdate(entt::registry& registry)
+	{
+		return {};
+	}
+
+	error cameraSystem::onRender(entt::registry& registry)
+	{
+		return {};
+	}
+
+	error cameraSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
 		// TODO: figure out how to apply application settings to it.
 		for (auto [entity, camera, input] : registry.view<fpsCameraComponent, inputListenerComponent>().each())
@@ -72,12 +76,7 @@ namespace engine
 		return {};
 	}
 
-	error cameraMovement::onUpdate(entt::registry& registry)
-	{
-		return {};
-	}
-
-	void cameraMovement::spawnDefaultCamera(entt::registry& registry) const
+	void cameraSystem::spawnDefaultCamera(entt::registry& registry) const
 	{
 		auto c = registry.create();
 

@@ -433,7 +433,6 @@ namespace engine
 		return {};
 	}
 
-	//TODO: add descriptors update for pipelinedata.
 	error vulkanRenderer::geometryPass(VkCommandBuffer cmd)
 	{
 		updateGeometryDescriptors();
@@ -457,14 +456,10 @@ namespace engine
 				return err;
 
 			// update perInstanceRegistry for pipeline.
-			if (v.needPerInstanceDescriptorUpdate())
-			{
-				mDescriptorSetMesh.clearWrites();
-				mDescriptorSetMesh.addWrite(v.getMeshletToInstanceWriteInfo(mGeometryBinding.perInstanceBinding));
-				mDescriptorSetMesh.updateWrite();
-
-				v.setPerInstanceDescriptorUpdated();
-			}
+			// Need to update every frame for each pipeline.
+			mDescriptorSetMesh.clearWrites();
+			mDescriptorSetMesh.addWrite(v.getMeshletToInstanceWriteInfo(mGeometryBinding.perInstanceBinding));
+			mDescriptorSetMesh.updateWrite();
 
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
 
@@ -488,7 +483,7 @@ namespace engine
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
 
 			// set push constants.
-			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_MESH_BIT_EXT, 0, shader->getPushConstant().size, shader->getPushConstant().data.data());
+			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, shader->getPushConstant().size, shader->getPushConstant().data.data());
 
 			// bind the descriptor set.
 			auto set = mDescriptorSetMesh.getDescriptorSet().first;

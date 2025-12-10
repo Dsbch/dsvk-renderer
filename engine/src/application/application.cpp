@@ -1,8 +1,8 @@
 #include <pch.h>
 #include "application.h"
-#include "core/layers/layerStack.h"
-#include "core/layers/layer.h"
 #include "platform/window/window.h"
+#include "core/scene/scene.h"
+#include "core/scene/systems/system.h"
 
 namespace engine
 {
@@ -13,7 +13,7 @@ namespace engine
 		if (auto err = mWindow->checkError(); err)
 			return err;
 
-		if (auto err = mLayerStack->checkError(); err)
+		if (auto err = mScene->checkError(); err)
 			return err;
 
 		return mErr;
@@ -52,13 +52,6 @@ namespace engine
 		return {};
 	}
 
-	error application::createLayerStack()
-	{
-		pushLayer(std::make_unique<worldLayer>(mCtx, mWindow));
-
-		return mLayerStack->checkError();
-	}
-
 	error application::update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
 	{
 		auto k = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
@@ -77,13 +70,13 @@ namespace engine
 					mRunning = false;
 				}
 
-				auto err = mLayerStack->onEvent(e);
+				auto err = mScene->onEvent(e);
 				if (err)
 					return err;
 			}
 
 			// run updates.
-			auto err = mLayerStack->onUpdate();
+			auto err = mScene->onUpdate();
 			if (err)
 				return err;
 
@@ -97,7 +90,7 @@ namespace engine
 	{
 		if (mCtx->timer.toMS(mCtx->timer.getTimeSinceStart()) >= nextRender)
 		{
-			auto err = mLayerStack->onRender();
+			auto err = mScene->onRender();
 			if (err)
 				return err;
 
@@ -110,7 +103,7 @@ namespace engine
 
 	application::application()
 		:
-		mErr(), mCtx(std::make_shared<context>(cfg<main>{})), mLayerStack(std::make_unique<layerStack>()), mWindow(nullptr), mRunning(false)
+		mErr(), mCtx(std::make_shared<context>(cfg<main>{})), mScene(nullptr), mWindow(nullptr), mRunning(false)
 	{
 		mErr = initApplication();
 		if (mErr)
@@ -120,11 +113,16 @@ namespace engine
 		if (mErr)
 			return;
 
-		mErr = createLayerStack();
-		if (mErr)
+		mScene = std::make_unique<scene>(mCtx, mWindow);
+		if (mErr = mScene->checkError(); mErr)
 			return;
 
 		app = this;
+	}
+
+	void application::addUserSystem(std::unique_ptr<system>&& s)
+	{
+		mScene->addUserSystem(std::move(s));
 	}
 
 	application::~application()
@@ -132,16 +130,6 @@ namespace engine
 #ifdef DEBUG
 		DUMP_PROFILING("prof.json");
 #endif // DEBUG
-	}
-
-	void application::pushLayer(std::unique_ptr<layer>&& l)
-	{
-		mLayerStack->pushLayer(std::move(l));
-	}
-
-	void application::pushOverlay(std::unique_ptr<layer>&& l)
-	{
-		mLayerStack->pushOverlay(std::move(l));
 	}
 
 	error application::run()
@@ -167,5 +155,11 @@ namespace engine
 		}
 
 		return {};
+	}
+
+
+	std::shared_ptr<context> application::getAppContext()
+	{
+		return mCtx;
 	}
 }

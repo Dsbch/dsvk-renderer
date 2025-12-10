@@ -1,16 +1,15 @@
 #pragma once
 
 #include <pch.h>
-#include <entt/entt.hpp>
 #include "base/context/context.h"
 #include "core/events/events.h"
-#include "core/camera/camera.h"
-#include "core/scene/systems/system.h"
-#include "platform/window/window.h"
+#include <entt/entt.hpp>
 
 namespace engine
 {
 	class entity;
+	class system;
+	class window;
 
 	class scene
 	{
@@ -25,7 +24,6 @@ namespace engine
 
 		entity createEntity(const std::string&);
 		entity createEntity();
-		void addSystem(std::unique_ptr<system>&&);
 
 		static void addUserSystem(std::unique_ptr<system>&&);
 	protected:
@@ -34,6 +32,7 @@ namespace engine
 	private:
 		static std::vector<std::unique_ptr<system>> mUserSystems;
 		
+		void addSystem(std::unique_ptr<system>&&);
 		entt::registry mSceneRegistry;
 		std::vector<std::unique_ptr<system>> mSystems;
 

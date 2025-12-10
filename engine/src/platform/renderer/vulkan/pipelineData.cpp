@@ -160,16 +160,6 @@ namespace engine
 		return {};
 	}
 
-	void pipelineData::setPerInstanceDescriptorUpdated()
-	{
-		mPerInstanceRegistry.setUpdated();
-	}
-
-	bool pipelineData::needPerInstanceDescriptorUpdate()
-	{
-		return mPerInstanceRegistry.needDecriptorUpdate();
-	}
-
 	std::vector<VkWriteDescriptorSet> pipelineData::getPerInstanceWriteInfo(uint32_t binding)
 	{
 		return mPerInstanceRegistry.getWriteInfo(binding);

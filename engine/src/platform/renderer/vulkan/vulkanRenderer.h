@@ -78,12 +78,6 @@ namespace engine
 		float maxFiltering;
 	};
 
-	// TODO:
-	// 1. I think I should use bufferRegistry for all buffers even for perInstanceBuffer and perMeshletBuffer, only exception is meshletToInstanceBuffer.
-	//	  And simply add two indexes and two offsets for meshlet and perInstance buffers in meshletToInstanceBuffer.
-	//    I won't need to worry about defragmentation because it just won't happen, I only need two more fields per buffer in mesheltToInstanceBuffer.
-	// 2. Figure out a mechanism that will update texture indexes in instanceBuffer, actully I won't even need to update descriptor set after I update instance buffer.
-	//    But I will need to keep track of each model index and offset in that buffer to update them later in meshletToInstance buffer.
 	class vulkanRenderer : public renderer
 	{
 	public:

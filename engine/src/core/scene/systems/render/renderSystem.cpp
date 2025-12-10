@@ -1,32 +1,32 @@
 #include <pch.h>
-#include "renderSystems.h"
+#include "renderSystem.h"
 #include "platform/renderer/renderer.h"
 
 namespace engine
 {
-	renderSystems::renderSystems(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
+	renderSystem::renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
 		:
 		system(ctx),
 		mRenderer(makeRenderer(ctx, wnd))
 	{
 	}
 
-	error renderSystems::checkError()
+	error renderSystem::checkError()
 	{
 		return mRenderer->checkError();
 	}
 
-	error renderSystems::onUpdate(entt::registry& registry)
+	error renderSystem::onUpdate(entt::registry& registry)
 	{
 		return {};
 	}
 
-	error renderSystems::onRender(entt::registry& registry)
+	error renderSystem::onRender(entt::registry& registry)
 	{
 		return mRenderer->render();
 	}
 
-	error renderSystems::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
+	error renderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
 	{
 		if (e->getEventType() == eventType::windowResize)
 		{

@@ -7,8 +7,8 @@
 namespace engine
 {
 	class window;
-	class layerStack;
-	class layer;
+	class scene;
+	class system;
 
 	class application
 	{
@@ -16,8 +16,8 @@ namespace engine
 		application();
 		virtual ~application();
 
-		void pushLayer(std::unique_ptr<layer>&&);
-		void pushOverlay(std::unique_ptr<layer>&&);
+		std::shared_ptr<context> getAppContext();
+		void addUserSystem(std::unique_ptr<system>&&);
 		error run();
 		error checkError();
 	protected:
@@ -26,12 +26,11 @@ namespace engine
 		std::shared_ptr<window> mWindow;
 		bool mRunning;
 	private:
-		std::unique_ptr<layerStack> mLayerStack;
 		static application* app;
 
+		std::unique_ptr<scene> mScene;
 		error initApplication();
 		error createWindow();
-		error createLayerStack();
 		error update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
 		error onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
 	};

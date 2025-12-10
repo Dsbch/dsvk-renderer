@@ -1,13 +1,31 @@
 #include <application/application.h>
+#include <core/scene/systems/system.h>
 
-// GLOBAL TODO:
-// Right now I need to:
-// 1. Setup per meshlet buffer that will have indecies in perInstance buffer.
-//    That new buffer will be used by task shader. (Each task shader should be run as (1, 1, 1) in local thread group).
-//    And each task shader should be run only for one meshlet, then it selects index from per meshlet buffer and goes into instance buffer.
-//    Also perMeshletBuffer should be updated each frame (basicly reupload of uin32_t) and inside shader it will be just one buffer without descriptor indexing.
-// 2. Setup task shader.
-// 3. Debug and suffer.
+class sandboxSystem : public engine::system
+{
+public:
+	sandboxSystem(std::shared_ptr<engine::context> ctx) : engine::system(ctx) {};
+	
+	engine::error checkError()
+	{
+		return {};
+	}
+
+	engine::error onUpdate(entt::registry& registry)
+	{
+		return {};
+	}
+
+	engine::error onRender(entt::registry& registry)
+	{
+		return {};
+	}
+
+	engine::error onEvent(entt::registry& registry, std::shared_ptr<engine::baseEvent> e)
+	{
+		return {};
+	}
+};
 
 int main(int argc, char* argv[])
 {
@@ -15,6 +33,16 @@ int main(int argc, char* argv[])
 	{
 		engine::application app;
 		engine::error err = app.checkError();
+		if (err)
+		{
+			LOGERROR(err.err());
+			return 0;
+		}
+
+		auto ss = std::make_unique<sandboxSystem>(app.getAppContext());
+
+		app.addUserSystem(std::move(ss));
+		err = app.checkError();
 		if (err)
 		{
 			LOGERROR(err.err());

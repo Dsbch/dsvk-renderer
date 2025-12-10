@@ -1,7 +1,7 @@
 #pragma once
 
 #include <pch.h>
-#include <glm/gtc/type_ptr.inl>
+#include <glm/gtc/type_ptr.hpp>
 #include "core/camera/camera.h"
 #include "core/events/events.h"
 #include "platform/renderer/vertex.h"

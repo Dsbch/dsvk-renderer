@@ -26,8 +26,6 @@ namespace engine
 		error addInstance(uint32_t id, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr);
 		error updateMeshletToInstanceBuffer();
 		void removeInstance(uint32_t id);
-		void setPerInstanceDescriptorUpdated();
-		bool needPerInstanceDescriptorUpdate();
 		std::vector<VkWriteDescriptorSet> getPerInstanceWriteInfo(uint32_t binding);
 		std::vector<VkWriteDescriptorSet> getMeshletToInstanceWriteInfo(uint32_t binding);
 		uint32_t getTaskShaderCount();

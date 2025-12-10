@@ -30,13 +30,10 @@ namespace engine
 	{
 #ifdef VULKAN
 		mProjectionMatrix = glm::perspective(glm::radians(mFov), float(mWidth) / float(mHeight), mFarPlane, mNearPlane);
+		mProjectionMatrix[1][1] *= -1;
 #else // VULKAN
 		mProjectionMatrix = glm::perspective(glm::radians(mFov), float(mWidth) / float(mHeight), mNearPlane, mFarPlane);
 #endif
-	
-#ifdef VULKAN
-		mProjectionMatrix[1][1] *= -1;
-#endif // VULKAN
 	}
 
 	fpsCamera::fpsCamera(
