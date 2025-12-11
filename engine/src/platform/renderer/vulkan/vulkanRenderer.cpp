@@ -442,11 +442,7 @@ namespace engine
 
 	error vulkanRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		static std::once_flag first;
-		static std::once_flag second;
-
 		 updateGeometryDescriptors();
-		//std::call_once(first, [&]() { updateGeometryDescriptors(); });
 
 		if (mGeometryPipelines.size() != 0)
 		{
@@ -470,7 +466,6 @@ namespace engine
 			// Need to update every frame for each pipeline.
 			auto writes = v.getMeshletToInstanceWriteInfo(mGeometryBinding.meshletToInstanceBinding);
 			mDescriptorSetMesh.updateWrite(writes);
-			//std::call_once(second, [&]() { mDescriptorSetMesh.updateWrite(writes); });
 
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
 

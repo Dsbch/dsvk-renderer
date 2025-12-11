@@ -42,25 +42,11 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto lodMesh = engine::loadMesh("../assets/cube26.glb", 64, 64, 0.5f);
+				auto lodMesh = engine::loadMesh("../assets/horse_statue_01_4k.glb", 64, 64, 0.5f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");
 					return {};
-				}
-
-
-				auto lodMesh1 = engine::loadMeshTest("../assets/cube26.glb", 64, 64, 0.5f);
-
-				for (auto m : lodMesh.value().lodLevels)
-				{
-					LOGINFO(
-						"meshOpt end vertexCount: {}, triagnleCount: {}, meshletsCount: {}, indexBufferCount: {}",
-						lodMesh.value().vertexBuffer->size(),
-						m.primitiveBuffer->size(),
-						m.meshletBuffer->size(),
-						m.indexBuffer->size()
-					);
 				}
 
 				auto pixel = mCtx->mAmanager->getDefaultPixelShader();

@@ -41,7 +41,7 @@ namespace engine
 	{
 		uint32_t width = 1920;
 		uint32_t height = 1080;
-		bool showCursor = true;
+		bool showCursor = false;
 		std::string name = "engine";
 	};
 

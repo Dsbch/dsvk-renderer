@@ -163,10 +163,6 @@ namespace engine
         glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
         glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-#ifdef DEBUG
-        monitor = nullptr;
-#endif // DEBUG
-
 		mWnd = glfwCreateWindow(width, heigth, name.c_str(), monitor, nullptr);
 		if (!mWnd)
 		{
@@ -186,7 +182,10 @@ namespace engine
         glfwSetWindowCloseCallback(mWnd, windowCloseCallback);
         glfwSetFramebufferSizeCallback(mWnd, framebufferSizeCallback);
         glfwSetWindowSizeCallback(mWnd, windowSizeCallback);
-	}
+	
+        if (!showCuresor)
+            toggleCursor();
+    }
 
 	window::~window()
 	{
