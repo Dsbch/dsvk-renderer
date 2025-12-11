@@ -25,13 +25,13 @@ namespace engine
 
 		mBuffer = createBufRes.value();
 
-		if (data && validBytes != 0)
+		if (data && mLoadedBytes != 0)
 		{
-			auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+			auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
 			if (!stagingBuffer)
 				return stagingBuffer.err();
 
-			std::memcpy(stagingBuffer.value().info.pMappedData, data, sizeInBytes);
+			std::memcpy(stagingBuffer.value().info.pMappedData, data, mLoadedBytes);
 
 			auto err = is.submit(
 				[&](VkCommandBuffer cmd)
@@ -39,7 +39,7 @@ namespace engine
 					VkBufferCopy copy{};
 					copy.dstOffset = 0;
 					copy.srcOffset = 0;
-					copy.size = validBytes;
+					copy.size = mLoadedBytes;
 
 					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
 				}

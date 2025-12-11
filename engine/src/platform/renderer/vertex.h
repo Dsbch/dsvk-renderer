@@ -24,7 +24,7 @@ namespace engine
 		glm::vec3 tangent;
 		float _pad3;
 	};
-	
+
 	// Task shader buffer, to get meshlet and instanceAttrs.
 	struct meshletToInstance
 	{
@@ -66,7 +66,6 @@ namespace engine
 
 	struct mesh
 	{
-		std::shared_ptr<std::vector<vertex>> vertexBuffer;
 		std::shared_ptr<std::vector<uint32_t>> indexBuffer;
 		std::shared_ptr<std::vector<uint32_t>> primitiveBuffer;
 		std::shared_ptr<std::vector<meshlet>> meshletBuffer;
@@ -74,6 +73,7 @@ namespace engine
 
 	struct lodMesh
 	{
+		std::shared_ptr<std::vector<vertex>> vertexBuffer;
 		std::array<mesh, 4> lodLevels;
 
 		uint32_t hash = 0;
@@ -86,7 +86,7 @@ namespace engine
 			if (hash != 0)
 				return hash;
 
-			hash = crc32(reinterpret_cast<const uint8_t*>(lodLevels.front().vertexBuffer->data()), lodLevels.front().vertexBuffer->size());
+			hash = crc32(reinterpret_cast<const uint8_t*>(vertexBuffer->data()), vertexBuffer->size());
 
 			return hash;
 		}
@@ -109,6 +109,13 @@ namespace engine
 		material mat;
 		lodMesh mesh;
 		perInstanceAttr instanceAttributes;
+	};
+
+	struct pushConstants
+	{
+		uint32_t taskShaderInvocationCount;
+		float pad0[3];
+		glm::mat4 viewProjection;
 	};
 }
 

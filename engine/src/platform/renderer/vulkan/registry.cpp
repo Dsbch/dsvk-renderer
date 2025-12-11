@@ -44,7 +44,7 @@ namespace engine
 
 				crntBuffer.bufferHandles.insert(handle);
 
-				auto err = crntBuffer.buffer.updateBuffer(mImmSubmit, data, sizeInBytes, crntBuffer.buffer.getLoadedBytes());
+				auto err = crntBuffer.buffer.updateBuffer(mImmSubmit, data, sizeInBytes, offset);
 				if (err)
 					return err;
 
@@ -125,24 +125,18 @@ namespace engine
 		mBuffers.clear();
 	}
 
-	VkDescriptorSetLayoutBinding bufferRegistry::getLayoutBinding(uint32_t binding, uint32_t maxDescriptorCount) const
-	{
-		return descriptorSet::getLayoutBindingInfo(binding, maxDescriptorCount, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-	}
-
 	std::vector<VkWriteDescriptorSet> bufferRegistry::getWriteInfo(uint32_t binding)
 	{
-		std::vector<VkDescriptorBufferInfo> bufferInfo{};
-		bufferInfo.reserve(mBuffers.size());
+		mBuffersInfo.clear();
 
 		for (auto& b : mBuffers)
 		{
-			bufferInfo.push_back(
+			mBuffersInfo.push_back(
 				VkDescriptorBufferInfo{ .buffer = b.buffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE }
 			);
 		}
 
-		return descriptorSet::getWriteInfo(binding, bufferInfo);
+		return descriptorSet::getWriteInfo(binding, mBuffersInfo);
 	}
 
 	void bufferRegistry::setUpdated()
@@ -195,14 +189,10 @@ namespace engine
 		return mNeedUpdate;
 	}
 
-	VkDescriptorSetLayoutBinding textureRegistry::getLayoutBinding(uint32_t binding, uint32_t maxDescriptorCount) const
-	{
-		return descriptorSet::getLayoutBindingInfo(binding, maxDescriptorCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	}
-
 	std::vector<VkWriteDescriptorSet> textureRegistry::getWriteInfo(uint32_t binding)
 	{
-		std::vector<VkDescriptorImageInfo> imageInfos;
+		mImagesInfo.clear();
+
 		for (auto& i : mTextures)
 		{
 			VkDescriptorImageInfo info{};
@@ -210,9 +200,9 @@ namespace engine
 			info.imageView = i.image.view;
 			info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-			imageInfos.push_back(info);
+			mImagesInfo.push_back(info);
 		}
 
-		return descriptorSet::getWriteInfo(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfos);
+		return descriptorSet::getWriteInfo(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, mImagesInfo);
 	}
 }

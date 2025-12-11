@@ -5,7 +5,6 @@
 
 #include "platform/renderer/vertex.h"
 
-#define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
 #include <meshoptimizer.h>
@@ -87,6 +86,8 @@ static bool loadMeshFromGLTF(const std::filesystem::path& path,
 			return;
 
 		uint32_t baseIndex = static_cast<uint32_t>(outVertices.size());
+
+		LOGINFO("base index {}", baseIndex);
 
 		// --- Vertices ---
 		for (size_t i = 0; i < positionAccessor->count; ++i) {
@@ -923,7 +924,7 @@ namespace vktest
 
 		// set push constants.
 		pushConstants pc;
-		pc.viewProjection = mCamera.getProjection() * mCamera.getCameraTransform();
+		pc.viewProjection = mCamera.getProjection() * mCamera.getView();
 
 		vkCmdPushConstants(cmd, mGraphicsPipeline.getPipeline().second, VK_SHADER_STAGE_MESH_BIT_EXT, 0, sizeof(pushConstants), &pc);
 

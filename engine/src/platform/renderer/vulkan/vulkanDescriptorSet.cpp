@@ -131,22 +131,11 @@ namespace engine
 	void descriptorSet::clearBindings()
 	{
 		mBindings.clear();
-		mWrite.clear();
-	}
-
-	void descriptorSet::clearWrites()
-	{
-		mWrite.clear();
 	}
 
 	void descriptorSet::addBinding(VkDescriptorSetLayoutBinding binding)
 	{
 		mBindings.push_back(binding);
-	}
-
-	void descriptorSet::addWrite(const std::vector<VkWriteDescriptorSet>& source)
-	{
-		mWrite.push_back({ source });
 	}
 
 	error descriptorSet::build(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
@@ -163,26 +152,16 @@ namespace engine
 
 		mDescriptorSet = allocRes.value();
 
-		// set sources for each binding.
-		for (auto& s : mWrite)
-		{
-			for (auto& e : s)
-				e.dstSet = mDescriptorSet;
-
-			vkUpdateDescriptorSets(mDevice, uint32_t(s.size()), s.data(), 0, nullptr);
-		}
-
 		return {};
 	}
 
-	void descriptorSet::updateWrite()
+	void descriptorSet::updateWrite(std::vector<VkWriteDescriptorSet>& writeInfo)
 	{
-		for (auto& s : mWrite)
+		for (auto& s : writeInfo)
 		{
-			for (auto& e : s)
-				e.dstSet = mDescriptorSet;
+			s.dstSet = mDescriptorSet;
 
-			vkUpdateDescriptorSets(mDevice, uint32_t(s.size()), s.data(), 0, nullptr);
+			vkUpdateDescriptorSets(mDevice, 1, &s, 0, nullptr);
 		}
 	}
 
@@ -201,7 +180,7 @@ namespace engine
 		return layout;
 	}
 
-	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, VkDescriptorType descriptorType, const std::vector<VkDescriptorImageInfo>& imgInfo)
+	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, VkDescriptorType descriptorType, std::vector<VkDescriptorImageInfo>& imgInfo)
 	{
 		std::vector<VkWriteDescriptorSet> result{};
 		result.reserve(imgInfo.size());
@@ -227,7 +206,7 @@ namespace engine
 		return result;
 	}
 
-	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, const std::vector<VkDescriptorBufferInfo>& bufferInfo)
+	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, std::vector<VkDescriptorBufferInfo>& bufferInfo)
 	{
 		std::vector<VkWriteDescriptorSet> result;
 		result.reserve(bufferInfo.size());

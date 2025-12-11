@@ -13,11 +13,24 @@ namespace engine
 
 	scene::scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
 		:
-		mSceneRegistry(), mCtx(ctx), mSystems()
+		mSceneRegistry(std::make_shared<entt::registry>()), mCtx(ctx), mSystems()
 	{
 		// core engine systems.
 		addSystem(std::make_unique<renderSystem>(mCtx, wnd));
 		addSystem(std::make_unique<cameraSystem>(mCtx));
+	}
+
+	scene::~scene()
+	{
+		for (auto& s : mUserSystems)
+		{
+			s->onDetach(mSceneRegistry);
+		}
+
+		for (auto& s : mSystems)
+		{
+			s->onDetach(mSceneRegistry);
+		}
 	}
 
 	error scene::onRender()
@@ -100,29 +113,17 @@ namespace engine
 		return {};
 	}
 
-	entity scene::createEntity(const std::string& name)
-	{
-		auto ent = createEntity();
-
-		auto& tag = ent.template addComponent<tagComponent>(name);
-
-		return ent;
-	}
-
-	entity scene::createEntity()
-	{
-		entity ent{ mCtx, mSceneRegistry.create(), this };
-
-		return ent;
-	}
-
 	void scene::addSystem(std::unique_ptr<system>&& s)
 	{
+		s->onAttach(mSceneRegistry);
+	
 		mSystems.push_back(std::move(s));
 	}
 
 	void scene::addUserSystem(std::unique_ptr<system>&& s)
 	{
+		s->onAttach(mSceneRegistry);
+
 		mUserSystems.push_back(std::move(s));
 	}
 }

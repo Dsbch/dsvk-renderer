@@ -33,17 +33,22 @@ namespace engine
 		if (err)
 			return err;
 
-		auto pc = pixelShader->getPushConstant();
-		VkPushConstantRange pushConstant{};
-		pushConstant.offset = pc.offset;
-		pushConstant.size = pc.size;
-		pushConstant.stageFlags = VK_SHADER_STAGE_ALL;
+		mMeshletToInstanceBufferInfo = { VkDescriptorBufferInfo{.buffer = mMeshletToInstanceBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
+
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(pushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_ALL;
 
 		// init pipeline.
 		mPipeline.init(mDevice);
 
 		//connecting the vertex and pixel shaders to the pipeline
-		mPipeline.setShaders(static_cast<vulkanShader*>(taskShader.get())->mShaderModule, static_cast<vulkanShader*>(meshShader.get())->mShaderModule, static_cast<vulkanShader*>(pixelShader.get())->mShaderModule);
+		mPipeline.setShaders(
+			static_cast<vulkanShader*>(taskShader.get())->mShaderModule,
+			static_cast<vulkanShader*>(meshShader.get())->mShaderModule,
+			static_cast<vulkanShader*>(pixelShader.get())->mShaderModule
+		);
 		//it will draw triangles
 		mPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 		//filled triangles
@@ -60,11 +65,16 @@ namespace engine
 		mPipeline.setColorAttachmentFormat(colorAttachmentFormat);
 		mPipeline.setDepthFormat(depthFormat);
 
-		err = mPipeline.build(&pushConstant, descriptorSets, true);
+		err = mPipeline.build(&pc, descriptorSets, true);
 		if (err)
 			return err;
 
 		return {};
+	}
+
+	bool pipelineData::instanceExists(uint32_t id) const
+	{
+		return mMeshletToInstanceData.find(id) != mMeshletToInstanceData.end();
 	}
 
 	void pipelineData::destroy()
@@ -100,9 +110,9 @@ namespace engine
 			meshToInstance.push_back(
 				meshletToInstance{
 					.instanceIndex = perIsntanceHandle.value().bufferIndex,
-					.instanceOffset = perIsntanceHandle.value().offset,
+					.instanceOffset = perIsntanceHandle.value().offset / uint32_t(sizeof(perInstanceAttr)),
 					.meshletIndex = meshletHandle.bufferIndex,
-					.meshletOffset = meshletHandle.offset + i * uint32_t(sizeof(meshlet))
+					.meshletOffset = meshletHandle.offset / uint32_t(sizeof(meshlet)) + i
 				}
 			);
 		}
@@ -167,9 +177,11 @@ namespace engine
 
 	std::vector<VkWriteDescriptorSet> pipelineData::getMeshletToInstanceWriteInfo(uint32_t binding)
 	{
+		mMeshletToInstanceBufferInfo = { VkDescriptorBufferInfo{.buffer = mMeshletToInstanceBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
+
 		return descriptorSet::getWriteInfo(
 			binding,
-			{ VkDescriptorBufferInfo{.buffer = mMeshletToInstanceBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } }
+			mMeshletToInstanceBufferInfo
 		);
 	}
 

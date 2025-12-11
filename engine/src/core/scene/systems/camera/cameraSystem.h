@@ -3,6 +3,7 @@
 #include <pch.h>
 #include <entt/entt.hpp>
 #include "core/scene/systems/system.h"
+#include <core/scene/components.h>
 
 namespace engine
 {
@@ -11,11 +12,14 @@ namespace engine
 	public:
 		cameraSystem(std::shared_ptr<context> ctx);
 
+		error onAttach(std::shared_ptr<entt::registry> registry);
+		void onDetach(std::shared_ptr<entt::registry> registry);
 		error checkError();
-		error onUpdate(entt::registry& registry);
-		error onRender(entt::registry& registry);
-		error onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e);
+		error onUpdate(std::shared_ptr<entt::registry> registry);
+		error onRender(std::shared_ptr<entt::registry> registry);
+		error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e);
+		static withError<glm::mat4> getViewTransform(std::shared_ptr<entt::registry> registry);
 	private:
-		void spawnDefaultCamera(entt::registry& registry) const;
+		void spawnDefaultCamera(std::shared_ptr<entt::registry> registry) const;
 	};
 }

@@ -1,5 +1,6 @@
 #include <pch.h>
 #include "renderSystem.h"
+#include "core/scene/systems/camera/cameraSystem.h"
 #include "platform/renderer/renderer.h"
 
 namespace engine
@@ -11,22 +12,55 @@ namespace engine
 	{
 	}
 
+	error renderSystem::onAttach(std::shared_ptr<entt::registry> registry)
+	{
+		return {};
+	}
+
+	void renderSystem::onDetach(std::shared_ptr<entt::registry> registry)
+	{
+	}
+
 	error renderSystem::checkError()
 	{
 		return mRenderer->checkError();
 	}
 
-	error renderSystem::onUpdate(entt::registry& registry)
+	error renderSystem::onUpdate(std::shared_ptr<entt::registry> registry)
 	{
+		for (auto [_, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent>().each())
+		{
+			model m{
+				.id = uid.uid,
+				.mat = material.mat,
+				.mesh = mesh.mesh,
+				.instanceAttributes = perInstanceAttr{
+					.modelMatrix = transform.transform,
+				},
+			};
+
+			auto err = mRenderer->addToRender(m);
+			if (err)
+				return err;
+		}
+
 		return {};
 	}
 
-	error renderSystem::onRender(entt::registry& registry)
+	error renderSystem::onRender(std::shared_ptr<entt::registry> registry)
 	{
-		return mRenderer->render();
+		auto viewTransform = cameraSystem::getViewTransform(registry);
+		if (!viewTransform)
+			return viewTransform.err();
+
+		return mRenderer->render(
+			renderer::renderCallIn{
+				.viewProjection = viewTransform.value()
+			}
+		);
 	}
 
-	error renderSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
+	error renderSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e)
 	{
 		if (e->getEventType() == eventType::windowResize)
 		{

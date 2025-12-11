@@ -35,54 +35,6 @@ namespace engine
 		transformComponent(glm::mat4 transform) : transform(transform) {}
 	};
 
-	struct meshComponent
-	{
-		uint32_t uid;
-		std::shared_ptr<std::vector<vertex>> meshData;
-		std::shared_ptr<std::vector<uint32_t>> indexData;
-
-		meshComponent(std::shared_ptr<std::vector<vertex>> meshData, std::shared_ptr<std::vector<uint32_t>> indexData)
-			: meshData(meshData), indexData(indexData), uid(genUID()) {}
-
-		meshComponent(std::shared_ptr<std::vector<vertex>> meshData, std::shared_ptr<std::vector<uint32_t>> indexData, uint32_t uid)
-			: meshData(meshData), indexData(indexData), uid(uid) {}
-	};
-
-	struct materialComponent
-	{
-		std::shared_ptr<shader> pixelShader;
-		std::shared_ptr<texture> albedoTexture;
-		std::shared_ptr<texture> roughnessTexture;
-		std::shared_ptr<texture> normaTexture;
-		std::shared_ptr<texture> metalicTexture;
-		std::shared_ptr<texture> aoTexture;
-
-		materialComponent(
-			std::shared_ptr<texture> albedoTexture,
-			std::shared_ptr<texture> roughnessTexture,
-			std::shared_ptr<texture> normaTexture,
-			std::shared_ptr<texture> metalicTexture,
-			std::shared_ptr<texture> aoTexture,
-			std::shared_ptr<shader> pixelShader
-		)
-			:
-			pixelShader(pixelShader),
-			albedoTexture(albedoTexture),
-			roughnessTexture(roughnessTexture),
-			normaTexture(normaTexture),
-			metalicTexture(metalicTexture),
-			aoTexture(aoTexture)
-		{}
-	};
-
-	struct skyboxComponent
-	{
-		bool isActive;
-		//std::shared_ptr<cubeMap> skybox;
-
-		//skyboxComponent(bool isActive, std::shared_ptr<cubeMap> skybox) : isActive(isActive), shader(shader), skybox(skybox) {};
-	};
-
 	struct inputListenerComponent
 	{
 		std::vector<key> keyUp;
@@ -98,6 +50,28 @@ namespace engine
 		bool isActive;
 
 		fpsCameraComponent(std::unique_ptr<fpsCamera>&& camera, bool isActive) : camera(std::move(camera)), isActive(isActive) {}
+	};
+
+	struct meshComponent
+	{
+		uint32_t uid;
+		lodMesh mesh;
+
+		meshComponent(lodMesh mesh)
+			: mesh(mesh), uid(mesh.getHash()) {
+		}
+	};
+
+	struct materialComponent
+	{
+		uint32_t uid;
+		material mat;
+
+		materialComponent(material mat)
+			:
+			mat(mat), uid(mat.pixelShader->hash())
+		{
+		}
 	};
 }
 

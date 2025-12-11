@@ -6,31 +6,21 @@
 
 namespace engine
 {
-	struct pushConstant
-	{
-		uint32_t size;
-		uint32_t offset;
-		std::vector<uint8_t> data;
-	};
-
 	class shader
 	{
 	public:
 		shader(const shader&) = delete;
 
-		shader(const std::vector<uint32_t>& src) : mErr(), mPushConstant() {};
+		shader(const std::vector<uint32_t>& src) : mErr() {};
 		virtual ~shader() = default;
 
 		virtual error checkError() const { return mErr; };
 		virtual uint32_t hash() const = 0;
-		virtual void setPushConstant(const pushConstant&) = 0;
-		virtual pushConstant getPushConstant() const = 0;
 		bool operator<(const shader& other) const
 		{
 			return other.hash() < hash();
 		}
 	protected:
 		error mErr;
-		pushConstant mPushConstant;
 	};
 }

@@ -15,6 +15,7 @@ namespace engine
 	{
 	public:
 		scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
+		~scene();
 	
 		error onRender();
 		error onEvent(std::shared_ptr<baseEvent> e);
@@ -22,10 +23,7 @@ namespace engine
 		
 		error checkError() const;
 
-		entity createEntity(const std::string&);
-		entity createEntity();
-
-		static void addUserSystem(std::unique_ptr<system>&&);
+		void addUserSystem(std::unique_ptr<system>&&);
 	protected:
 		std::shared_ptr<context> mCtx;
 	
@@ -33,7 +31,7 @@ namespace engine
 		static std::vector<std::unique_ptr<system>> mUserSystems;
 		
 		void addSystem(std::unique_ptr<system>&&);
-		entt::registry mSceneRegistry;
+		std::shared_ptr<entt::registry> mSceneRegistry;
 		std::vector<std::unique_ptr<system>> mSystems;
 
 		friend class entity;

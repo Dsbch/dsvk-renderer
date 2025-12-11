@@ -7,52 +7,52 @@ for /f "tokens=2 delims=:." %%a in ('ver') do if %%a geq 10 (
 chcp 65001
 
 echo =====================================================
-echo   🔨 Compiling Shaders with DXC
+echo            Compiling Shaders with DXC
 echo =====================================================
 echo.
 
-echo [1/4] 🟦 Compiling Mesh Shader...
+echo Compiling Mesh Shader...
 dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshMs.spv vkMesh.hlsl
-if errorlevel 1 (
-    echo ❌ Mesh shader compilation failed!
-    exit /b 1
+if %errorlevel% neq 0 (
+    echo Mesh shader compilation failed!
+    pause
 ) else (
-    echo ✅ Mesh shader compiled successfully.
+    echo Mesh shader compiled successfully.
 )
 
 echo.
 
-echo [2/4] 🟩 Compiling Pixel Shader...
-dxc -T ps_6_9 -E psmain -spirv -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
-if errorlevel 1 (
-    echo ❌ Pixel shader compilation failed!
-    exit /b 1
+echo Compiling Pixel Shader...
+dxc -T ps_6_9 -E psmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
+if %errorlevel% neq 0 (
+    echo Pixel shader compilation failed!
+    pause
 ) else (
-    echo ✅ Pixel shader compiled successfully.
+    echo Pixel shader compiled successfully.
 )
 
 echo.
 
-echo [3/4] 🟨 Compiling Task Shader...
-dxc -T as_6_9 -E asmain -spirv -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
-if errorlevel 1 (
-    echo ❌ Task shader compilation failed!
-    exit /b 1
+echo Compiling Task Shader...
+dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
+if %errorlevel% neq 0 (
+    echo Task shader compilation failed!
+    pause
 ) else (
-    echo ✅ Task shader compiled successfully.
+    echo Task shader compiled successfully.
 )
 
 echo.
 
-echo [4/4] 🟨 Compiling Compute Shader...
+echo Compiling Compute Shader...
 dxc -T cs_6_9 -E main -spirv -Fo vkCompiled/vkCompute.spv vkCompute.comp
-if errorlevel 1 (
-    echo ❌ Compute shader compilation failed!
-    exit /b 1
+if %errorlevel% neq 0 (
+    echo Compute shader compilation failed!
+    pause
 ) else (
-    echo ✅ Compute shader compiled successfully.
+    echo Compute shader compiled successfully.
 )
 
 echo.
-echo 🎉 All shaders compiled successfully!
+
 pause

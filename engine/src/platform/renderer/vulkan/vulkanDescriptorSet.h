@@ -43,18 +43,16 @@ namespace engine
 		void destroy();
 
 		void clearBindings();
-		void clearWrites();
 		void addBinding(VkDescriptorSetLayoutBinding binding);
-		void addWrite(const std::vector<VkWriteDescriptorSet>& source);
 		error build(VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
-		void updateWrite();
+		void updateWrite(std::vector<VkWriteDescriptorSet>& writeInfo);
 
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getDescriptorSet();
 
 
 		static VkDescriptorSetLayoutBinding getLayoutBindingInfo(uint32_t binding, uint32_t descriptorCount, VkDescriptorType type);
-		static std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t dstBinding, VkDescriptorType descriptorType, const std::vector<VkDescriptorImageInfo>& imgInfo);
-		static std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t dstBinding, const std::vector <VkDescriptorBufferInfo>& bufferInfo);
+		static std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t dstBinding, VkDescriptorType descriptorType, std::vector<VkDescriptorImageInfo>& imgInfo);
+		static std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t dstBinding, std::vector<VkDescriptorBufferInfo>& bufferInfo);
 
 		static withError<VkSampler> createSampler(
 			VkDevice device,
@@ -80,8 +78,7 @@ namespace engine
 		VkDescriptorSetLayout mDescriptorSetLayout;
 
 		std::vector<VkDescriptorSetLayoutBinding> mBindings;
-		std::vector<std::vector<VkWriteDescriptorSet>> mWrite;
-
+		
 		withError<VkDescriptorSetLayout> buildLayout(VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
 	};
 }

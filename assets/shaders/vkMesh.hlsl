@@ -1,6 +1,6 @@
 //  dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkMeshMs.spv vkMesh.hlsl
 //  dxc -T ps_6_9 -E psmain -spirv -Fo vkMeshPs.spv vkMesh.hlsl
-//  dxc -T as_6_9 -E asmain -spirv -Fo vkMeshAs.spv vkMesh.hlsl
+//  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
 //  add -fspv-reflect flag only for debug.
 #ifdef __spirv__
 #define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
@@ -8,37 +8,39 @@
 #define DEFINE_AS_PUSH_CONSTANT
 #endif
 
+#define THREADS_COUNT 64
+
 // INPUT START.
 
 // DescriptorSet START.
 
-struct vertex 
+struct vertex
 {
     float3 position;
-    float  _pad0;
+    float _pad0;
 
     float2 textureCoords;
     float2 _pad1;
 
     float3 normal;
-    float  _pad2;
+    float _pad2;
 
     float3 tangent;
-    float  _pad3;
+    float _pad3;
 };
 
-struct meshlet 
+struct meshlet
 {
     uint indexBufferIndex;
-	uint indexBufferOffset;
+    uint indexBufferOffset;
     
     uint vertexBufferIndex;
     uint vertexBufferOffset;
     uint vertexCount;
     
     uint triangleBufferIndex;
-	uint triangleBufferOffset;
-	uint triangleCount;
+    uint triangleBufferOffset;
+    uint triangleCount;
 };
 
 struct perInstanceAttr
@@ -78,10 +80,12 @@ SamplerState albedoSamplers[] : register(s6, space0);
 
 struct pushConstants
 {
+    uint taskShaderInvocationCount;
     float4x4 viewProjection;
 };
 
-DEFINE_AS_PUSH_CONSTANT pushConstants push;
+DEFINE_AS_PUSH_CONSTANT
+pushConstants push;
 
 // Push constant END.
 
@@ -91,25 +95,26 @@ DEFINE_AS_PUSH_CONSTANT pushConstants push;
 
 struct MeshShaderPayload
 {
-    meshlet meshlet[64];
-    perInstanceAttr instanceAttr[64];
+    meshlet meshlet[THREADS_COUNT];
+    perInstanceAttr instanceAttr[THREADS_COUNT];
 };
 
 groupshared MeshShaderPayload payload;
 
-
-[numthreads(64, 1, 1)]
+[numthreads(THREADS_COUNT, 1, 1)]
 void asmain(
     uint gtid : SV_GroupThreadID,
     uint dtid : SV_DispatchThreadID,
-    uint gid :  SV_GroupID
+    uint gid : SV_GroupID
 )
 {
     // TODO: add culling.
+    bool visible = dtid < push.taskShaderInvocationCount;
+    
     payload.instanceAttr[gtid] = perInstanceBuffer[meshletToInstanceBuffer[dtid].instanceIndex][meshletToInstanceBuffer[dtid].instanceOffset];
     payload.meshlet[gtid] = meshletBuffer[meshletToInstanceBuffer[dtid].meshletIndex][meshletToInstanceBuffer[dtid].meshletOffset];
     
-    DispatchMesh(64, 1, 1, payload);
+    DispatchMesh(THREADS_COUNT, 1, 1, payload);
 }
 
 // TS END.
@@ -119,21 +124,21 @@ void asmain(
 struct meshOutput
 {
     float4 position : SV_POSITION;
-    float3 color    : COLOR;
-    float2 uv       : TEXCOORD0;
+    float3 color : COLOR;
+    float2 uv : TEXCOORD0;
 };
 
 [outputtopology("triangle")]
-[numthreads(64, 1, 1)]
+[numthreads(THREADS_COUNT, 1, 1)]
 void msmain(
-                 uint       gtid : SV_GroupThreadID, 
-                 uint       gid  : SV_GroupID,
-    in payload   MeshShaderPayload payload,
-    out indices  uint3      triangles[64],
-    out vertices meshOutput vertices[64]) 
+                 uint gtid : SV_GroupThreadID,
+                 uint gid : SV_GroupID,
+    in payload MeshShaderPayload payload,
+    out indices uint3 triangles[THREADS_COUNT],
+    out vertices meshOutput vertices[THREADS_COUNT])
 {
-    meshlet mesh = payload.meshlet[gtid];
-    perInstanceAttr instanceAttr = payload.instanceAttr[gtid];
+    meshlet mesh = payload.meshlet[gid];
+    perInstanceAttr instanceAttr = payload.instanceAttr[gid];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
        
@@ -148,13 +153,13 @@ void msmain(
         // additional offset math.
         //
         uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
-        uint vIdx0  = (packed >>  0) & 0xFF;
-        uint vIdx1  = (packed >>  8) & 0xFF;
-        uint vIdx2  = (packed >> 16) & 0xFF;
+        uint vIdx0 = (packed >> 0) & 0xFF;
+        uint vIdx1 = (packed >> 8) & 0xFF;
+        uint vIdx2 = (packed >> 16) & 0xFF;
         triangles[gtid] = uint3(vIdx0, vIdx1, vIdx2);
     }
 
-    if (gtid < mesh.vertexCount) 
+    if (gtid < mesh.vertexCount)
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
 
@@ -166,7 +171,7 @@ void msmain(
             float(gid & 7) / 8);
 
         vertices[gtid].color = color;
-        vertices[gtid].uv = vertexBuffer[0][vertexIndex].textureCoords;
+        vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
     }
 }
 

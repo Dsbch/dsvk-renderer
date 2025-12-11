@@ -5,6 +5,11 @@
 
 namespace engine
 {
+	struct render
+	{
+		uint32_t shaderWorkGroup = 64;
+	};
+
 	struct camera
 	{
 		float fov = 90.0f;
@@ -47,6 +52,7 @@ namespace engine
 		wnd wnd;
 		gameLoop gameLoop;
 		camera camera;
+		render render;
 	};
 
 	void to_json(nlohmann::json& j, const camera& p);
@@ -59,9 +65,10 @@ namespace engine
 	void from_json(const nlohmann::json& j, log& p);
 	void to_json(nlohmann::json& j, const wnd& p);
 	void from_json(const nlohmann::json& j, wnd& p);
+	void to_json(nlohmann::json& j, const render& p);
+	void from_json(const nlohmann::json& j, render& p);
 	void to_json(nlohmann::json& j, const main& p);
 	void from_json(const nlohmann::json& j, main& p);
-
 
 	template<class T>
 	struct cfg {

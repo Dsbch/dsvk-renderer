@@ -143,7 +143,7 @@ namespace engine
 		mShaderStages.clear();
 
 		if (taskShader != VK_NULL_HANDLE)
-			mShaderStages.push_back(pipelineShaderStageCreateInfo(VK_SHADER_STAGE_TASK_BIT_EXT, taskShader, "tsmain"));
+			mShaderStages.push_back(pipelineShaderStageCreateInfo(VK_SHADER_STAGE_TASK_BIT_EXT, taskShader, "asmain"));
 
 		mShaderStages.push_back(pipelineShaderStageCreateInfo(VK_SHADER_STAGE_MESH_BIT_EXT, meshShader, "msmain"));
 

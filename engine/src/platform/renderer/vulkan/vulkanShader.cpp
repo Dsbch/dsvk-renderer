@@ -16,7 +16,8 @@ namespace engine
 
 		// check that the creation goes well.
 		VkShaderModule shaderModule;
-		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) 
+		auto result = vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule);
+		if (result != VK_SUCCESS) 
 		{
 			return false;
 		}
@@ -45,15 +46,5 @@ namespace engine
 	uint32_t vulkanShader::hash() const
 	{
 		return mHash;
-	}
-
-	void vulkanShader::setPushConstant(const pushConstant& pc)
-	{
-		mPushConstant = pc;
-	}
-
-	pushConstant vulkanShader::getPushConstant() const
-	{
-		return mPushConstant;
 	}
 }

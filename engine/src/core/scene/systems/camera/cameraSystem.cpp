@@ -1,7 +1,7 @@
 #include <pch.h>
 
-#include <core/scene/components.h>
 #include "cameraSystem.h"
+#include "core/scene/entity.h"
 
 namespace engine
 {
@@ -10,25 +10,36 @@ namespace engine
 	{
 	}
 
+	error cameraSystem::onAttach(std::shared_ptr<entt::registry> registry)
+	{
+		spawnDefaultCamera(registry);
+
+		return {};
+	}
+
+	void cameraSystem::onDetach(std::shared_ptr<entt::registry> registry)
+	{
+	}
+
 	error cameraSystem::checkError()
 	{
 		return {};
 	}
 
-	error cameraSystem::onUpdate(entt::registry& registry)
+	error cameraSystem::onUpdate(std::shared_ptr<entt::registry> registry)
 	{
 		return {};
 	}
 
-	error cameraSystem::onRender(entt::registry& registry)
+	error cameraSystem::onRender(std::shared_ptr<entt::registry> registry)
 	{
 		return {};
 	}
 
-	error cameraSystem::onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e)
+	error cameraSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e)
 	{
 		// TODO: figure out how to apply application settings to it.
-		for (auto [entity, camera, input] : registry.view<fpsCameraComponent, inputListenerComponent>().each())
+		for (auto [entity, camera, input] : registry->view<fpsCameraComponent, inputListenerComponent>().each())
 		{
 			if (e->getEventType() == eventType::windowResize)
 			{
@@ -76,12 +87,11 @@ namespace engine
 		return {};
 	}
 
-	void cameraSystem::spawnDefaultCamera(entt::registry& registry) const
+	void cameraSystem::spawnDefaultCamera(std::shared_ptr<entt::registry> registry) const
 	{
-		auto c = registry.create();
+		entity e{ mCtx, registry };
 
-		registry.emplace<fpsCameraComponent>(
-			c,
+		e.addComponent<fpsCameraComponent>(
 			std::make_unique<fpsCamera>(
 				mCtx,
 				mCtx->config.inner.camera.fov,
@@ -93,6 +103,17 @@ namespace engine
 			true
 		);
 
-		registry.emplace<inputListenerComponent>(c, std::vector<key>{}, std::vector<key>{key::w, key::a, key::s, key::d}, true);
+		e.addComponent<inputListenerComponent>(std::vector<key>{}, std::vector<key>{key::w, key::a, key::s, key::d}, true);
+	}
+
+	withError<glm::mat4> cameraSystem::getViewTransform(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [entity, camera, input] : registry->view<fpsCameraComponent, inputListenerComponent>().each())
+		{
+			if (camera.isActive)
+				return camera.camera->getProjection() * camera.camera->getView();
+		}
+
+		return error{ "scene doesn't hold an active camera" };
 	}
 }

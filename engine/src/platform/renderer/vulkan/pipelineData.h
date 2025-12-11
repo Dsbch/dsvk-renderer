@@ -23,6 +23,7 @@ namespace engine
 			VkFormat colorAttachmentFormat,
 			uint32_t defaultMeshletToInstanceBuffSize = 2 << 21
 		);
+		bool instanceExists(uint32_t id) const;
 		error addInstance(uint32_t id, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr);
 		error updateMeshletToInstanceBuffer();
 		void removeInstance(uint32_t id);
@@ -44,5 +45,7 @@ namespace engine
 		vulkanBuffer mMeshletToInstanceBuffer;
 		uint32_t mNewMeshletToInstanceSize;
 		std::map<uint32_t, std::vector<meshletToInstance>> mMeshletToInstanceData;
+	
+		std::vector<VkDescriptorBufferInfo> mMeshletToInstanceBufferInfo;
 	};
 }

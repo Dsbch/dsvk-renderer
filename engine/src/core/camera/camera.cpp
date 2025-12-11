@@ -21,9 +21,9 @@ namespace engine
 		mUp = glm::vec3(-x, y, z);
 	}
 
-	void fpsCamera::updateTransform()
+	void fpsCamera::updateView()
 	{
-		mCameraTransformMatrix = glm::lookAt(mPos, mPos + mFront, mUp);
+		mView = glm::lookAt(mPos, mPos + mFront, mUp);
 	}
 
 	void fpsCamera::updateProjection()
@@ -54,7 +54,7 @@ namespace engine
 		mPitch(pitch),
 		mFront(glm::vec3(0.0f)),
 		mUp(up),
-		mCameraTransformMatrix(glm::lookAt(mFront, mPos, mUp)),
+		mView(glm::lookAt(mFront, mPos, mUp)),
 		mCtx(ctx),
 		mFov(fov),
 		mNearPlane(nearPlane),
@@ -63,7 +63,7 @@ namespace engine
 		mHeight(height)
 	{
 		updateFront();
-		updateTransform();
+		updateView();
 		updateProjection();
 	}
 
@@ -72,9 +72,9 @@ namespace engine
 		return mFront;
 	}
 
-	glm::mat4 fpsCamera::getCameraTransform() const
+	glm::mat4 fpsCamera::getView() const
 	{
-		return mCameraTransformMatrix;
+		return mView;
 	}
 
 	glm::mat4 fpsCamera::getProjection() const
@@ -93,7 +93,7 @@ namespace engine
 
 		mPos += glm::cross(mFront, mUp) * shift.x;
 
-		updateTransform();
+		updateView();
 	}
 
 	void fpsCamera::changeYaw(float shift)
@@ -102,7 +102,7 @@ namespace engine
 
 		updateFront();
 		updateUp();
-		updateTransform();
+		updateView();
 	}
 
 	void fpsCamera::changePitch(float shift)
@@ -117,7 +117,7 @@ namespace engine
 
 		updateFront();
 		updateUp();
-		updateTransform();
+		updateView();
 	}
 
 	void fpsCamera::changeViewPort(uint32_t width, uint32_t height)

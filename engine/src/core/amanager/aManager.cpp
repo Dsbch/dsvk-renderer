@@ -3,7 +3,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include "aManager.h"
+#include "gltf.h"
 #include "platform/renderer/renderer.h"
+
 
 namespace engine
 {
@@ -51,8 +53,11 @@ namespace engine
 			return error{ "tried to access not loaded texture." };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::loadShader(const std::string& path, renderer* r)
+	withError<std::shared_ptr<shader>> aManager::loadShader(const std::string& path)
 	{
+		if (!makeShader)
+			return error{ "makeShader wasn't set" };
+
 		auto loadRes = getShader(path);
 		if (loadRes)
 			return loadRes.value();
@@ -68,7 +73,7 @@ namespace engine
 		file.read((char*)buffer.data(), fileSize);
 		file.close();
 
-		auto shader = r->makeShader(buffer);
+		auto shader = makeShader(buffer);
 		if (!shader)
 			shader.err();
 
@@ -77,8 +82,11 @@ namespace engine
 		return shader.value();
 	}
 
-	withError<std::shared_ptr<texture>> aManager::loadTexture(const std::string& path, renderer* r)
+	withError<std::shared_ptr<texture>> aManager::loadTexture(const std::string& path)
 	{
+		if (!makeTexture)
+			return error{ "makeTexture wasn't set" };
+
 		auto loadRes = getTexture(path);
 		if (loadRes)
 			return loadRes.value();
@@ -90,7 +98,7 @@ namespace engine
 			return error{ "can't load texture {}", path };;
 		}
 
-		auto texture = r->makeTexture(data, width, height, intToChannel(nrChannels));
+		auto texture = makeTexture(data, width, height, intToChannel(nrChannels));
 		if (!texture)
 			texture.err();
 
@@ -101,45 +109,55 @@ namespace engine
 		return texture.value();
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultTaskShader(renderer* r)
+	void aManager::setMakeShaderFunc(std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)>&& func)
+	{
+		makeShader = std::move(func);
+	}
+
+	void aManager::setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)>&& func)
+	{
+		makeTexture = std::move(func);
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultTaskShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshAs.spv";
 
-		return loadShader(path, r);
+		return loadShader(path);
 #endif // VULKAN
 
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultMeshShader(renderer* r)
+	withError<std::shared_ptr<shader>> aManager::getDefaultMeshShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshMs.spv";
 
-		return loadShader(path, r);
+		return loadShader(path);
 #endif // VULKAN
 
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultPixelShader(renderer* r)
+	withError<std::shared_ptr<shader>> aManager::getDefaultPixelShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshPs.spv";
 
-		return loadShader(path, r);
+		return loadShader(path);
 #endif // VULKAN
 
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultComputeShader(renderer* r)
+	withError<std::shared_ptr<shader>> aManager::getDefaultComputeShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkCompute.spv";
 
-		return loadShader(path, r);
+		return loadShader(path);
 #endif // VULKAN
 
 		return error{"not implemented"};

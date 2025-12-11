@@ -14,9 +14,11 @@ namespace engine
 		system(std::shared_ptr<context> ctx) : mCtx(ctx) {};
 		virtual ~system() = default;
 
+		virtual error onAttach(std::shared_ptr<entt::registry> registry) = 0;
+		virtual void onDetach(std::shared_ptr<entt::registry> registry) = 0;
 		virtual error checkError() = 0;
-		virtual error onUpdate(entt::registry& registry) = 0;
-		virtual error onRender(entt::registry& registry) = 0;
-		virtual error onEvent(entt::registry& registry, std::shared_ptr<baseEvent> e) = 0;
+		virtual error onUpdate(std::shared_ptr<entt::registry> registry) = 0;
+		virtual error onRender(std::shared_ptr<entt::registry> registry) = 0;
+		virtual error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e) = 0;
 	};
 }

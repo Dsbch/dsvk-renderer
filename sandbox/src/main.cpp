@@ -1,31 +1,5 @@
 #include <application/application.h>
-#include <core/scene/systems/system.h>
-
-class sandboxSystem : public engine::system
-{
-public:
-	sandboxSystem(std::shared_ptr<engine::context> ctx) : engine::system(ctx) {};
-	
-	engine::error checkError()
-	{
-		return {};
-	}
-
-	engine::error onUpdate(entt::registry& registry)
-	{
-		return {};
-	}
-
-	engine::error onRender(entt::registry& registry)
-	{
-		return {};
-	}
-
-	engine::error onEvent(entt::registry& registry, std::shared_ptr<engine::baseEvent> e)
-	{
-		return {};
-	}
-};
+#include "sandbox.h"
 
 int main(int argc, char* argv[])
 {
@@ -39,7 +13,7 @@ int main(int argc, char* argv[])
 			return 0;
 		}
 
-		auto ss = std::make_unique<sandboxSystem>(app.getAppContext());
+		auto ss = std::make_unique<sandbox::sandboxSystem>(app.getAppContext());
 
 		app.addUserSystem(std::move(ss));
 		err = app.checkError();
@@ -55,6 +29,11 @@ int main(int argc, char* argv[])
 			LOGERROR(err.err());
 			return 0;
 		}
+	}
+	catch (std::exception& e)
+	{
+		LOGERROR("exception was caught in run std::exception: {}", e.what());
+		return 0;
 	}
 	catch (...)
 	{

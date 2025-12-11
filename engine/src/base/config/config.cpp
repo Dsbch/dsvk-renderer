@@ -94,6 +94,7 @@ namespace engine
 			{"wnd", p.wnd},
 			{"gameLoop", p.gameLoop},
 			{"camera", p.camera},
+			{"render", p.render},
 		};
 	}
 
@@ -104,5 +105,18 @@ namespace engine
 		j.at("wnd").get_to(p.wnd);
 		j.at("gameLoop").get_to(p.gameLoop);
 		j.at("camera").get_to(p.camera);
+		j.at("render").get_to(p.render);
+	}
+
+	void from_json(const nlohmann::json& j, render& p)
+	{
+		j.at("shaderWorkGroup").get_to(p.shaderWorkGroup);
+	}
+
+	void to_json(nlohmann::json& j, const render& p)
+	{
+		j = nlohmann::json{
+			{"shaderWorkGroup", p.shaderWorkGroup},
+		};
 	}
 }

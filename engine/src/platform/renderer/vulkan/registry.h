@@ -42,10 +42,10 @@ namespace engine
 		void setUpdated();
 		bool needDecriptorUpdate() const;
 
-		VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t binding, uint32_t maxDescriptorCount) const;
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 	private:
 		std::vector<bufferWithHandles> mBuffers;
+		std::vector<VkDescriptorBufferInfo> mBuffersInfo;
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
@@ -64,11 +64,11 @@ namespace engine
 		void setUpdated();
 		bool needDecriptorUpdate() const;
 
-		VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t binding, uint32_t maxDescriptorCount) const;
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 	private:
 		std::vector<vulkanImage> mTextures;
 		std::map<uint32_t, uint32_t> mUploadedTextures;
+		std::vector<VkDescriptorImageInfo> mImagesInfo;
 		VkSampler mSampler;
 		bool mNeedUpdate;
 	};
