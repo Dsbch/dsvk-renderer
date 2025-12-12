@@ -138,7 +138,6 @@ namespace engine
 			return {};
 
 		std::vector<meshletToInstance> meshToInstance;
-		meshToInstance.reserve(mMeshletToInstanceData.size());
 
 		for (auto [_, v] : mMeshletToInstanceData)
 		{

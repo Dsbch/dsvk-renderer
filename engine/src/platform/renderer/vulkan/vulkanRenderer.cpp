@@ -304,11 +304,15 @@ namespace engine
 		//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.ao);
 		//}
 
+		// Remove instance.
+		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id);
+
+	/*	mGeometryPipelines[m.mat.pixelShader].instanceExists()
+
 		mVertexRegistry.deleteBlock(m.mesh.hash);
 		mIndexRegistry.deleteBlock(m.mesh.hash);
 		mPrimitiveRegistry.deleteBlock(m.mesh.hash);
-		mMeshletRegistry.deleteBlock(m.mesh.hash);
-		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id);
+		mMeshletRegistry.deleteBlock(m.mesh.hash);*/
 	}
 
 	error vulkanRenderer::render(renderer::renderCallIn in)
@@ -442,7 +446,7 @@ namespace engine
 
 	error vulkanRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		 updateGeometryDescriptors();
+		updateGeometryDescriptors();
 
 		if (mGeometryPipelines.size() != 0)
 		{
@@ -465,6 +469,9 @@ namespace engine
 			// update perInstanceRegistry for pipeline.
 			// Need to update every frame for each pipeline.
 			auto writes = v.getMeshletToInstanceWriteInfo(mGeometryBinding.meshletToInstanceBinding);
+			mDescriptorSetMesh.updateWrite(writes);
+
+			writes = v.getPerInstanceWriteInfo(mGeometryBinding.perInstanceBinding);
 			mDescriptorSetMesh.updateWrite(writes);
 
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);

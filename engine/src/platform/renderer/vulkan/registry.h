@@ -20,8 +20,9 @@ namespace engine
 		uint32_t bufferIndex;
 		VmaVirtualAllocation vAllocation;
 
-		bool operator<(const bufferHandle& other) const {
-			return other.id < id;
+		bool operator<(const bufferHandle& other) const 
+		{
+			return id < other.id;
 		}
 	};
 

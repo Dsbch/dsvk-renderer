@@ -44,6 +44,22 @@ namespace engine
 				return err;
 		}
 
+		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, deleteComponent>().each())
+		{
+			model m{
+				.id = uid.uid,
+				.mat = material.mat,
+				.mesh = mesh.mesh,
+				.instanceAttributes = perInstanceAttr{
+					.modelMatrix = transform.transform,
+				},
+			};
+
+			mRenderer->removeFromRender(m);
+
+			registry->destroy(e);
+		}
+
 		return {};
 	}
 

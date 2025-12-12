@@ -17,23 +17,19 @@ namespace engine
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
-			auto crntBuffer = mBuffers[i];
-
-			if (auto handle = crntBuffer.bufferHandles.find(bufferHandle{ .id = id }); handle != crntBuffer.bufferHandles.end())
+			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end())
 				return *handle;
 		}
 
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
-			auto crntBuffer = mBuffers[i];
-
 			VmaVirtualAllocationCreateInfo allocateInfo{
 				.size = sizeInBytes,
 			};
 			VmaVirtualAllocation vAllocation{};
 
 			VkDeviceSize offset = 0;
-			if (vmaVirtualAllocate(crntBuffer.vBlock, &allocateInfo, &vAllocation, &offset) == VK_SUCCESS)
+			if (vmaVirtualAllocate(mBuffers[i].vBlock, &allocateInfo, &vAllocation, &offset) == VK_SUCCESS)
 			{
 				auto handle = bufferHandle{
 						.id = id,
@@ -42,9 +38,9 @@ namespace engine
 						.vAllocation = vAllocation,
 				};
 
-				crntBuffer.bufferHandles.insert(handle);
+				mBuffers[i].bufferHandles.insert(handle);
 
-				auto err = crntBuffer.buffer.updateBuffer(mImmSubmit, data, sizeInBytes, offset);
+				auto err = mBuffers[i].buffer.updateBuffer(mImmSubmit, data, sizeInBytes, offset);
 				if (err)
 					return err;
 
@@ -110,6 +106,7 @@ namespace engine
 			{
 				vmaVirtualFree(mBuffers[i].vBlock, found->vAllocation);
 				mNeedUpdate = true;
+				mBuffers[i].bufferHandles.erase(bufferHandle{ .id = id });
 				return true;
 			}
 		}

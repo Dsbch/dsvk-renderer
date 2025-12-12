@@ -163,7 +163,7 @@ void msmain(
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
 
-        vertices[gtid].position = mul(push.viewProjection, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0));
+        vertices[gtid].position = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
         float3 color = float3(
             float(gid & 1),
