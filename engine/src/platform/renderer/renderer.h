@@ -24,7 +24,7 @@ namespace engine
 		virtual error checkError() const = 0;
 		virtual error changeViewPort(uint32_t width, uint32_t height) = 0;
 		virtual error addToRender(model& m) = 0;
-		virtual void removeFromRender(const model& m) = 0;
+		virtual void removeFromRender(model& m) = 0;
 		virtual error render(renderCallIn in) = 0;
 
 		virtual withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src) = 0;

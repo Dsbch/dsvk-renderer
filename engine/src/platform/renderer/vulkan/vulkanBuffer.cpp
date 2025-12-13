@@ -55,7 +55,10 @@ namespace engine
 
 	error vulkanBuffer::updateBuffer(immediateSubmit is, const void* data, size_t sizeInBytes, size_t offset)
 	{
-		if (sizeInBytes + mLoadedBytes >= mByteSize)
+		if (sizeInBytes == 0)
+			return {};
+		
+		if (sizeInBytes + mLoadedBytes > mByteSize)
 			return error{ "buffer overflow" };
 
 		auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
@@ -131,6 +134,14 @@ namespace engine
 	void vulkanBuffer::destroyBuffer(VmaAllocator allocator, allocatedBuffer buf)
 	{
 		vmaDestroyBuffer(allocator, buf.buffer, buf.allocation);
+	}
+
+	void vulkanBuffer::markBytesAsDead(size_t size)
+	{
+		if (mLoadedBytes < size)
+			mLoadedBytes = 0;
+		else
+			mLoadedBytes -= size;
 	}
 
 	size_t vulkanBuffer::getSize() const

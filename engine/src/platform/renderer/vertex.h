@@ -37,7 +37,6 @@ namespace engine
 
 	struct perInstanceAttr
 	{
-		// TODO: figure out how to handle index updates for textures.
 		uint32_t albedoIndex;
 		uint32_t roughnessIndex;
 		uint32_t normalIndex;

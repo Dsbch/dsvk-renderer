@@ -1,4 +1,5 @@
 #include <pch.h>
+#define VMA_IMPLEMENTATION
 #include "vulkanRenderer.h"
 
 namespace engine
@@ -259,6 +260,7 @@ namespace engine
 
 		auto err = mGeometryPipelines[m.mat.pixelShader].addInstance(
 			m.id,
+			m.mesh.getHash(),
 			handle.value(),
 			uint32_t(m.mesh.lodLevels[0].meshletBuffer->size()),
 			m.instanceAttributes
@@ -269,50 +271,56 @@ namespace engine
 		return {};
 	}
 
-	void vulkanRenderer::removeFromRender(const model& m)
+	void vulkanRenderer::removeFromRender(model& m)
 	{
 		if (auto pipeData = mGeometryPipelines.find(m.mat.pixelShader); pipeData == mGeometryPipelines.end())
 		{
 			return;
 		}
-
-		// TODO: commented code below is incorrect.
-		// I need to delete texture from registry only when all models are not using that texture.
-		// Also I will need to update perInstance attrs in pipelineData after delete.
-		//if (m.mat.albedoTexture)
-		//{
-		//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.albedo);
-		//}
-
-		//if (m.mat.normalTexture)
-		//{
-		//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.normal);
-		//}
-
-		//if (m.mat.roughnessTexture)
-		//{
-		//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.roughness);
-		//}
-
-		//if (m.mat.metalicTexture)
-		//{
-		//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.metalic);
-		//}
-
-		//if (m.mat.aoTexture)
-		//{
-		//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.ao);
-		//}
-
 		// Remove instance.
-		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id);
+		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id, m.mesh.getHash());
 
-	/*	mGeometryPipelines[m.mat.pixelShader].instanceExists()
+		uint32_t instanceCount = 0;
+		for (auto [_, p] : mGeometryPipelines)
+		{
+			instanceCount = std::max(p.getMeshInstanceCount(m.mesh.getHash()), instanceCount);
+		}
 
-		mVertexRegistry.deleteBlock(m.mesh.hash);
-		mIndexRegistry.deleteBlock(m.mesh.hash);
-		mPrimitiveRegistry.deleteBlock(m.mesh.hash);
-		mMeshletRegistry.deleteBlock(m.mesh.hash);*/
+		// Mesh isn't used.
+		if (instanceCount == 0)
+		{
+			mVertexRegistry.deleteBlock(m.mesh.getHash());
+			mIndexRegistry.deleteBlock(m.mesh.getHash());
+			mPrimitiveRegistry.deleteBlock(m.mesh.getHash());
+			mMeshletRegistry.deleteBlock(m.mesh.getHash());
+
+			// TODO:
+			// I need to update perInstance attrs in pipelineData after delete of textures.
+			//if (m.mat.albedoTexture)
+			//{
+			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.albedo);
+			//}
+
+			//if (m.mat.normalTexture)
+			//{
+			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.normal);
+			//}
+
+			//if (m.mat.roughnessTexture)
+			//{
+			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.roughness);
+			//}
+
+			//if (m.mat.metalicTexture)
+			//{
+			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.metalic);
+			//}
+
+			//if (m.mat.aoTexture)
+			//{
+			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.ao);
+			//}
+		}
 	}
 
 	error vulkanRenderer::render(renderer::renderCallIn in)
@@ -462,17 +470,17 @@ namespace engine
 		error err;
 		for (auto& [shader, v] : mGeometryPipelines)
 		{
+			// TODO: figure out how to fix an error from validation layers on descriptors update.
 			err = v.updateMeshletToInstanceBuffer();
 			if (err)
 				return err;
 
-			// update perInstanceRegistry for pipeline.
-			// Need to update every frame for each pipeline.
 			auto writes = v.getMeshletToInstanceWriteInfo(mGeometryBinding.meshletToInstanceBinding);
 			mDescriptorSetMesh.updateWrite(writes);
 
 			writes = v.getPerInstanceWriteInfo(mGeometryBinding.perInstanceBinding);
 			mDescriptorSetMesh.updateWrite(writes);
+			// TODO: end.
 
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
 

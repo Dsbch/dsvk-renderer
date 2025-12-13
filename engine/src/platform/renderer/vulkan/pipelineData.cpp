@@ -91,10 +91,12 @@ namespace engine
 		return mPipeline.getPipeline();
 	}
 
-	error pipelineData::addInstance(uint32_t id, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr)
+	error pipelineData::addInstance(uint32_t id, uint32_t meshID, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr)
 	{
 		if (mMeshletToInstanceData.find(id) != mMeshletToInstanceData.end())
 			return {};
+
+		mInstanceMeshCount[meshID]++;
 
 		auto perIsntanceHandle = mPerInstanceRegistry.addBlock(id, &attr, sizeof(perInstanceAttr));
 		if (!perIsntanceHandle)
@@ -122,18 +124,32 @@ namespace engine
 		return {};
 	}
 
-	void pipelineData::removeInstance(uint32_t id)
+	void pipelineData::removeInstance(uint32_t id, uint32_t meshID)
 	{
 		if (mMeshletToInstanceData.find(id) == mMeshletToInstanceData.end())
 			return;
+
+		if (auto found = mInstanceMeshCount.find(meshID); found != mInstanceMeshCount.end() && found->second != 0)
+			found->second--;
 
 		mMeshletToInstanceData.erase(id);
 		mPerInstanceRegistry.deleteBlock(id);
 		mUpdateMeshletPerInstanceBuffer = true;
 	}
 
+	uint32_t pipelineData::getMeshInstanceCount(uint32_t meshID) const
+	{
+		if (auto found = mInstanceMeshCount.find(meshID); found != mInstanceMeshCount.end())
+			return found->second;
+
+		return 0;
+	}
+
 	error pipelineData::updateMeshletToInstanceBuffer()
 	{
+		if (mMeshletToInstanceData.size() == 0)
+			return {};
+
 		if (!mUpdateMeshletPerInstanceBuffer)
 			return {};
 

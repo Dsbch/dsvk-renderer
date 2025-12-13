@@ -35,6 +35,7 @@ namespace engine
 						.id = id,
 						.offset = uint32_t(offset),
 						.bufferIndex = i,
+						.size = sizeInBytes,
 						.vAllocation = vAllocation,
 				};
 
@@ -81,6 +82,7 @@ namespace engine
 				.id = id,
 				.offset = uint32_t(offset),
 				.bufferIndex = uint32_t(mBuffers.size()),
+				.size = sizeInBytes,
 				.vAllocation = vAllocation,
 		};
 
@@ -105,8 +107,9 @@ namespace engine
 			if (auto found = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); found != mBuffers[i].bufferHandles.end())
 			{
 				vmaVirtualFree(mBuffers[i].vBlock, found->vAllocation);
-				mNeedUpdate = true;
+				mBuffers[i].buffer.markBytesAsDead(found->size);
 				mBuffers[i].bufferHandles.erase(bufferHandle{ .id = id });
+				mNeedUpdate = true;
 				return true;
 			}
 		}

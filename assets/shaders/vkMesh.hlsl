@@ -101,6 +101,8 @@ struct MeshShaderPayload
 
 groupshared MeshShaderPayload payload;
 
+groupshared uint sharedVisibleCount;
+
 [numthreads(THREADS_COUNT, 1, 1)]
 void asmain(
     uint gtid : SV_GroupThreadID,
@@ -108,15 +110,27 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    // TODO: add culling.
+    if (gtid == 0)
+        sharedVisibleCount = 0;
+    
+    GroupMemoryBarrierWithGroupSync();
+    
     bool visible = dtid < push.taskShaderInvocationCount;
+     
+    if (visible)
+    {
+        InterlockedAdd(sharedVisibleCount, 1);
+        payload.instanceAttr[gtid] = perInstanceBuffer[meshletToInstanceBuffer[dtid].instanceIndex][meshletToInstanceBuffer[dtid].instanceOffset];
+        payload.meshlet[gtid] = meshletBuffer[meshletToInstanceBuffer[dtid].meshletIndex][meshletToInstanceBuffer[dtid].meshletOffset];
+    }
     
-    payload.instanceAttr[gtid] = perInstanceBuffer[meshletToInstanceBuffer[dtid].instanceIndex][meshletToInstanceBuffer[dtid].instanceOffset];
-    payload.meshlet[gtid] = meshletBuffer[meshletToInstanceBuffer[dtid].meshletIndex][meshletToInstanceBuffer[dtid].meshletOffset];
+    GroupMemoryBarrierWithGroupSync();
     
-    DispatchMesh(THREADS_COUNT, 1, 1, payload);
+    if (gtid == 0)
+    {
+        DispatchMesh(sharedVisibleCount, 1, 1, payload);
+    }
 }
-
 // TS END.
 
 // MS START.
@@ -166,10 +180,9 @@ void msmain(
         vertices[gtid].position = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
         float3 color = float3(
-            float(gid & 1),
-            float(gid & 3) / 4,
-            float(gid & 7) / 8);
-
+            0.1f, 0.7f, 0.2f
+         );
+        
         vertices[gtid].color = color;
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
     }
@@ -181,10 +194,6 @@ void msmain(
 
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    // TODO: need to implement CPU side index mapping for textures.
-    // When texture gets deleted from registry we can get problems.
-    // float4 color = albedo[?].Sample(albedoSamplers[0], input.uv);
-
     return float4(input.color, 1);;
 }
 

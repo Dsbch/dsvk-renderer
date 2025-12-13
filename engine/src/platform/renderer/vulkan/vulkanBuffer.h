@@ -42,6 +42,7 @@ namespace engine
 
 		allocatedBuffer getBuffer();
 
+		void markBytesAsDead(size_t size);
 		size_t getSize() const;
 		size_t getLoadedBytes() const;
 

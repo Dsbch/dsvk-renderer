@@ -18,6 +18,7 @@ namespace engine
 		uint32_t id;
 		uint32_t offset;
 		uint32_t bufferIndex;
+		size_t size;
 		VmaVirtualAllocation vAllocation;
 
 		bool operator<(const bufferHandle& other) const 

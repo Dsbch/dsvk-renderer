@@ -88,7 +88,7 @@ namespace engine
 		error checkError() const;
 		error changeViewPort(uint32_t width, uint32_t height);
 		error addToRender(model& m);
-		void removeFromRender(const model& m);
+		void removeFromRender(model& m);
 		error render(renderer::renderCallIn in);
 
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);

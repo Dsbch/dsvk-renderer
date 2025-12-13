@@ -37,21 +37,17 @@ namespace sandbox
 
 	std::random_device rd;
 	std::mt19937 gen(rd());
-	std::uniform_real_distribution<float> posDis(-10.0f, 10.0f);
-	std::uniform_real_distribution<float> angleDis(0.0f, glm::two_pi<float>());
 
 	glm::mat4 generateRandomTransform()
 	{
+		static float xPos = 1.0f;
+		xPos += 0.2f;
+
 		glm::mat4 transform = glm::mat4(1.0f);
 
 		// Random position in range [-10, 10]
-		glm::vec3 position(posDis(gen), posDis(gen), posDis(gen));
+		glm::vec3 position(xPos, 0, 0);
 		transform = glm::translate(transform, position);
-
-		// Random rotation
-		float angle = angleDis(gen);
-		glm::vec3 axis = glm::normalize(glm::vec3(posDis(gen), posDis(gen), posDis(gen)));
-		transform = glm::rotate(transform, angle, axis);
 
 		return transform;
 	}
@@ -63,6 +59,40 @@ namespace sandbox
 			auto event = static_cast<engine::keyUpEvent*>(e.get());
 
 			if (event->getKey() == engine::e)
+			{
+				auto lodMesh = engine::loadMesh("../assets/horse_statue_01_4k.glb", 64, 64, 0.5f);
+				if (!lodMesh)
+				{
+					LOGERROR("error loading mesh");
+					return {};
+				}
+
+				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
+				if (!pixel)
+				{
+					LOGERROR("bad pixel shader");
+					return {};
+				}
+
+				engine::material mat{
+					.pixelShader = pixel.value(),
+					.albedoTexture = nullptr,
+					.roughnessTexture = nullptr,
+					.normalTexture = nullptr,
+					.metalicTexture = nullptr,
+					.aoTexture = nullptr,
+				};
+
+				engine::entity e{ mCtx, registry };
+
+				e.addComponent<engine::materialComponent>(mat);
+
+				e.addComponent<engine::meshComponent>(lodMesh.value());
+
+				e.addComponent<engine::transformComponent>(generateRandomTransform());
+			}
+
+			if (event->getKey() == engine::r)
 			{
 				auto lodMesh = engine::loadMesh("../assets/trofy.glb", 64, 64, 0.5f);
 				if (!lodMesh)
@@ -95,6 +125,7 @@ namespace sandbox
 
 				e.addComponent<engine::transformComponent>(generateRandomTransform());
 			}
+
 
 			if (event->getKey() == engine::q)
 			{

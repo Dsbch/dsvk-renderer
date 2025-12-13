@@ -24,9 +24,10 @@ namespace engine
 			uint32_t defaultMeshletToInstanceBuffSize = 2 << 21
 		);
 		bool instanceExists(uint32_t id) const;
-		error addInstance(uint32_t id, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr);
+		error addInstance(uint32_t id, uint32_t meshID, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr);
 		error updateMeshletToInstanceBuffer();
-		void removeInstance(uint32_t id);
+		void removeInstance(uint32_t id, uint32_t meshID);
+		uint32_t getMeshInstanceCount(uint32_t meshID) const;
 		std::vector<VkWriteDescriptorSet> getPerInstanceWriteInfo(uint32_t binding);
 		std::vector<VkWriteDescriptorSet> getMeshletToInstanceWriteInfo(uint32_t binding);
 		uint32_t getTaskShaderCount();
@@ -45,7 +46,8 @@ namespace engine
 		vulkanBuffer mMeshletToInstanceBuffer;
 		uint32_t mNewMeshletToInstanceSize;
 		std::map<uint32_t, std::vector<meshletToInstance>> mMeshletToInstanceData;
-	
+		std::map<uint32_t, uint32_t> mInstanceMeshCount;
+
 		std::vector<VkDescriptorBufferInfo> mMeshletToInstanceBufferInfo;
 	};
 }
