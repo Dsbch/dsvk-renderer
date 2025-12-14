@@ -30,6 +30,9 @@ project "editor"
    links 
    { 
       "engine",
+      "spdlog",
+      "meshoptimizer",
+      "glfw",
    }
 
    fatalwarnings
@@ -38,6 +41,7 @@ project "editor"
    }
 
    filter "system:windows"
+       buildoptions { "/utf-8" }
        systemversion "latest"
        defines { "WINDOWS" }
 

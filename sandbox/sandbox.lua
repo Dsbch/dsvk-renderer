@@ -34,6 +34,9 @@ project "sandbox"
    links
    {
       "engine",
+      "spdlog",
+      "meshoptimizer",
+      "glfw",
    }
 
    filter "system:windows"
