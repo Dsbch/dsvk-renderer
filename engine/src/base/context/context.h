@@ -11,12 +11,12 @@ namespace engine
 {
 	struct context
 	{
-		timer timer;
+		timer appTimer;
 		std::unique_ptr<threadPool> mThreadPool;
 		std::unique_ptr<aManager> mAmanager;
 		std::unique_ptr<eventDispatcher> mEventDispatcher;
-		cfg<main> config;
+		cfg<mainCfg> config;
 		
-		context(cfg<main> config);
+		context(cfg<mainCfg> config);
 	};
 }

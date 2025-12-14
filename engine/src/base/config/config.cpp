@@ -3,7 +3,7 @@
 
 namespace engine
 {
-	void to_json(nlohmann::json& j, const camera& p)
+	void to_json(nlohmann::json& j, const cameraCfg& p)
 	{
 		j = nlohmann::json{
 			{"farPlane", p.farPlane},
@@ -12,14 +12,14 @@ namespace engine
 		};
 	}
 
-	void from_json(const nlohmann::json& j, camera& p)
+	void from_json(const nlohmann::json& j, cameraCfg& p)
 	{
 		j.at("farPlane").get_to(p.farPlane);
 		j.at("nearPlane").get_to(p.nearPlane);
 		j.at("fov").get_to(p.fov);
 	}
 
-	void to_json(nlohmann::json& j, const gameLoop& p)
+	void to_json(nlohmann::json& j, const gameLoopCfg& p)
 	{
 		j = nlohmann::json{
 			{"fps", p.fps},
@@ -28,14 +28,14 @@ namespace engine
 		};
 	}
 
-	void from_json(const nlohmann::json& j, gameLoop& p)
+	void from_json(const nlohmann::json& j, gameLoopCfg& p)
 	{
 		j.at("fps").get_to(p.fps);
 		j.at("gups").get_to(p.gups);
 		j.at("minimumFps").get_to(p.minimumFps);
 	}
 
-	void to_json(nlohmann::json& j, const editor& p)
+	void to_json(nlohmann::json& j, const editorCfg& p)
 	{
 		j = nlohmann::json
 		{
@@ -43,12 +43,12 @@ namespace engine
 		};
 	}
 
-	void from_json(const nlohmann::json& j, editor& p)
+	void from_json(const nlohmann::json& j, editorCfg& p)
 	{
 		j.at("name").get_to(p.name);
 	}
 
-	void to_json(nlohmann::json& j, const log& p)
+	void to_json(nlohmann::json& j, const logCfg& p)
 	{
 		j = nlohmann::json
 		{
@@ -59,7 +59,7 @@ namespace engine
 		};
 	}
 
-	void from_json(const nlohmann::json& j, log& p)
+	void from_json(const nlohmann::json& j, logCfg& p)
 	{
 		j.at("file").get_to(p.file);
 		j.at("useFile").get_to(p.useFile);
@@ -67,7 +67,7 @@ namespace engine
 		j.at("level").get_to(p.level);
 	}
 
-	void to_json(nlohmann::json& j, const wnd& p)
+	void to_json(nlohmann::json& j, const wndCfg& p)
 	{
 		j = nlohmann::json{
 			{"width", p.width},
@@ -77,7 +77,7 @@ namespace engine
 		};
 	}
 
-	void from_json(const nlohmann::json& j, wnd& p)
+	void from_json(const nlohmann::json& j, wndCfg& p)
 	{
 		j.at("width").get_to(p.width);
 		j.at("height").get_to(p.height);
@@ -85,7 +85,7 @@ namespace engine
 		j.at("showCursor").get_to(p.showCursor);
 	}
 
-	void to_json(nlohmann::json& j, const main& p)
+	void to_json(nlohmann::json& j, const mainCfg& p)
 	{
 		j = nlohmann::json
 		{
@@ -98,7 +98,7 @@ namespace engine
 		};
 	}
 
-	void from_json(const nlohmann::json& j, main& p)
+	void from_json(const nlohmann::json& j, mainCfg& p)
 	{
 		j.at("application").get_to(p.app);
 		j.at("logger").get_to(p.log);
@@ -108,12 +108,12 @@ namespace engine
 		j.at("render").get_to(p.render);
 	}
 
-	void from_json(const nlohmann::json& j, render& p)
+	void from_json(const nlohmann::json& j, renderCfg& p)
 	{
 		j.at("shaderWorkGroup").get_to(p.shaderWorkGroup);
 	}
 
-	void to_json(nlohmann::json& j, const render& p)
+	void to_json(nlohmann::json& j, const renderCfg& p)
 	{
 		j = nlohmann::json{
 			{"shaderWorkGroup", p.shaderWorkGroup},

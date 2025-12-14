@@ -12,8 +12,6 @@
 //
 // You will probably want to macro-fy this, to switch on/off easily and use things like __FUNCSIG__ for the profile name.
 //
-#pragma once
-
 #include <pch.h>
 #include "profiling.h"
 

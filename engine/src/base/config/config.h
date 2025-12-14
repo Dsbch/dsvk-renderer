@@ -5,31 +5,31 @@
 
 namespace engine
 {
-	struct render
+	struct renderCfg
 	{
 		uint32_t shaderWorkGroup = 64;
 	};
 
-	struct camera
+	struct cameraCfg
 	{
 		float fov = 90.0f;
 		float nearPlane = 0.1f;
 		float farPlane = 1000.0f;
 	};
 
-	struct gameLoop
+	struct gameLoopCfg
 	{
 		uint32_t fps = 60;
 		uint32_t gups = 30;
 		uint32_t minimumFps = 5;
 	};
 
-	struct editor
+	struct editorCfg
 	{
 		std::string name = "engine";
 	};
 
-	struct log
+	struct logCfg
 	{
 		bool useFile = false;
 		std::string file = "logs.log";
@@ -37,7 +37,7 @@ namespace engine
 		engine::logger::level level = engine::logger::level::debug;
 	};
 
-	struct wnd
+	struct wndCfg
 	{
 		uint32_t width = 1920;
 		uint32_t height = 1080;
@@ -45,30 +45,30 @@ namespace engine
 		std::string name = "engine";
 	};
 
-	struct main
+	struct mainCfg
 	{
-		editor app;
-		log log;
-		wnd wnd;
-		gameLoop gameLoop;
-		camera camera;
-		render render;
+		editorCfg app;
+		logCfg log;
+		wndCfg wnd;
+		gameLoopCfg gameLoop;
+		cameraCfg camera;
+		renderCfg render;
 	};
 
-	void to_json(nlohmann::json& j, const camera& p);
-	void from_json(const nlohmann::json& j, camera& p);
-	void to_json(nlohmann::json& j, const gameLoop& p);
-	void from_json(const nlohmann::json& j, gameLoop& p);
-	void to_json(nlohmann::json& j, const editor& p);
-	void from_json(const nlohmann::json& j, editor& p);
-	void to_json(nlohmann::json& j, const log& p);
-	void from_json(const nlohmann::json& j, log& p);
-	void to_json(nlohmann::json& j, const wnd& p);
-	void from_json(const nlohmann::json& j, wnd& p);
-	void to_json(nlohmann::json& j, const render& p);
-	void from_json(const nlohmann::json& j, render& p);
-	void to_json(nlohmann::json& j, const main& p);
-	void from_json(const nlohmann::json& j, main& p);
+	void to_json(nlohmann::json& j, const cameraCfg& p);
+	void from_json(const nlohmann::json& j, cameraCfg& p);
+	void to_json(nlohmann::json& j, const gameLoopCfg& p);
+	void from_json(const nlohmann::json& j, gameLoopCfg& p);
+	void to_json(nlohmann::json& j, const editorCfg& p);
+	void from_json(const nlohmann::json& j, editorCfg& p);
+	void to_json(nlohmann::json& j, const logCfg& p);
+	void from_json(const nlohmann::json& j, logCfg& p);
+	void to_json(nlohmann::json& j, const wndCfg& p);
+	void from_json(const nlohmann::json& j, wndCfg& p);
+	void to_json(nlohmann::json& j, const renderCfg& p);
+	void from_json(const nlohmann::json& j, renderCfg& p);
+	void to_json(nlohmann::json& j, const mainCfg& p);
+	void from_json(const nlohmann::json& j, mainCfg& p);
 
 	template<class T>
 	struct cfg {

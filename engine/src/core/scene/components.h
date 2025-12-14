@@ -5,8 +5,6 @@
 #include "core/camera/camera.h"
 #include "core/events/events.h"
 #include "platform/renderer/vertex.h"
-#include "platform/renderer/shader.h"
-#include "platform/renderer/texture.h"
 
 namespace engine
 {
@@ -77,22 +75,22 @@ namespace engine
 
 namespace std {
 	template <>
-	struct std::hash<glm::vec3> {
+	struct hash<glm::vec3> {
 		size_t operator()(const glm::vec3& v) const {
-			size_t hx = std::hash<float>{}(v.x);
-			size_t hy = std::hash<float>{}(v.y);
-			size_t hz = std::hash<float>{}(v.z);
+			size_t hx = hash<float>{}(v.x);
+			size_t hy = hash<float>{}(v.y);
+			size_t hz = hash<float>{}(v.z);
 			return hx ^ (hy << 1) ^ (hz << 2);
 		}
 	};
 
 	template <>
-	struct std::hash<glm::mat4> {
+	struct hash<glm::mat4> {
 		size_t operator()(const glm::mat4& mat) const {
 			const float* data = glm::value_ptr(mat);
 			size_t result = 0;
 			for (int i = 0; i < 16; ++i)
-				result ^= std::hash<float>{}(data[i]) << (i % 8);
+				result ^= hash<float>{}(data[i]) << (i % 8);
 			return result;
 		}
 	};

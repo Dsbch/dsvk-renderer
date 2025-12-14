@@ -4,7 +4,7 @@
 
 namespace engine
 {
-	std::shared_ptr<renderer> engine::makeRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window)
+	std::shared_ptr<renderer> makeRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window)
 	{
 #ifdef VULKAN
 		return std::make_shared<vulkanRenderer>(ctx, window);

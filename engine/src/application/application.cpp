@@ -54,8 +54,8 @@ namespace engine
 
 	error application::update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
 	{
-		auto k = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
-		for (uint32_t i = 0; mCtx->timer.toMS(mCtx->timer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
+		auto k = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
+		for (uint32_t i = 0; mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
 		{
 			// Queue events in main dispatcher.
 			mWindow->pollInput();
@@ -88,7 +88,7 @@ namespace engine
 
 	error application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
 	{
-		if (mCtx->timer.toMS(mCtx->timer.getTimeSinceStart()) >= nextRender)
+		if (mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
 		{
 			auto err = mScene->onRender();
 			if (err)
@@ -103,7 +103,7 @@ namespace engine
 
 	application::application()
 		:
-		mErr(), mCtx(std::make_shared<context>(cfg<main>{})), mScene(nullptr), mWindow(nullptr), mRunning(false)
+		mErr(), mCtx(std::make_shared<context>(cfg<mainCfg>{})), mScene(nullptr), mWindow(nullptr), mRunning(false)
 	{
 		mErr = initApplication();
 		if (mErr)
@@ -136,11 +136,11 @@ namespace engine
 	{
 		mRunning = true;
 
-		std::chrono::milliseconds nextGameUpdate = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
+		std::chrono::milliseconds nextGameUpdate = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
 		uint32_t maxFrameSkip = mCtx->config.inner.gameLoop.gups / mCtx->config.inner.gameLoop.minimumFps;
 		std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.gups);
 
-		std::chrono::milliseconds nextRender = mCtx->timer.toMS(mCtx->timer.getTimeSinceStart());
+		std::chrono::milliseconds nextRender = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
 		std::chrono::milliseconds renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
 
 		while (mRunning)

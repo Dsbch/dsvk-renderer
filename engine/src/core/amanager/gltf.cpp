@@ -1,5 +1,3 @@
-#pragma once
-
 #include <pch.h>
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>

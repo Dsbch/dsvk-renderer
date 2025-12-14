@@ -55,6 +55,9 @@ project "engine"
       "glfw",
    }
 
+   filter "files:../assets/shaders/**"
+      buildaction "None"
+
    fatalwarnings 
    { 
       "All" 

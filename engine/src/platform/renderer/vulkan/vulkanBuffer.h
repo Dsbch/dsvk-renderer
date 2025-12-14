@@ -3,8 +3,7 @@
 #include <pch.h>
 
 #include <vk_mem_alloc.h>
-
-#include "VulkanImmediateSubmit.h"
+#include "vulkanImmediateSubmit.h"
 
 namespace engine
 {

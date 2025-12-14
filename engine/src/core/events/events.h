@@ -1,7 +1,6 @@
 #pragma once
 
 #include <pch.h>
-#include <Windows.h>
 
 namespace engine
 {
@@ -37,11 +36,6 @@ namespace engine
 		int x;
 		int y;
 	};
-
-	key fromWinApiMouse(int msg);
-	key fromWinApiKey(int vkCode);
-	key fromRawMouse(const RAWINPUT* raw);
-	key fromRawKeyboard(const RAWINPUT* raw);
 
 	class baseEvent
 	{
