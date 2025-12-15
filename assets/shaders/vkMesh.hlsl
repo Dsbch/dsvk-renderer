@@ -8,7 +8,7 @@
 #define DEFINE_AS_PUSH_CONSTANT
 #endif
 
-#define THREADS_COUNT 64
+#define THREADS_COUNT 32
 
 // INPUT START.
 
@@ -95,13 +95,13 @@ pushConstants push;
 
 struct MeshShaderPayload
 {
-    meshlet meshlet[THREADS_COUNT];
-    perInstanceAttr instanceAttr[THREADS_COUNT];
+    uint meshletIndex[THREADS_COUNT];
+    uint meshletOffset[THREADS_COUNT];
+    uint perInstanceIndex[THREADS_COUNT];
+    uint perInstanceOffset[THREADS_COUNT];
 };
 
 groupshared MeshShaderPayload payload;
-
-groupshared uint sharedVisibleCount;
 
 [numthreads(THREADS_COUNT, 1, 1)]
 void asmain(
@@ -110,26 +110,19 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    if (gtid == 0)
-        sharedVisibleCount = 0;
-    
-    GroupMemoryBarrierWithGroupSync();
-    
     bool visible = dtid < push.taskShaderInvocationCount;
-     
+    
     if (visible)
     {
-        InterlockedAdd(sharedVisibleCount, 1);
-        payload.instanceAttr[gtid] = perInstanceBuffer[meshletToInstanceBuffer[dtid].instanceIndex][meshletToInstanceBuffer[dtid].instanceOffset];
-        payload.meshlet[gtid] = meshletBuffer[meshletToInstanceBuffer[dtid].meshletIndex][meshletToInstanceBuffer[dtid].meshletOffset];
+        payload.meshletIndex[gtid] = meshletToInstanceBuffer[dtid].meshletIndex;
+        payload.meshletOffset[gtid] = meshletToInstanceBuffer[dtid].meshletOffset;
+
+        payload.perInstanceIndex[gtid] = meshletToInstanceBuffer[dtid].instanceIndex;
+        payload.perInstanceOffset[gtid] = meshletToInstanceBuffer[dtid].instanceOffset;
     }
     
-    GroupMemoryBarrierWithGroupSync();
-    
-    if (gtid == 0)
-    {
-        DispatchMesh(sharedVisibleCount, 1, 1, payload);
-    }
+    uint visibleCount = WaveActiveCountBits(visible);
+    DispatchMesh(visibleCount, 1, 1, payload);
 }
 // TS END.
 
@@ -151,8 +144,8 @@ void msmain(
     out indices uint3 triangles[THREADS_COUNT],
     out vertices meshOutput vertices[THREADS_COUNT])
 {
-    meshlet mesh = payload.meshlet[gid];
-    perInstanceAttr instanceAttr = payload.instanceAttr[gid];
+    meshlet mesh = meshletBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
+    perInstanceAttr instanceAttr = perInstanceBuffer[payload.perInstanceIndex[gid]][payload.perInstanceOffset[gid]];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
        
@@ -180,8 +173,10 @@ void msmain(
         vertices[gtid].position = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
         float3 color = float3(
-            0.1f, 0.7f, 0.2f
-         );
+            float(payload.meshletOffset[gid] & 1),
+            float(payload.meshletOffset[gid] & 3) / 4,
+            float(payload.meshletOffset[gid] & 7) / 8
+        );
         
         vertices[gtid].color = color;
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;

@@ -28,6 +28,10 @@ namespace engine
 		error updateMeshletToInstanceBuffer();
 		void removeInstance(uint32_t id, uint32_t meshID);
 		uint32_t getMeshInstanceCount(uint32_t meshID) const;
+		bool needPerInstanceDecriptorUpdate() const;
+		void setPerInstanceDecriptorUpdated();
+		bool needMeshletToInstanceDescriptorUpdate() const;
+		void setMeshletToInstanceDescriptorUpdated();
 		std::vector<VkWriteDescriptorSet> getPerInstanceWriteInfo(uint32_t binding);
 		std::vector<VkWriteDescriptorSet> getMeshletToInstanceWriteInfo(uint32_t binding);
 		uint32_t getTaskShaderCount();
@@ -42,7 +46,8 @@ namespace engine
 
 		bufferRegistry mPerInstanceRegistry;
 
-		bool mUpdateMeshletPerInstanceBuffer;
+		bool mUpdateMeshletToInstanceBuffer;
+		bool mUpdateMeshletToInstanceDescriptor;
 		vulkanBuffer mMeshletToInstanceBuffer;
 		uint32_t mNewMeshletToInstanceSize;
 		std::map<uint32_t, std::vector<meshletToInstance>> mMeshletToInstanceData;

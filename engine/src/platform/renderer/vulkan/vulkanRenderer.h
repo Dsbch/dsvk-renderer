@@ -109,7 +109,7 @@ namespace engine
 		error loadExtensions();
 		error setBackgroundDescriptors();
 		error setGeometryDescriptors();
-		void updateGeometryDescriptors();
+		error updateGeometryDescriptors();
 		error initBackgroundPipeline();
 
 		bool mWindowMinimized;

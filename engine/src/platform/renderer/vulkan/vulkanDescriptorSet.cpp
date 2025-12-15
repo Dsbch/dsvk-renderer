@@ -160,9 +160,9 @@ namespace engine
 		for (auto& s : writeInfo)
 		{
 			s.dstSet = mDescriptorSet;
-
-			vkUpdateDescriptorSets(mDevice, 1, &s, 0, nullptr);
 		}
+
+		vkUpdateDescriptorSets(mDevice, writeInfo.size(), writeInfo.data(), 0, nullptr);
 	}
 
 	std::pair<VkDescriptorSet, VkDescriptorSetLayout> descriptorSet::getDescriptorSet()

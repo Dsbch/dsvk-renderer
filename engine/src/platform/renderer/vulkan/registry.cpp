@@ -109,7 +109,7 @@ namespace engine
 				vmaVirtualFree(mBuffers[i].vBlock, found->vAllocation);
 				mBuffers[i].buffer.markBytesAsDead(found->size);
 				mBuffers[i].bufferHandles.erase(bufferHandle{ .id = id });
-				mNeedUpdate = true;
+				
 				return true;
 			}
 		}

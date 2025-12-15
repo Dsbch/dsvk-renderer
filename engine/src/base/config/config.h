@@ -7,7 +7,7 @@ namespace engine
 {
 	struct renderCfg
 	{
-		uint32_t shaderWorkGroup = 64;
+		uint32_t shaderWorkGroup = 32;
 	};
 
 	struct cameraCfg

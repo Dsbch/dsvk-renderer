@@ -60,7 +60,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto lodMesh = engine::loadMesh("../assets/horse_statue_01_4k.glb", 64, 64, 0.5f);
+				auto lodMesh = engine::loadMesh("../assets/horse_statue_01_4k.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");
@@ -94,7 +94,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::r)
 			{
-				auto lodMesh = engine::loadMesh("../assets/trofy.glb", 64, 64, 0.5f);
+				auto lodMesh = engine::loadMesh("../assets/trofy.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");

@@ -277,11 +277,12 @@ namespace engine
 		{
 			return;
 		}
+
 		// Remove instance.
 		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id, m.mesh.getHash());
 
 		uint32_t instanceCount = 0;
-		for (auto [_, p] : mGeometryPipelines)
+		for (const auto [_, p] : mGeometryPipelines)
 		{
 			instanceCount = std::max(p.getMeshInstanceCount(m.mesh.getHash()), instanceCount);
 		}
@@ -333,6 +334,11 @@ namespace engine
 		{
 			return waitResult.err();
 		}
+
+		// Geometry buffers/textures updated frequintly.
+		auto err = updateGeometryDescriptors();
+		if (err)
+			return err;
 
 		mSwapChain.pickImageExtent();
 
@@ -386,7 +392,7 @@ namespace engine
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-		auto err = geometryPass(cmd, in);
+		err = geometryPass(cmd, in);
 		if (err)
 			return err;
 
@@ -454,8 +460,6 @@ namespace engine
 
 	error vulkanRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		updateGeometryDescriptors();
-
 		if (mGeometryPipelines.size() != 0)
 		{
 			//begin a render pass connected to our draw image.
@@ -467,21 +471,8 @@ namespace engine
 			vkCmdBeginRendering(cmd, &renderInfo);
 		}
 
-		error err;
 		for (auto& [shader, v] : mGeometryPipelines)
 		{
-			// TODO: figure out how to fix an error from validation layers on descriptors update.
-			err = v.updateMeshletToInstanceBuffer();
-			if (err)
-				return err;
-
-			auto writes = v.getMeshletToInstanceWriteInfo(mGeometryBinding.meshletToInstanceBinding);
-			mDescriptorSetMesh.updateWrite(writes);
-
-			writes = v.getPerInstanceWriteInfo(mGeometryBinding.perInstanceBinding);
-			mDescriptorSetMesh.updateWrite(writes);
-			// TODO: end.
-
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
 
 			//set dynamic viewport and scissor
@@ -837,35 +828,63 @@ namespace engine
 
 	error vulkanRenderer::setGeometryDescriptors()
 	{
+		const uint32_t combinedImageSamplers = 5;
+		const uint32_t bufferObjects = 6;
+
 		// add bindings for buffers.
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.meshletToInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.meshletToInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
 		// add bindings for textures.
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / 5,
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
 
 		auto err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
 		if (err)
 			return err;
 
-		updateGeometryDescriptors();
+		err = updateGeometryDescriptors();
+		if (err)
+			return err;
 
 		return {};
 	}
 
 	// Should be called before each geometry pass.
-	void vulkanRenderer::updateGeometryDescriptors()
+	error vulkanRenderer::updateGeometryDescriptors()
 	{
 		// update buffers.
+		error err;
+		// update buffers in each pipeline.
+		for (auto& [_, v] : mGeometryPipelines)
+		{
+			err = v.updateMeshletToInstanceBuffer();
+			if (err)
+				return err;
+
+			if (v.needMeshletToInstanceDescriptorUpdate())
+			{
+				auto writeInfo = v.getMeshletToInstanceWriteInfo(mGeometryBinding.meshletToInstanceBinding);
+				mDescriptorSetMesh.updateWrite(writeInfo);
+				v.setMeshletToInstanceDescriptorUpdated();
+			}
+
+			if (v.needPerInstanceDecriptorUpdate())
+			{
+				auto writes = v.getPerInstanceWriteInfo(mGeometryBinding.perInstanceBinding);
+				mDescriptorSetMesh.updateWrite(writes);
+				v.setPerInstanceDecriptorUpdated();
+			}
+		}
+		
 		if (mVertexRegistry.needDecriptorUpdate())
 		{
 			auto writeInfo = mVertexRegistry.getWriteInfo(mGeometryBinding.vertexBinding);
@@ -929,6 +948,8 @@ namespace engine
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mAoRegistry.setUpdated();
 		}
+
+		return {};
 	}
 
 	void vulkanRenderer::flushDeletonQueue()

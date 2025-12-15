@@ -22,7 +22,8 @@ namespace engine
 		mAllocator = allocator;
 		mImmediateSubmit = immSubmit;
 		mNewMeshletToInstanceSize = defaultMeshletToInstanceBuffSize;
-		mUpdateMeshletPerInstanceBuffer = false;
+		mUpdateMeshletToInstanceBuffer = false;
+		mUpdateMeshletToInstanceDescriptor = true;
 
 		// init buffers, registry.
 		mPerInstanceRegistry.init(mDevice, mAllocator, mImmediateSubmit);
@@ -83,7 +84,8 @@ namespace engine
 		mPerInstanceRegistry.destroy();
 		mMeshletToInstanceBuffer.destroy();
 		mMeshletToInstanceData.clear();
-		mUpdateMeshletPerInstanceBuffer = false;
+		mUpdateMeshletToInstanceBuffer = false;
+		mUpdateMeshletToInstanceDescriptor = false;
 	}
 
 	std::pair<VkPipeline, VkPipelineLayout> pipelineData::getPipeline()
@@ -102,7 +104,7 @@ namespace engine
 		if (!perIsntanceHandle)
 			return perIsntanceHandle.err();
 
-		mUpdateMeshletPerInstanceBuffer = true;
+		mUpdateMeshletToInstanceBuffer = true;
 
 		std::vector<meshletToInstance> meshToInstance;
 		meshToInstance.reserve(meshletCount);
@@ -134,7 +136,7 @@ namespace engine
 
 		mMeshletToInstanceData.erase(id);
 		mPerInstanceRegistry.deleteBlock(id);
-		mUpdateMeshletPerInstanceBuffer = true;
+		mUpdateMeshletToInstanceBuffer = true;
 	}
 
 	uint32_t pipelineData::getMeshInstanceCount(uint32_t meshID) const
@@ -145,17 +147,37 @@ namespace engine
 		return 0;
 	}
 
+	bool pipelineData::needPerInstanceDecriptorUpdate() const
+	{
+		return mPerInstanceRegistry.needDecriptorUpdate();
+	}
+
+	void pipelineData::setPerInstanceDecriptorUpdated()
+	{
+		return mPerInstanceRegistry.setUpdated();
+	}
+
+	bool pipelineData::needMeshletToInstanceDescriptorUpdate() const
+	{
+		return mUpdateMeshletToInstanceDescriptor;
+	}
+
+	void pipelineData::setMeshletToInstanceDescriptorUpdated()
+	{
+		mUpdateMeshletToInstanceDescriptor = false;
+
+	}
 	error pipelineData::updateMeshletToInstanceBuffer()
 	{
 		if (mMeshletToInstanceData.size() == 0)
 			return {};
 
-		if (!mUpdateMeshletPerInstanceBuffer)
+		if (!mUpdateMeshletToInstanceBuffer)
 			return {};
 
 		std::vector<meshletToInstance> meshToInstance;
 
-		for (auto [_, v] : mMeshletToInstanceData)
+		for (auto& [_, v] : mMeshletToInstanceData)
 		{
 			for (auto& val : v)
 				meshToInstance.push_back(val);
@@ -167,6 +189,10 @@ namespace engine
 			mMeshletToInstanceBuffer.destroy();
 
 			mNewMeshletToInstanceSize *= 2;
+			if (mNewMeshletToInstanceSize < meshToInstance.size() * sizeof(meshletToInstance))
+			{
+				mNewMeshletToInstanceSize = meshToInstance.size() * sizeof(meshletToInstance) * 2;
+			}
 
 			err = mMeshletToInstanceBuffer.build(
 				mImmediateSubmit, meshToInstance.data(),
@@ -175,12 +201,13 @@ namespace engine
 			);
 			if (err)
 				return err;
-		}
 
+			mUpdateMeshletToInstanceDescriptor = true;
+		}
 		if (err)
 			return err;
 
-		mUpdateMeshletPerInstanceBuffer = false;
+		mUpdateMeshletToInstanceBuffer = false;
 
 		return {};
 	}
@@ -204,7 +231,7 @@ namespace engine
 	{
 		uint32_t result = 0;
 
-		for (auto [k, v] : mMeshletToInstanceData)
+		for (const auto [_, v] : mMeshletToInstanceData)
 		{
 			result += uint32_t(v.size());
 		}
