@@ -60,11 +60,6 @@ project "engine"
       "All" 
    }
 
-   files 
-   {
-      "../assets/shaders/**"
-   }
-
    filter "system:windows"
          buildoptions { "/utf-8" }
          defines 

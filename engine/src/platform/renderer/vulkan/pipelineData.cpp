@@ -189,9 +189,9 @@ namespace engine
 			mMeshletToInstanceBuffer.destroy();
 
 			mNewMeshletToInstanceSize *= 2;
-			if (mNewMeshletToInstanceSize < meshToInstance.size() * sizeof(meshletToInstance))
+			if (mNewMeshletToInstanceSize < uint32_t(meshToInstance.size() * sizeof(meshletToInstance)))
 			{
-				mNewMeshletToInstanceSize = meshToInstance.size() * sizeof(meshletToInstance) * 2;
+				mNewMeshletToInstanceSize = uint32_t(meshToInstance.size() * sizeof(meshletToInstance) * 2);
 			}
 
 			err = mMeshletToInstanceBuffer.build(

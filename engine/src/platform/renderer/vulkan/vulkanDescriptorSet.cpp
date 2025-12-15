@@ -162,7 +162,7 @@ namespace engine
 			s.dstSet = mDescriptorSet;
 		}
 
-		vkUpdateDescriptorSets(mDevice, writeInfo.size(), writeInfo.data(), 0, nullptr);
+		vkUpdateDescriptorSets(mDevice, uint32_t(writeInfo.size()), writeInfo.data(), 0, nullptr);
 	}
 
 	std::pair<VkDescriptorSet, VkDescriptorSetLayout> descriptorSet::getDescriptorSet()
