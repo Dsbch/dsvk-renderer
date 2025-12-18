@@ -21,10 +21,10 @@ namespace engine
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
 			VkFormat colorAttachmentFormat,
-			uint32_t defaultMeshletToInstanceBuffSize = 2 << 21
+			uint32_t defaultMeshletToInstanceBuffSize = 2 << 25
 		);
 		bool instanceExists(uint32_t id) const;
-		error addInstance(uint32_t id, uint32_t meshID, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr);
+		error addInstance(uint32_t id, uint32_t meshID, bufferHandle meshletHandle, const dataWithLodLevels<meshlet>& mesh, perInstanceAttr attr);
 		error updateMeshletToInstanceBuffer();
 		void removeInstance(uint32_t id, uint32_t meshID);
 		uint32_t getMeshInstanceCount(uint32_t meshID) const;

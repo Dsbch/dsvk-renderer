@@ -53,10 +53,10 @@ namespace engine
 	struct meshComponent
 	{
 		uint32_t uid;
-		lodMesh mesh;
+		mesh meshData;
 
-		meshComponent(lodMesh mesh)
-			: mesh(mesh), uid(mesh.getHash()) {
+		meshComponent(mesh meshData)
+			: meshData(meshData), uid(meshData.getHash()) {
 		}
 	};
 

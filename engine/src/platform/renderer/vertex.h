@@ -32,7 +32,10 @@ namespace engine
 		uint32_t instanceOffset;
 
 		uint32_t meshletIndex;
-		uint32_t meshletOffset;
+		uint32_t meshletOffset1;
+		uint32_t meshletOffset2;
+		uint32_t meshletOffset3;
+		uint32_t meshletOffset4;
 	};
 
 	struct perInstanceAttr
@@ -62,30 +65,30 @@ namespace engine
 		uint32_t triangleCount;
 	};
 
+	template<class T>
+	struct dataWithLodLevels
+	{
+		uint32_t second;
+		uint32_t third;
+		uint32_t fourth;
+		std::shared_ptr<std::vector<T>> data;
+	};
 
 	struct mesh
 	{
-		std::shared_ptr<std::vector<uint32_t>> indexBuffer;
-		std::shared_ptr<std::vector<uint32_t>> primitiveBuffer;
-		std::shared_ptr<std::vector<meshlet>> meshletBuffer;
-	};
-
-	struct lodMesh
-	{
-		std::shared_ptr<std::vector<vertex>> vertexBuffer;
-		std::array<mesh, 4> lodLevels;
+		std::shared_ptr<std::vector<vertex>> vertex;
+		dataWithLodLevels<uint32_t> index;
+		dataWithLodLevels<uint32_t> primitive;
+		dataWithLodLevels<meshlet> mesh;
 
 		uint32_t hash = 0;
 
 		uint32_t getHash()
 		{
-			if (lodLevels.size() == 0)
-				return 0;
-
 			if (hash != 0)
 				return hash;
 
-			hash = crc32(reinterpret_cast<const uint8_t*>(vertexBuffer->data()), vertexBuffer->size());
+			hash = crc32(reinterpret_cast<const uint8_t*>(vertex->data()), vertex->size());
 
 			return hash;
 		}
@@ -106,7 +109,7 @@ namespace engine
 	{
 		uint32_t id;
 		material mat;
-		lodMesh mesh;
+		mesh meshData;
 		perInstanceAttr instanceAttributes;
 	};
 

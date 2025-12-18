@@ -93,7 +93,7 @@ namespace engine
 		return mPipeline.getPipeline();
 	}
 
-	error pipelineData::addInstance(uint32_t id, uint32_t meshID, bufferHandle meshletHandle, uint32_t meshletCount, perInstanceAttr attr)
+	error pipelineData::addInstance(uint32_t id, uint32_t meshID, bufferHandle meshletHandle, const dataWithLodLevels<meshlet>& mesh, perInstanceAttr attr)
 	{
 		if (mMeshletToInstanceData.find(id) != mMeshletToInstanceData.end())
 			return {};
@@ -107,16 +107,21 @@ namespace engine
 		mUpdateMeshletToInstanceBuffer = true;
 
 		std::vector<meshletToInstance> meshToInstance;
-		meshToInstance.reserve(meshletCount);
 
-		for (uint32_t i = 0; i < meshletCount; i++)
+		uint32_t baseOffset = meshletHandle.offset / uint32_t(sizeof(meshlet));
+
+		for (uint32_t i = 0; i < mesh.second; i++)
 		{
 			meshToInstance.push_back(
 				meshletToInstance{
 					.instanceIndex = perIsntanceHandle.value().bufferIndex,
 					.instanceOffset = perIsntanceHandle.value().offset / uint32_t(sizeof(perInstanceAttr)),
+
 					.meshletIndex = meshletHandle.bufferIndex,
-					.meshletOffset = meshletHandle.offset / uint32_t(sizeof(meshlet)) + i
+					.meshletOffset1 = baseOffset + i,
+					.meshletOffset2 = i < mesh.third - mesh.second ? baseOffset + mesh.second + i : std::numeric_limits<uint32_t>::max(),
+					.meshletOffset3 = i < mesh.fourth - mesh.third ? baseOffset + mesh.third + i : std::numeric_limits<uint32_t>::max(),
+					.meshletOffset4 = i < mesh.data->size() - mesh.fourth ? baseOffset + mesh.fourth + i : std::numeric_limits<uint32_t>::max()
 				}
 			);
 		}

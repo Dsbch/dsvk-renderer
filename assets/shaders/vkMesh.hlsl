@@ -61,15 +61,18 @@ struct meshletToInstance
     uint instanceOffset;
     
     uint meshletIndex;
-    uint meshletOffset;
+    uint meshletOffset1;
+    uint meshletOffset2;
+    uint meshletOffset3;
+    uint meshletOffset4;
 };
 
 StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t1, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t2, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t3, space0);
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t4, space0);
-StructuredBuffer<meshletToInstance> meshletToInstanceBuffer : register(t5, space0);
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t1, space0);
+StructuredBuffer<meshletToInstance> meshletToInstanceBuffer : register(t2, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t3, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t4, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
 
 Texture2D albedo[] : register(t6, space0);
 SamplerState albedoSamplers[] : register(s6, space0);
@@ -99,9 +102,43 @@ struct MeshShaderPayload
     uint meshletOffset[THREADS_COUNT];
     uint perInstanceIndex[THREADS_COUNT];
     uint perInstanceOffset[THREADS_COUNT];
+    uint lodLevel[THREADS_COUNT];
 };
 
 groupshared MeshShaderPayload payload;
+
+uint getMeshletOffsetByLod(uint lodLevel, uint dtid)
+{
+    const uint maxUint = 4294967295;
+    
+    uint result;
+    
+    switch (lodLevel)
+    {
+        case 2:
+            {
+                result = meshletToInstanceBuffer[dtid].meshletOffset2;
+                break;
+            }
+        case 3:
+            {
+                result = meshletToInstanceBuffer[dtid].meshletOffset3;
+                break;
+            }
+        case 4:
+            {
+                result = meshletToInstanceBuffer[dtid].meshletOffset4;
+                break;
+            }
+        default:
+            {
+                result = meshletToInstanceBuffer[dtid].meshletOffset1;
+                break;
+            }
+    }
+    
+    return result;
+}
 
 [numthreads(THREADS_COUNT, 1, 1)]
 void asmain(
@@ -110,15 +147,26 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
+    const uint maxUint = 4294967295;
+
+    // TODO: add culling.
+    // When I culled meshlet I need to write to paylod with some groupShared index instaed of gtid.
     bool visible = dtid < push.taskShaderInvocationCount;
     
     if (visible)
     {
-        payload.meshletIndex[gtid] = meshletToInstanceBuffer[dtid].meshletIndex;
-        payload.meshletOffset[gtid] = meshletToInstanceBuffer[dtid].meshletOffset;
-
         payload.perInstanceIndex[gtid] = meshletToInstanceBuffer[dtid].instanceIndex;
         payload.perInstanceOffset[gtid] = meshletToInstanceBuffer[dtid].instanceOffset;
+     
+        // TODO: add lodLevel selection.
+        uint lodLevel = dtid < 350 ? 1 : 4;
+        payload.lodLevel[gtid] = lodLevel;
+        
+        payload.meshletIndex[gtid] = meshletToInstanceBuffer[dtid].meshletIndex;
+        payload.meshletOffset[gtid] = getMeshletOffsetByLod(lodLevel, dtid);
+    
+        if (payload.meshletOffset[gtid] == maxUint)
+            visible = false;
     }
     
     uint visibleCount = WaveActiveCountBits(visible);
@@ -151,18 +199,18 @@ void msmain(
        
     if (gtid < mesh.triangleCount)
     {
-        //
         // meshopt stores the triangle offset in bytes since it stores the
         // triangle indices as 3 consecutive bytes. 
         //
         // Since we repacked those 3 bytes to a 32-bit uint, our offset is now
         // aligned to 4 and we can easily grab it as a uint without any 
         // additional offset math.
-        //
         uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
+        
         uint vIdx0 = (packed >> 0) & 0xFF;
         uint vIdx1 = (packed >> 8) & 0xFF;
         uint vIdx2 = (packed >> 16) & 0xFF;
+        
         triangles[gtid] = uint3(vIdx0, vIdx1, vIdx2);
     }
 

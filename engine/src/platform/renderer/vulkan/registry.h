@@ -11,7 +11,7 @@
 
 namespace engine
 {
-	static const uint32_t newBufferSize = 2 << 28;
+	static const uint32_t newBufferSize = 2 << 27;
 
 	struct bufferHandle
 	{

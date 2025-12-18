@@ -33,7 +33,7 @@ namespace engine
 			model m{
 				.id = uid.uid,
 				.mat = material.mat,
-				.mesh = mesh.mesh,
+				.meshData = mesh.meshData,
 				.instanceAttributes = perInstanceAttr{
 					.modelMatrix = transform.transform,
 				},
@@ -49,7 +49,7 @@ namespace engine
 			model m{
 				.id = uid.uid,
 				.mat = material.mat,
-				.mesh = mesh.mesh,
+				.meshData = mesh.meshData,
 				.instanceAttributes = perInstanceAttr{
 					.modelMatrix = transform.transform,
 				},

@@ -36,13 +36,13 @@ namespace engine
 				else
 				{
 					glm::vec3 translation(0.0f);
-					if (node->translation) translation = glm::vec3(node->translation[0], node->translation[1], node->translation[2]);
+					translation = glm::vec3(node->translation[0], node->translation[1], node->translation[2]);
 
 					glm::quat rotation(1, 0, 0, 0);
-					if (node->rotation) rotation = glm::quat(node->rotation[3], node->rotation[0], node->rotation[1], node->rotation[2]);
+					rotation = glm::quat(node->rotation[3], node->rotation[0], node->rotation[1], node->rotation[2]);
 
 					glm::vec3 scale(1.0f);
-					if (node->scale) scale = glm::vec3(node->scale[0], node->scale[1], node->scale[2]);
+					scale = glm::vec3(node->scale[0], node->scale[1], node->scale[2]);
 
 					return glm::translate(glm::mat4(1.0f), translation)
 						* glm::mat4_cast(rotation)
@@ -170,7 +170,7 @@ namespace engine
 		return {};
 	}
 
-	withError<lodMesh> loadMesh(const std::string& path, size_t maxVert, size_t maxTriangles, float coneWieght)
+	withError<mesh> loadMesh(const std::string& path, size_t maxVert, size_t maxTriangles, float coneWieght)
 	{
 		std::vector<vertex> vertexBuf;
 		std::vector<uint32_t> indexBuf;
@@ -179,37 +179,60 @@ namespace engine
 		if (err)
 			return err;
 
-		lodMesh result;
-		for (size_t i = 0; i < result.lodLevels.size(); i++)
+		mesh result{
+			.index = dataWithLodLevels<uint32_t>{
+				.second = 0,
+				.third = 0,
+				.fourth = 0,
+				.data = std::make_shared<std::vector<uint32_t>>()
+			},
+			.primitive = dataWithLodLevels<uint32_t>{
+				.second = 0,
+				.third = 0,
+				.fourth = 0,
+				.data = std::make_shared<std::vector<uint32_t>>()
+			},
+			.mesh = dataWithLodLevels<meshlet>{
+				.second = 0,
+				.third = 0,
+				.fourth = 0,
+				.data = std::make_shared<std::vector<meshlet>>()
+			}
+		};
+
+		for (size_t i = 0; i < 4; i++)
 		{
-			std::vector<uint32_t> simplifiedIndexBuf = indexBuf;
-
-			if (i != 0)
+			// preapre offsets.
+			switch (i)
 			{
-				const float errorLevels[4] = { 0.001f, 0.01f, 0.03f, 0.08f };
-
-				size_t actualSize = meshopt_simplify(
-					simplifiedIndexBuf.data(),
-					indexBuf.data(),
-					indexBuf.size(),
-					&vertexBuf.front().position.x,
-					vertexBuf.size(),
-					sizeof(vertex),
-					indexBuf.size() / (i + 1),
-					errorLevels[i]
-				);
-
-				if (actualSize > simplifiedIndexBuf.size())
-					return error{ "wrong actual size of simplified index buffer" };
-
-				simplifiedIndexBuf.resize(actualSize);
+			case 1:
+			{
+				result.index.second = uint32_t(result.index.data->size());
+				result.mesh.second = uint32_t(result.mesh.data->size());
+				result.primitive.second = uint32_t(result.primitive.data->size());
+				break;
+			}
+			case 2:
+			{
+				result.index.third = uint32_t(result.index.data->size());
+				result.mesh.third = uint32_t(result.mesh.data->size());
+				result.primitive.third = uint32_t(result.primitive.data->size());
+				break;
+			}
+			case 3:
+			{
+				result.index.fourth = uint32_t(result.index.data->size());
+				result.mesh.fourth = uint32_t(result.mesh.data->size());
+				result.primitive.fourth = uint32_t(result.primitive.data->size());
+				break;
+			}
 			}
 
-			std::vector<unsigned int> remap(simplifiedIndexBuf.size());
+			std::vector<unsigned int> remap(indexBuf.size());
 			size_t vertex_count = meshopt_generateVertexRemap(
 				remap.data(),
-				simplifiedIndexBuf.data(),
-				simplifiedIndexBuf.size(),
+				indexBuf.data(),
+				indexBuf.size(),
 				&vertexBuf.front().position.x,
 				vertexBuf.size(),
 				sizeof(vertex)
@@ -218,16 +241,37 @@ namespace engine
 			if (vertex_count == 0)
 				return error{ "vertex count is zero" };
 
-			std::vector<uint32_t> remappedIndexBuffer(simplifiedIndexBuf.size());
-			meshopt_remapIndexBuffer(remappedIndexBuffer.data(), simplifiedIndexBuf.data(), simplifiedIndexBuf.size(), remap.data());
+			std::vector<uint32_t> remappedIndexBuffer(indexBuf.size());
+			meshopt_remapIndexBuffer(remappedIndexBuffer.data(), indexBuf.data(), indexBuf.size(), remap.data());
 
 			if (i == 0)
 			{
-				result.vertexBuffer = std::make_shared<std::vector<vertex>>(vertex_count);
-				meshopt_remapVertexBuffer(result.vertexBuffer->data(), vertexBuf.data(), vertexBuf.size(), sizeof(vertex), remap.data());
+				result.vertex = std::make_shared<std::vector<vertex>>(vertex_count);
+				meshopt_remapVertexBuffer(result.vertex->data(), vertexBuf.data(), vertexBuf.size(), sizeof(vertex), remap.data());
 			}
 
-			const size_t maxMeshlets = meshopt_buildMeshletsBound(remappedIndexBuffer.size(), maxVert, maxTriangles);
+			// simplify index buffer for lod levels.
+			std::vector<uint32_t> simplyfiedIndexBuf;
+			simplyfiedIndexBuf.resize(remappedIndexBuffer.size());
+
+			const float errorLevel = 0.01f;
+			size_t actualSize = meshopt_simplify(
+				simplyfiedIndexBuf.data(),
+				remappedIndexBuffer.data(),
+				remappedIndexBuffer.size(),
+				&vertexBuf.front().position.x,
+				vertexBuf.size(),
+				sizeof(vertex),
+				remappedIndexBuffer.size() / (i + 1),
+				errorLevel
+			);
+
+			if (actualSize > simplyfiedIndexBuf.size())
+				return error{ "wrong actual size of simplified index buffer" };
+			
+			simplyfiedIndexBuf.resize(actualSize);
+
+			const size_t maxMeshlets = meshopt_buildMeshletsBound(simplyfiedIndexBuf.size(), maxVert, maxTriangles);
 			if (maxMeshlets == 0)
 				return error{ "maxMeshlets is zero" };
 
@@ -235,17 +279,17 @@ namespace engine
 			std::vector<uint8_t> meshletTriangles;
 
 			meshlets.resize(maxMeshlets);
-			result.lodLevels[i].indexBuffer = std::make_shared<std::vector<uint32_t>>(maxMeshlets * maxVert);
+			auto index = std::vector<uint32_t>(maxMeshlets * maxVert);
 			meshletTriangles.resize(maxMeshlets * maxTriangles * 3);
 
 			size_t meshletCount = meshopt_buildMeshlets(
 				meshlets.data(),											// Output: array of meshopt_Meshlet
-				result.lodLevels[i].indexBuffer->data(),					// Output: array of uint32_t - meshlet to mesh index mappings
+				index.data(),												// Output: array of uint32_t - meshlet to mesh index mappings
 				meshletTriangles.data(),									// Output: array of uint8_t - triangle indices
-				remappedIndexBuffer.data(),									// Input: pointer mesh vertex indices
-				remappedIndexBuffer.size(),									// Input: number of vertex indices
-				&result.vertexBuffer->front().position.x,					// Input: pointer to vertex positions
-				result.vertexBuffer->size(),								// Input: number of vertex positions	
+				simplyfiedIndexBuf.data(),									// Input: pointer mesh vertex indices
+				simplyfiedIndexBuf.size(),									// Input: number of vertex indices
+				&result.vertex->front().position.x,							// Input: pointer to vertex positions
+				result.vertex->size(),										// Input: number of vertex positions	
 				sizeof(vertex),												// Input: stride of vertex position elements
 				maxVert,													// Input: maximum number of vertices per meshlet
 				maxTriangles,												// Input: maximum number of triangles per meshlet
@@ -256,15 +300,25 @@ namespace engine
 				return error{ "meshletCount is zero" };
 
 			auto& last = meshlets[meshletCount - 1];
-			result.lodLevels[i].indexBuffer->resize(last.vertex_offset + last.vertex_count);
+			index.resize(last.vertex_offset + last.vertex_count);
 			meshletTriangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
 			meshlets.resize(meshletCount);
 
-			result.lodLevels[i].primitiveBuffer = std::make_shared<std::vector<uint32_t>>();
+			for (auto& m : meshlets)
+			{
+				meshopt_optimizeMeshlet(&index[m.vertex_offset], &meshletTriangles[m.triangle_offset], m.triangle_count, m.vertex_count);
+			}
+
+			for (auto& idx : index)
+			{
+				result.index.data->push_back(idx);
+			}
+
+			auto primitive = std::vector<uint32_t>();
 			for (auto& m : meshlets)
 			{
 				// Save triangle offset for current meshlet
-				uint32_t triangleOffset = static_cast<uint32_t>(result.lodLevels[i].primitiveBuffer->size());
+				uint32_t triangleOffset = uint32_t((primitive.size()));
 
 				// Repack to uint32_t
 				for (uint32_t k = 0; k < m.triangle_count; ++k)
@@ -279,29 +333,64 @@ namespace engine
 					uint32_t packed = ((static_cast<uint32_t>(vIdx0) & 0xFF) << 0) |
 						((static_cast<uint32_t>(vIdx1) & 0xFF) << 8) |
 						((static_cast<uint32_t>(vIdx2) & 0xFF) << 16);
-					result.lodLevels[i].primitiveBuffer->push_back(packed);
+					primitive.push_back(packed);
 				}
 
 				// Update triangle offset for current meshlet
 				m.triangle_offset = triangleOffset;
 			}
 
-			result.lodLevels[i].meshletBuffer = std::make_shared<std::vector<meshlet>>();
-			result.lodLevels[i].meshletBuffer->reserve(meshletCount);
+			for (auto& prim : primitive)
+			{
+				result.primitive.data->push_back(prim);
+			}
+
+			auto meshletBuff = std::vector<meshlet>();
+			meshletBuff.reserve(meshletCount);
+
+			uint32_t indexLodOffset = 0;
+			uint32_t primitiveLodOffset = 0;
+			switch (i)
+			{
+			case 1:
+			{
+				indexLodOffset = result.index.second;
+				primitiveLodOffset = result.primitive.second;
+				break;
+			}
+			case 2:
+			{
+				indexLodOffset = result.index.third;
+				primitiveLodOffset = result.primitive.third;
+				break;
+			}
+			case 3:
+			{
+				indexLodOffset = result.index.fourth;
+				primitiveLodOffset = result.primitive.fourth;
+				break;
+			}
+			}
+
 			for (size_t k = 0; k < meshlets.size(); k++)
 			{
-				result.lodLevels[i].meshletBuffer->push_back(
+				meshletBuff.push_back(
 					meshlet{
 						.indexBufferIndex = 0,
-						.indexBufferOffset = meshlets[k].vertex_offset,
+						.indexBufferOffset = meshlets[k].vertex_offset + indexLodOffset,
 						.vertexBufferIndex = 0,
 						.vertexBufferOffset = 0,
 						.vertexCount = meshlets[k].vertex_count,
 						.triangleBufferIndex = 0,
-						.triangleBufferOffset = meshlets[k].triangle_offset,
+						.triangleBufferOffset = meshlets[k].triangle_offset + primitiveLodOffset,
 						.triangleCount = meshlets[k].triangle_count
 					}
 				);
+			}
+
+			for (auto& m : meshletBuff)
+			{
+				result.mesh.data->push_back(m);
 			}
 		}
 

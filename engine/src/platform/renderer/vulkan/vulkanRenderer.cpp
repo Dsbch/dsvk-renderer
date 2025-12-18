@@ -203,66 +203,61 @@ namespace engine
 			m.instanceAttributes.aoIndex = mAoRegistry.addTexture(m.mat.aoTexture->hash(), static_cast<const vulkanTexture*>(m.mat.aoTexture.get())->mImage);
 		}
 
-		// geometry data.
-		// TODO: FOR NOW ONLY ONE LOD LEVEL, UPLOAD ALL LOD LEVELS.
 		auto handle = mVertexRegistry.addBlock(
-			m.mesh.getHash(),
-			m.mesh.vertexBuffer->data(),
-			m.mesh.vertexBuffer->size() * sizeof(vertex)
+			m.meshData.getHash(),
+			m.meshData.vertex->data(),
+			m.meshData.vertex->size() * sizeof(vertex)
 		);
 		if (!handle)
 			return handle.err();
 
-		// For now only front.
-		for (auto& meshlet : *(m.mesh.lodLevels.front().meshletBuffer.get()))
+		for (auto& meshlet : *(m.meshData.mesh.data.get()))
 		{
 			meshlet.vertexBufferOffset += handle.value().offset / uint32_t(sizeof(vertex));
 			meshlet.vertexBufferIndex = handle.value().bufferIndex;
 		}
 
 		handle = mIndexRegistry.addBlock(
-			m.mesh.getHash(),
-			m.mesh.lodLevels[0].indexBuffer->data(),
-			m.mesh.lodLevels[0].indexBuffer->size() * sizeof(uint32_t)
+			m.meshData.getHash(),
+			m.meshData.index.data->data(),
+			m.meshData.index.data->size() * sizeof(uint32_t)
 		);
 		if (!handle)
 			return handle.err();
 
-		// For now only front.
-		for (auto& meshlet : *(m.mesh.lodLevels.front().meshletBuffer.get()))
+		for (auto& meshlet : *(m.meshData.mesh.data.get()))
 		{
 			meshlet.indexBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
 			meshlet.indexBufferIndex = handle.value().bufferIndex;
 		}
 
 		handle = mPrimitiveRegistry.addBlock(
-			m.mesh.getHash(),
-			m.mesh.lodLevels[0].primitiveBuffer->data(),
-			m.mesh.lodLevels[0].primitiveBuffer->size() * sizeof(uint32_t)
+			m.meshData.getHash(),
+			m.meshData.primitive.data->data(),
+			m.meshData.primitive.data->size() * sizeof(uint32_t)
 		);
 		if (!handle)
 			return handle.err();
 
-		// For now only front.
-		for (auto& meshlet : *(m.mesh.lodLevels.front().meshletBuffer.get()))
+		for (auto& meshlet : *(m.meshData.mesh.data.get()))
 		{
 			meshlet.triangleBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
 			meshlet.triangleBufferIndex = handle.value().bufferIndex;
 		}
 
 		handle = mMeshletRegistry.addBlock(
-			m.mesh.getHash(),
-			m.mesh.lodLevels[0].meshletBuffer->data(),
-			m.mesh.lodLevels[0].meshletBuffer->size() * sizeof(meshlet)
+			m.meshData.getHash(),
+			m.meshData.mesh.data->data(),
+			m.meshData.mesh.data->size() * sizeof(meshlet)
 		);
 		if (!handle)
 			return handle.err();
 
 		auto err = mGeometryPipelines[m.mat.pixelShader].addInstance(
 			m.id,
-			m.mesh.getHash(),
+			m.meshData.getHash(),
 			handle.value(),
-			uint32_t(m.mesh.lodLevels[0].meshletBuffer->size()),
+			m.meshData.mesh,
 			m.instanceAttributes
 		);
 		if (err)
@@ -279,21 +274,24 @@ namespace engine
 		}
 
 		// Remove instance.
-		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id, m.mesh.getHash());
+		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id, m.meshData.getHash());
 
 		uint32_t instanceCount = 0;
 		for (const auto [_, p] : mGeometryPipelines)
 		{
-			instanceCount = std::max(p.getMeshInstanceCount(m.mesh.getHash()), instanceCount);
+			instanceCount = std::max(p.getMeshInstanceCount(m.meshData.getHash()), instanceCount);
 		}
 
 		// Mesh isn't used.
 		if (instanceCount == 0)
 		{
-			mVertexRegistry.deleteBlock(m.mesh.getHash());
-			mIndexRegistry.deleteBlock(m.mesh.getHash());
-			mPrimitiveRegistry.deleteBlock(m.mesh.getHash());
-			mMeshletRegistry.deleteBlock(m.mesh.getHash());
+			mVertexRegistry.deleteBlock(m.meshData.getHash());
+
+			mIndexRegistry.deleteBlock(m.meshData.getHash());
+
+			mPrimitiveRegistry.deleteBlock(m.meshData.getHash());
+
+			mMeshletRegistry.deleteBlock(m.meshData.getHash());
 
 			// TODO:
 			// I need to update perInstance attrs in pipelineData after delete of textures.
@@ -458,6 +456,7 @@ namespace engine
 		return {};
 	}
 
+	// TODO: add culling in task shader.
 	error vulkanRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
 		if (mGeometryPipelines.size() != 0)
@@ -648,17 +647,19 @@ namespace engine
 
 		mGeometryBinding = geometryPipelineBindings{
 			.descriptorSet = 0,
+
 			.vertexBinding = 0,
-			.indexBinding = 1,
-			.primitiveBinding = 2,
-			.meshletBinding = 3,
-			.perInstanceBinding = 4,
-			.meshletToInstanceBinding = 5,
+			.perInstanceBinding = 1,
+			.meshletToInstanceBinding = 2,
+			.indexBinding = 3,
+			.primitiveBinding = 4,
+			.meshletBinding = 5,
+			
 			.albedoBinding = 6,
 			.normalBinding = 7,
 			.roughnessBinding = 8,
 			.metalicBinding = 9,
-			.aoBinding = 10,
+			.aoBinding = 10
 		};
 
 		return {};
@@ -747,13 +748,19 @@ namespace engine
 	error vulkanRenderer::initRegistry()
 	{
 		mVertexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
 		mIndexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
 		mPrimitiveRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
 		mMeshletRegistry.init(mDevice, mAllocator, mImmediateSubmit);
 
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
+
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
+
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPrimitiveRegistry });
+
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
 
 		auto samp = descriptorSet::createSampler(mDevice, mPhysicalDeviceLimits.maxFiltering);
@@ -832,20 +839,72 @@ namespace engine
 		const uint32_t bufferObjects = 6;
 
 		// add bindings for buffers.
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.meshletToInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.meshletToInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
 
 		// add bindings for textures.
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-		mDescriptorSetMesh.addBinding(descriptorSet::getLayoutBindingInfo(mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
 
 		auto err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
 		if (err)
@@ -862,8 +921,8 @@ namespace engine
 	error vulkanRenderer::updateGeometryDescriptors()
 	{
 		// update buffers.
+
 		error err;
-		// update buffers in each pipeline.
 		for (auto& [_, v] : mGeometryPipelines)
 		{
 			err = v.updateMeshletToInstanceBuffer();
@@ -884,7 +943,7 @@ namespace engine
 				v.setPerInstanceDecriptorUpdated();
 			}
 		}
-		
+
 		if (mVertexRegistry.needDecriptorUpdate())
 		{
 			auto writeInfo = mVertexRegistry.getWriteInfo(mGeometryBinding.vertexBinding);

@@ -57,13 +57,12 @@ namespace engine
 		uint32_t descriptorSet;
 
 		uint32_t vertexBinding;
+		uint32_t perInstanceBinding;
+		uint32_t meshletToInstanceBinding;
 		uint32_t indexBinding;
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
-
-		uint32_t perInstanceBinding;
-		uint32_t meshletToInstanceBinding;
-
+		
 		uint32_t albedoBinding;
 		uint32_t normalBinding;
 		uint32_t roughnessBinding;
