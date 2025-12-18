@@ -61,10 +61,7 @@ struct meshletToInstance
     uint instanceOffset;
     
     uint meshletIndex;
-    uint meshletOffset1;
-    uint meshletOffset2;
-    uint meshletOffset3;
-    uint meshletOffset4;
+    uint meshletOffset;
 };
 
 StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
@@ -107,39 +104,6 @@ struct MeshShaderPayload
 
 groupshared MeshShaderPayload payload;
 
-uint getMeshletOffsetByLod(uint lodLevel, uint dtid)
-{
-    const uint maxUint = 4294967295;
-    
-    uint result;
-    
-    switch (lodLevel)
-    {
-        case 2:
-            {
-                result = meshletToInstanceBuffer[dtid].meshletOffset2;
-                break;
-            }
-        case 3:
-            {
-                result = meshletToInstanceBuffer[dtid].meshletOffset3;
-                break;
-            }
-        case 4:
-            {
-                result = meshletToInstanceBuffer[dtid].meshletOffset4;
-                break;
-            }
-        default:
-            {
-                result = meshletToInstanceBuffer[dtid].meshletOffset1;
-                break;
-            }
-    }
-    
-    return result;
-}
-
 [numthreads(THREADS_COUNT, 1, 1)]
 void asmain(
     uint gtid : SV_GroupThreadID,
@@ -147,8 +111,6 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    const uint maxUint = 4294967295;
-
     // TODO: add culling.
     // When I culled meshlet I need to write to paylod with some groupShared index instaed of gtid.
     bool visible = dtid < push.taskShaderInvocationCount;
@@ -159,14 +121,11 @@ void asmain(
         payload.perInstanceOffset[gtid] = meshletToInstanceBuffer[dtid].instanceOffset;
      
         // TODO: add lodLevel selection.
-        uint lodLevel = dtid < 350 ? 1 : 4;
+        uint lodLevel = 1;
         payload.lodLevel[gtid] = lodLevel;
         
         payload.meshletIndex[gtid] = meshletToInstanceBuffer[dtid].meshletIndex;
-        payload.meshletOffset[gtid] = getMeshletOffsetByLod(lodLevel, dtid);
-    
-        if (payload.meshletOffset[gtid] == maxUint)
-            visible = false;
+        payload.meshletOffset[gtid] = meshletToInstanceBuffer[dtid].meshletOffset;
     }
     
     uint visibleCount = WaveActiveCountBits(visible);

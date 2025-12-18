@@ -116,12 +116,8 @@ namespace engine
 				meshletToInstance{
 					.instanceIndex = perIsntanceHandle.value().bufferIndex,
 					.instanceOffset = perIsntanceHandle.value().offset / uint32_t(sizeof(perInstanceAttr)),
-
 					.meshletIndex = meshletHandle.bufferIndex,
-					.meshletOffset1 = baseOffset + i,
-					.meshletOffset2 = i < mesh.third - mesh.second ? baseOffset + mesh.second + i : std::numeric_limits<uint32_t>::max(),
-					.meshletOffset3 = i < mesh.fourth - mesh.third ? baseOffset + mesh.third + i : std::numeric_limits<uint32_t>::max(),
-					.meshletOffset4 = i < mesh.data->size() - mesh.fourth ? baseOffset + mesh.fourth + i : std::numeric_limits<uint32_t>::max()
+					.meshletOffset = baseOffset + i
 				}
 			);
 		}

@@ -32,10 +32,7 @@ namespace engine
 		uint32_t instanceOffset;
 
 		uint32_t meshletIndex;
-		uint32_t meshletOffset1;
-		uint32_t meshletOffset2;
-		uint32_t meshletOffset3;
-		uint32_t meshletOffset4;
+		uint32_t meshletOffset;
 	};
 
 	struct perInstanceAttr
