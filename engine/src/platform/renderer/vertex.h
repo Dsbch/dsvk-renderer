@@ -32,7 +32,10 @@ namespace engine
 		uint32_t instanceOffset;
 
 		uint32_t meshletIndex;
-		uint32_t meshletOffset;
+		uint32_t meshletOffset1;
+		uint32_t meshletOffset2;
+		uint32_t meshletOffset3;
+		uint32_t meshletOffset4;
 	};
 
 	struct perInstanceAttr
@@ -42,8 +45,11 @@ namespace engine
 		uint32_t normalIndex;
 		uint32_t metalicIndex;
 		uint32_t aoIndex;
-
+		
 		uint32_t _pad0[3];
+
+		glm::vec3 bsCenter;
+		float  bsRadius;
 
 		glm::mat4 modelMatrix;
 	};
@@ -77,6 +83,9 @@ namespace engine
 		dataWithLodLevels<uint32_t> index;
 		dataWithLodLevels<uint32_t> primitive;
 		dataWithLodLevels<meshlet> mesh;
+
+		glm::vec3 bsCenter;
+		float bsRadius;
 
 		uint32_t hash = 0;
 
@@ -112,8 +121,8 @@ namespace engine
 
 	struct pushConstants
 	{
-		uint32_t taskShaderInvocationCount;
-		float pad0[3];
+		uint32_t meshletCount;
+		glm::vec3 cameraPos;
 		glm::mat4 viewProjection;
 	};
 }

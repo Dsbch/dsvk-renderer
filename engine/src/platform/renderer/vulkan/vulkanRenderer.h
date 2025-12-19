@@ -62,7 +62,7 @@ namespace engine
 		uint32_t indexBinding;
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
-		
+
 		uint32_t albedoBinding;
 		uint32_t normalBinding;
 		uint32_t roughnessBinding;

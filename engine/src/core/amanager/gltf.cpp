@@ -170,6 +170,55 @@ namespace engine
 		return {};
 	}
 
+	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<vertex>& vertices)
+	{
+		auto findFarthest = [&](glm::vec3 point)-> glm::vec3
+			{
+				glm::vec3 result{ 0.0f };
+				float maxLength = 0.0f;
+
+				for (auto& v : vertices)
+				{
+					auto length = glm::length(v.position - point);
+
+					if (length > maxLength)
+					{
+						maxLength = length;
+						result = v.position;
+					}
+				}
+
+				return result;
+			};
+
+		std::pair<glm::vec3, float> result{ glm::vec3(1.0f), 0.0f };
+
+		glm::vec3 first{ vertices[std::rand() % vertices.size()].position };
+		glm::vec3 second = findFarthest(first);
+		glm::vec3 third = findFarthest(second);
+
+		glm::vec3 potentialCenter = (second + third) / 2.0f;
+		float potentialRadius = glm::length(third - potentialCenter);
+
+		for (auto& v : vertices)
+		{
+			glm::vec3 toCenter = v.position - potentialCenter;
+			float crntRadius = glm::length(toCenter);
+
+			if (crntRadius > potentialRadius)
+			{
+				float newRadius = (potentialRadius + crntRadius) / 2.0f;
+				potentialCenter += toCenter * ((crntRadius - potentialRadius) / newRadius);
+				potentialRadius = newRadius;
+			}
+		}
+
+		result.first = potentialCenter;
+		result.second = potentialRadius;
+
+		return result;
+	}
+
 	withError<mesh> loadMesh(const std::string& path, size_t maxVert, size_t maxTriangles, float coneWieght)
 	{
 		std::vector<vertex> vertexBuf;
@@ -197,7 +246,9 @@ namespace engine
 				.third = 0,
 				.fourth = 0,
 				.data = std::make_shared<std::vector<meshlet>>()
-			}
+			},
+			.bsCenter = glm::vec3(0.f),
+			.bsRadius = 0.0f
 		};
 
 		for (size_t i = 0; i < 4; i++)
@@ -268,7 +319,7 @@ namespace engine
 
 			if (actualSize > simplyfiedIndexBuf.size())
 				return error{ "wrong actual size of simplified index buffer" };
-			
+
 			simplyfiedIndexBuf.resize(actualSize);
 
 			const size_t maxMeshlets = meshopt_buildMeshletsBound(simplyfiedIndexBuf.size(), maxVert, maxTriangles);
@@ -393,6 +444,10 @@ namespace engine
 				result.mesh.data->push_back(m);
 			}
 		}
+
+		auto bs = calculateBoundingSphere(*result.vertex.get());
+		result.bsCenter = bs.first;
+		result.bsRadius = bs.second;
 
 		return result;
 	}

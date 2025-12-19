@@ -35,7 +35,9 @@ namespace engine
 				.mat = material.mat,
 				.meshData = mesh.meshData,
 				.instanceAttributes = perInstanceAttr{
-					.modelMatrix = transform.transform,
+					.bsCenter = mesh.meshData.bsCenter,
+					.bsRadius = mesh.meshData.bsRadius,
+					.modelMatrix = transform.transform
 				},
 			};
 
@@ -51,6 +53,8 @@ namespace engine
 				.mat = material.mat,
 				.meshData = mesh.meshData,
 				.instanceAttributes = perInstanceAttr{
+					.bsCenter = mesh.meshData.bsCenter,
+					.bsRadius = mesh.meshData.bsRadius,
 					.modelMatrix = transform.transform,
 				},
 			};
@@ -69,8 +73,13 @@ namespace engine
 		if (!viewTransform)
 			return viewTransform.err();
 
+		auto cameraPos = cameraSystem::getCameraPos(registry);
+		if (!cameraPos)
+			return cameraPos.err();
+
 		return mRenderer->render(
 			renderer::renderCallIn{
+				.cameraPos = cameraPos.value(),
 				.viewProjection = viewTransform.value()
 			}
 		);

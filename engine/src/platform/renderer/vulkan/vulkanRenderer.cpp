@@ -493,7 +493,7 @@ namespace engine
 
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-			pushConstants pc{ .taskShaderInvocationCount = uint32_t(v.getTaskShaderCount()), .viewProjection = in.viewProjection };
+			pushConstants pc{ .meshletCount = uint32_t(v.getTaskShaderCount()), .cameraPos = in.cameraPos, .viewProjection = in.viewProjection };
 			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 			// bind the descriptor set.
@@ -654,7 +654,7 @@ namespace engine
 			.indexBinding = 3,
 			.primitiveBinding = 4,
 			.meshletBinding = 5,
-			
+
 			.albedoBinding = 6,
 			.normalBinding = 7,
 			.roughnessBinding = 8,

@@ -14,6 +14,7 @@ namespace engine
 	public:
 		struct renderCallIn
 		{
+			glm::vec3 cameraPos;
 			glm::mat4 viewProjection;
 		};
 

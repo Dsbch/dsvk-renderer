@@ -51,6 +51,8 @@ struct perInstanceAttr
     uint metalicIndex;
     uint aoIndex;
     
+    float3 bsCenter;
+    float bsRadius;
     
     float4x4 modelMatrix;
 };
@@ -61,8 +63,13 @@ struct meshletToInstance
     uint instanceOffset;
     
     uint meshletIndex;
-    uint meshletOffset;
+    uint meshletOffset1;
+    uint meshletOffset2;
+    uint meshletOffset3;
+    uint meshletOffset4;
 };
+
+// SSBO START.
 
 StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t1, space0);
@@ -71,21 +78,28 @@ StructuredBuffer<uint> vertexIndexBuffer[] : register(t3, space0);
 StructuredBuffer<uint> primitiveBuffer[] : register(t4, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
 
+// SSBO END.
+
+// TEXTURES START.
+
 Texture2D albedo[] : register(t6, space0);
 SamplerState albedoSamplers[] : register(s6, space0);
+
+// TEXTURES END.
 
 // DescriptorSets END.
 
 // Push constant START.
 
-struct pushConstants
+struct pushConstant
 {
-    uint taskShaderInvocationCount;
+    uint meshletCount;
+    float3 cameraPos;
     float4x4 viewProjection;
 };
 
 DEFINE_AS_PUSH_CONSTANT
-pushConstants push;
+pushConstant push;
 
 // Push constant END.
 
@@ -104,6 +118,35 @@ struct MeshShaderPayload
 
 groupshared MeshShaderPayload payload;
 
+uint getMeshletOffset(uint lodLevel, uint dtid)
+{
+    uint result;
+    
+    switch (lodLevel)
+    {
+        case 2:
+            result = meshletToInstanceBuffer[dtid].meshletOffset2;
+            break;
+        case 3:
+            result = meshletToInstanceBuffer[dtid].meshletOffset3;
+            break;
+        case 4:
+            result = meshletToInstanceBuffer[dtid].meshletOffset4;
+            break;
+        default:
+            result = meshletToInstanceBuffer[dtid].meshletOffset1;
+            break;
+    }
+    
+    return result;
+}
+
+uint selectLodLevel(float4x4 model, float4x4 viewProjection, float3 bsCenter, float bsRadius)
+{
+    // TODO: implement lod selection.
+    return 4;
+}
+
 [numthreads(THREADS_COUNT, 1, 1)]
 void asmain(
     uint gtid : SV_GroupThreadID,
@@ -111,23 +154,40 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    // TODO: add culling.
-    // When I culled meshlet I need to write to paylod with some groupShared index instaed of gtid.
-    bool visible = dtid < push.taskShaderInvocationCount;
+    const uint maxUint = 4294967295;
     
+    float visible = dtid < push.meshletCount;
+  
+    // Not overdraw.
     if (visible)
     {
-        payload.perInstanceIndex[gtid] = meshletToInstanceBuffer[dtid].instanceIndex;
-        payload.perInstanceOffset[gtid] = meshletToInstanceBuffer[dtid].instanceOffset;
-     
-        // TODO: add lodLevel selection.
-        uint lodLevel = 1;
-        payload.lodLevel[gtid] = lodLevel;
-        
-        payload.meshletIndex[gtid] = meshletToInstanceBuffer[dtid].meshletIndex;
-        payload.meshletOffset[gtid] = meshletToInstanceBuffer[dtid].meshletOffset;
-    }
+        uint perInstanceIndex = meshletToInstanceBuffer[dtid].instanceIndex;
+        uint perInstanceOffset = meshletToInstanceBuffer[dtid].instanceOffset;
     
+        perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
+        uint selectedLod = selectLodLevel(instanceAttr.modelMatrix, push.viewProjection, instanceAttr.bsCenter, instanceAttr.bsRadius);
+        uint meshletOffset = getMeshletOffset(selectedLod, dtid);
+    
+        // Still have meshlets for that lodLevel.
+        visible = meshletOffset != maxUint;
+        if (visible)
+        {
+            // TODO: add culling.
+            visible = true;
+            
+            uint index = WavePrefixCountBits(visible);
+        
+            payload.perInstanceIndex[index] = perInstanceIndex;
+            payload.perInstanceOffset[index] = perInstanceOffset;
+     
+            payload.lodLevel[index] = selectedLod;
+        
+            payload.meshletIndex[index] = meshletToInstanceBuffer[dtid].meshletIndex;
+            payload.meshletOffset[index] = meshletOffset;
+        }
+    
+    }
+        
     uint visibleCount = WaveActiveCountBits(visible);
     DispatchMesh(visibleCount, 1, 1, payload);
 }
@@ -138,7 +198,7 @@ void asmain(
 struct meshOutput
 {
     float4 position : SV_POSITION;
-    float3 color : COLOR;
+    float4 color : COLOR;
     float2 uv : TEXCOORD0;
 };
 
@@ -179,10 +239,11 @@ void msmain(
 
         vertices[gtid].position = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
-        float3 color = float3(
+        float4 color = float4(
             float(payload.meshletOffset[gid] & 1),
             float(payload.meshletOffset[gid] & 3) / 4,
-            float(payload.meshletOffset[gid] & 7) / 8
+            float(payload.meshletOffset[gid] & 7) / 8,
+            payload.perInstanceOffset[gid] % 2 == 0 ? 0.5f : 1.0f
         );
         
         vertices[gtid].color = color;
@@ -196,7 +257,7 @@ void msmain(
 
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    return float4(input.color, 1);;
+    return input.color;
 }
 
 // PIXEL SHADER END.

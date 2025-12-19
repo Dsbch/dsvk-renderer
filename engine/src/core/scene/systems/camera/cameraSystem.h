@@ -19,6 +19,7 @@ namespace engine
 		error onRender(std::shared_ptr<entt::registry> registry);
 		error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e);
 		static withError<glm::mat4> getViewTransform(std::shared_ptr<entt::registry> registry);
+		static withError<glm::vec3> getCameraPos(std::shared_ptr<entt::registry> registry);
 	private:
 		void spawnDefaultCamera(std::shared_ptr<entt::registry> registry) const;
 	};
