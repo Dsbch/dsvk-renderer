@@ -143,7 +143,8 @@ uint getMeshletOffset(uint lodLevel, uint dtid)
 
 uint selectLodLevel(float4x4 model, float4x4 viewProjection, float3 bsCenter, float bsRadius)
 {
-    // TODO: implement lod selection.
+    
+
     return 4;
 }
 

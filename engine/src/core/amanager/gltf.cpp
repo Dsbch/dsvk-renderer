@@ -207,8 +207,8 @@ namespace engine
 
 			if (crntRadius > potentialRadius)
 			{
-				float newRadius = (potentialRadius + crntRadius) / 2.0f;
-				potentialCenter += toCenter * ((crntRadius - potentialRadius) / newRadius);
+				float newRadius = potentialRadius + (crntRadius - potentialRadius) / 2.0f;
+				potentialCenter += toCenter - (toCenter * (newRadius / crntRadius));
 				potentialRadius = newRadius;
 			}
 		}
