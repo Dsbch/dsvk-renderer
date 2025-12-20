@@ -67,7 +67,12 @@ namespace engine
 
 	vulkanRenderer::~vulkanRenderer()
 	{
-		vkDeviceWaitIdle(mDevice);
+		auto result = vkDeviceWaitIdle(mDevice);
+		if (result != VK_SUCCESS)
+		{
+			LOGERROR(vkResultToStr(result));
+			return;
+		}
 
 		for (auto& [k, v] : mGeometryPipelines)
 		{

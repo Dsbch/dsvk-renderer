@@ -40,14 +40,14 @@ namespace sandbox
 
 	glm::mat4 generateRandomTransform()
 	{
-		static float xPos = 1.0f;
-		xPos += 0.2f;
+		static float zPos = -1.0f;
+		zPos -= 0.2f;
 
 		glm::mat4 transform = glm::mat4(1.0f);
 
-		// Random position in range [-10, 10]
-		glm::vec3 position(xPos, 0, 0);
+		glm::vec3 position(0, 0, zPos);
 		transform = glm::translate(transform, position);
+
 
 		return transform;
 	}
@@ -94,7 +94,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::r)
 			{
-				auto lodMesh = engine::loadMesh("../assets/trofy.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
+				auto lodMesh = engine::loadMesh("../assets/plane289.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");

@@ -143,8 +143,17 @@ uint getMeshletOffset(uint lodLevel, uint dtid)
 
 uint selectLodLevel(float4x4 model, float4x4 viewProjection, float3 bsCenter, float bsRadius)
 {
+    float distToObj = length(bsCenter - push.cameraPos);
     
-
+    if (distToObj <= 20.0f)
+        return 1;
+    
+    if (distToObj <= 35.0f)
+        return 2;
+    
+    if (distToObj <= 50.0f)
+        return 3;
+    
     return 4;
 }
 
