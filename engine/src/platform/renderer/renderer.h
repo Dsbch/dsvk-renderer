@@ -15,7 +15,8 @@ namespace engine
 		struct renderCallIn
 		{
 			glm::vec3 cameraPos;
-			glm::mat4 viewProjection;
+			glm::mat4 view;
+			glm::mat4 projection;
 		};
 
 		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mWindow(window), mErr() {};

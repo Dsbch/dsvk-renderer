@@ -498,12 +498,12 @@ namespace engine
 
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-			pushConstants pc{ .meshletCount = uint32_t(v.getTaskShaderCount()), .cameraPos = in.cameraPos, .viewProjection = in.viewProjection };
+			pushConstants pc{ .meshletCount = uint32_t(v.getTaskShaderCount()), .cameraPos = in.cameraPos, .view = in.view, .projection = in.projection, .viewProjection = in.projection * in.view };
 			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 			// bind the descriptor set.
 			auto set = mDescriptorSetMesh.getDescriptorSet().first;
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().second, 0, 1, &set, 0, nullptr);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().second, mGeometryBinding.descriptorSet, 1, &set, 0, nullptr);
 
 			vkCmdDrawMeshTasksEXT(cmd, uint32_t(v.getTaskShaderCount()) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 		}
@@ -647,7 +647,7 @@ namespace engine
 	{
 		mComputeBinding = computePipelineBindings{
 			.descriptorSet = 0,
-			.textureBinding = 0,
+			.colorAttachment = 0,
 		};
 
 		mGeometryBinding = geometryPipelineBindings{
@@ -820,19 +820,23 @@ namespace engine
 
 	error vulkanRenderer::setBackgroundDescriptors()
 	{
-		std::vector<VkDescriptorImageInfo> imgInfo = {
-			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDrawImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL, }
+		std::vector<VkDescriptorImageInfo> colorAttachmentInfo = {
+			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDrawImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
+		};
+
+		std::vector<VkDescriptorImageInfo> depthAttachmentInfo = {
+			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDepthImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
 		};
 
 		mDescriptorSetCompute.addBinding(
-			descriptorSet::getLayoutBindingInfo(mComputeBinding.textureBinding, uint32_t(imgInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			descriptorSet::getLayoutBindingInfo(mComputeBinding.colorAttachment, uint32_t(colorAttachmentInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		);
 
 		auto err = mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT);
 		if (err)
 			return err;
 
-		auto writeInfo = descriptorSet::getWriteInfo(mComputeBinding.textureBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, imgInfo);
+		auto writeInfo = descriptorSet::getWriteInfo(mComputeBinding.colorAttachment, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, colorAttachmentInfo);
 		mDescriptorSetCompute.updateWrite(writeInfo);
 
 		return {};

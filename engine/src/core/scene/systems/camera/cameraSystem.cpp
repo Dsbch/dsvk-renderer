@@ -87,6 +87,28 @@ namespace engine
 		return {};
 	}
 
+	withError<glm::mat4> cameraSystem::getView(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [entity, camera, input] : registry->view<fpsCameraComponent, inputListenerComponent>().each())
+		{
+			if (camera.isActive)
+				return camera.camera->getView();
+		}
+
+		return error{ "scene doesn't hold an active camera" };
+	}
+
+	withError<glm::mat4> cameraSystem::getProjection(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [entity, camera, input] : registry->view<fpsCameraComponent, inputListenerComponent>().each())
+		{
+			if (camera.isActive)
+				return camera.camera->getProjection();
+		}
+
+		return error{ "scene doesn't hold an active camera" };
+	}
+
 	void cameraSystem::spawnDefaultCamera(std::shared_ptr<entt::registry> registry) const
 	{
 		entity e{ mCtx, registry };
@@ -104,17 +126,6 @@ namespace engine
 		);
 
 		e.addComponent<inputListenerComponent>(std::vector<key>{}, std::vector<key>{key::w, key::a, key::s, key::d}, true);
-	}
-
-	withError<glm::mat4> cameraSystem::getViewTransform(std::shared_ptr<entt::registry> registry)
-	{
-		for (auto [entity, camera, input] : registry->view<fpsCameraComponent, inputListenerComponent>().each())
-		{
-			if (camera.isActive)
-				return camera.camera->getProjection() * camera.camera->getView();
-		}
-
-		return error{ "scene doesn't hold an active camera" };
 	}
 
 	withError<glm::vec3> cameraSystem::getCameraPos(std::shared_ptr<entt::registry> registry)

@@ -95,6 +95,8 @@ struct pushConstant
 {
     uint meshletCount;
     float3 cameraPos;
+    float4x4 view;
+    float4x4 projection;
     float4x4 viewProjection;
 };
 
@@ -141,20 +143,52 @@ uint getMeshletOffset(uint lodLevel, uint dtid)
     return result;
 }
 
-uint selectLodLevel(float4x4 model, float4x4 viewProjection, float3 bsCenter, float bsRadius)
+uint selectLodLevel(float4x4 model, float3 bsCenter, float bsRadius)
 {
-    float distToObj = length(bsCenter - push.cameraPos);
+    // float distToObj = length(bsCenter - push.cameraPos);
     
-    if (distToObj <= 20.0f)
+    // if (distToObj <= 20.0f)
+    //     return 1;
+    
+    // if (distToObj <= 35.0f)
+    //     return 2;
+    
+    // if (distToObj <= 50.0f)
+    //     return 3;
+    
+    // return 4;
+    
+    return 1;
+    
+    // Get viewSpace of the center.
+    float4 vsCenter = mul(push.view, mul(model, float4(bsCenter, 1.0f)));
+    
+    // extract scale from a matrix, assume that scale is uniform (the same scale along all axis, if not it won't work :)).
+    float scaleX = length(float3(model[0][0], model[0][1], model[0][2]));
+    float worldRadius = bsRadius * scaleX;
+    
+    // Calculate view space for second point that is at the sphere border on y axis.
+    float4 vsBorder = float4(vsCenter.x, vsCenter.y + worldRadius, vsCenter.zw);
+
+    // To NDC for both.
+    float4 clipCenter = mul(push.projection, vsCenter);
+    float4 clipBorder = mul(push.projection, vsBorder);
+
+    float2 ndcCenter = clipCenter.xy / clipCenter.w;
+    float2 ndcBorder = clipBorder.xy / clipBorder.w;
+    
+    float ndcRadius = length(ndcCenter - ndcBorder);
+    
+    if (ndcRadius * 2 >= 0.2f)   // ~10% of screen = highest detail
         return 1;
     
-    if (distToObj <= 35.0f)
+    if (ndcRadius * 2 >= 0.1f)   // ~5% of screen
         return 2;
     
-    if (distToObj <= 50.0f)
+    if (ndcRadius * 2 >= 0.05f)  // ~2.5% of screen
         return 3;
     
-    return 4;
+    return 4; // < 2.5% of screen = lowest detail
 }
 
 [numthreads(THREADS_COUNT, 1, 1)]
@@ -175,7 +209,7 @@ void asmain(
         uint perInstanceOffset = meshletToInstanceBuffer[dtid].instanceOffset;
     
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
-        uint selectedLod = selectLodLevel(instanceAttr.modelMatrix, push.viewProjection, instanceAttr.bsCenter, instanceAttr.bsRadius);
+        uint selectedLod = selectLodLevel(instanceAttr.modelMatrix, instanceAttr.bsCenter, instanceAttr.bsRadius);
         uint meshletOffset = getMeshletOffset(selectedLod, dtid);
     
         // Still have meshlets for that lodLevel.

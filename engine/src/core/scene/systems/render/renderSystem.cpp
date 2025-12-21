@@ -69,9 +69,13 @@ namespace engine
 
 	error renderSystem::onRender(std::shared_ptr<entt::registry> registry)
 	{
-		auto viewTransform = cameraSystem::getViewTransform(registry);
-		if (!viewTransform)
-			return viewTransform.err();
+		auto view = cameraSystem::getView(registry);
+		if (!view)
+			return view.err();
+
+		auto projection = cameraSystem::getProjection(registry);
+		if (!projection)
+			return projection.err();
 
 		auto cameraPos = cameraSystem::getCameraPos(registry);
 		if (!cameraPos)
@@ -80,7 +84,8 @@ namespace engine
 		return mRenderer->render(
 			renderer::renderCallIn{
 				.cameraPos = cameraPos.value(),
-				.viewProjection = viewTransform.value()
+				.view = view.value(),
+				.projection = projection.value()
 			}
 		);
 	}

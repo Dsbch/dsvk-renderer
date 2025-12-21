@@ -123,6 +123,8 @@ namespace engine
 	{
 		uint32_t meshletCount;
 		glm::vec3 cameraPos;
+		glm::mat4 view;
+		glm::mat4 projection;
 		glm::mat4 viewProjection;
 	};
 }

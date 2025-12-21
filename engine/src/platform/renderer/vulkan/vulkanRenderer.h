@@ -49,7 +49,7 @@ namespace engine
 	{
 		uint32_t descriptorSet;
 
-		uint32_t textureBinding;
+		uint32_t colorAttachment;
 	};
 
 	struct geometryPipelineBindings
