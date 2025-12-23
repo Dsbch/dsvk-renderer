@@ -12,7 +12,8 @@ namespace sandbox
 		engine::error checkError();
 		engine::error onAttach(std::shared_ptr<entt::registry> registry);
 		void onDetach(std::shared_ptr<entt::registry> registry);
-		engine::error onUpdate(std::shared_ptr<entt::registry> registry);
+		engine::error onFixedUpdate(std::shared_ptr<entt::registry> registry);
+		engine::error onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime);
 		engine::error onRender(std::shared_ptr<entt::registry> registry);
 		engine::error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<engine::baseEvent> e);
 	};

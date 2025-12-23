@@ -16,7 +16,8 @@ namespace engine
 		error onAttach(std::shared_ptr<entt::registry> registry);
 		void onDetach(std::shared_ptr<entt::registry> registry);
 		error checkError();
-		error onUpdate(std::shared_ptr<entt::registry> registry);
+		error onFixedUpdate(std::shared_ptr<entt::registry> registry);
+		error onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime);
 		error onRender(std::shared_ptr<entt::registry> registry);
 		error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e);
 	private:

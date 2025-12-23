@@ -52,7 +52,7 @@ namespace engine
 		return {};
 	}
 
-	error application::update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
+	error application::fixedUpdate(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
 	{
 		auto k = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
 		for (uint32_t i = 0; mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
@@ -76,7 +76,7 @@ namespace engine
 			}
 
 			// run updates.
-			error err = mScene->onUpdate();
+			error err = mScene->onFixedUpdate();
 			if (err)
 				return err;
 
@@ -84,6 +84,15 @@ namespace engine
 		}
 
 		return {};
+	}
+
+	error application::update(std::chrono::steady_clock::time_point frameStart, std::chrono::steady_clock::time_point frameEnd)
+	{
+		float deltaTime = float(mCtx->appTimer.toMS(frameEnd - frameStart).count()) * float(1e-3);
+		if (deltaTime == 0)
+			return {};
+
+		return mScene->onUpdate(deltaTime);;
 	}
 
 	error application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
@@ -136,22 +145,33 @@ namespace engine
 	{
 		mRunning = true;
 
-		std::chrono::milliseconds nextGameUpdate = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
+		auto nextGameUpdate = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
 		uint32_t maxFrameSkip = mCtx->config.inner.gameLoop.gups / mCtx->config.inner.gameLoop.minimumFps;
-		std::chrono::milliseconds updateShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.gups);
+		auto updateShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.gups);
 
-		std::chrono::milliseconds nextRender = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
-		std::chrono::milliseconds renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
+		auto nextRender = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
+		auto renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
+
+		std::chrono::steady_clock::time_point startFrame{};
+		std::chrono::steady_clock::time_point endFrame{};
 
 		while (mRunning)
 		{
-			error err = update(nextGameUpdate, updateShift, maxFrameSkip);
+			error err = fixedUpdate(nextGameUpdate, updateShift, maxFrameSkip);
 			if (err)
 				return err;
+
+			err = update(startFrame, endFrame);
+			if (err)
+				return err;
+
+			startFrame = std::chrono::steady_clock::now();
 
 			err = onRender(nextRender, renderShift);
 			if (err)
 				return err;
+
+			endFrame = std::chrono::steady_clock::now();
 		}
 
 		return {};

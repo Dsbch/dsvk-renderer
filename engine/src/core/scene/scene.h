@@ -19,7 +19,8 @@ namespace engine
 	
 		error onRender();
 		error onEvent(std::shared_ptr<baseEvent> e);
-		error onUpdate();
+		error onFixedUpdate();
+		error onUpdate(float deltaTime);
 		
 		error checkError() const;
 

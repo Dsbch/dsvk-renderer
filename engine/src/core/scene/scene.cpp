@@ -75,24 +75,45 @@ namespace engine
 		return err;
 	}
 
-	error scene::onUpdate()
+	error scene::onFixedUpdate()
 	{
 		error err;
 
 		for (auto& s : mUserSystems)
 		{
-			s->onUpdate(mSceneRegistry);
+			s->onFixedUpdate(mSceneRegistry);
 			if (err)
 				return err;
 		}
 
 		for (auto& s : mSystems)
 		{
-			s->onUpdate(mSceneRegistry);
+			s->onFixedUpdate(mSceneRegistry);
 			if (err)
 				return err;
 		}
 	
+		return err;
+	}
+
+	error scene::onUpdate(float deltaTime)
+	{
+		error err;
+
+		for (auto& s : mUserSystems)
+		{
+			s->onUpdate(mSceneRegistry, deltaTime);
+			if (err)
+				return err;
+		}
+
+		for (auto& s : mSystems)
+		{
+			s->onUpdate(mSceneRegistry, deltaTime);
+			if (err)
+				return err;
+		}
+
 		return err;
 	}
 

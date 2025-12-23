@@ -31,7 +31,8 @@ namespace engine
 		std::unique_ptr<scene> mScene;
 		error initApplication();
 		error createWindow();
-		error update(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
+		error fixedUpdate(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
+		error update(std::chrono::steady_clock::time_point frameStart, std::chrono::steady_clock::time_point frameEnd);
 		error onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
 	};
 }

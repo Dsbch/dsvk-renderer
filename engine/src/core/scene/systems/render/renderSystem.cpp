@@ -26,7 +26,7 @@ namespace engine
 		return mRenderer->checkError();
 	}
 
-	error renderSystem::onUpdate(std::shared_ptr<entt::registry> registry)
+	error renderSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
 	{
 		for (auto [_, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent>().each())
 		{
@@ -64,6 +64,11 @@ namespace engine
 			registry->destroy(e);
 		}
 
+		return {};
+	}
+
+	error renderSystem::onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime)
+	{
 		return {};
 	}
 

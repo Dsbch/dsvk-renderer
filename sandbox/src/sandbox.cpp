@@ -25,7 +25,12 @@ namespace sandbox
 	{
 	}
 
-	engine::error sandboxSystem::onUpdate(std::shared_ptr<entt::registry> registry)
+	engine::error sandboxSystem::onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime)
+	{
+		return {};
+	}
+
+	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
 	{
 		return {};
 	}

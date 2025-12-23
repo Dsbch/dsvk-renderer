@@ -26,7 +26,12 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::onUpdate(std::shared_ptr<entt::registry> registry)
+	error cameraSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
+	{
+		return {};
+	}
+
+	error cameraSystem::onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime)
 	{
 		return {};
 	}
