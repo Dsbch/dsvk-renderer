@@ -137,7 +137,7 @@ namespace engine
 		return 0;
 	}
 
-	uint32_t pipelineData::getTaskShaderCount()
+	uint32_t pipelineData::getMeshletCount() const
 	{
 		uint32_t result = 0;
 

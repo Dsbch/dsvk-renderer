@@ -1133,11 +1133,11 @@ namespace engine
 		{
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
 
-			uint32_t taskShaderCount = uint32_t(v.getTaskShaderCount());
+			uint32_t meshletCount = uint32_t(v.getMeshletCount());
 
 			pushConstants pc{
 				.commandBufferOffset = cmdOffset,
-				.meshletCount = taskShaderCount,
+				.meshletCount = meshletCount,
 				.cameraPos = in.cameraPos,
 				.view = in.view,
 				.projection = in.projection,
@@ -1145,13 +1145,13 @@ namespace engine
 			};
 			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
-			cmdOffset += taskShaderCount;
+			cmdOffset += meshletCount;
 
 			// bind the descriptor set.
 			auto set = mDescriptorSetMesh.getDescriptorSet().first;
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().second, mGeometryBinding.descriptorSet, 1, &set, 0, nullptr);
 
-			vkCmdDrawMeshTasksEXT(cmd, uint32_t(v.getTaskShaderCount()) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+			vkCmdDrawMeshTasksEXT(cmd, uint32_t(v.getMeshletCount()) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 		}
 
 		if (mGeometryPipelines.size() != 0)

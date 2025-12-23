@@ -24,7 +24,7 @@ namespace engine
 		error addInstance(uint32_t id, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& mesh, perInstanceAttr attr);
 		void removeInstance(uint32_t id, uint32_t meshID);
 		uint32_t getMeshInstanceCount(uint32_t meshID) const;
-		uint32_t getTaskShaderCount();
+		uint32_t getMeshletCount() const;
 		void destroy();
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 

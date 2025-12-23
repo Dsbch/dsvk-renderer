@@ -145,19 +145,6 @@ uint getMeshletOffset(uint lodLevel, uint idx)
 
 uint selectLodLevel(float4x4 model, float3 bsCenter, float bsRadius)
 {
-    // float distToObj = length(bsCenter - push.cameraPos);
-    
-    // if (distToObj <= 20.0f)
-    //     return 1;
-    
-    // if (distToObj <= 35.0f)
-    //     return 2;
-    
-    // if (distToObj <= 50.0f)
-    //     return 3;
-    
-    // return 4;
-    
     // Get viewSpace of the center.
     float4 vsCenter = mul(push.view, mul(model, float4(bsCenter, 1.0f)));
     
@@ -177,16 +164,16 @@ uint selectLodLevel(float4x4 model, float3 bsCenter, float bsRadius)
     
     float ndcRadius = length(ndcCenter - ndcBorder);
     
-    if (ndcRadius * 2 >= 0.2f)   // ~10% of screen
+    if (ndcRadius * 2 >= 0.2f)   // ~10% of screen.
         return 1;
     
-    if (ndcRadius * 2 >= 0.1f)   // ~5% of screen
+    if (ndcRadius * 2 >= 0.1f)   // ~5% of screen.
         return 2;
     
-    if (ndcRadius * 2 >= 0.05f)  // ~2.5% of screen
+    if (ndcRadius * 2 >= 0.05f)  // ~2.5% of screen.
         return 3;
     
-    return 4; // < 2.5% of screen = lowest detail
+    return 4; // < 2.5% of screen.
 }
 
 [numthreads(THREADS_COUNT, 1, 1)]
@@ -228,7 +215,6 @@ void asmain(
                 payload.meshletOffset[index] = meshletOffset;
             }
         }
-    
     }
     
     uint visibleCount = WaveActiveCountBits(visible);
