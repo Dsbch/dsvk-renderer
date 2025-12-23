@@ -45,16 +45,15 @@ struct meshlet
 
 struct perInstanceAttr
 {
+    float3 bsCenter;
+    float bsRadius;
+    float4x4 modelMatrix;
+    
     uint albedoIndeex;
     uint roughnessIndex;
     uint normalIndex;
     uint metalicIndex;
     uint aoIndex;
-    
-    float3 bsCenter;
-    float bsRadius;
-    
-    float4x4 modelMatrix;
 };
 
 struct command
@@ -159,8 +158,6 @@ uint selectLodLevel(float4x4 model, float3 bsCenter, float bsRadius)
     
     // return 4;
     
-    return 1;
-    
     // Get viewSpace of the center.
     float4 vsCenter = mul(push.view, mul(model, float4(bsCenter, 1.0f)));
     
@@ -180,7 +177,7 @@ uint selectLodLevel(float4x4 model, float3 bsCenter, float bsRadius)
     
     float ndcRadius = length(ndcCenter - ndcBorder);
     
-    if (ndcRadius * 2 >= 0.2f)   // ~10% of screen = highest detail
+    if (ndcRadius * 2 >= 0.2f)   // ~10% of screen
         return 1;
     
     if (ndcRadius * 2 >= 0.1f)   // ~5% of screen

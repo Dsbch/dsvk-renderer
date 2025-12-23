@@ -101,7 +101,7 @@ namespace sandbox
 					return {};
 				}
 
-				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsTest.spv");
+				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
 				if (!pixel)
 				{
 					LOGERROR("bad pixel shader");

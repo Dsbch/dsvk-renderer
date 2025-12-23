@@ -40,6 +40,10 @@ namespace engine
 
 	struct perInstanceAttr
 	{
+		glm::vec3 bsCenter;
+		float  bsRadius;
+		glm::mat4 modelMatrix;
+		
 		uint32_t albedoIndex;
 		uint32_t roughnessIndex;
 		uint32_t normalIndex;
@@ -47,11 +51,6 @@ namespace engine
 		uint32_t aoIndex;
 
 		uint32_t _pad0[3];
-
-		glm::vec3 bsCenter;
-		float  bsRadius;
-
-		glm::mat4 modelMatrix;
 	};
 
 	struct meshlet

@@ -92,8 +92,8 @@ namespace engine
 #ifdef DEBUG
 			.request_validation_layers(true)
 			// enable printf in shaders.
-			//.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT)
-			//.add_debug_messenger_severity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+			.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT)
+			.add_debug_messenger_severity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
 			// printf in shaders end.
 			.set_debug_callback(debugCallback)
 #endif // DEBUG
@@ -815,7 +815,7 @@ namespace engine
 		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
 			m.id,
 			&m.instanceAttributes,
-			sizeof(m.instanceAttributes)
+			sizeof(perInstanceAttr)
 		);
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();
