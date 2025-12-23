@@ -10,10 +10,10 @@ namespace engine
 
 	error application::checkError()
 	{
-		if (auto err = mWindow->checkError(); err)
+		if (error err = mWindow->checkError(); err)
 			return err;
 
-		if (auto err = mScene->checkError(); err)
+		if (error err = mScene->checkError(); err)
 			return err;
 
 		return mErr;
@@ -36,7 +36,7 @@ namespace engine
 		}
 
 #ifdef DEBUG
-		if (auto err = mCtx->config.checkError(); err)
+		if (error err = mCtx->config.checkError(); err)
 			LOGERROR("{}", err.err());
 #endif // DEBUG
 
@@ -70,13 +70,13 @@ namespace engine
 					mRunning = false;
 				}
 
-				auto err = mScene->onEvent(e);
+				error err = mScene->onEvent(e);
 				if (err)
 					return err;
 			}
 
 			// run updates.
-			auto err = mScene->onUpdate();
+			error err = mScene->onUpdate();
 			if (err)
 				return err;
 
@@ -90,7 +90,7 @@ namespace engine
 	{
 		if (mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
 		{
-			auto err = mScene->onRender();
+			error err = mScene->onRender();
 			if (err)
 				return err;
 
@@ -145,7 +145,7 @@ namespace engine
 
 		while (mRunning)
 		{
-			auto err = update(nextGameUpdate, updateShift, maxFrameSkip);
+			error err = update(nextGameUpdate, updateShift, maxFrameSkip);
 			if (err)
 				return err;
 

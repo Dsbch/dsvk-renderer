@@ -55,7 +55,7 @@ namespace engine
 		}
 
 		VkDescriptorPoolCreateInfo poolInfo = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-		poolInfo.flags = 0;
+		poolInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
 		poolInfo.maxSets = mConstraints.getMaxSetsPerPool();
 		poolInfo.poolSizeCount = (uint32_t)mPoolSizes.size();
 		poolInfo.pPoolSizes = mPoolSizes.data();
@@ -71,7 +71,7 @@ namespace engine
 	{
 		if (mCurrentPool == VK_NULL_HANDLE)
 		{
-			auto err = createPool();
+			error err = createPool();
 			if (err)
 				return err;
 		}
@@ -89,7 +89,7 @@ namespace engine
 
 		if (result == VK_ERROR_OUT_OF_POOL_MEMORY || result == VK_ERROR_FRAGMENTED_POOL)
 		{
-			auto err = createPool();
+			error err = createPool();
 			if (err)
 				return err;
 
@@ -138,9 +138,29 @@ namespace engine
 		mBindings.push_back(binding);
 	}
 
-	error descriptorSet::build(VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
+	error descriptorSet::build(VkShaderStageFlags shaderStages, uint32_t totalDescriptorsCount)
 	{
-		auto buildLayoutRes = buildLayout(shaderStages, pNext, flags);
+		if (mBindings.size() != totalDescriptorsCount)
+			return error{ "calls to addBinding < than totalDescriptorsCount" };
+
+		const VkDescriptorBindingFlagsEXT pFlags =
+			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT |
+			VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT |
+			VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT_EXT;
+
+		std::vector<VkDescriptorBindingFlagsEXT> pFlagsV{};
+		
+		for (uint32_t i = 0; i < totalDescriptorsCount; i++)
+		{
+			pFlagsV.push_back(pFlags);
+		}
+
+		VkDescriptorSetLayoutBindingFlagsCreateInfoEXT binding_flags{};
+		binding_flags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+		binding_flags.bindingCount = totalDescriptorsCount;
+		binding_flags.pBindingFlags = pFlagsV.data();
+
+		auto buildLayoutRes = buildLayout(shaderStages, &binding_flags, VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT);
 		if (!buildLayoutRes)
 			return buildLayoutRes.err();
 

@@ -200,7 +200,7 @@ namespace engine
 		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		drawImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		
-		auto err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false);
+		error err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false);
 		if (err)
 			return err;
 

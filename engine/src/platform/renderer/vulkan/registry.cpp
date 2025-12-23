@@ -2,6 +2,7 @@
 
 #include "registry.h"
 #include "vulkanDescriptorSet.h"
+#include "pipelineData.h"
 
 namespace engine
 {
@@ -41,7 +42,7 @@ namespace engine
 
 				mBuffers[i].bufferHandles.insert(handle);
 
-				auto err = mBuffers[i].buffer.updateBuffer(mImmSubmit, data, sizeInBytes, offset);
+				error err = mBuffers[i].buffer.updateBuffer(mImmSubmit, data, sizeInBytes, offset);
 				if (err)
 					return err;
 
@@ -74,7 +75,7 @@ namespace engine
 		if (vmaVirtualAllocate(vBlock, &allocateInfo, &vAllocation, &offset) != VK_SUCCESS)
 			return error{ "can't allocate in virtual block" };
 
-		auto err = newBuffer.build(mImmSubmit, data, newSize, sizeInBytes);
+		error err = newBuffer.build(mImmSubmit, data, newSize, sizeInBytes);
 		if (err)
 			return err;
 

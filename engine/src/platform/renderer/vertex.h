@@ -26,7 +26,7 @@ namespace engine
 	};
 
 	// Task shader buffer, to get meshlet and instanceAttrs.
-	struct meshletToInstance
+	struct meshletShaderCMD
 	{
 		uint32_t instanceIndex;
 		uint32_t instanceOffset;
@@ -45,7 +45,7 @@ namespace engine
 		uint32_t normalIndex;
 		uint32_t metalicIndex;
 		uint32_t aoIndex;
-		
+
 		uint32_t _pad0[3];
 
 		glm::vec3 bsCenter;
@@ -121,8 +121,15 @@ namespace engine
 
 	struct pushConstants
 	{
+		uint32_t commandBufferOffset;
 		uint32_t meshletCount;
+
+		uint32_t _pad0[2];
+
 		glm::vec3 cameraPos;
+		
+		float _pad1;
+
 		glm::mat4 view;
 		glm::mat4 projection;
 		glm::mat4 viewProjection;

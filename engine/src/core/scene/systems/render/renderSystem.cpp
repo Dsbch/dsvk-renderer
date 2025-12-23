@@ -41,7 +41,7 @@ namespace engine
 				},
 			};
 
-			auto err = mRenderer->addToRender(m);
+			error err = mRenderer->addToRender(m);
 			if (err)
 				return err;
 		}

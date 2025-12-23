@@ -27,6 +27,7 @@ namespace engine
 		buffRegistry,
 		texRegistry,
 		sampler,
+		vulkanBuf,
 	};
 
 	struct destroyTask
@@ -42,12 +43,14 @@ namespace engine
 			bufferRegistry* buffRegistry;
 			textureRegistry* texRegistry;
 			VkSampler* sampler;
+			vulkanBuffer* vulkanBuf;
 		};
 	};
 
 	struct computePipelineBindings
 	{
 		uint32_t descriptorSet;
+		uint32_t totalDescriptorsCount;
 
 		uint32_t colorAttachment;
 	};
@@ -55,10 +58,11 @@ namespace engine
 	struct geometryPipelineBindings
 	{
 		uint32_t descriptorSet;
+		uint32_t totalDescriptorsCount;
 
 		uint32_t vertexBinding;
 		uint32_t perInstanceBinding;
-		uint32_t meshletToInstanceBinding;
+		uint32_t meshletCmdBinding;
 		uint32_t indexBinding;
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
@@ -93,6 +97,9 @@ namespace engine
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel);
 	private:
+		error uploadMaterialData(model& m);
+		error uploadGeometryData(model& m);
+
 		error geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		void clear(VkCommandBuffer cmd);
 
@@ -109,6 +116,7 @@ namespace engine
 		error setBackgroundDescriptors();
 		error setGeometryDescriptors();
 		error updateGeometryDescriptors();
+		error updateCommandBuffer();
 		error initBackgroundPipeline();
 
 		bool mWindowMinimized;
@@ -144,6 +152,10 @@ namespace engine
 		bufferRegistry mIndexRegistry;
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
+		bufferRegistry mPerInstanceRegistry;
+
+		uint32_t mMeshletCmdBufferNewSize;
+		vulkanBuffer mMeshletCmdBuffer;
 
 		textureRegistry mAlbedoRegistry;
 		textureRegistry mRoughnessRegistry;

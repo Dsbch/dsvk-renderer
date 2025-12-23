@@ -183,7 +183,7 @@ namespace engine
 		if (!newImage)
 			return newImage.err();
 
-		auto err = is.submit([&](VkCommandBuffer cmd)
+		error err = is.submit([&](VkCommandBuffer cmd)
 			{
 				transitionImage(cmd, newImage.value().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 

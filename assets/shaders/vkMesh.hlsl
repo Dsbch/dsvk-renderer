@@ -57,7 +57,7 @@ struct perInstanceAttr
     float4x4 modelMatrix;
 };
 
-struct meshletToInstance
+struct command
 {
     uint instanceIndex;
     uint instanceOffset;
@@ -73,7 +73,7 @@ struct meshletToInstance
 
 StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t1, space0);
-StructuredBuffer<meshletToInstance> meshletToInstanceBuffer : register(t2, space0);
+StructuredBuffer<command> commandBuffer : register(t2, space0);
 StructuredBuffer<uint> vertexIndexBuffer[] : register(t3, space0);
 StructuredBuffer<uint> primitiveBuffer[] : register(t4, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
@@ -93,6 +93,7 @@ SamplerState albedoSamplers[] : register(s6, space0);
 
 struct pushConstant
 {
+    uint commandBufferOffset;
     uint meshletCount;
     float3 cameraPos;
     float4x4 view;
@@ -120,23 +121,23 @@ struct MeshShaderPayload
 
 groupshared MeshShaderPayload payload;
 
-uint getMeshletOffset(uint lodLevel, uint dtid)
+uint getMeshletOffset(uint lodLevel, uint idx)
 {
     uint result;
     
     switch (lodLevel)
     {
         case 2:
-            result = meshletToInstanceBuffer[dtid].meshletOffset2;
+            result = commandBuffer[idx].meshletOffset2;
             break;
         case 3:
-            result = meshletToInstanceBuffer[dtid].meshletOffset3;
+            result = commandBuffer[idx].meshletOffset3;
             break;
         case 4:
-            result = meshletToInstanceBuffer[dtid].meshletOffset4;
+            result = commandBuffer[idx].meshletOffset4;
             break;
         default:
-            result = meshletToInstanceBuffer[dtid].meshletOffset1;
+            result = commandBuffer[idx].meshletOffset1;
             break;
     }
     
@@ -200,38 +201,39 @@ void asmain(
 {
     const uint maxUint = 4294967295;
     
-    float visible = dtid < push.meshletCount;
+    float visible = false;
   
     // Not overdraw.
-    if (visible)
+    if (dtid < push.meshletCount)
     {
-        uint perInstanceIndex = meshletToInstanceBuffer[dtid].instanceIndex;
-        uint perInstanceOffset = meshletToInstanceBuffer[dtid].instanceOffset;
+        uint perInstanceIndex = commandBuffer[dtid + push.commandBufferOffset].instanceIndex;
+        uint perInstanceOffset = commandBuffer[dtid + push.commandBufferOffset].instanceOffset;
     
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
         uint selectedLod = selectLodLevel(instanceAttr.modelMatrix, instanceAttr.bsCenter, instanceAttr.bsRadius);
-        uint meshletOffset = getMeshletOffset(selectedLod, dtid);
+        uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
     
         // Still have meshlets for that lodLevel.
-        visible = meshletOffset != maxUint;
-        if (visible)
+        if (meshletOffset != maxUint)
         {
             // TODO: add culling.
             visible = true;
-            
-            uint index = WavePrefixCountBits(visible);
+            if (visible)
+            {
+                uint index = WavePrefixCountBits(visible);
         
-            payload.perInstanceIndex[index] = perInstanceIndex;
-            payload.perInstanceOffset[index] = perInstanceOffset;
+                payload.perInstanceIndex[index] = perInstanceIndex;
+                payload.perInstanceOffset[index] = perInstanceOffset;
      
-            payload.lodLevel[index] = selectedLod;
+                payload.lodLevel[index] = selectedLod;
         
-            payload.meshletIndex[index] = meshletToInstanceBuffer[dtid].meshletIndex;
-            payload.meshletOffset[index] = meshletOffset;
+                payload.meshletIndex[index] = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
+                payload.meshletOffset[index] = meshletOffset;
+            }
         }
     
     }
-        
+    
     uint visibleCount = WaveActiveCountBits(visible);
     DispatchMesh(visibleCount, 1, 1, payload);
 }

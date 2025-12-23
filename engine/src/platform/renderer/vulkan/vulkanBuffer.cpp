@@ -33,7 +33,7 @@ namespace engine
 
 			std::memcpy(stagingBuffer.value().info.pMappedData, data, mLoadedBytes);
 
-			auto err = is.submit(
+			error err = is.submit(
 				[&](VkCommandBuffer cmd)
 				{
 					VkBufferCopy copy{};
@@ -67,7 +67,7 @@ namespace engine
 
 		std::memcpy(stagingBuffer.value().info.pMappedData, data, sizeInBytes);
 
-		auto err = is.submit(
+		error err = is.submit(
 			[&](VkCommandBuffer cmd)
 			{
 				VkBufferCopy copy{};

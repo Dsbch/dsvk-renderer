@@ -84,6 +84,617 @@ namespace engine
 		flushDeletonQueue();
 	}
 
+	error vulkanRenderer::initVulkan()
+	{
+		vkb::InstanceBuilder builder;
+
+		auto inst_ret = builder.set_app_name(mCtx->config.inner.app.name.c_str())
+#ifdef DEBUG
+			.request_validation_layers(true)
+			// enable printf in shaders.
+			//.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT)
+			//.add_debug_messenger_severity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+			// printf in shaders end.
+			.set_debug_callback(debugCallback)
+#endif // DEBUG
+			.require_api_version(1, 3, 0)
+			.build();
+		if (!inst_ret)
+		{
+			return { inst_ret.error().message() };
+		}
+
+		vkb::Instance vkb_inst = inst_ret.value();
+
+		mInstance = vkb_inst.instance;
+		mDebugMessenger = vkb_inst.debug_messenger;
+
+		auto surfaceResult = mWindow->makeVulkunSurface(mInstance);
+		if (!surfaceResult)
+		{
+			return surfaceResult.err();
+		}
+
+		mSurface = surfaceResult.value();
+
+		VkPhysicalDeviceMultiviewFeaturesKHR multiviewFeatures{};
+		multiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
+		multiviewFeatures.multiview = VK_TRUE; // enable base multiview
+		multiviewFeatures.pNext = nullptr;
+
+		VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures{};
+		shadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+		shadingRateFeatures.primitiveFragmentShadingRate = VK_TRUE;
+		shadingRateFeatures.pNext = &multiviewFeatures;
+
+		VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
+		meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+		meshShaderFeatures.meshShader = VK_TRUE;
+		meshShaderFeatures.taskShader = VK_TRUE; // if using task shader
+		meshShaderFeatures.multiviewMeshShader = VK_TRUE;
+		meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_TRUE;
+		meshShaderFeatures.pNext = &shadingRateFeatures;
+
+		// Chain to Vulkan 1.3 features
+		VkPhysicalDeviceVulkan13Features features13{};
+		features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+		features13.dynamicRendering = VK_TRUE;
+		features13.synchronization2 = VK_TRUE;
+		features13.pNext = &meshShaderFeatures;
+
+		// Vulkan 1.2 features
+		VkPhysicalDeviceVulkan12Features features12{};
+		features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+		features12.bufferDeviceAddress = VK_TRUE;
+		features12.descriptorIndexing = VK_TRUE;
+		features12.runtimeDescriptorArray = VK_TRUE;
+		features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+		features12.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+		features12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+		features12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
+		features12.descriptorBindingPartiallyBound = VK_TRUE;
+		features12.pNext = &features13;
+
+		VkPhysicalDeviceFeatures deviceFeatures{};
+		deviceFeatures.samplerAnisotropy = VK_TRUE;
+
+		//use vkbootstrap to select a gpu. 
+		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features
+		vkb::PhysicalDeviceSelector selector{ vkb_inst };
+		auto selectedRes = selector
+			.set_minimum_version(1, 3)
+			.set_required_features_12(features12)
+			.set_required_features(deviceFeatures)
+			.add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
+			.set_surface(mSurface)
+			.select();
+		if (!selectedRes)
+		{
+			return selectedRes.error().message();
+		}
+
+		vkb::PhysicalDevice physicalDevice = selectedRes.value();
+
+		//create the final vulkan device
+		vkb::DeviceBuilder deviceBuilder{ physicalDevice };
+
+		auto buildResult = deviceBuilder.build();
+		if (!buildResult.has_value())
+		{
+			return buildResult.error().message();
+		}
+
+		vkb::Device vkbDevice = buildResult.value();
+
+		mDevice = vkbDevice.device;
+		mPhysicalDevice = physicalDevice.physical_device;
+
+		mGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+		mGraphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.physicalDevice = mPhysicalDevice;
+		allocatorInfo.device = mDevice;
+		allocatorInfo.instance = mInstance;
+		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		auto vmaResult = vmaCreateAllocator(&allocatorInfo, &mAllocator);
+		if (vmaResult != VK_SUCCESS)
+		{
+			return { vkResultToStr(vmaResult) };
+		}
+
+		loadExtensions();
+
+		mDeletionQueue.push_back(destroyTask{ .type = allocator, .allocator = mAllocator });
+
+		return {};
+	}
+
+	error vulkanRenderer::setDefaultBindings()
+	{
+		mComputeBinding = computePipelineBindings{
+			.descriptorSet = 0,
+			.totalDescriptorsCount = 1,
+			.colorAttachment = 0,
+		};
+
+		mGeometryBinding = geometryPipelineBindings{
+			.descriptorSet = 0,
+			.totalDescriptorsCount = 11,
+
+			.vertexBinding = 0,
+			.perInstanceBinding = 1,
+			.meshletCmdBinding = 2,
+			.indexBinding = 3,
+			.primitiveBinding = 4,
+			.meshletBinding = 5,
+
+			.albedoBinding = 6,
+			.normalBinding = 7,
+			.roughnessBinding = 8,
+			.metalicBinding = 9,
+			.aoBinding = 10
+		};
+
+		return {};
+	}
+
+	error vulkanRenderer::initPipelines()
+	{
+		return initBackgroundPipeline();
+	}
+
+	error vulkanRenderer::initBackgroundPipeline()
+	{
+		VkShaderModule computeDrawShader;
+		auto shader = mCtx->mAmanager->getDefaultComputeShader();
+		if (!shader)
+		{
+			return shader.err();
+		}
+
+		computeDrawShader = static_cast<vulkanShader*>(shader.value().get())->mShaderModule;
+
+		mComputePipeline.init(mDevice);
+		mComputePipeline.setShader(computeDrawShader);
+
+		auto buildErr = mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
+		if (buildErr)
+			return buildErr;
+
+		mDeletionQueue.push_back(destroyTask{ .type = computePipe, .computePipe = &mComputePipeline });
+
+		return {};
+	}
+
+	error vulkanRenderer::setLimits()
+	{
+		VkPhysicalDeviceProperties props{};
+		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
+
+		mPhysicalDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
+		mPhysicalDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
+		mPhysicalDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
+
+		LOGINFO(
+			"vulkan limits maxCombinedImageSamplers {}, maxStorageBuffers {}, maxFiltering {}",
+			mPhysicalDeviceLimits.maxCombinedImageSamplers,
+			mPhysicalDeviceLimits.maxStorageBuffers,
+			mPhysicalDeviceLimits.maxFiltering
+		);
+
+		return {};
+	}
+
+	error vulkanRenderer::initImmediateSubmit()
+	{
+		error err = mImmediateSubmit.init(mDevice, mGraphicsQueue, mGraphicsQueueFamily);
+		if (err)
+			return err;
+
+		mDeletionQueue.push_back(destroyTask{ .type = iSub, .iSubmit = &mImmediateSubmit });
+
+		return {};
+	}
+
+	error vulkanRenderer::loadExtensions()
+	{
+		vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksEXT");
+		if (!vkCmdDrawMeshTasksEXT)
+			return { "can't load extensions" };
+
+		return {};
+	}
+
+	error vulkanRenderer::initSwapchain(uint32_t width, uint32_t height)
+	{
+		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice);
+
+		error err = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		if (err)
+			return err;
+
+		mDeletionQueue.push_back(destroyTask{ .type = sChain, .sChain = &mSwapChain });
+
+		return {};
+	}
+
+	error vulkanRenderer::initRegistry()
+	{
+		mVertexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
+		mIndexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
+		mPrimitiveRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
+		mMeshletRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
+		mPerInstanceRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+
+		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
+
+		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
+
+		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPrimitiveRegistry });
+
+		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
+
+		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerInstanceRegistry });
+
+		auto samp = descriptorSet::createSampler(mDevice, mPhysicalDeviceLimits.maxFiltering);
+		if (!samp)
+		{
+			return samp.err();
+		}
+
+		mSampler = samp.value();
+
+		mDeletionQueue.push_back(destroyTask{ .type = sampler, .sampler = &mSampler });
+
+		mAlbedoRegistry.init(mSampler);
+		mRoughnessRegistry.init(mSampler);
+		mNormalRegistry.init(mSampler);
+		mMetalicRegistry.init(mSampler);
+		mAoRegistry.init(mSampler);
+
+		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAlbedoRegistry });
+		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mRoughnessRegistry });
+		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mNormalRegistry });
+		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRegistry });
+		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAoRegistry });
+
+		// Init task shader command buffer.
+		mMeshletCmdBufferNewSize = 2 << 21;
+		mMeshletCmdBuffer.init(mDevice, mAllocator);
+
+		error err = mMeshletCmdBuffer.build(mImmediateSubmit, nullptr, mMeshletCmdBufferNewSize, 0);
+		if (err)
+			return err;
+
+		mDeletionQueue.push_back(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mMeshletCmdBuffer });
+
+		return {};
+	}
+
+	error vulkanRenderer::initDescriptors()
+	{
+		error err = mDescriptorSetMesh.init(mDevice, mPhysicalDevice, poolConstraints{ .maxTextureDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers, .maxStorageDescriptors = mPhysicalDeviceLimits.maxStorageBuffers });
+		if (err)
+			return err;
+
+		err = mDescriptorSetCompute.init(mDevice, mPhysicalDevice);
+		if (err)
+			return err;
+
+		err = setBackgroundDescriptors();
+		if (err)
+			return err;
+
+		err = setGeometryDescriptors();
+		if (err)
+			return err;
+
+		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetCompute });
+		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetMesh });
+		mDeletionQueue.push_back(destroyTask{ .type = descPool });
+
+		return {};
+	}
+
+	error vulkanRenderer::setBackgroundDescriptors()
+	{
+		std::vector<VkDescriptorImageInfo> colorAttachmentInfo = {
+			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDrawImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
+		};
+
+		std::vector<VkDescriptorImageInfo> depthAttachmentInfo = {
+			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDepthImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
+		};
+
+		mDescriptorSetCompute.addBinding(
+			descriptorSet::getLayoutBindingInfo(mComputeBinding.colorAttachment, uint32_t(colorAttachmentInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		);
+
+		error err = mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT, mComputeBinding.totalDescriptorsCount);
+		if (err)
+			return err;
+
+		auto writeInfo = descriptorSet::getWriteInfo(mComputeBinding.colorAttachment, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, colorAttachmentInfo);
+		mDescriptorSetCompute.updateWrite(writeInfo);
+
+		return {};
+	}
+
+	error vulkanRenderer::setGeometryDescriptors()
+	{
+		const uint32_t combinedImageSamplers = 5;
+		const uint32_t bufferObjects = 6;
+
+		// add bindings for buffers.
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.meshletCmdBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		// add bindings for textures.
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		error err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL, mGeometryBinding.totalDescriptorsCount);
+		if (err)
+			return err;
+
+		err = updateGeometryDescriptors();
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	error vulkanRenderer::updateCommandBuffer()
+	{
+		bool needUpdate = false;
+		for (auto& [_, v] : mGeometryPipelines)
+		{
+			needUpdate = v.needUpdate();
+
+			if (needUpdate)
+				break;
+		}
+
+		if (!needUpdate)
+			return {};
+
+		// Collect all instances across pipelines and update shader command buffer.
+		std::vector<meshletShaderCMD> cmd;
+		for (auto& [_, v] : mGeometryPipelines)
+		{
+			std::vector<meshletShaderCMD> pipelineCMD = v.getPipelineCMD();
+
+			cmd.insert(cmd.end(), std::move_iterator(pipelineCMD.begin()), std::move_iterator(pipelineCMD.end()));
+		}
+
+		error err = mMeshletCmdBuffer.updateBuffer(mImmediateSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
+		if (err.err() == "buffer overflow")
+		{
+			mMeshletCmdBufferNewSize = uint32_t(float(mMeshletCmdBufferNewSize) * 1.5f);
+
+			if (cmd.size() > mMeshletCmdBufferNewSize)
+				mMeshletCmdBufferNewSize = uint32_t(cmd.size());
+
+			mMeshletCmdBuffer.destroy();
+
+			err = mMeshletCmdBuffer.build(mImmediateSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), cmd.size() * sizeof(meshletShaderCMD));
+			if (err)
+				return err;
+		}
+		if (err)
+			return err;
+
+		std::vector<VkDescriptorBufferInfo> bufferInfo{ VkDescriptorBufferInfo{.buffer = mMeshletCmdBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
+		auto writeInfo = descriptorSet::getWriteInfo(mGeometryBinding.meshletCmdBinding, bufferInfo);
+		mDescriptorSetMesh.updateWrite(writeInfo);
+
+		for (auto& [_, v] : mGeometryPipelines)
+		{
+			v.setUpdated();
+		}
+
+		return {};
+	}
+
+	// Should be called before each frame.
+	error vulkanRenderer::updateGeometryDescriptors()
+	{
+		error err = updateCommandBuffer();
+		if (err)
+			return err;
+
+		// update buffers.
+		if (mVertexRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mVertexRegistry.getWriteInfo(mGeometryBinding.vertexBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mVertexRegistry.setUpdated();
+		}
+
+		if (mIndexRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mIndexRegistry.getWriteInfo(mGeometryBinding.indexBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mIndexRegistry.setUpdated();
+		}
+
+		if (mPrimitiveRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mPrimitiveRegistry.getWriteInfo(mGeometryBinding.primitiveBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mPrimitiveRegistry.setUpdated();
+		}
+
+		if (mMeshletRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mMeshletRegistry.getWriteInfo(mGeometryBinding.meshletBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mMeshletRegistry.setUpdated();
+		}
+
+		if (mPerInstanceRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mPerInstanceRegistry.getWriteInfo(mGeometryBinding.perInstanceBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mPerInstanceRegistry.setUpdated();
+		}
+
+		// Update textures.
+		if (mAlbedoRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mAlbedoRegistry.getWriteInfo(mGeometryBinding.albedoBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mAlbedoRegistry.setUpdated();
+		}
+
+		if (mNormalRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mNormalRegistry.getWriteInfo(mGeometryBinding.normalBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mNormalRegistry.setUpdated();
+		}
+
+		if (mRoughnessRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mRoughnessRegistry.getWriteInfo(mGeometryBinding.roughnessBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mRoughnessRegistry.setUpdated();
+		}
+
+		if (mMetalicRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mMetalicRegistry.getWriteInfo(mGeometryBinding.metalicBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mMetalicRegistry.setUpdated();
+		}
+
+		if (mAoRegistry.needDecriptorUpdate())
+		{
+			auto writeInfo = mAoRegistry.getWriteInfo(mGeometryBinding.aoBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mAoRegistry.setUpdated();
+		}
+
+		return {};
+	}
+
+	void vulkanRenderer::flushDeletonQueue()
+	{
+		for (auto it = mDeletionQueue.rbegin(); it != mDeletionQueue.rend(); it++)
+		{
+			switch (it->type)
+			{
+			case allocator:
+				vmaDestroyAllocator(it->allocator);
+				break;
+			case iSub:
+				if (it->iSubmit)
+					it->iSubmit->destroy();
+				break;
+			case sChain:
+				if (it->sChain)
+					it->sChain->destroy();
+				break;
+			case descPool:
+				descriptorSet::destroyPool();
+				break;
+			case descSet:
+				if (it->descSet)
+					it->descSet->destroy();
+				break;
+			case computePipe:
+				if (it->computePipe)
+					it->computePipe->destroy();
+				break;
+			case buffRegistry:
+				if (it->buffRegistry)
+					it->buffRegistry->destroy();
+				break;
+			case texRegistry:
+				if (it->texRegistry)
+					it->texRegistry->destroy();
+				break;
+			case sampler:
+				if (it->sampler)
+					vkDestroySampler(mDevice, *it->sampler, nullptr);
+				break;
+			case vulkanBuf:
+				if (it->vulkanBuf)
+					it->vulkanBuf->destroy();
+				break;
+			default:
+				LOGERROR("unkown sampler");
+			}
+		}
+
+		mDeletionQueue.clear();
+	}
+
 	std::string vulkanRenderer::getVersion() const
 	{
 		VkPhysicalDeviceProperties props{};
@@ -149,65 +760,8 @@ namespace engine
 		vkCmdDispatch(cmd, uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().width) / 16.0)), uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().height) / 16.0)), 1);
 	}
 
-	error vulkanRenderer::addToRender(model& m)
+	error vulkanRenderer::uploadGeometryData(model& m)
 	{
-		if (auto pipeData = mGeometryPipelines.find(m.mat.pixelShader); pipeData == mGeometryPipelines.end())
-		{
-			auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
-			if (!meshShader)
-				return meshShader.err();
-
-			auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
-			if (!taskShader)
-				return taskShader.err();
-
-			pipelineData pData;
-			auto err = pData.init(
-				mDevice,
-				mAllocator,
-				mImmediateSubmit,
-				m.mat.pixelShader,
-				meshShader.value(),
-				taskShader.value(),
-				{ mDescriptorSetMesh.getDescriptorSet().second },
-				mSwapChain.getDepthImageFormat(),
-				mSwapChain.getDrawImageFormat()
-			);
-			if (err)
-				return err;
-
-			mGeometryPipelines[m.mat.pixelShader] = std::move(pData);
-		}
-
-		if (mGeometryPipelines[m.mat.pixelShader].instanceExists(m.id))
-			return {};
-
-		// material data.
-		if (m.mat.albedoTexture)
-		{
-			m.instanceAttributes.albedoIndex = mAlbedoRegistry.addTexture(m.mat.albedoTexture->hash(), static_cast<const vulkanTexture*>(m.mat.albedoTexture.get())->mImage);
-		}
-
-		if (m.mat.normalTexture)
-		{
-			m.instanceAttributes.normalIndex = mNormalRegistry.addTexture(m.mat.normalTexture->hash(), static_cast<const vulkanTexture*>(m.mat.normalTexture.get())->mImage);
-		}
-
-		if (m.mat.roughnessTexture)
-		{
-			m.instanceAttributes.roughnessIndex = mRoughnessRegistry.addTexture(m.mat.roughnessTexture->hash(), static_cast<const vulkanTexture*>(m.mat.roughnessTexture.get())->mImage);
-		}
-
-		if (m.mat.metalicTexture)
-		{
-			m.instanceAttributes.metalicIndex = mMetalicRegistry.addTexture(m.mat.metalicTexture->hash(), static_cast<const vulkanTexture*>(m.mat.metalicTexture.get())->mImage);
-		}
-
-		if (m.mat.aoTexture)
-		{
-			m.instanceAttributes.aoIndex = mAoRegistry.addTexture(m.mat.aoTexture->hash(), static_cast<const vulkanTexture*>(m.mat.aoTexture.get())->mImage);
-		}
-
 		auto handle = mVertexRegistry.addBlock(
 			m.meshData.getHash(),
 			m.meshData.vertex->data(),
@@ -258,10 +812,19 @@ namespace engine
 		if (!handle)
 			return handle.err();
 
-		auto err = mGeometryPipelines[m.mat.pixelShader].addInstance(
+		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
+			m.id,
+			&m.instanceAttributes,
+			sizeof(m.instanceAttributes)
+		);
+		if (!perInstanceHandle)
+			return perInstanceHandle.err();
+
+		error err = mGeometryPipelines[m.mat.pixelShader].addInstance(
 			m.id,
 			m.meshData.getHash(),
 			handle.value(),
+			perInstanceHandle.value(),
 			m.meshData.mesh,
 			m.instanceAttributes
 		);
@@ -271,8 +834,79 @@ namespace engine
 		return {};
 	}
 
+	error vulkanRenderer::uploadMaterialData(model& m)
+	{
+		// material data.
+		if (m.mat.albedoTexture)
+		{
+			m.instanceAttributes.albedoIndex = mAlbedoRegistry.addTexture(m.mat.albedoTexture->hash(), static_cast<const vulkanTexture*>(m.mat.albedoTexture.get())->mImage);
+		}
+
+		if (m.mat.normalTexture)
+		{
+			m.instanceAttributes.normalIndex = mNormalRegistry.addTexture(m.mat.normalTexture->hash(), static_cast<const vulkanTexture*>(m.mat.normalTexture.get())->mImage);
+		}
+
+		if (m.mat.roughnessTexture)
+		{
+			m.instanceAttributes.roughnessIndex = mRoughnessRegistry.addTexture(m.mat.roughnessTexture->hash(), static_cast<const vulkanTexture*>(m.mat.roughnessTexture.get())->mImage);
+		}
+
+		if (m.mat.metalicTexture)
+		{
+			m.instanceAttributes.metalicIndex = mMetalicRegistry.addTexture(m.mat.metalicTexture->hash(), static_cast<const vulkanTexture*>(m.mat.metalicTexture.get())->mImage);
+		}
+
+		if (m.mat.aoTexture)
+		{
+			m.instanceAttributes.aoIndex = mAoRegistry.addTexture(m.mat.aoTexture->hash(), static_cast<const vulkanTexture*>(m.mat.aoTexture.get())->mImage);
+		}
+
+		return {};
+	}
+
+	error vulkanRenderer::addToRender(model& m)
+	{
+		if (auto pipeData = mGeometryPipelines.find(m.mat.pixelShader); pipeData == mGeometryPipelines.end())
+		{
+			auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
+			if (!meshShader)
+				return meshShader.err();
+
+			auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
+			if (!taskShader)
+				return taskShader.err();
+
+			pipelineData pData;
+			error err = pData.init(
+				mDevice,
+				m.mat.pixelShader,
+				meshShader.value(),
+				taskShader.value(),
+				{ mDescriptorSetMesh.getDescriptorSet().second },
+				mSwapChain.getDepthImageFormat(),
+				mSwapChain.getDrawImageFormat()
+			);
+			if (err)
+				return err;
+
+			mGeometryPipelines[m.mat.pixelShader] = std::move(pData);
+		}
+
+		if (mGeometryPipelines[m.mat.pixelShader].instanceExists(m.id))
+			return {};
+
+		uploadMaterialData(m);
+
+		uploadGeometryData(m);
+
+		return {};
+	}
+
 	void vulkanRenderer::removeFromRender(model& m)
 	{
+		mPerInstanceRegistry.deleteBlock(m.id);
+
 		if (auto pipeData = mGeometryPipelines.find(m.mat.pixelShader); pipeData == mGeometryPipelines.end())
 		{
 			return;
@@ -332,16 +966,16 @@ namespace engine
 		if (mWindowMinimized)
 			return {};
 
+		// Geometry buffers/textures updated frequintly.
+		error err = updateGeometryDescriptors();
+		if (err)
+			return err;
+
 		auto waitResult = mSwapChain.waitOnCurrentFence();
 		if (waitResult)
 		{
 			return waitResult.err();
 		}
-
-		// Geometry buffers/textures updated frequintly.
-		auto err = updateGeometryDescriptors();
-		if (err)
-			return err;
 
 		mSwapChain.pickImageExtent();
 
@@ -466,18 +1100,13 @@ namespace engine
 	{
 		if (mGeometryPipelines.size() != 0)
 		{
-			//begin a render pass connected to our draw image.
+			//begin a render pass connected to our draw image and depth buffer.
 			VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 			VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 			VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), &colorAttachment, &depthAttachment);
 
 			vkCmdBeginRendering(cmd, &renderInfo);
-		}
-
-		for (auto& [shader, v] : mGeometryPipelines)
-		{
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
 
 			//set dynamic viewport and scissor
 			VkViewport viewport = {};
@@ -497,9 +1126,26 @@ namespace engine
 			scissor.extent.height = (mSwapChain.getDrawImageExtent().height);
 
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
+		}
 
-			pushConstants pc{ .meshletCount = uint32_t(v.getTaskShaderCount()), .cameraPos = in.cameraPos, .view = in.view, .projection = in.projection, .viewProjection = in.projection * in.view };
+		uint32_t cmdOffset = 0;
+		for (auto& [shader, v] : mGeometryPipelines)
+		{
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
+
+			uint32_t taskShaderCount = uint32_t(v.getTaskShaderCount());
+
+			pushConstants pc{
+				.commandBufferOffset = cmdOffset,
+				.meshletCount = taskShaderCount,
+				.cameraPos = in.cameraPos,
+				.view = in.view,
+				.projection = in.projection,
+				.viewProjection = in.projection * in.view
+			};
 			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+
+			cmdOffset += taskShaderCount;
 
 			// bind the descriptor set.
 			auto set = mDescriptorSetMesh.getDescriptorSet().first;
@@ -530,541 +1176,5 @@ namespace engine
 			return vkTexture->checkError();
 
 		return vkTexture;
-	}
-
-	error vulkanRenderer::initVulkan()
-	{
-		vkb::InstanceBuilder builder;
-
-		auto inst_ret = builder.set_app_name(mCtx->config.inner.app.name.c_str())
-#ifdef DEBUG
-			.request_validation_layers(true)
-			.set_debug_callback(debugCallback)
-#endif // DEBUG
-			.require_api_version(1, 3, 0)
-			.build();
-		if (!inst_ret)
-		{
-			return { inst_ret.error().message() };
-		}
-
-		vkb::Instance vkb_inst = inst_ret.value();
-
-		mInstance = vkb_inst.instance;
-		mDebugMessenger = vkb_inst.debug_messenger;
-
-		auto surfaceResult = mWindow->makeVulkunSurface(mInstance);
-		if (!surfaceResult)
-		{
-			return surfaceResult.err();
-		}
-
-		mSurface = surfaceResult.value();
-
-		VkPhysicalDeviceMultiviewFeaturesKHR multiviewFeatures{};
-		multiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
-		multiviewFeatures.multiview = VK_TRUE; // enable base multiview
-		multiviewFeatures.pNext = nullptr;
-
-		VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures{};
-		shadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
-		shadingRateFeatures.primitiveFragmentShadingRate = VK_TRUE;
-		shadingRateFeatures.pNext = &multiviewFeatures;
-
-		VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
-		meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
-		meshShaderFeatures.meshShader = VK_TRUE;
-		meshShaderFeatures.taskShader = VK_TRUE; // if using task shader
-		meshShaderFeatures.multiviewMeshShader = VK_TRUE;
-		meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_TRUE;
-		meshShaderFeatures.pNext = &shadingRateFeatures;
-
-		// Chain to Vulkan 1.3 features
-		VkPhysicalDeviceVulkan13Features features13{};
-		features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-		features13.dynamicRendering = VK_TRUE;
-		features13.synchronization2 = VK_TRUE;
-		features13.pNext = &meshShaderFeatures;
-
-		// Vulkan 1.2 features
-		VkPhysicalDeviceVulkan12Features features12{};
-		features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-		features12.bufferDeviceAddress = VK_TRUE;
-		features12.descriptorIndexing = VK_TRUE;
-		features12.runtimeDescriptorArray = VK_TRUE;
-		features12.pNext = &features13;
-
-		VkPhysicalDeviceFeatures deviceFeatures{};
-		deviceFeatures.samplerAnisotropy = VK_TRUE;
-
-		//use vkbootstrap to select a gpu. 
-		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features
-		vkb::PhysicalDeviceSelector selector{ vkb_inst };
-		auto selectedRes = selector
-			.set_minimum_version(1, 3)
-			.set_required_features_12(features12)
-			.set_required_features(deviceFeatures)
-			.add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
-			.set_surface(mSurface)
-			.select();
-		if (!selectedRes)
-		{
-			return { selectedRes.error().message() };
-		}
-
-		vkb::PhysicalDevice physicalDevice = selectedRes.value();
-
-		//create the final vulkan device
-		vkb::DeviceBuilder deviceBuilder{ physicalDevice };
-
-		vkb::Device vkbDevice = deviceBuilder.build().value();
-
-		mDevice = vkbDevice.device;
-		mPhysicalDevice = physicalDevice.physical_device;
-
-		mGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
-		mGraphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
-
-		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.physicalDevice = mPhysicalDevice;
-		allocatorInfo.device = mDevice;
-		allocatorInfo.instance = mInstance;
-		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-		auto vmaResult = vmaCreateAllocator(&allocatorInfo, &mAllocator);
-		if (vmaResult != VK_SUCCESS)
-		{
-			return { vkResultToStr(vmaResult) };
-		}
-
-		loadExtensions();
-
-		mDeletionQueue.push_back(destroyTask{ .type = allocator, .allocator = mAllocator });
-
-		return {};
-	}
-
-	error vulkanRenderer::setDefaultBindings()
-	{
-		mComputeBinding = computePipelineBindings{
-			.descriptorSet = 0,
-			.colorAttachment = 0,
-		};
-
-		mGeometryBinding = geometryPipelineBindings{
-			.descriptorSet = 0,
-
-			.vertexBinding = 0,
-			.perInstanceBinding = 1,
-			.meshletToInstanceBinding = 2,
-			.indexBinding = 3,
-			.primitiveBinding = 4,
-			.meshletBinding = 5,
-
-			.albedoBinding = 6,
-			.normalBinding = 7,
-			.roughnessBinding = 8,
-			.metalicBinding = 9,
-			.aoBinding = 10
-		};
-
-		return {};
-	}
-
-	error vulkanRenderer::initPipelines()
-	{
-		return initBackgroundPipeline();
-	}
-
-	error vulkanRenderer::initBackgroundPipeline()
-	{
-		VkShaderModule computeDrawShader;
-		auto shader = mCtx->mAmanager->getDefaultComputeShader();
-		if (!shader)
-		{
-			return shader.err();
-		}
-
-		computeDrawShader = static_cast<vulkanShader*>(shader.value().get())->mShaderModule;
-
-		mComputePipeline.init(mDevice);
-		mComputePipeline.setShader(computeDrawShader);
-
-		auto buildErr = mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
-		if (buildErr)
-			return buildErr;
-
-		mDeletionQueue.push_back(destroyTask{ .type = computePipe, .computePipe = &mComputePipeline });
-
-		return {};
-	}
-
-	error vulkanRenderer::setLimits()
-	{
-		VkPhysicalDeviceProperties props{};
-		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
-
-		mPhysicalDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
-		mPhysicalDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
-		mPhysicalDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
-
-		LOGINFO(
-			"vulkan limits maxCombinedImageSamplers {}, maxStorageBuffers {}, maxFiltering {}",
-			mPhysicalDeviceLimits.maxCombinedImageSamplers,
-			mPhysicalDeviceLimits.maxStorageBuffers,
-			mPhysicalDeviceLimits.maxFiltering
-		);
-
-		return {};
-	}
-
-	error vulkanRenderer::initImmediateSubmit()
-	{
-		auto err = mImmediateSubmit.init(mDevice, mGraphicsQueue, mGraphicsQueueFamily);
-		if (err)
-			return err;
-
-		mDeletionQueue.push_back(destroyTask{ .type = iSub, .iSubmit = &mImmediateSubmit });
-
-		return {};
-	}
-
-	error vulkanRenderer::loadExtensions()
-	{
-		vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksEXT");
-		if (!vkCmdDrawMeshTasksEXT)
-			return { "can't load extensions" };
-
-		return {};
-	}
-
-	error vulkanRenderer::initSwapchain(uint32_t width, uint32_t height)
-	{
-		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice);
-
-		auto err = mSwapChain.build(width, height, mGraphicsQueueFamily);
-		if (err)
-			return err;
-
-		mDeletionQueue.push_back(destroyTask{ .type = sChain, .sChain = &mSwapChain });
-
-		return {};
-	}
-
-	error vulkanRenderer::initRegistry()
-	{
-		mVertexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
-
-		mIndexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
-
-		mPrimitiveRegistry.init(mDevice, mAllocator, mImmediateSubmit);
-
-		mMeshletRegistry.init(mDevice, mAllocator, mImmediateSubmit);
-
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
-
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
-
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPrimitiveRegistry });
-
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
-
-		auto samp = descriptorSet::createSampler(mDevice, mPhysicalDeviceLimits.maxFiltering);
-		if (!samp)
-		{
-			return samp.err();
-		}
-
-		mSampler = samp.value();
-
-		mDeletionQueue.push_back(destroyTask{ .type = sampler, .sampler = &mSampler });
-
-		mAlbedoRegistry.init(mSampler);
-		mRoughnessRegistry.init(mSampler);
-		mNormalRegistry.init(mSampler);
-		mMetalicRegistry.init(mSampler);
-		mAoRegistry.init(mSampler);
-
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAlbedoRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mRoughnessRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mNormalRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAoRegistry });
-
-		return {};
-	}
-
-	error vulkanRenderer::initDescriptors()
-	{
-		auto err = mDescriptorSetMesh.init(mDevice, mPhysicalDevice, poolConstraints{ .maxTextureDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers, .maxStorageDescriptors = mPhysicalDeviceLimits.maxStorageBuffers });
-		if (err)
-			return err;
-
-		err = mDescriptorSetCompute.init(mDevice, mPhysicalDevice);
-		if (err)
-			return err;
-
-		err = setBackgroundDescriptors();
-		if (err)
-			return err;
-
-		err = setGeometryDescriptors();
-		if (err)
-			return err;
-
-		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetCompute });
-		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetMesh });
-		mDeletionQueue.push_back(destroyTask{ .type = descPool });
-
-		return {};
-	}
-
-	error vulkanRenderer::setBackgroundDescriptors()
-	{
-		std::vector<VkDescriptorImageInfo> colorAttachmentInfo = {
-			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDrawImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
-		};
-
-		std::vector<VkDescriptorImageInfo> depthAttachmentInfo = {
-			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDepthImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
-		};
-
-		mDescriptorSetCompute.addBinding(
-			descriptorSet::getLayoutBindingInfo(mComputeBinding.colorAttachment, uint32_t(colorAttachmentInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		);
-
-		auto err = mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT);
-		if (err)
-			return err;
-
-		auto writeInfo = descriptorSet::getWriteInfo(mComputeBinding.colorAttachment, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, colorAttachmentInfo);
-		mDescriptorSetCompute.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error vulkanRenderer::setGeometryDescriptors()
-	{
-		const uint32_t combinedImageSamplers = 5;
-		const uint32_t bufferObjects = 6;
-
-		// add bindings for buffers.
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.meshletToInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		// add bindings for textures.
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		auto err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL);
-		if (err)
-			return err;
-
-		err = updateGeometryDescriptors();
-		if (err)
-			return err;
-
-		return {};
-	}
-
-	// Should be called before each geometry pass.
-	error vulkanRenderer::updateGeometryDescriptors()
-	{
-		// update buffers.
-
-		error err;
-		for (auto& [_, v] : mGeometryPipelines)
-		{
-			err = v.updateMeshletToInstanceBuffer();
-			if (err)
-				return err;
-
-			if (v.needMeshletToInstanceDescriptorUpdate())
-			{
-				auto writeInfo = v.getMeshletToInstanceWriteInfo(mGeometryBinding.meshletToInstanceBinding);
-				mDescriptorSetMesh.updateWrite(writeInfo);
-				v.setMeshletToInstanceDescriptorUpdated();
-			}
-
-			if (v.needPerInstanceDecriptorUpdate())
-			{
-				auto writes = v.getPerInstanceWriteInfo(mGeometryBinding.perInstanceBinding);
-				mDescriptorSetMesh.updateWrite(writes);
-				v.setPerInstanceDecriptorUpdated();
-			}
-		}
-
-		if (mVertexRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mVertexRegistry.getWriteInfo(mGeometryBinding.vertexBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mVertexRegistry.setUpdated();
-		}
-
-		if (mIndexRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mIndexRegistry.getWriteInfo(mGeometryBinding.indexBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mIndexRegistry.setUpdated();
-		}
-
-		if (mPrimitiveRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mPrimitiveRegistry.getWriteInfo(mGeometryBinding.primitiveBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mPrimitiveRegistry.setUpdated();
-		}
-
-		if (mMeshletRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mMeshletRegistry.getWriteInfo(mGeometryBinding.meshletBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mMeshletRegistry.setUpdated();
-		}
-
-		// Update textures.
-		if (mAlbedoRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mAlbedoRegistry.getWriteInfo(mGeometryBinding.albedoBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mAlbedoRegistry.setUpdated();
-		}
-
-		if (mNormalRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mNormalRegistry.getWriteInfo(mGeometryBinding.normalBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mNormalRegistry.setUpdated();
-		}
-
-		if (mRoughnessRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mRoughnessRegistry.getWriteInfo(mGeometryBinding.roughnessBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mRoughnessRegistry.setUpdated();
-		}
-
-		if (mMetalicRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mMetalicRegistry.getWriteInfo(mGeometryBinding.metalicBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mMetalicRegistry.setUpdated();
-		}
-
-		if (mAoRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mAoRegistry.getWriteInfo(mGeometryBinding.aoBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mAoRegistry.setUpdated();
-		}
-
-		return {};
-	}
-
-	void vulkanRenderer::flushDeletonQueue()
-	{
-		for (auto it = mDeletionQueue.rbegin(); it != mDeletionQueue.rend(); it++)
-		{
-			switch (it->type)
-			{
-			case allocator:
-				vmaDestroyAllocator(it->allocator);
-				break;
-			case iSub:
-				if (it->iSubmit)
-					it->iSubmit->destroy();
-				break;
-			case sChain:
-				if (it->sChain)
-					it->sChain->destroy();
-				break;
-			case descPool:
-				descriptorSet::destroyPool();
-				break;
-			case descSet:
-				if (it->descSet)
-					it->descSet->destroy();
-				break;
-			case computePipe:
-				if (it->computePipe)
-					it->computePipe->destroy();
-				break;
-			case buffRegistry:
-				if (it->buffRegistry)
-					it->buffRegistry->destroy();
-				break;
-			case texRegistry:
-				if (it->texRegistry)
-					it->texRegistry->destroy();
-				break;
-			case sampler:
-				if (it->sampler)
-					vkDestroySampler(mDevice, *it->sampler, nullptr);
-				break;
-			default:
-				LOGERROR("unkown sampler");
-			}
-		}
-
-		mDeletionQueue.clear();
 	}
 }

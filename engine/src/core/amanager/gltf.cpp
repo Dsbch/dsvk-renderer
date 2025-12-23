@@ -224,7 +224,7 @@ namespace engine
 		std::vector<vertex> vertexBuf;
 		std::vector<uint32_t> indexBuf;
 
-		auto err = loadMeshFromGLTF(path, vertexBuf, indexBuf);
+		error err = loadMeshFromGLTF(path, vertexBuf, indexBuf);
 		if (err)
 			return err;
 

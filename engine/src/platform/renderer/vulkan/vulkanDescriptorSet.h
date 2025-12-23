@@ -44,7 +44,7 @@ namespace engine
 
 		void clearBindings();
 		void addBinding(VkDescriptorSetLayoutBinding binding);
-		error build(VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+		error build(VkShaderStageFlags shaderStages, uint32_t totalDescriptorsCount);
 		void updateWrite(std::vector<VkWriteDescriptorSet>& writeInfo);
 
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getDescriptorSet();

@@ -100,13 +100,13 @@ namespace engine
 	{
 		for (auto& s : mUserSystems)
 		{
-			if (auto err = s->checkError(); err)
+			if (error err = s->checkError(); err)
 				return err;
 		}
 
 		for (auto& s : mSystems)
 		{
-			if (auto err = s->checkError(); err)
+			if (error err = s->checkError(); err)
 				return err;
 		}
 
