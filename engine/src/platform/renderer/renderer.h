@@ -15,6 +15,7 @@ namespace engine
 		struct renderCallIn
 		{
 			glm::vec3 cameraPos;
+			glm::vec3 cameraFront;
 			glm::mat4 view;
 			glm::mat4 projection;
 		};

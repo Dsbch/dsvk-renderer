@@ -40,8 +40,8 @@ namespace engine
 
 	struct perInstanceAttr
 	{
-		glm::vec3 bsCenter;
-		float  bsRadius;
+		glm::vec3 bsWorldCenter;
+		float  bsWorldRadius;
 		glm::mat4 modelMatrix;
 		
 		uint32_t albedoIndex;
@@ -126,8 +126,9 @@ namespace engine
 		uint32_t _pad0[2];
 
 		glm::vec3 cameraPos;
+		glm::vec3 cameraFront;
 		
-		float _pad1;
+		float _pad1[2];
 
 		glm::mat4 view;
 		glm::mat4 projection;

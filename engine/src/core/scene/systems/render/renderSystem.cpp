@@ -28,15 +28,18 @@ namespace engine
 
 	error renderSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [_, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent>().each())
+		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
 		{
+			// Extract scale asume that scale is the same of all axis.
+			float scale = glm::length(glm::vec3(transform.transform[0]));
+
 			model m{
 				.id = uid.uid,
 				.mat = material.mat,
 				.meshData = mesh.meshData,
 				.instanceAttributes = perInstanceAttr{
-					.bsCenter = mesh.meshData.bsCenter,
-					.bsRadius = mesh.meshData.bsRadius,
+					.bsWorldCenter = glm::vec3(transform.transform * glm::vec4(mesh.meshData.bsCenter, 1.0f)),
+					.bsWorldRadius = mesh.meshData.bsRadius * scale,
 					.modelMatrix = transform.transform
 				},
 			};
@@ -44,6 +47,8 @@ namespace engine
 			error err = mRenderer->addToRender(m);
 			if (err)
 				return err;
+
+			registry->erase<newEntityComponent>(e);
 		}
 
 		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, deleteComponent>().each())
@@ -52,11 +57,6 @@ namespace engine
 				.id = uid.uid,
 				.mat = material.mat,
 				.meshData = mesh.meshData,
-				.instanceAttributes = perInstanceAttr{
-					.bsCenter = mesh.meshData.bsCenter,
-					.bsRadius = mesh.meshData.bsRadius,
-					.modelMatrix = transform.transform,
-				},
 			};
 
 			mRenderer->removeFromRender(m);
@@ -86,9 +86,14 @@ namespace engine
 		if (!cameraPos)
 			return cameraPos.err();
 
+		auto cameraFront = cameraSystem::getCameraFront(registry);
+		if (!cameraFront)
+			return cameraFront.err();
+
 		return mRenderer->render(
 			renderer::renderCallIn{
 				.cameraPos = cameraPos.value(),
+				.cameraFront = cameraFront.value(),
 				.view = view.value(),
 				.projection = projection.value()
 			}

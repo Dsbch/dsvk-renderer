@@ -1139,6 +1139,7 @@ namespace engine
 				.commandBufferOffset = cmdOffset,
 				.meshletCount = meshletCount,
 				.cameraPos = in.cameraPos,
+				.cameraFront = in.cameraFront,
 				.view = in.view,
 				.projection = in.projection,
 				.viewProjection = in.projection * in.view

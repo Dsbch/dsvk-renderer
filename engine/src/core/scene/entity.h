@@ -19,11 +19,23 @@ namespace engine
 			return component;
 		}
 
+		template<typename T>
+		void addComponent()
+		{
+			mRegistry->emplace<T>(mEntityHandle);
+		}
+
 		template<typename T, typename... Args>
 		T& addOrReplaceComponent(Args&&... args)
 		{
 			T& component = mRegistry->emplace_or_replace<T>(mEntityHandle, std::forward<Args>(args)...);
 			return component;
+		}
+
+		template<typename T>
+		void addOrReplaceComponent()
+		{
+			mRegistry->emplace_or_replace<T>(mEntityHandle);
 		}
 
 		template<typename T>

@@ -33,16 +33,17 @@ namespace engine
 			static_cast<vulkanShader*>(meshShader.get())->mShaderModule,
 			static_cast<vulkanShader*>(pixelShader.get())->mShaderModule
 		);
-		//it will draw triangles
+		
 		mPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		//filled triangles
 		mPipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
-		//no backface culling
-		mPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-		//no multisampling
+		
+		// Back face culling is done in shaders.
+		mPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+		
 		mPipeline.setMultisamplingNone();
-		//no blending
+		
 		mPipeline.disableBlending();
+		
 		mPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 		//connect the image format we will draw into, from draw image

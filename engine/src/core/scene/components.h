@@ -13,7 +13,8 @@ namespace engine
 		uint32_t uid;
 
 		uidComponent()
-			: uid(genUID()) {}
+			: uid(genUID()) {
+		}
 	};
 
 	struct tagComponent
@@ -21,7 +22,8 @@ namespace engine
 		std::string tag;
 
 		tagComponent(const std::string& tag)
-			: tag(tag) {}
+			: tag(tag) {
+		}
 	};
 
 	struct deleteComponent {};
@@ -71,6 +73,8 @@ namespace engine
 		{
 		}
 	};
+
+	struct newEntityComponent {};
 }
 
 namespace std {

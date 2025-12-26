@@ -22,6 +22,7 @@ namespace engine
 		static withError<glm::mat4> getView(std::shared_ptr<entt::registry> registry);
 		static withError<glm::mat4> getProjection(std::shared_ptr<entt::registry> registry);
 		static withError<glm::vec3> getCameraPos(std::shared_ptr<entt::registry> registry);
+		static withError<glm::vec3> getCameraFront(std::shared_ptr<entt::registry> registry);
 	private:
 		void spawnDefaultCamera(std::shared_ptr<entt::registry> registry) const;
 	};

@@ -45,8 +45,8 @@ struct meshlet
 
 struct perInstanceAttr
 {
-    float3 bsCenter;
-    float bsRadius;
+    float3 bsWorldCenter;
+    float bsWorldRadius;
     float4x4 modelMatrix;
     
     uint albedoIndeex;
@@ -95,6 +95,7 @@ struct pushConstant
     uint commandBufferOffset;
     uint meshletCount;
     float3 cameraPos;
+    float3 cameraFront;
     float4x4 view;
     float4x4 projection;
     float4x4 viewProjection;
@@ -143,17 +144,13 @@ uint getMeshletOffset(uint lodLevel, uint idx)
     return result;
 }
 
-uint selectLodLevel(float4x4 model, float3 bsCenter, float bsRadius)
+uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
 {
     // Get viewSpace of the center.
-    float4 vsCenter = mul(push.view, mul(model, float4(bsCenter, 1.0f)));
-    
-    // extract scale from a matrix, assume that scale is uniform (the same scale along all axis, if not it won't work :)).
-    float scaleX = length(float3(model[0][0], model[0][1], model[0][2]));
-    float worldRadius = bsRadius * scaleX;
+    float4 vsCenter = mul(push.view, float4(bsWorldCenter, 1.0f));
     
     // Calculate view space for second point that is at the sphere border on y axis.
-    float4 vsBorder = float4(vsCenter.x, vsCenter.y + worldRadius, vsCenter.zw);
+    float4 vsBorder = float4(vsCenter.x, vsCenter.y + bsWorldRadius, vsCenter.zw);
 
     // To NDC for both.
     float4 clipCenter = mul(push.projection, vsCenter);
@@ -194,7 +191,8 @@ void asmain(
         uint perInstanceOffset = commandBuffer[dtid + push.commandBufferOffset].instanceOffset;
     
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
-        uint selectedLod = selectLodLevel(instanceAttr.modelMatrix, instanceAttr.bsCenter, instanceAttr.bsRadius);
+        uint selectedLod = selectLodLevel(instanceAttr.modelMatrix, instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
+        uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
         uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
     
         // Still have meshlets for that lodLevel.
@@ -202,6 +200,7 @@ void asmain(
         {
             // TODO: add culling.
             visible = true;
+            
             if (visible)
             {
                 uint index = WavePrefixCountBits(visible);
@@ -211,7 +210,7 @@ void asmain(
      
                 payload.lodLevel[index] = selectedLod;
         
-                payload.meshletIndex[index] = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
+                payload.meshletIndex[index] = meshletIdx;
                 payload.meshletOffset[index] = meshletOffset;
             }
         }
@@ -224,12 +223,56 @@ void asmain(
 
 // MS START.
 
+// meshopt stores the triangle offset in bytes since it stores the
+// triangle indices as 3 consecutive bytes. 
+//
+// Since we repacked those 3 bytes to a 32-bit uint, our offset is now
+// aligned to 4 and we can easily grab it as a uint without any 
+// additional offset math.
+uint3 unpackUint(uint packed)
+{
+    uint3 result;
+    
+    result.x = (packed >> 0) & 0xFF;
+    result.y = (packed >> 8) & 0xFF;
+    result.z = (packed >> 16) & 0xFF;
+    
+    return result;
+}
+
 struct meshOutput
 {
     float4 position : SV_POSITION;
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
 };
+
+struct meshletPrimitiveOut
+{
+    bool cullPrimitive : SV_CULLPRIMITIVE;
+};
+
+bool isBackface(float4 v1, float4 v2, float4 v3)
+{
+    v1.xy /= v1.w;
+    v2.xy /= v2.w;
+    v3.xy /= v3.w;
+    
+    //float2 eb = v2.xy - v1.xy;
+    //float2 ec = v3.xy - v1.xy;
+    
+    float area = (v2.x - v1.x) * (v2.y + v1.y) / 2 + (v3.x - v2.x) * (v3.y + v2.y) / 2 - (v3.x - v1.x) * (v3.y + v1.y) / 2;
+    
+    return -area > 0;
+}
+
+struct meshGroupShared
+{
+    uint3 primitive[THREADS_COUNT];
+    float4 position[THREADS_COUNT];
+};
+
+groupshared meshGroupShared meshShared;
 
 [outputtopology("triangle")]
 [numthreads(THREADS_COUNT, 1, 1)]
@@ -238,35 +281,34 @@ void msmain(
                  uint gid : SV_GroupID,
     in payload MeshShaderPayload payload,
     out indices uint3 triangles[THREADS_COUNT],
-    out vertices meshOutput vertices[THREADS_COUNT])
+    out vertices meshOutput vertices[THREADS_COUNT],
+    out primitives meshletPrimitiveOut primitives[THREADS_COUNT])
 {
     meshlet mesh = meshletBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
     perInstanceAttr instanceAttr = perInstanceBuffer[payload.perInstanceIndex[gid]][payload.perInstanceOffset[gid]];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
-       
+        
     if (gtid < mesh.triangleCount)
     {
-        // meshopt stores the triangle offset in bytes since it stores the
-        // triangle indices as 3 consecutive bytes. 
-        //
-        // Since we repacked those 3 bytes to a 32-bit uint, our offset is now
-        // aligned to 4 and we can easily grab it as a uint without any 
-        // additional offset math.
         uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
+         
+        uint3 unpacked = unpackUint(packed);
         
-        uint vIdx0 = (packed >> 0) & 0xFF;
-        uint vIdx1 = (packed >> 8) & 0xFF;
-        uint vIdx2 = (packed >> 16) & 0xFF;
+        triangles[gtid] = unpacked;
         
-        triangles[gtid] = uint3(vIdx0, vIdx1, vIdx2);
+        meshShared.primitive[gtid] = unpacked;
     }
 
     if (gtid < mesh.vertexCount)
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
 
-        vertices[gtid].position = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
+        float4 pos = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
+        
+        vertices[gtid].position = pos;
+        
+        meshShared.position[gtid] = pos;
         
         float4 color = float4(
             float(payload.meshletOffset[gid] & 1),
@@ -277,6 +319,22 @@ void msmain(
         
         vertices[gtid].color = color;
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
+    
+    if (gtid == 0)
+    {
+        for (int i = 0; i < mesh.triangleCount; i++)
+        {
+            uint3 t = meshShared.primitive[i];
+            
+            primitives[i].cullPrimitive = isBackface(
+                meshShared.position[t.x],
+                meshShared.position[t.y],
+                meshShared.position[t.z]
+            );
+        }
     }
 }
 

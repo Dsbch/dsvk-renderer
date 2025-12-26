@@ -38,7 +38,7 @@ namespace engine
 
 		std::map<uint32_t, std::vector<meshletShaderCMD>> mMeshletShaderCMD;
 		std::map<uint32_t, uint32_t> mInstanceMeshCount;
-	
+
 		bool mNeedUpdate;
 	};
 }

@@ -2,7 +2,6 @@
 #include <core/amanager/gltf.h>
 #include <core/scene/components.h>
 #include <core/scene/entity.h>
-#include <core/scene/components.h>
 
 namespace sandbox
 {
@@ -40,20 +39,17 @@ namespace sandbox
 		return {};
 	}
 
-	std::random_device rd;
-	std::mt19937 gen(rd());
-
-	glm::mat4 generateRandomTransform()
+	glm::mat4 generateMatrix()
 	{
 		static float zPos = -1.0f;
-		zPos -= 0.2f;
 
 		glm::mat4 transform = glm::mat4(1.0f);
 
 		glm::vec3 position(0, 0, zPos);
 		transform = glm::translate(transform, position);
-
-
+		
+		zPos -= 0.2f;
+		
 		return transform;
 	}
 
@@ -94,12 +90,14 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(lodMesh.value());
 
-				e.addComponent<engine::transformComponent>(generateRandomTransform());
+				e.addComponent<engine::transformComponent>(generateMatrix());
+
+				e.addComponent<engine::newEntityComponent>();
 			}
 
 			if (event->getKey() == engine::r)
 			{
-				auto lodMesh = engine::loadMesh("../assets/plane289.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
+				auto lodMesh = engine::loadMesh("../assets/trofy.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");
@@ -128,7 +126,13 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(lodMesh.value());
 
-				e.addComponent<engine::transformComponent>(generateRandomTransform());
+				auto m = generateMatrix();
+
+				m = glm::scale(m, glm::vec3(0.2f, 0.2f, 0.2f));
+
+				e.addComponent<engine::transformComponent>(m);
+
+				e.addComponent<engine::newEntityComponent>();
 			}
 
 
