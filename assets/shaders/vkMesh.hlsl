@@ -252,27 +252,18 @@ struct meshletPrimitiveOut
     bool cullPrimitive : SV_CULLPRIMITIVE;
 };
 
-bool isBackface(float4 v1, float4 v2, float4 v3)
+bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
 {
-    v1.xy /= v1.w;
-    v2.xy /= v2.w;
-    v3.xy /= v3.w;
+    v1 = mul(model, float4(v1, 1.0f)).xyz;
+    v2 = mul(model, float4(v2, 1.0f)).xyz;
+    v3 = mul(model, float4(v3, 1.0f)).xyz;
     
-    //float2 eb = v2.xy - v1.xy;
-    //float2 ec = v3.xy - v1.xy;
+    float3 normal = cross(v2 - v1, v3 - v1);
     
-    float area = (v2.x - v1.x) * (v2.y + v1.y) / 2 + (v3.x - v2.x) * (v3.y + v2.y) / 2 - (v3.x - v1.x) * (v3.y + v1.y) / 2;
+    float3 center = (v1 + v2 + v3) / 3;
     
-    return -area > 0;
+    return dot(normal, push.cameraPos - center) < 0;
 }
-
-struct meshGroupShared
-{
-    uint3 primitive[THREADS_COUNT];
-    float4 position[THREADS_COUNT];
-};
-
-groupshared meshGroupShared meshShared;
 
 [outputtopology("triangle")]
 [numthreads(THREADS_COUNT, 1, 1)]
@@ -297,18 +288,23 @@ void msmain(
         
         triangles[gtid] = unpacked;
         
-        meshShared.primitive[gtid] = unpacked;
+        uint idx1 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.x] + mesh.vertexBufferOffset;
+        uint idx2 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.y] + mesh.vertexBufferOffset;
+        uint idx3 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.vertexBufferOffset;
+        
+        primitives[gtid].cullPrimitive = isBackface(
+                instanceAttr.modelMatrix,
+                vertexBuffer[mesh.vertexBufferIndex][idx1].position,
+                vertexBuffer[mesh.vertexBufferIndex][idx2].position,
+                vertexBuffer[mesh.vertexBufferIndex][idx3].position
+            );
     }
 
     if (gtid < mesh.vertexCount)
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
 
-        float4 pos = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
-        
-        vertices[gtid].position = pos;
-        
-        meshShared.position[gtid] = pos;
+        vertices[gtid].position = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
         float4 color = float4(
             float(payload.meshletOffset[gid] & 1),
@@ -319,22 +315,6 @@ void msmain(
         
         vertices[gtid].color = color;
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
-    }
-    
-    GroupMemoryBarrierWithGroupSync();
-    
-    if (gtid == 0)
-    {
-        for (int i = 0; i < mesh.triangleCount; i++)
-        {
-            uint3 t = meshShared.primitive[i];
-            
-            primitives[i].cullPrimitive = isBackface(
-                meshShared.position[t.x],
-                meshShared.position[t.y],
-                meshShared.position[t.z]
-            );
-        }
     }
 }
 
