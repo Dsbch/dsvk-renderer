@@ -295,6 +295,7 @@ namespace engine
 			std::vector<uint32_t> remappedIndexBuffer(indexBuf.size());
 			meshopt_remapIndexBuffer(remappedIndexBuffer.data(), indexBuf.data(), indexBuf.size(), remap.data());
 
+			// Generate resulting vertex data.
 			if (i == 0)
 			{
 				result.vertex = std::make_shared<std::vector<vertex>>(vertex_count);
@@ -360,10 +361,7 @@ namespace engine
 				meshopt_optimizeMeshlet(&index[m.vertex_offset], &meshletTriangles[m.triangle_offset], m.triangle_count, m.vertex_count);
 			}
 
-			for (auto& idx : index)
-			{
-				result.index.data->push_back(idx);
-			}
+			result.index.data->insert(result.index.data->end(), index.begin(), index.end());
 
 			auto primitive = std::vector<uint32_t>();
 			for (auto& m : meshlets)
@@ -391,10 +389,7 @@ namespace engine
 				m.triangle_offset = triangleOffset;
 			}
 
-			for (auto& prim : primitive)
-			{
-				result.primitive.data->push_back(prim);
-			}
+			result.primitive.data->insert(result.primitive.data->end(), primitive.begin(), primitive.end());
 
 			auto meshletBuff = std::vector<meshlet>();
 			meshletBuff.reserve(meshletCount);
@@ -425,24 +420,42 @@ namespace engine
 
 			for (size_t k = 0; k < meshlets.size(); k++)
 			{
+				meshopt_Meshlet m = meshlets[k];
+
+				meshopt_Bounds bounds = meshopt_computeMeshletBounds(
+					&index[m.vertex_offset],
+					&meshletTriangles[m.triangle_offset],
+					m.triangle_count,
+					&result.vertex->front().position[0],
+					result.vertex->size(),
+					sizeof(vertex)
+				);
+
 				meshletBuff.push_back(
 					meshlet{
 						.indexBufferIndex = 0,
-						.indexBufferOffset = meshlets[k].vertex_offset + indexLodOffset,
+						.indexBufferOffset = m.vertex_offset + indexLodOffset,
 						.vertexBufferIndex = 0,
 						.vertexBufferOffset = 0,
-						.vertexCount = meshlets[k].vertex_count,
+						.vertexCount = m.vertex_count,
 						.triangleBufferIndex = 0,
-						.triangleBufferOffset = meshlets[k].triangle_offset + primitiveLodOffset,
-						.triangleCount = meshlets[k].triangle_count
+						.triangleBufferOffset = m.triangle_offset + primitiveLodOffset,
+						.triangleCount = m.triangle_count,
+
+						.bounds = meshletBounds{
+							.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
+							.radius = bounds.radius,
+							.coneApex = { bounds.cone_apex[0], bounds.cone_apex[1], bounds.cone_apex[2] },
+							.coneAxis = { bounds.cone_axis[0], bounds.cone_axis[1], bounds.cone_axis[2] },
+							.coneCutoff = bounds.cone_cutoff,
+							.coneAxisS8 = { float(bounds.cone_axis_s8[0]) / 127.0f, float(bounds.cone_axis_s8[1]) / 127.0f, float(bounds.cone_axis_s8[2]) / 127.0f},
+							.coneCutoffS8 = float(bounds.cone_cutoff_s8),
+						},
 					}
 				);
 			}
 
-			for (auto& m : meshletBuff)
-			{
-				result.mesh.data->push_back(m);
-			}
+			result.mesh.data->insert(result.mesh.data->end(), std::move_iterator(meshletBuff.begin()), std::move_iterator(meshletBuff.end()));
 		}
 
 		auto bs = calculateBoundingSphere(*result.vertex.get());

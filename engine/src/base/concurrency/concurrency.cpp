@@ -86,6 +86,11 @@ namespace engine
 			mWatchThread->join();
 	}
 
+	bool threadPool::isAppRunning()
+	{
+		return mRunning;
+	}
+
 	void threadQueue::run()
 	{
 		while (mRunning)

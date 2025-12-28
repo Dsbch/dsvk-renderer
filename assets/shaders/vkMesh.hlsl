@@ -29,6 +29,21 @@ struct vertex
     float _pad3;
 };
 
+struct meshletBounds
+{
+	/* bounding sphere, useful for frustum and occlusion culling */
+    float3 center;
+    float radius;
+
+	/* normal cone, useful for backface culling */
+    float3 coneApex;
+    float3 coneAxis;
+    float coneCutoff; /* = cos(angle/2) */
+
+    float coneAxisS8;
+    float coneCutoffS8;
+};
+
 struct meshlet
 {
     uint indexBufferIndex;
@@ -41,6 +56,8 @@ struct meshlet
     uint triangleBufferIndex;
     uint triangleBufferOffset;
     uint triangleCount;
+    
+    meshletBounds bounds;
 };
 
 struct perInstanceAttr
@@ -89,13 +106,13 @@ SamplerState albedoSamplers[] : register(s6, space0);
 // DescriptorSets END.
 
 // Push constant START.
-
 struct pushConstant
 {
     uint commandBufferOffset;
     uint meshletCount;
     float3 cameraPos;
     float3 cameraFront;
+    float3 cameraUp;
     float4x4 view;
     float4x4 projection;
     float4x4 viewProjection;
@@ -171,6 +188,13 @@ uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
         return 3;
     
     return 4; // < 2.5% of screen.
+}
+
+bool isInFrustum(float4x4 model, float3 bsCenter, float bsRadius)
+{
+    bool result = false;
+    
+    return result;
 }
 
 [numthreads(THREADS_COUNT, 1, 1)]

@@ -82,11 +82,35 @@ namespace engine
 		return info;
 	}
 
-	inline VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags /*= 0*/)
+	inline VkSemaphoreTypeCreateInfo timelineSemaphoreCreateInfo(uint32_t initialValue)
+	{
+		VkSemaphoreTypeCreateInfo info;
+		info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+		info.pNext = NULL;
+		info.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+		info.initialValue = initialValue;
+
+		return info;
+	}
+
+	inline VkTimelineSemaphoreSubmitInfo timelimeSemaphoreSubmitInfo(uint64_t& waitValue, uint64_t& signalValue, uint32_t waitCount, uint32_t signalCount)
+	{
+		VkTimelineSemaphoreSubmitInfo info;
+		info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+		info.pNext = NULL;
+		info.waitSemaphoreValueCount = waitCount;
+		info.pWaitSemaphoreValues = &waitValue;
+		info.signalSemaphoreValueCount = signalCount;
+		info.pSignalSemaphoreValues = &signalValue;
+
+		return info;
+	}
+
+	inline VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags, const void* pNext = nullptr)
 	{
 		VkSemaphoreCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		info.pNext = nullptr;
+		info.pNext = pNext;
 		info.flags = flags;
 		return info;
 	}
@@ -113,11 +137,11 @@ namespace engine
 		return info;
 	}
 
-	inline VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+	inline VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore, const void* pNext = nullptr)
 	{
 		VkSemaphoreSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-		submitInfo.pNext = nullptr;
+		submitInfo.pNext = pNext;
 		submitInfo.semaphore = semaphore;
 		submitInfo.stageMask = stageMask;
 		submitInfo.deviceIndex = 0;
@@ -126,18 +150,59 @@ namespace engine
 		return submitInfo;
 	}
 
-	inline VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
-		VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+	inline VkSubmitInfo2 submitInfo(
+		VkCommandBufferSubmitInfo* cmd, 
+		std::vector<VkSemaphoreSubmitInfo>& signalSemaphoreInfo,
+		std::vector<VkSemaphoreSubmitInfo>& waitSemaphoreInfo, 
+		const void* pNext = nullptr
+	)
 	{
 		VkSubmitInfo2 info = {};
 		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-		info.pNext = nullptr;
+		info.pNext = pNext;
 
-		info.waitSemaphoreInfoCount = waitSemaphoreInfo == nullptr ? 0 : 1;
-		info.pWaitSemaphoreInfos = waitSemaphoreInfo;
+		info.waitSemaphoreInfoCount = uint32_t(waitSemaphoreInfo.size());
+		info.pWaitSemaphoreInfos = waitSemaphoreInfo.data();
 
-		info.signalSemaphoreInfoCount = signalSemaphoreInfo == nullptr ? 0 : 1;
-		info.pSignalSemaphoreInfos = signalSemaphoreInfo;
+		info.signalSemaphoreInfoCount = uint32_t(signalSemaphoreInfo.size());
+		info.pSignalSemaphoreInfos = signalSemaphoreInfo.data();
+
+		info.commandBufferInfoCount = 1;
+		info.pCommandBufferInfos = cmd;
+
+		return info;
+	}
+
+	inline VkSubmitInfo2 submitInfo(
+		VkCommandBufferSubmitInfo* cmd,
+		std::vector<VkSemaphoreSubmitInfo>& signalSemaphoreInfo,
+		const void* pNext = nullptr
+	)
+	{
+		VkSubmitInfo2 info = {};
+		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+		info.pNext = pNext;
+
+		info.signalSemaphoreInfoCount = uint32_t(signalSemaphoreInfo.size());
+		info.pSignalSemaphoreInfos = signalSemaphoreInfo.data();
+
+		info.commandBufferInfoCount = 1;
+		info.pCommandBufferInfos = cmd;
+
+		return info;
+	}
+
+	inline VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo* cmd, const void* pNext = nullptr)
+	{
+		VkSubmitInfo2 info = {};
+		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+		info.pNext = pNext;
+
+		info.waitSemaphoreInfoCount = 0;
+		info.pWaitSemaphoreInfos = nullptr;
+
+		info.signalSemaphoreInfoCount = 0;
+		info.pSignalSemaphoreInfos = nullptr;
 
 		info.commandBufferInfoCount = 1;
 		info.pCommandBufferInfos = cmd;

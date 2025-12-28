@@ -154,4 +154,15 @@ namespace engine
 
 		return error{ "scene doesn't hold an active camera" };
 	}
+
+	withError<glm::vec3> cameraSystem::getCameraUp(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [entity, camera, input] : registry->view<fpsCameraComponent, inputListenerComponent>().each())
+		{
+			if (camera.isActive)
+				return camera.camera->getUp();
+		}
+
+		return error{ "scene doesn't hold an active camera" };
+	}
 }

@@ -153,6 +153,7 @@ namespace engine
 		features12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
 		features12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
 		features12.descriptorBindingPartiallyBound = VK_TRUE;
+		features12.timelineSemaphore = VK_TRUE;
 		features12.pNext = &features13;
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
@@ -191,6 +192,9 @@ namespace engine
 
 		mGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 		mGraphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+		mTransferQueue = vkbDevice.get_queue(vkb::QueueType::transfer).value();
+		mTransferQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
 
 		VmaAllocatorCreateInfo allocatorInfo = {};
 		allocatorInfo.physicalDevice = mPhysicalDevice;
@@ -288,11 +292,11 @@ namespace engine
 
 	error vulkanRenderer::initImmediateSubmit()
 	{
-		error err = mImmediateSubmit.init(mDevice, mGraphicsQueue, mGraphicsQueueFamily);
+		error err = mSubmit.init(mCtx, mDevice, mTransferQueue, mTransferQueueFamily);
 		if (err)
 			return err;
 
-		mDeletionQueue.push_back(destroyTask{ .type = iSub, .iSubmit = &mImmediateSubmit });
+		mDeletionQueue.push_back(destroyTask{ .type = iSub, .iSubmit = &mSubmit });
 
 		return {};
 	}
@@ -321,15 +325,15 @@ namespace engine
 
 	error vulkanRenderer::initRegistry()
 	{
-		mVertexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+		mVertexRegistry.init(mDevice, mAllocator, mSubmit);
 
-		mIndexRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+		mIndexRegistry.init(mDevice, mAllocator, mSubmit);
 
-		mPrimitiveRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+		mPrimitiveRegistry.init(mDevice, mAllocator, mSubmit);
 
-		mMeshletRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+		mMeshletRegistry.init(mDevice, mAllocator, mSubmit);
 
-		mPerInstanceRegistry.init(mDevice, mAllocator, mImmediateSubmit);
+		mPerInstanceRegistry.init(mDevice, mAllocator, mSubmit);
 
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
 
@@ -367,7 +371,7 @@ namespace engine
 		mMeshletCmdBufferNewSize = 2 << 21;
 		mMeshletCmdBuffer.init(mDevice, mAllocator);
 
-		error err = mMeshletCmdBuffer.build(mImmediateSubmit, nullptr, mMeshletCmdBufferNewSize, 0);
+		error err = mMeshletCmdBuffer.build(mSubmit, nullptr, mMeshletCmdBufferNewSize, 0);
 		if (err)
 			return err;
 
@@ -532,7 +536,7 @@ namespace engine
 			cmd.insert(cmd.end(), std::move_iterator(pipelineCMD.begin()), std::move_iterator(pipelineCMD.end()));
 		}
 
-		error err = mMeshletCmdBuffer.updateBuffer(mImmediateSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
+		error err = mMeshletCmdBuffer.updateBuffer(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
 		if (err.err() == "buffer overflow")
 		{
 			mMeshletCmdBufferNewSize = uint32_t(float(mMeshletCmdBufferNewSize) * 1.5f);
@@ -542,7 +546,7 @@ namespace engine
 
 			mMeshletCmdBuffer.destroy();
 
-			err = mMeshletCmdBuffer.build(mImmediateSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), cmd.size() * sizeof(meshletShaderCMD));
+			err = mMeshletCmdBuffer.build(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), cmd.size() * sizeof(meshletShaderCMD));
 			if (err)
 				return err;
 		}
@@ -747,19 +751,6 @@ namespace engine
 		return {};
 	}
 
-	void vulkanRenderer::clear(VkCommandBuffer cmd)
-	{
-		// bind the compute pipeline
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().first);
-
-		// bind the descriptor set containing the draw image for the compute pipeline
-		auto set = mDescriptorSetCompute.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().second, mComputeBinding.descriptorSet, 1, &set, 0, nullptr);
-
-		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
-		vkCmdDispatch(cmd, uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().width) / 16.0)), uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().height) / 16.0)), 1);
-	}
-
 	error vulkanRenderer::uploadGeometryData(model& m)
 	{
 		auto handle = mVertexRegistry.addBlock(
@@ -961,6 +952,19 @@ namespace engine
 		}
 	}
 
+	void vulkanRenderer::clear(VkCommandBuffer cmd)
+	{
+		// bind the compute pipeline
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().first);
+
+		// bind the descriptor set containing the draw image for the compute pipeline
+		auto set = mDescriptorSetCompute.getDescriptorSet().first;
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().second, mComputeBinding.descriptorSet, 1, &set, 0, nullptr);
+
+		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
+		vkCmdDispatch(cmd, uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().width) / 16.0)), uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().height) / 16.0)), 1);
+	}
+
 	error vulkanRenderer::render(renderer::renderCallIn in)
 	{
 		if (mWindowMinimized)
@@ -994,11 +998,11 @@ namespace engine
 			return indexResult.err();
 		}
 
-		auto resetResult = mSwapChain.resetCurrentFence(); if (waitResult)
-			if (resetResult)
-			{
-				return resetResult.err();
-			}
+		auto resetResult = mSwapChain.resetCurrentFence();
+		if (resetResult)
+		{
+			return resetResult.err();
+		}
 
 		auto resetRes = mSwapChain.resetCommandBuffer();
 		if (resetRes)
@@ -1053,17 +1057,25 @@ namespace engine
 			return vkResultToStr(vkResult);
 		}
 
-		//prepare the submission to the queue. 
-		//we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
-		// (remember when we ask GPU for image from swap chain we provide that semaphore to signal.)
-		// we will signal the _renderSemaphore, to signal that rendering has finished
 
+		// Prepare the submission to the queue. 
+		//	we want to wait on the _presentSemaphore and all semaphores that were created during resource creating, 
+		//  _presentSemaphore semaphore is signaled when the swapchain is ready.
+		// Remember when we ask GPU for image from swap chain we provide that semaphore to signal.
+		// We will signal the _renderSemaphore, to signal that rendering has finished
 		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
+		
+		std::vector<VkSemaphoreSubmitInfo> waitInfo{};
+		std::vector<VkSemaphoreSubmitInfo> signalInfo;
+		
+		waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getCurrentFrameData().swapchainSemaphore));
+		signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getCurrentFrameData().renderSemaphore));
 
-		VkSemaphoreSubmitInfo waitInfo = semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getCurrentFrameData().swapchainSemaphore);
-		VkSemaphoreSubmitInfo signalInfo = semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getCurrentFrameData().renderSemaphore);
+		auto waitSema = mSubmit.getCurrentSemaInUse();
+		for (auto& sema : waitSema)
+			waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT, sema));
 
-		VkSubmitInfo2 submit = submitInfo(&cmdinfo, &signalInfo, &waitInfo);
+		VkSubmitInfo2 submit = submitInfo(&cmdinfo, signalInfo, waitInfo);
 
 		// submit command buffer to the queue and execute it.
 		// _renderFence will now block until the graphic commands finish execution
@@ -1073,6 +1085,8 @@ namespace engine
 			return vkResultToStr(vkResult);
 		}
 
+		mSubmit.markAllSemaAsUsed();
+		
 		// prepare present
 		// this will put the image we just rendered to into the visible window.
 		// we want to wait on the _renderSemaphore for that, 
@@ -1140,10 +1154,12 @@ namespace engine
 				.meshletCount = meshletCount,
 				.cameraPos = in.cameraPos,
 				.cameraFront = in.cameraFront,
+				.cameraUp = in.cameraUp,
 				.view = in.view,
 				.projection = in.projection,
 				.viewProjection = in.projection * in.view
 			};
+
 			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 			cmdOffset += meshletCount;
@@ -1172,7 +1188,7 @@ namespace engine
 
 	withError<std::shared_ptr<texture>> vulkanRenderer::makeTexture(uint8_t* data, int width, int heigth, imageChannel channel)
 	{
-		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mImmediateSubmit, data, width, heigth, channel);
+		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, data, width, heigth, channel);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
 

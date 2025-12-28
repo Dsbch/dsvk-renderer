@@ -90,10 +90,15 @@ namespace engine
 		if (!cameraFront)
 			return cameraFront.err();
 
+		auto cameraUp = cameraSystem::getCameraUp(registry);
+		if (!cameraUp)
+			return cameraUp.err();
+
 		return mRenderer->render(
 			renderer::renderCallIn{
 				.cameraPos = cameraPos.value(),
 				.cameraFront = cameraFront.value(),
+				.cameraUp = cameraUp.value(),
 				.view = view.value(),
 				.projection = projection.value()
 			}

@@ -6,11 +6,11 @@
 
 namespace engine
 {
-	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, immediateSubmit immSubmit)
+	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, submit is)
 	{
 		mDevice = device;
 		mAllocator = allocator;
-		mImmSubmit = immSubmit;
+		mSubmit = is;
 		mNeedUpdate = false;
 	}
 
@@ -42,7 +42,7 @@ namespace engine
 
 				mBuffers[i].bufferHandles.insert(handle);
 
-				error err = mBuffers[i].buffer.updateBuffer(mImmSubmit, data, sizeInBytes, offset);
+				error err = mBuffers[i].buffer.updateBuffer(mSubmit, data, sizeInBytes, offset);
 				if (err)
 					return err;
 
@@ -75,7 +75,7 @@ namespace engine
 		if (vmaVirtualAllocate(vBlock, &allocateInfo, &vAllocation, &offset) != VK_SUCCESS)
 			return error{ "can't allocate in virtual block" };
 
-		error err = newBuffer.build(mImmSubmit, data, newSize, sizeInBytes);
+		error err = newBuffer.build(mSubmit, data, newSize, sizeInBytes);
 		if (err)
 			return err;
 
@@ -89,10 +89,10 @@ namespace engine
 
 		mBuffers.push_back(
 			bufferWithHandles{
-			.buffer = newBuffer,
-			.vBlock = vBlock,
+				.buffer = newBuffer,
+				.vBlock = vBlock,
 			}
-			);
+		);
 
 		mBuffers.back().bufferHandles.insert(handle);
 

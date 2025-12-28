@@ -72,6 +72,11 @@ namespace engine
 		return mFront;
 	}
 
+	glm::vec3 fpsCamera::getUp() const
+	{
+		return mUp;
+	}
+
 	glm::mat4 fpsCamera::getView() const
 	{
 		return mView;

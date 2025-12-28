@@ -8,7 +8,7 @@
 #include "vulkanSwapChain.h"
 #include "vulkanPipeline.h"
 #include "vulkanDescriptorSet.h"
-#include "vulkanImmediateSubmit.h"
+#include "vulkanSubmit.h"
 #include "vulkanShader.h"
 #include "vulkanTexture.h"
 #include "registry.h"
@@ -36,7 +36,7 @@ namespace engine
 		union
 		{
 			VmaAllocator allocator;
-			immediateSubmit* iSubmit;
+			submit* iSubmit;
 			swapChain* sChain;
 			descriptorSet* descSet;
 			computePipeline* computePipe;
@@ -131,9 +131,13 @@ namespace engine
 		VkSurfaceKHR mSurface;
 		swapChain mSwapChain;
 
+		VkQueue mTransferQueue;
+		uint32_t mTransferQueueFamily;
+
 		VkQueue mGraphicsQueue;
 		uint32_t mGraphicsQueueFamily;
-		immediateSubmit mImmediateSubmit;
+		
+		submit mSubmit;
 
 		computePipelineBindings mComputeBinding;
 		computePipeline mComputePipeline;

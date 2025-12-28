@@ -53,6 +53,21 @@ namespace engine
 		uint32_t _pad0[3];
 	};
 
+	struct meshletBounds
+	{
+		/* bounding sphere, useful for frustum and occlusion culling */
+		glm::vec3 center;
+		float radius;
+		/* normal cone, useful for backface culling */
+		glm::vec3 coneApex;
+		glm::vec3 coneAxis;
+		float coneCutoff; /* = cos(angle/2) */
+		glm::vec3 coneAxisS8;
+		float coneCutoffS8;
+
+		float _pad0;
+	};
+
 	struct meshlet
 	{
 		uint32_t indexBufferIndex;
@@ -65,6 +80,8 @@ namespace engine
 		uint32_t triangleBufferIndex;
 		uint32_t triangleBufferOffset;
 		uint32_t triangleCount;
+
+		meshletBounds bounds;
 	};
 
 	template<class T>
@@ -118,6 +135,22 @@ namespace engine
 		perInstanceAttr instanceAttributes;
 	};
 
+	struct frustum
+	{
+		glm::vec3 worldFrontN;
+		float frontDistance;
+		glm::vec3 worldBackN;
+		float backDistance;
+		glm::vec3 worldRightN;
+		float rightDistance;
+		glm::vec3 worldLeftN;
+		float leftDistance;
+		glm::vec3 worldTopN;
+		float topDistance;
+		glm::vec3 worldBottomN;
+		float bottomDistance;
+	};
+
 	struct pushConstants
 	{
 		uint32_t commandBufferOffset;
@@ -126,9 +159,11 @@ namespace engine
 		uint32_t _pad0[2];
 
 		glm::vec3 cameraPos;
+		float _pad1;
 		glm::vec3 cameraFront;
-		
-		float _pad1[2];
+		float _pad2;
+		glm::vec3 cameraUp;
+		float _pad3;
 
 		glm::mat4 view;
 		glm::mat4 projection;

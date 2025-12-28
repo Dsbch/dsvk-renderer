@@ -16,6 +16,7 @@ namespace engine
 		{
 			glm::vec3 cameraPos;
 			glm::vec3 cameraFront;
+			glm::vec3 cameraUp;
 			glm::mat4 view;
 			glm::mat4 projection;
 		};

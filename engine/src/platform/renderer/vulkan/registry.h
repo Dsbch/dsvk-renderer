@@ -4,7 +4,7 @@
 #include "platform/renderer/vertex.h"
 
 #include "vulkanBuffer.h"
-#include "vulkanImmediateSubmit.h"
+#include "vulkanSubmit.h"
 #include "vulkanPipeline.h"
 #include "vulkanImage.h"
 #include "vulkanShader.h"
@@ -37,7 +37,7 @@ namespace engine
 	struct bufferRegistry
 	{
 	public:
-		void init(VkDevice device, VmaAllocator allocator, immediateSubmit immSubmit);
+		void init(VkDevice device, VmaAllocator allocator, submit is);
 		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, size_t newSize = newBufferSize);
 		bool deleteBlock(uint32_t id);
 		void destroy();
@@ -51,7 +51,7 @@ namespace engine
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
-		immediateSubmit mImmSubmit;
+		submit mSubmit;
 
 		bool mNeedUpdate;
 	};

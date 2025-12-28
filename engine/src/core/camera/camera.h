@@ -28,6 +28,7 @@ namespace engine
 			float pitch = 0,
 			glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::vec3 getFront() const;
+		glm::vec3 getUp() const;
 		glm::mat4 getView() const;
 		glm::mat4 getProjection() const;
 		glm::vec3 getPosition() const;

@@ -1,0 +1,206 @@
+#include <pch.h>
+#include "vulkanSubmit.h"
+#include "helper.h"
+
+namespace engine
+{
+	std::mutex submit::mu;
+	std::once_flag submit::onceFlag;
+	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaInUse;
+	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaToDelete;
+
+	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue graphicsQueue, uint32_t graphicsQueueFamily)
+	{
+		mDevice = device;
+
+		mGraphicsQueue = graphicsQueue;
+		mGraphicsQueueFamily = graphicsQueueFamily;
+
+		VkCommandPoolCreateInfo cmdPoolInfo = commandPoolCreateInfo(mGraphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+		VkResult vkres = (vkCreateCommandPool(mDevice, &cmdPoolInfo, nullptr, &mCommandPool));
+		if (vkres != VK_SUCCESS)
+		{
+			return engine::error{ vkResultToStr(vkres) };
+		}
+
+		VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);
+
+		vkres = (vkAllocateCommandBuffers(mDevice, &cmdAllocInfo, &mCommandBuffer));
+		if (vkres != VK_SUCCESS)
+		{
+			return engine::error{ vkResultToStr(vkres) };
+		}
+
+		std::call_once(
+			onceFlag,
+			[ctxPtr = ctx.get(), device = mDevice]()
+			{
+				ctxPtr->mThreadPool->start(
+					[ctxPtr = ctxPtr, device = device]()
+					{
+						while (ctxPtr->mThreadPool->isAppRunning())
+						{
+							{
+								std::lock_guard m{ mu };
+
+								if (!semaToDelete.empty())
+								{
+									auto sema = semaToDelete.back();
+
+									VkSemaphoreWaitInfo waitInfo;
+									uint64_t waitVal = 1;
+
+									waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+									waitInfo.pNext = NULL;
+									waitInfo.flags = 0;
+									waitInfo.semaphoreCount = 1;
+									waitInfo.pSemaphores = &sema.first;
+									waitInfo.pValues = &waitVal;
+
+									VkResult result = vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
+									if (result != VK_SUCCESS)
+										LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
+
+									if (sema.second != nullptr)
+										sema.second();
+
+									semaToDelete.pop_back();
+								}
+							}
+
+							std::this_thread::sleep_for(std::chrono::milliseconds(5));
+						}
+					}
+				);
+			}
+		);
+
+		return {};
+	}
+
+	void submit::destroy()
+	{
+		if (mCommandPool != VK_NULL_HANDLE)
+			vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
+	}
+
+	engine::error submit::immediate(std::function<void(VkCommandBuffer cmd)>&& function)
+	{
+		VkFence fence;
+		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+
+		VkResult vkres = vkCreateFence(mDevice, &fenceInfo, nullptr, &fence);
+		if (vkres != VK_SUCCESS)
+		{
+			return engine::error{ vkResultToStr(vkres) };
+		}
+
+		vkres = vkResetFences(mDevice, 1, &fence);
+		if (vkres != VK_SUCCESS)
+		{
+			return engine::error{ vkResultToStr(vkres) };
+		}
+
+		vkres = vkResetCommandBuffer(mCommandBuffer, 0);
+		if (vkres != VK_SUCCESS)
+			return { vkResultToStr(vkres) };
+
+		VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+		vkres = vkBeginCommandBuffer(mCommandBuffer, &cmdBeginInfo);
+		if (vkres != VK_SUCCESS)
+			return { vkResultToStr(vkres) };
+
+		function(mCommandBuffer);
+
+		vkres = vkEndCommandBuffer(mCommandBuffer);
+		if (vkres != VK_SUCCESS)
+			return { vkResultToStr(vkres) };
+
+		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(mCommandBuffer);
+		VkSubmitInfo2 submit = submitInfo(&cmdinfo);
+
+		vkres = vkQueueSubmit2(mGraphicsQueue, 1, &submit, fence);
+		if (vkres != VK_SUCCESS)
+			return { vkResultToStr(vkres) };
+
+		vkres = vkWaitForFences(mDevice, 1, &fence, true, MAXUINT);
+		if (vkres != VK_SUCCESS)
+			return { vkResultToStr(vkres) };
+
+		vkDestroyFence(mDevice, fence, nullptr);
+
+		return {};
+	}
+
+	engine::error submit::queue(std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp)
+	{
+		VkCommandBuffer cmd;
+		VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);
+
+		VkResult result = (vkAllocateCommandBuffers(mDevice, &cmdAllocInfo, &cmd));
+		if (result != VK_SUCCESS)
+		{
+			return engine::error{ vkResultToStr(result) };
+		}
+
+		VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+		result = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
+		if (result != VK_SUCCESS)
+			return { vkResultToStr(result) };
+
+		VkSemaphore sema;
+		VkSemaphoreTypeCreateInfo timelineInfo = timelineSemaphoreCreateInfo(0);
+		VkSemaphoreCreateInfo semaphoreInfo = semaphoreCreateInfo(0, &timelineInfo);
+
+		result = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &sema);
+		if (result != VK_SUCCESS)
+			return { vkResultToStr(result) };
+
+		std::vector<VkSemaphoreSubmitInfo> semaSubmitInfo{};
+		semaSubmitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, sema));
+
+		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
+		VkSubmitInfo2 submit = submitInfo(&cmdinfo, semaSubmitInfo);
+
+		function(cmd);
+
+		result = vkEndCommandBuffer(cmd);
+		if (result != VK_SUCCESS)
+			return { vkResultToStr(result) };
+
+		result = vkQueueSubmit2(mGraphicsQueue, 1, &submit, VK_NULL_HANDLE);
+		if (result != VK_SUCCESS)
+			return { vkResultToStr(result) };
+
+		{
+			std::lock_guard m{ mu };
+			semaInUse.push_back(std::pair<VkSemaphore, std::function<void()>>{ sema, cleanUp });
+		}
+
+		return {};
+	}
+
+	std::vector<VkSemaphore> submit::getCurrentSemaInUse()
+	{
+		std::lock_guard m{ mu };
+
+		std::vector<VkSemaphore> result;
+
+		for (auto& s : semaInUse)
+			result.push_back(s.first);
+
+		return result;
+	}
+
+	void submit::markAllSemaAsUsed()
+	{
+		std::lock_guard m{ mu };
+
+		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.end()));
+
+		semaInUse.clear();
+	}
+}

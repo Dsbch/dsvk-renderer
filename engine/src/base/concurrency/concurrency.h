@@ -60,6 +60,8 @@ namespace engine {
 		~threadPool();
 		template<class T>
 		void start(T&&);
+
+		bool isAppRunning();
 	};
 
 	template<class predicate>

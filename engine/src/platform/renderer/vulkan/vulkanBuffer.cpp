@@ -11,7 +11,7 @@ namespace engine
 		mAllocator = allocator;
 	}
 
-	error vulkanBuffer::build(immediateSubmit is, const void* data, size_t sizeInBytes, size_t validBytes)
+	error vulkanBuffer::build(submit is, const void* data, size_t sizeInBytes, size_t validBytes)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -33,7 +33,7 @@ namespace engine
 
 			std::memcpy(stagingBuffer.value().info.pMappedData, data, mLoadedBytes);
 
-			error err = is.submit(
+			error err = is.queue(
 				[&](VkCommandBuffer cmd)
 				{
 					VkBufferCopy copy{};
@@ -42,22 +42,24 @@ namespace engine
 					copy.size = mLoadedBytes;
 
 					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+				},
+				[allocator = mAllocator, buffer = stagingBuffer.value()]()
+				{
+					destroyBuffer(allocator, buffer);
 				}
 			);
 			if (err)
-				return err;
-
-			destroyBuffer(mAllocator, stagingBuffer.value());
+				return err;		
 		}
 
 		return {};
 	}
 
-	error vulkanBuffer::updateBuffer(immediateSubmit is, const void* data, size_t sizeInBytes, size_t offset)
+	error vulkanBuffer::updateBuffer(submit is, const void* data, size_t sizeInBytes, size_t offset)
 	{
 		if (sizeInBytes == 0)
 			return {};
-		
+
 		if (sizeInBytes + mLoadedBytes > mByteSize)
 			return error{ "buffer overflow" };
 
@@ -67,7 +69,7 @@ namespace engine
 
 		std::memcpy(stagingBuffer.value().info.pMappedData, data, sizeInBytes);
 
-		error err = is.submit(
+		error err = is.queue(
 			[&](VkCommandBuffer cmd)
 			{
 				VkBufferCopy copy{};
@@ -76,12 +78,14 @@ namespace engine
 				copy.size = sizeInBytes;
 
 				vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+			},
+			[=]()
+			{
+				destroyBuffer(mAllocator, stagingBuffer.value());
 			}
 		);
 		if (err)
 			return err;
-
-		destroyBuffer(mAllocator, stagingBuffer.value());
 
 		mLoadedBytes += sizeInBytes;
 
