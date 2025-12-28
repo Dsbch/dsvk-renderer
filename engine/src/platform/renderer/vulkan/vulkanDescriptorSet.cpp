@@ -24,15 +24,19 @@ namespace engine
 		mPoolSizes = {
 					{
 						.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-						.descriptorCount = mConstraints.maxTextureDescriptors
+						.descriptorCount = mConstraints.maxImageDescriptors
 					},
 					{
 						.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-						.descriptorCount = mConstraints.maxTextureDescriptors
+						.descriptorCount = mConstraints.maxCombinedImageDescriptors
 					},
 					{
 						.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-						.descriptorCount = mConstraints.maxStorageDescriptors
+						.descriptorCount = mConstraints.maxBuffersDescriptors
+					},
+					{
+						.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+						.descriptorCount = mConstraints.maxUniformBuffersDescriptors
 					}
 		};
 	}
@@ -226,7 +230,7 @@ namespace engine
 		return result;
 	}
 
-	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, std::vector<VkDescriptorBufferInfo>& bufferInfo)
+	std::vector<VkWriteDescriptorSet> descriptorSet::getWriteInfo(uint32_t dstBinding, std::vector<VkDescriptorBufferInfo>& bufferInfo, bool isUBO)
 	{
 		std::vector<VkWriteDescriptorSet> result;
 		result.reserve(bufferInfo.size());
@@ -243,7 +247,7 @@ namespace engine
 			write.dstBinding = dstBinding;
 			write.dstArrayElement = i;
 			write.descriptorCount = 1;
-			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			write.descriptorType = isUBO ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			write.pImageInfo = nullptr;
 			write.pBufferInfo = &bufferInfo[i];
 			write.pTexelBufferView = nullptr;
@@ -302,6 +306,6 @@ namespace engine
 
 	uint32_t poolConstraints::getMaxSetsPerPool()
 	{
-		return maxStorageDescriptors + maxTextureDescriptors;
+		return maxBuffersDescriptors + maxUniformBuffersDescriptors + maxImageDescriptors + maxCombinedImageDescriptors;
 	}
 }

@@ -55,6 +55,50 @@ namespace engine
 		return {};
 	}
 
+	engine::error vulkanBuffer::buildAsUBO(submit is, const void* data, size_t sizeInBytes, size_t validBytes)
+	{
+		if (mBuffer.buffer != VK_NULL_HANDLE)
+			return error{ "buffer already created" };
+
+		mLoadedBytes = validBytes;
+		mByteSize = sizeInBytes;
+
+		auto createBufRes = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+		if (!createBufRes)
+			return createBufRes.err();
+
+		mBuffer = createBufRes.value();
+
+		if (data && mLoadedBytes != 0)
+		{
+			auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+			if (!stagingBuffer)
+				return stagingBuffer.err();
+
+			std::memcpy(stagingBuffer.value().info.pMappedData, data, mLoadedBytes);
+
+			error err = is.queue(
+				[&](VkCommandBuffer cmd)
+				{
+					VkBufferCopy copy{};
+					copy.dstOffset = 0;
+					copy.srcOffset = 0;
+					copy.size = mLoadedBytes;
+
+					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+				},
+				[allocator = mAllocator, buffer = stagingBuffer.value()]()
+				{
+					destroyBuffer(allocator, buffer);
+				}
+			);
+			if (err)
+				return err;
+		}
+
+		return {};
+	}
+
 	error vulkanBuffer::updateBuffer(submit is, const void* data, size_t sizeInBytes, size_t offset)
 	{
 		if (sizeInBytes == 0)

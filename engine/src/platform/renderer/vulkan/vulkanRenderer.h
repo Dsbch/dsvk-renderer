@@ -67,6 +67,8 @@ namespace engine
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
 
+		uint32_t perDrawBufferUboBinding;
+
 		uint32_t albedoBinding;
 		uint32_t normalBinding;
 		uint32_t roughnessBinding;
@@ -76,8 +78,10 @@ namespace engine
 
 	struct limits
 	{
+		uint32_t maxUniformBuffers;
 		uint32_t maxStorageBuffers;
 		uint32_t maxCombinedImageSamplers;
+		uint32_t maxImage;
 		float maxFiltering;
 	};
 
@@ -115,8 +119,9 @@ namespace engine
 		error loadExtensions();
 		error setBackgroundDescriptors();
 		error setGeometryDescriptors();
-		error updateGeometryDescriptors();
+		error updateGeometryDescriptorsPerFrame(renderer::renderCallIn in);
 		error updateCommandBuffer();
+		error updateUboBuffers(renderer::renderCallIn in);
 		error initBackgroundPipeline();
 
 		bool mWindowMinimized;
@@ -160,6 +165,8 @@ namespace engine
 
 		uint32_t mMeshletCmdBufferNewSize;
 		vulkanBuffer mMeshletCmdBuffer;
+
+		vulkanBuffer mUniformBuffer;
 
 		textureRegistry mAlbedoRegistry;
 		textureRegistry mRoughnessRegistry;

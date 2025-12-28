@@ -96,10 +96,26 @@ StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
 
 // SSBO END.
 
+// UBO START.
+
+struct perDrawData
+{
+    float3 cameraPos;
+    float3 cameraFront;
+    float3 cameraUp;
+    float4x4 view;
+    float4x4 projection;
+    float4x4 viewProjection;
+};
+
+ConstantBuffer<perDrawData> drawData : register(b6, space0);
+
+// UBO END.
+
 // TEXTURES START.
 
-Texture2D albedo[] : register(t6, space0);
-SamplerState albedoSamplers[] : register(s6, space0);
+Texture2D albedo[] : register(t7, space0);
+SamplerState albedoSamplers[] : register(s7, space0);
 
 // TEXTURES END.
 
@@ -110,12 +126,6 @@ struct pushConstant
 {
     uint commandBufferOffset;
     uint meshletCount;
-    float3 cameraPos;
-    float3 cameraFront;
-    float3 cameraUp;
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -164,14 +174,14 @@ uint getMeshletOffset(uint lodLevel, uint idx)
 uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
 {
     // Get viewSpace of the center.
-    float4 vsCenter = mul(push.view, float4(bsWorldCenter, 1.0f));
+    float4 vsCenter = mul(drawData.view, float4(bsWorldCenter, 1.0f));
     
     // Calculate view space for second point that is at the sphere border on y axis.
     float4 vsBorder = float4(vsCenter.x, vsCenter.y + bsWorldRadius, vsCenter.zw);
 
     // To NDC for both.
-    float4 clipCenter = mul(push.projection, vsCenter);
-    float4 clipBorder = mul(push.projection, vsBorder);
+    float4 clipCenter = mul(drawData.projection, vsCenter);
+    float4 clipBorder = mul(drawData.projection, vsBorder);
 
     float2 ndcCenter = clipCenter.xy / clipCenter.w;
     float2 ndcBorder = clipBorder.xy / clipBorder.w;
@@ -286,7 +296,7 @@ bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
     
     float3 center = (v1 + v2 + v3) / 3;
     
-    return dot(normal, push.cameraPos - center) < 0;
+    return dot(normal, drawData.cameraPos - center) < 0;
 }
 
 [outputtopology("triangle")]
@@ -328,7 +338,7 @@ void msmain(
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
 
-        vertices[gtid].position = mul(push.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
+        vertices[gtid].position = mul(drawData.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
         float4 color = float4(
             float(payload.meshletOffset[gid] & 1),

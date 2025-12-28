@@ -43,7 +43,7 @@ namespace engine
 		glm::vec3 bsWorldCenter;
 		float  bsWorldRadius;
 		glm::mat4 modelMatrix;
-		
+
 		uint32_t albedoIndex;
 		uint32_t roughnessIndex;
 		uint32_t normalIndex;
@@ -151,13 +151,8 @@ namespace engine
 		float bottomDistance;
 	};
 
-	struct pushConstants
+	struct uboPerDraw
 	{
-		uint32_t commandBufferOffset;
-		uint32_t meshletCount;
-
-		uint32_t _pad0[2];
-
 		glm::vec3 cameraPos;
 		float _pad1;
 		glm::vec3 cameraFront;
@@ -168,6 +163,12 @@ namespace engine
 		glm::mat4 view;
 		glm::mat4 projection;
 		glm::mat4 viewProjection;
+	};
+
+	struct pushConstants 
+	{
+		uint32_t commandBufferOffset;
+		uint32_t meshletCount;
 	};
 }
 

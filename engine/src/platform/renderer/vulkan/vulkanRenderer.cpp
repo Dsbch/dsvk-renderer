@@ -153,6 +153,7 @@ namespace engine
 		features12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
 		features12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
 		features12.descriptorBindingPartiallyBound = VK_TRUE;
+		features12.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
 		features12.timelineSemaphore = VK_TRUE;
 		features12.pNext = &features13;
 
@@ -224,7 +225,7 @@ namespace engine
 
 		mGeometryBinding = geometryPipelineBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 11,
+			.totalDescriptorsCount = 12,
 
 			.vertexBinding = 0,
 			.perInstanceBinding = 1,
@@ -233,11 +234,13 @@ namespace engine
 			.primitiveBinding = 4,
 			.meshletBinding = 5,
 
-			.albedoBinding = 6,
-			.normalBinding = 7,
-			.roughnessBinding = 8,
-			.metalicBinding = 9,
-			.aoBinding = 10
+			.perDrawBufferUboBinding = 6,
+
+			.albedoBinding = 7,
+			.normalBinding = 8,
+			.roughnessBinding = 9,
+			.metalicBinding = 10,
+			.aoBinding = 11
 		};
 
 		return {};
@@ -277,15 +280,10 @@ namespace engine
 		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
 
 		mPhysicalDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
+		mPhysicalDeviceLimits.maxImage = props.limits.maxPerStageDescriptorStorageImages;
 		mPhysicalDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
+		mPhysicalDeviceLimits.maxUniformBuffers = props.limits.maxPerStageDescriptorUniformBuffers;
 		mPhysicalDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
-
-		LOGINFO(
-			"vulkan limits maxCombinedImageSamplers {}, maxStorageBuffers {}, maxFiltering {}",
-			mPhysicalDeviceLimits.maxCombinedImageSamplers,
-			mPhysicalDeviceLimits.maxStorageBuffers,
-			mPhysicalDeviceLimits.maxFiltering
-		);
 
 		return {};
 	}
@@ -377,16 +375,43 @@ namespace engine
 
 		mDeletionQueue.push_back(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mMeshletCmdBuffer });
 
+		// init uniform buffer.
+		mUniformBuffer.init(mDevice, mAllocator);
+
+		err = mUniformBuffer.buildAsUBO(mSubmit, nullptr, sizeof(uboPerDraw), 0);
+		if (err)
+			return err;
+
+		mDeletionQueue.push_back(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUniformBuffer });
+
 		return {};
 	}
 
 	error vulkanRenderer::initDescriptors()
 	{
-		error err = mDescriptorSetMesh.init(mDevice, mPhysicalDevice, poolConstraints{ .maxTextureDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers, .maxStorageDescriptors = mPhysicalDeviceLimits.maxStorageBuffers });
+		error err = mDescriptorSetMesh.init(
+			mDevice,
+			mPhysicalDevice,
+			poolConstraints{
+				.maxImageDescriptors = mPhysicalDeviceLimits.maxImage,
+				.maxCombinedImageDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers,
+				.maxBuffersDescriptors = mPhysicalDeviceLimits.maxStorageBuffers,
+				.maxUniformBuffersDescriptors = mPhysicalDeviceLimits.maxUniformBuffers,
+			}
+			);
 		if (err)
 			return err;
 
-		err = mDescriptorSetCompute.init(mDevice, mPhysicalDevice);
+		err = mDescriptorSetCompute.init(
+			mDevice,
+			mPhysicalDevice,
+			poolConstraints{
+				.maxImageDescriptors = mPhysicalDeviceLimits.maxImage,
+				.maxCombinedImageDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers,
+				.maxBuffersDescriptors = mPhysicalDeviceLimits.maxStorageBuffers,
+				.maxUniformBuffersDescriptors = mPhysicalDeviceLimits.maxUniformBuffers,
+			}
+			);
 		if (err)
 			return err;
 
@@ -433,6 +458,7 @@ namespace engine
 	{
 		const uint32_t combinedImageSamplers = 5;
 		const uint32_t bufferObjects = 6;
+		const uint32_t uniformObjects = 1;
 
 		// add bindings for buffers.
 		mDescriptorSetMesh.addBinding(
@@ -471,6 +497,12 @@ namespace engine
 			)
 		);
 
+		mDescriptorSetMesh.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mGeometryBinding.perDrawBufferUboBinding, mPhysicalDeviceLimits.maxUniformBuffers / uniformObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+			)
+		);
+
 		// add bindings for textures.
 		mDescriptorSetMesh.addBinding(
 			descriptorSet::getLayoutBindingInfo(
@@ -503,10 +535,6 @@ namespace engine
 		);
 
 		error err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL, mGeometryBinding.totalDescriptorsCount);
-		if (err)
-			return err;
-
-		err = updateGeometryDescriptors();
 		if (err)
 			return err;
 
@@ -565,10 +593,56 @@ namespace engine
 		return {};
 	}
 
-	// Should be called before each frame.
-	error vulkanRenderer::updateGeometryDescriptors()
+	error vulkanRenderer::updateUboBuffers(renderer::renderCallIn in)
 	{
-		error err = updateCommandBuffer();
+		static std::once_flag descriptorWriteSet;
+
+		std::call_once(
+			descriptorWriteSet,
+			[&]
+			{
+				std::vector<VkDescriptorBufferInfo> bufferInfo{
+				VkDescriptorBufferInfo{.buffer = mUniformBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE }
+				};
+
+				auto writeInfo = descriptorSet::getWriteInfo(mGeometryBinding.perDrawBufferUboBinding, bufferInfo, true);
+				mDescriptorSetMesh.updateWrite(writeInfo);
+			}
+		);
+
+		uboPerDraw data{
+			.cameraPos = in.cameraPos,
+			.cameraFront = in.cameraFront,
+			.cameraUp = in.cameraUp,
+			.view = in.view,
+			.projection = in.projection,
+			.viewProjection = in.projection * in.view
+		};
+
+		mUniformBuffer.markBytesAsDead(sizeof(uboPerDraw));
+
+		error err = mUniformBuffer.updateBuffer(
+			mSubmit,
+			&data,
+			sizeof(uboPerDraw),
+			0
+		);
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	// Should be called before each frame.
+	error vulkanRenderer::updateGeometryDescriptorsPerFrame(renderer::renderCallIn in)
+	{
+		// Update UBO buffers.
+		error err = updateUboBuffers(in);
+		if (err)
+			return err;
+
+		// Update command buffer for mesh pipeline.
+		err = updateCommandBuffer();
 		if (err)
 			return err;
 
@@ -971,7 +1045,7 @@ namespace engine
 			return {};
 
 		// Geometry buffers/textures updated frequintly.
-		error err = updateGeometryDescriptors();
+		error err = updateGeometryDescriptorsPerFrame(in);
 		if (err)
 			return err;
 
@@ -1064,10 +1138,10 @@ namespace engine
 		// Remember when we ask GPU for image from swap chain we provide that semaphore to signal.
 		// We will signal the _renderSemaphore, to signal that rendering has finished
 		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
-		
+
 		std::vector<VkSemaphoreSubmitInfo> waitInfo{};
 		std::vector<VkSemaphoreSubmitInfo> signalInfo;
-		
+
 		waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getCurrentFrameData().swapchainSemaphore));
 		signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getCurrentFrameData().renderSemaphore));
 
@@ -1086,7 +1160,7 @@ namespace engine
 		}
 
 		mSubmit.markAllSemaAsUsed();
-		
+
 		// prepare present
 		// this will put the image we just rendered to into the visible window.
 		// we want to wait on the _renderSemaphore for that, 
@@ -1152,12 +1226,6 @@ namespace engine
 			pushConstants pc{
 				.commandBufferOffset = cmdOffset,
 				.meshletCount = meshletCount,
-				.cameraPos = in.cameraPos,
-				.cameraFront = in.cameraFront,
-				.cameraUp = in.cameraUp,
-				.view = in.view,
-				.projection = in.projection,
-				.viewProjection = in.projection * in.view
 			};
 
 			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
