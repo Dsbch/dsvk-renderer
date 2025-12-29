@@ -137,4 +137,73 @@ namespace engine
 		mHeight = height;
 		updateProjection();
 	}
+
+	float fpsCamera::getFOV()
+	{
+		return mFov;
+	}
+
+	static std::pair<glm::vec3, float> calculatePlane(glm::vec3 fromCenter, glm::vec3 front, float angle, glm::vec3 axis)
+	{
+		std::pair<glm::vec3, float> result;
+
+		glm::quat q = glm::angleAxis(glm::radians(angle), axis);
+		result.first = q * front;
+
+		float cosTheta = glm::dot(glm::normalize(fromCenter), result.first);
+
+		if (cosTheta < 0.0f)
+		{
+			cosTheta = glm::dot(glm::normalize(fromCenter), -result.first);
+
+			result.second = -(glm::length(fromCenter) * cosTheta);
+		}
+		else
+		{
+			result.second = glm::length(fromCenter) * cosTheta;
+		}
+
+		if (std::isnan(result.second))
+			result.second = 0.0f;
+
+		return result;
+	}
+
+	frustum fpsCamera::calculateCameraFrustum()
+	{
+		frustum result{};
+
+		float ratio = float(mWidth) / float(mHeight);
+		float verticalFOV = mFov;
+		float horizontalFOV = ratio * verticalFOV;
+
+		glm::vec3 fromCenter = mPos - glm::vec3(0.0f);
+		glm::vec3 right = glm::cross(mFront, mUp);
+
+		std::pair<glm::vec3, float> plane = calculatePlane(mFront * mNearPlane + mPos - glm::vec3(0.0f), mFront, 0.0f, glm::vec3(0.0f));
+		result.worldFrontN = plane.first;
+		result.frontDistance = plane.second;
+
+		plane = calculatePlane(mFront * mFarPlane + mPos - glm::vec3(0.0f), mFront, 180.0f, mUp);
+		result.worldBackN = plane.first;
+		result.backDistance = plane.second;
+
+		plane = calculatePlane(fromCenter, mFront, (90 - horizontalFOV / 2.0f), mUp);
+		result.worldRightN = plane.first;
+		result.rightDistance = plane.second;
+
+		plane = calculatePlane(fromCenter, mFront, -(90 - horizontalFOV / 2.0f), mUp);
+		result.worldLeftN = plane.first;
+		result.leftDistance = plane.second;
+
+		plane = calculatePlane(fromCenter, mFront, -(90 - verticalFOV / 2.0f), right);
+		result.worldTopN = plane.first;
+		result.topDistance = plane.second;
+
+		plane = calculatePlane(fromCenter, mFront, (90 - verticalFOV / 2.0f), right);
+		result.worldBottomN = plane.first;
+		result.bottomDistance = plane.second;
+
+		return result;
+	}
 }

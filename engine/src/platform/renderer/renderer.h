@@ -19,6 +19,7 @@ namespace engine
 			glm::vec3 cameraUp;
 			glm::mat4 view;
 			glm::mat4 projection;
+			frustum cameraFrustum;
 		};
 
 		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mWindow(window), mErr() {};

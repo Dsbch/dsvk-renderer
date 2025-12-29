@@ -13,6 +13,7 @@ namespace engine
 	public:
 		void setMakeShaderFunc(std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)>&& func);
 		void setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)>&& func);
+		
 		withError<std::shared_ptr<shader>> getDefaultTaskShader();
 		withError<std::shared_ptr<shader>> getDefaultMeshShader();
 		withError<std::shared_ptr<shader>> getDefaultPixelShader();

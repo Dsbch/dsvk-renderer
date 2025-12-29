@@ -24,6 +24,7 @@ namespace engine
 		static withError<glm::vec3> getCameraPos(std::shared_ptr<entt::registry> registry);
 		static withError<glm::vec3> getCameraFront(std::shared_ptr<entt::registry> registry);
 		static withError<glm::vec3> getCameraUp(std::shared_ptr<entt::registry> registry);
+		static withError<frustum> calculateCameraFrustum(std::shared_ptr<entt::registry> registry);
 	private:
 		void spawnDefaultCamera(std::shared_ptr<entt::registry> registry) const;
 	};

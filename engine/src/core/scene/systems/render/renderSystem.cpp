@@ -94,13 +94,18 @@ namespace engine
 		if (!cameraUp)
 			return cameraUp.err();
 
+		auto cameraFrustum = cameraSystem::calculateCameraFrustum(registry);
+		if (!cameraFrustum)
+			return cameraFrustum.err();
+
 		return mRenderer->render(
 			renderer::renderCallIn{
 				.cameraPos = cameraPos.value(),
 				.cameraFront = cameraFront.value(),
 				.cameraUp = cameraUp.value(),
 				.view = view.value(),
-				.projection = projection.value()
+				.projection = projection.value(),
+				.cameraFrustum = cameraFrustum.value(),
 			}
 		);
 	}

@@ -98,6 +98,22 @@ StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
 
 // UBO START.
 
+struct frustum
+{
+    float3 worldFrontN;
+    float frontDistance;
+    float3 worldBackN;
+    float backDistance;
+    float3 worldRightN;
+    float rightDistance;
+    float3 worldLeftN;
+    float leftDistance;
+    float3 worldTopN;
+    float topDistance;
+    float3 worldBottomN;
+    float bottomDistance;
+};
+
 struct perDrawData
 {
     float3 cameraPos;
@@ -106,6 +122,7 @@ struct perDrawData
     float4x4 view;
     float4x4 projection;
     float4x4 viewProjection;
+    frustum cameraFrustum;
 };
 
 ConstantBuffer<perDrawData> drawData : register(b6, space0);
@@ -202,9 +219,19 @@ uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
 
 bool isInFrustum(float4x4 model, float3 bsCenter, float bsRadius)
 {
-    bool result = false;
+    float3 worldCenter = mul(model, float4(bsCenter, 1.0f)).xyz;
     
-    return result;
+    float scale = length(model[0]);
+    float worldRadius = scale * bsRadius;
+    
+    bool front = dot(worldRadius * drawData.cameraFrustum.worldFrontN + worldCenter, drawData.cameraFrustum.worldFrontN) - drawData.cameraFrustum.frontDistance > 0;
+    bool back = dot(worldRadius * drawData.cameraFrustum.worldBackN + worldCenter, drawData.cameraFrustum.worldBackN) - drawData.cameraFrustum.backDistance > 0;
+    bool right = dot(worldRadius * drawData.cameraFrustum.worldRightN + worldCenter, drawData.cameraFrustum.worldRightN) - drawData.cameraFrustum.rightDistance > 0;
+    bool left = dot(worldRadius * drawData.cameraFrustum.worldLeftN + worldCenter, drawData.cameraFrustum.worldLeftN) - drawData.cameraFrustum.leftDistance > 0;
+    bool top = dot(worldRadius * drawData.cameraFrustum.worldTopN + worldCenter, drawData.cameraFrustum.worldTopN) - drawData.cameraFrustum.topDistance > 0;
+    bool bottom = dot(worldRadius * drawData.cameraFrustum.worldBottomN + worldCenter, drawData.cameraFrustum.worldBottomN) - drawData.cameraFrustum.bottomDistance > 0;
+    
+    return front && back && right && left && top && bottom;
 }
 
 [numthreads(THREADS_COUNT, 1, 1)]
@@ -232,8 +259,9 @@ void asmain(
         // Still have meshlets for that lodLevel.
         if (meshletOffset != maxUint)
         {
-            // TODO: add culling.
-            visible = true;
+            meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
+            
+            visible = isInFrustum(instanceAttr.modelMatrix, mesh.bounds.center, mesh.bounds.radius);
             
             if (visible)
             {

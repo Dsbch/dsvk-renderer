@@ -9,6 +9,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include "base/context/context.h"
 
 namespace engine
@@ -36,6 +37,8 @@ namespace engine
 		void changeYaw(float yaw);
 		void changePitch(float pitch);
 		void changeViewPort(uint32_t width, uint32_t height);
+		float getFOV();
+		frustum calculateCameraFrustum();
 	private:
 		std::shared_ptr<context> mCtx;
 		float mFov;

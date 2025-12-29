@@ -602,7 +602,7 @@ namespace engine
 			[&]
 			{
 				std::vector<VkDescriptorBufferInfo> bufferInfo{
-				VkDescriptorBufferInfo{.buffer = mUniformBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE }
+					VkDescriptorBufferInfo{.buffer = mUniformBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE }
 				};
 
 				auto writeInfo = descriptorSet::getWriteInfo(mGeometryBinding.perDrawBufferUboBinding, bufferInfo, true);
@@ -616,7 +616,8 @@ namespace engine
 			.cameraUp = in.cameraUp,
 			.view = in.view,
 			.projection = in.projection,
-			.viewProjection = in.projection * in.view
+			.viewProjection = in.projection * in.view,
+			.cameraFrustum = in.cameraFrustum,
 		};
 
 		mUniformBuffer.markBytesAsDead(sizeof(uboPerDraw));
