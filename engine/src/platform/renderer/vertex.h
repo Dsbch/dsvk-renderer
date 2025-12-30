@@ -59,13 +59,8 @@ namespace engine
 		glm::vec3 center;
 		float radius;
 		/* normal cone, useful for backface culling */
-		glm::vec3 coneApex;
 		glm::vec3 coneAxis;
 		float coneCutoff; /* = cos(angle/2) */
-		glm::vec3 coneAxisS8;
-		float coneCutoffS8;
-
-		float _pad0;
 	};
 
 	struct meshlet

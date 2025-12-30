@@ -159,6 +159,7 @@ namespace engine
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
 		deviceFeatures.samplerAnisotropy = VK_TRUE;
+		deviceFeatures.fillModeNonSolid = VK_TRUE;
 
 		//use vkbootstrap to select a gpu. 
 		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features

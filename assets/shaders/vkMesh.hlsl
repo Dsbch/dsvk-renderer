@@ -36,12 +36,8 @@ struct meshletBounds
     float radius;
 
 	/* normal cone, useful for backface culling */
-    float3 coneApex;
     float3 coneAxis;
     float coneCutoff; /* = cos(angle/2) */
-
-    float coneAxisS8;
-    float coneCutoffS8;
 };
 
 struct meshlet
@@ -217,6 +213,17 @@ uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
     return 4; // < 2.5% of screen.
 }
 
+// Back face cone culling.
+bool isFrontfaceMeshlet(float4x4 model, float3 coneAxis, float3 coneApex, float coneCutoff, float radius)
+{
+    return true;
+    
+    float3 worldConeAxis = mul(model, float4(coneAxis, 1.0f)).xyz;
+    float3 worldConeApex = mul(model, float4(coneApex, 1.0f)).xyz;
+    
+    return dot(worldConeApex - drawData.cameraPos, worldConeAxis) < coneCutoff * length(coneApex - drawData.cameraPos) + radius * length(model[0]);
+}
+
 bool isInFrustum(float4x4 model, float3 bsCenter, float bsRadius)
 {
     float3 worldCenter = mul(model, float4(bsCenter, 1.0f)).xyz;
@@ -261,7 +268,9 @@ void asmain(
         {
             meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
             
-            visible = isInFrustum(instanceAttr.modelMatrix, mesh.bounds.center, mesh.bounds.radius);
+            visible =
+                isFrontfaceMeshlet(instanceAttr.modelMatrix, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff, mesh.bounds.radius) &&
+                isInFrustum(instanceAttr.modelMatrix, mesh.bounds.center, mesh.bounds.radius);
             
             if (visible)
             {
@@ -316,6 +325,8 @@ struct meshletPrimitiveOut
 
 bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
 {
+    return false;
+    
     v1 = mul(model, float4(v1, 1.0f)).xyz;
     v2 = mul(model, float4(v2, 1.0f)).xyz;
     v3 = mul(model, float4(v3, 1.0f)).xyz;

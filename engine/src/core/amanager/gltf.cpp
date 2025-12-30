@@ -424,7 +424,7 @@ namespace engine
 
 				meshopt_Bounds bounds = meshopt_computeMeshletBounds(
 					&index[m.vertex_offset],
-					&meshletTriangles[m.triangle_offset],
+					&meshletTriangles[m.triangle_offset*3],
 					m.triangle_count,
 					&result.vertex->front().position[0],
 					result.vertex->size(),
@@ -445,11 +445,8 @@ namespace engine
 						.bounds = meshletBounds{
 							.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
 							.radius = bounds.radius,
-							.coneApex = { bounds.cone_apex[0], bounds.cone_apex[1], bounds.cone_apex[2] },
 							.coneAxis = { bounds.cone_axis[0], bounds.cone_axis[1], bounds.cone_axis[2] },
 							.coneCutoff = bounds.cone_cutoff,
-							.coneAxisS8 = { float(bounds.cone_axis_s8[0]) / 127.0f, float(bounds.cone_axis_s8[1]) / 127.0f, float(bounds.cone_axis_s8[2]) / 127.0f},
-							.coneCutoffS8 = float(bounds.cone_cutoff_s8),
 						},
 					}
 				);
