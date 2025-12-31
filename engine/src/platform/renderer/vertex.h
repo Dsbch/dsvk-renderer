@@ -42,14 +42,15 @@ namespace engine
 	{
 		glm::vec3 bsWorldCenter;
 		float  bsWorldRadius;
+		
 		glm::mat4 modelMatrix;
+		glm::mat4 normalMatrix;
 
 		uint32_t albedoIndex;
 		uint32_t roughnessIndex;
 		uint32_t normalIndex;
 		uint32_t metalicIndex;
 		uint32_t aoIndex;
-
 		uint32_t _pad0[3];
 	};
 

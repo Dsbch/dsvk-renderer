@@ -61,6 +61,7 @@ struct perInstanceAttr
     float3 bsWorldCenter;
     float bsWorldRadius;
     float4x4 modelMatrix;
+    float4x4 normalMatrix;
     
     uint albedoIndeex;
     uint roughnessIndex;
@@ -214,14 +215,19 @@ uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
 }
 
 // Back face cone culling.
-bool isFrontfaceMeshlet(float4x4 model, float3 coneAxis, float3 coneApex, float coneCutoff, float radius)
+bool isFrontfaceMeshlet(float4x4 model, float3x3 normalMatrix, float3 coneAxis, float3 coneApex, float coneCutoff)
 {
-    return true;
+    if (coneAxis.x == 0 && coneAxis.y == 0 && coneAxis.z == 0)
+        return true;
     
-    float3 worldConeAxis = mul(model, float4(coneAxis, 1.0f)).xyz;
+    if (coneCutoff == 1.0f)
+        return true;
+    
     float3 worldConeApex = mul(model, float4(coneApex, 1.0f)).xyz;
+    float3 worldConeAxis = normalize(mul(normalMatrix, coneAxis));
+    float3 viewDir = normalize(worldConeApex - drawData.cameraPos);
     
-    return dot(worldConeApex - drawData.cameraPos, worldConeAxis) < coneCutoff * length(coneApex - drawData.cameraPos) + radius * length(model[0]);
+    return dot(viewDir, worldConeAxis) < coneCutoff;
 }
 
 bool isInFrustum(float4x4 model, float3 bsCenter, float bsRadius)
@@ -269,7 +275,7 @@ void asmain(
             meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
             
             visible =
-                isFrontfaceMeshlet(instanceAttr.modelMatrix, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff, mesh.bounds.radius) &&
+                isFrontfaceMeshlet(instanceAttr.modelMatrix, (float3x3)instanceAttr.normalMatrix, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
                 isInFrustum(instanceAttr.modelMatrix, mesh.bounds.center, mesh.bounds.radius);
             
             if (visible)
@@ -325,8 +331,6 @@ struct meshletPrimitiveOut
 
 bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
 {
-    return false;
-    
     v1 = mul(model, float4(v1, 1.0f)).xyz;
     v2 = mul(model, float4(v2, 1.0f)).xyz;
     v3 = mul(model, float4(v3, 1.0f)).xyz;

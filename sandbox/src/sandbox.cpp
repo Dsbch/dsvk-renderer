@@ -3,6 +3,8 @@
 #include <core/scene/components.h>
 #include <core/scene/entity.h>
 
+#include <glm/gtx/string_cast.hpp>
+
 namespace sandbox
 {
 	sandboxSystem::sandboxSystem(std::shared_ptr<engine::context> ctx)
@@ -47,6 +49,10 @@ namespace sandbox
 
 		glm::vec3 position(0, 0, zPos);
 		transform = glm::translate(transform, position);
+
+		transform = glm::rotate(transform, glm::radians(120.0f), glm::vec3(0.56f, 1.0f, 0.2f));
+
+		transform = glm::scale(transform, glm::vec3(2.0f, 2.0f, 2.0f));
 
 		zPos -= 0.2f;
 		

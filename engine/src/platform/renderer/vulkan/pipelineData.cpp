@@ -35,7 +35,7 @@ namespace engine
 		);
 		
 		mPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		mPipeline.setPolygonMode(VK_POLYGON_MODE_LINE);
+		mPipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
 		
 		// Back face culling is done in shaders.
 		mPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
