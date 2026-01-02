@@ -47,10 +47,12 @@ namespace engine
 	struct fpsCameraComponent
 	{
 		std::unique_ptr<fpsCamera> camera;
-		bool isActive;
 
-		fpsCameraComponent(std::unique_ptr<fpsCamera>&& camera, bool isActive) : camera(std::move(camera)), isActive(isActive) {}
+		fpsCameraComponent(std::unique_ptr<fpsCamera>&& camera) : camera(std::move(camera)) {}
 	};
+
+	struct activeCameraComponent {};
+	struct debugCameraComponent {};
 
 	struct meshComponent
 	{

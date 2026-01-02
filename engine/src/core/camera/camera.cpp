@@ -175,7 +175,7 @@ namespace engine
 
 		float ratio = float(mWidth) / float(mHeight);
 		float verticalFOV = mFov;
-		float horizontalFOV = ratio * verticalFOV;
+		float horizontalFOV = glm::degrees(2.0f * atan(tan(glm::radians(verticalFOV) * 0.5f) * ratio));
 
 		glm::vec3 fromCenter = mPos - glm::vec3(0.0f);
 		glm::vec3 right = glm::cross(mFront, mUp);

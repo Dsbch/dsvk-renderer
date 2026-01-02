@@ -113,7 +113,9 @@ struct frustum
 
 struct perDrawData
 {
+    float4x4 debugViewProjection;
     float3 cameraPos;
+    uint useDebugCamera;
     float3 cameraFront;
     float3 cameraUp;
     float4x4 view;
@@ -381,7 +383,7 @@ void msmain(
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
 
-        vertices[gtid].position = mul(drawData.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
+        vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
         float4 color = float4(
             float(payload.meshletOffset[gid] & 1),

@@ -13,13 +13,17 @@ namespace engine
 		const char* typeStr = (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) ? "VALIDATION" :
 			(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) ? "PERFORMANCE" : "GENERAL";
 
-		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) 
+		{
 			LOGERROR("[{}] {}", typeStr, pCallbackData->pMessage);
 		}
-		else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+		else 
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) 
+		{
 			LOGWARN("[{}] {}", typeStr, pCallbackData->pMessage);
 		}
-		else {
+		else 
+		{
 			LOGINFO("[{}] {}", typeStr, pCallbackData->pMessage);
 		}
 
@@ -612,7 +616,9 @@ namespace engine
 		);
 
 		uboPerDraw data{
+			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
 			.cameraPos = in.cameraPos,
+			.useDebugCamera = in.useDebugCamera,
 			.cameraFront = in.cameraFront,
 			.cameraUp = in.cameraUp,
 			.view = in.view,

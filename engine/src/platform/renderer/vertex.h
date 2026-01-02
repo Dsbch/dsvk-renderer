@@ -149,10 +149,14 @@ namespace engine
 
 	struct uboPerDraw
 	{
+		glm::mat4 debugViewProjection;
+
 		glm::vec3 cameraPos;
-		float _pad1;
+		uint32_t useDebugCamera;
+		
 		glm::vec3 cameraFront;
 		float _pad2;
+		
 		glm::vec3 cameraUp;
 		float _pad3;
 

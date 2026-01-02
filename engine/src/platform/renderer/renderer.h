@@ -14,6 +14,9 @@ namespace engine
 	public:
 		struct renderCallIn
 		{
+			glm::mat4 debugCameraView;
+			glm::mat4 debugCameraProjection;
+			uint32_t useDebugCamera;
 			glm::vec3 cameraPos;
 			glm::vec3 cameraFront;
 			glm::vec3 cameraUp;

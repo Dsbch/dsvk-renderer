@@ -81,14 +81,14 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			s->onFixedUpdate(mSceneRegistry);
+			err = s->onFixedUpdate(mSceneRegistry);
 			if (err)
 				return err;
 		}
 
 		for (auto& s : mSystems)
 		{
-			s->onFixedUpdate(mSceneRegistry);
+			err = s->onFixedUpdate(mSceneRegistry);
 			if (err)
 				return err;
 		}
