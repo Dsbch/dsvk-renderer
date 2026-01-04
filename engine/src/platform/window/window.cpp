@@ -67,6 +67,8 @@ namespace engine
 			{
 				if (wndPtr->mKeyDown.find(keyCode) == wndPtr->mKeyDown.end())
 				{
+					wndPtr->mEventQueue.push(std::make_shared<keyPressedEvent>(keyCode));
+
 					wndPtr->mKeyDown[keyCode] = std::make_shared<keyDownEvent>(keyCode);
 				}
 			}
@@ -77,7 +79,7 @@ namespace engine
 					wndPtr->mKeyDown.erase(keyCode);
 				}
 
-				wndPtr->mEventQueue.push(std::make_shared<keyUpEvent>(keyUpEvent{ keyCode }));
+				wndPtr->mEventQueue.push(std::make_shared<keyUpEvent>(keyCode));
 			}
 		}
 	}

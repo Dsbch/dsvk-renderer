@@ -30,13 +30,13 @@ namespace sandbox
 	{
 		return {};
 	}
-
+	
 	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
 	{
 		return {};
 	}
 
-	engine::error sandboxSystem::onRender(std::shared_ptr<entt::registry> registry)
+	engine::error sandboxSystem::onRender(std::shared_ptr<entt::registry> registry, float deltaTime)
 	{
 		return {};
 	}
@@ -61,9 +61,9 @@ namespace sandbox
 
 	engine::error sandboxSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<engine::baseEvent> e)
 	{
-		if (e->getEventType() == engine::keyUp)
+		if (e->getEventType() == engine::keyPressed)
 		{
-			auto event = static_cast<engine::keyUpEvent*>(e.get());
+			auto event = static_cast<engine::keyPressedEvent*>(e.get());
 
 			if (event->getKey() == engine::e)
 			{
@@ -132,11 +132,7 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(lodMesh.value());
 
-				auto m = generateMatrix();
-
-				m = glm::scale(m, glm::vec3(0.2f, 0.2f, 0.2f));
-
-				e.addComponent<engine::transformComponent>(m);
+				e.addComponent<engine::transformComponent>(generateMatrix());
 
 				e.addComponent<engine::newEntityComponent>();
 			}

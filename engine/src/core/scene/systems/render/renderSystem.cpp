@@ -73,9 +73,11 @@ namespace engine
 		return {};
 	}
 
-	error renderSystem::onRender(std::shared_ptr<entt::registry> registry)
+	error renderSystem::onRender(std::shared_ptr<entt::registry> registry, float deltaTime)
 	{
-		renderer::renderCallIn renderCall {};
+		renderer::renderCallIn renderCall {
+			.deltaTime = deltaTime,
+		};
 
 		auto view = cameraSystem::getView(registry);
 		if (!view)

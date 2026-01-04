@@ -165,6 +165,7 @@ namespace engine
 		glm::mat4 viewProjection;
 
 		frustum cameraFrustum;
+		float deltaTime;
 	};
 
 	struct pushConstants 

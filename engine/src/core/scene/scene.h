@@ -17,7 +17,7 @@ namespace engine
 		scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
 		~scene();
 	
-		error onRender();
+		error onRender(float deltaTime);
 		error onEvent(std::shared_ptr<baseEvent> e);
 		error onFixedUpdate();
 		error onUpdate(float deltaTime);

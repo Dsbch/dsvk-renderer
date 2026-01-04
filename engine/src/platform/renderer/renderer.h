@@ -14,6 +14,7 @@ namespace engine
 	public:
 		struct renderCallIn
 		{
+			float deltaTime;
 			glm::mat4 debugCameraView;
 			glm::mat4 debugCameraProjection;
 			uint32_t useDebugCamera;

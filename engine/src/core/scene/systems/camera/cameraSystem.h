@@ -17,7 +17,7 @@ namespace engine
 		error checkError();
 		error onFixedUpdate(std::shared_ptr<entt::registry> registry);
 		error onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime);
-		error onRender(std::shared_ptr<entt::registry> registry);
+		error onRender(std::shared_ptr<entt::registry> registry, float deltaTime);
 		error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e);
 		static withError<glm::mat4> getView(std::shared_ptr<entt::registry> registry);
 		static bool isDebugCameraPresent(std::shared_ptr<entt::registry> registry);

@@ -19,7 +19,7 @@ namespace engine
 		virtual error checkError() = 0;
 		virtual error onFixedUpdate(std::shared_ptr<entt::registry> registry) = 0;
 		virtual error onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime) = 0;
-		virtual error onRender(std::shared_ptr<entt::registry> registry) = 0;
+		virtual error onRender(std::shared_ptr<entt::registry> registry, float deltaTime) = 0;
 		virtual error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e) = 0;
 	};
 }

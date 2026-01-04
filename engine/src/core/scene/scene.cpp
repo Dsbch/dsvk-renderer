@@ -33,20 +33,20 @@ namespace engine
 		}
 	}
 
-	error scene::onRender()
+	error scene::onRender(float deltaTime)
 	{
 		error err;
 
 		for (auto& s : mUserSystems)
 		{
-			err = s->onRender(mSceneRegistry);
+			err = s->onRender(mSceneRegistry, deltaTime);
 			if (err)
 				return err;
 		}
 
 		for (auto& s : mSystems)
 		{
-			err = s->onRender(mSceneRegistry);
+			err = s->onRender(mSceneRegistry, deltaTime);
 			if (err)
 				return err;
 		}

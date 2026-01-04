@@ -625,6 +625,7 @@ namespace engine
 			.projection = in.projection,
 			.viewProjection = in.projection * in.view,
 			.cameraFrustum = in.cameraFrustum,
+			.deltaTime = in.deltaTime,
 		};
 
 		mUniformBuffer.markBytesAsDead(sizeof(uboPerDraw));

@@ -6,6 +6,7 @@ namespace engine
 {
 	enum eventType
 	{
+		keyPressed,
 		keyUp,
 		keyDown,
 		mouseMove,
@@ -79,6 +80,16 @@ namespace engine
 	public:
 		keyDownEvent() = default;
 		keyDownEvent(key key) : baseEvent(eventType::keyDown), mKey(key) {};
+		key getKey() const { return mKey; };
+	private:
+		key mKey;
+	};
+
+	class keyPressedEvent : public baseEvent
+	{
+	public:
+		keyPressedEvent() = default;
+		keyPressedEvent(key key) : baseEvent(eventType::keyPressed), mKey(key) {};
 		key getKey() const { return mKey; };
 	private:
 		key mKey;

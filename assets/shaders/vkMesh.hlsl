@@ -122,6 +122,7 @@ struct perDrawData
     float4x4 projection;
     float4x4 viewProjection;
     frustum cameraFrustum;
+    float deltaTime;
 };
 
 ConstantBuffer<perDrawData> drawData : register(b6, space0);
@@ -259,7 +260,7 @@ void asmain(
     const uint maxUint = 4294967295;
     
     float visible = false;
-  
+    
     // Not overdraw.
     if (dtid < push.meshletCount)
     {

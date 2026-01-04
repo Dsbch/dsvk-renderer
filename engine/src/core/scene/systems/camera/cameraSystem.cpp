@@ -45,7 +45,7 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::onRender(std::shared_ptr<entt::registry> registry)
+	error cameraSystem::onRender(std::shared_ptr<entt::registry> registry, float deltaTime)
 	{
 		return {};
 	}

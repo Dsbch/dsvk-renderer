@@ -86,20 +86,16 @@ namespace engine
 		return {};
 	}
 
-	error application::update(std::chrono::steady_clock::time_point frameStart, std::chrono::steady_clock::time_point frameEnd)
+	error application::update(float deltaTime)
 	{
-		float deltaTime = float(mCtx->appTimer.toMS(frameEnd - frameStart).count()) * float(1e-3);
-		if (deltaTime == 0)
-			return {};
-
-		return mScene->onUpdate(deltaTime);;
+		return mScene->onUpdate(deltaTime);
 	}
 
-	error application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
+	error application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift, float deltaTime)
 	{
 		if (mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
 		{
-			error err = mScene->onRender();
+			error err = mScene->onRender(deltaTime);
 			if (err)
 				return err;
 
@@ -136,6 +132,7 @@ namespace engine
 
 	application::~application()
 	{
+		LOGINFO("application destructor");
 #ifdef DEBUG
 		DUMP_PROFILING("prof.json");
 #endif // DEBUG
@@ -152,26 +149,25 @@ namespace engine
 		auto nextRender = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
 		auto renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
 
-		std::chrono::steady_clock::time_point startFrame{};
-		std::chrono::steady_clock::time_point endFrame{};
+		auto lastFrame = std::chrono::steady_clock::now();
 
 		while (mRunning)
 		{
+			auto currentFrame = std::chrono::steady_clock::now();
+			float deltaTime = std::chrono::duration<float>(currentFrame - lastFrame).count();
+			lastFrame = currentFrame;
+
 			error err = fixedUpdate(nextGameUpdate, updateShift, maxFrameSkip);
 			if (err)
 				return err;
 
-			err = update(startFrame, endFrame);
+			err = update(deltaTime);
 			if (err)
 				return err;
 
-			startFrame = std::chrono::steady_clock::now();
-
-			err = onRender(nextRender, renderShift);
+			err = onRender(nextRender, renderShift, deltaTime);
 			if (err)
 				return err;
-
-			endFrame = std::chrono::steady_clock::now();
 		}
 
 		return {};
