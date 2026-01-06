@@ -4,8 +4,8 @@
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
 
-#include "vulkanSubmit.h"
-#include "vulkanBuffer.h"
+#include "submit.h"
+#include "buffer.h"
 #include "helper.h"
 
 namespace engine

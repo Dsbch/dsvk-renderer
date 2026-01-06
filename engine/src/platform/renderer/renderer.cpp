@@ -1,6 +1,6 @@
 #include <pch.h>
 
-#include "platform/renderer/vulkan/vulkanRenderer.h"
+#include "platform/renderer/vulkan/renderer.h"
 
 namespace engine
 {

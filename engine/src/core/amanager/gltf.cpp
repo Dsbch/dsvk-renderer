@@ -52,13 +52,16 @@ namespace engine
 
 		std::function<glm::mat4(const cgltf_node*)> getNodeWorldTransform = [&](const cgltf_node* node) -> glm::mat4
 			{
-				if (!node->parent) return getNodeLocalTransform(node);
+				if (!node->parent)
+					return getNodeLocalTransform(node);
+
 				return getNodeWorldTransform(node->parent) * getNodeLocalTransform(node);
 			};
 
 		auto processPrimitive = [&](const cgltf_primitive& prim, const glm::mat4& transform)
 			{
-				if (prim.type != cgltf_primitive_type_triangles) return;
+				if (prim.type != cgltf_primitive_type_triangles)
+					return;
 
 				const cgltf_accessor* positionAccessor = nullptr;
 				const cgltf_accessor* normalAccessor = nullptr;
@@ -137,11 +140,14 @@ namespace engine
 						switch (indexAccessor->component_type)
 						{
 						case cgltf_component_type_r_16u:
-							index = *reinterpret_cast<const uint16_t*>(elem); break;
+							index = *reinterpret_cast<const uint16_t*>(elem);
+							break;
 						case cgltf_component_type_r_32u:
-							index = *reinterpret_cast<const uint32_t*>(elem); break;
+							index = *reinterpret_cast<const uint32_t*>(elem);
+							break;
 						case cgltf_component_type_r_8u:
-							index = *reinterpret_cast<const uint8_t*>(elem); break;
+							index = *reinterpret_cast<const uint8_t*>(elem);
+							break;
 						default:
 							continue;
 						}
@@ -424,7 +430,7 @@ namespace engine
 
 				meshopt_Bounds bounds = meshopt_computeMeshletBounds(
 					&index[m.vertex_offset],
-					&meshletTriangles[m.triangle_offset*3],
+					&meshletTriangles[m.triangle_offset * 3],
 					m.triangle_count,
 					&result.vertex->front().position[0],
 					result.vertex->size(),
@@ -449,7 +455,7 @@ namespace engine
 							.coneCutoff = bounds.cone_cutoff,
 						},
 					}
-				);
+					);
 			}
 
 			result.mesh.data->insert(result.mesh.data->end(), std::move_iterator(meshletBuff.begin()), std::move_iterator(meshletBuff.end()));

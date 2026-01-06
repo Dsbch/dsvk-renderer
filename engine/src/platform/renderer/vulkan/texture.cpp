@@ -1,5 +1,5 @@
 #include <pch.h>
-#include "vulkanTexture.h"
+#include "texture.h"
 
 namespace engine
 {

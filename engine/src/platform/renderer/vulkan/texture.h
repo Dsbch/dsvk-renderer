@@ -3,7 +3,7 @@
 #include <pch.h>
 #include <platform/renderer/texture.h>
 
-#include "vulkanImage.h"
+#include "image.h"
 
 namespace engine
 {

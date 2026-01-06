@@ -1,7 +1,7 @@
 #pragma once
 #include <pch.h>
 
-#include "vulkanPipeline.h"
+#include "pipeline.h"
 #include "registry.h"
 #include <platform/renderer/shader.h>
 #include <platform/renderer/vertex.h>

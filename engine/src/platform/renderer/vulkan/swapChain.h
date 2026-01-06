@@ -6,7 +6,7 @@
 #include <VkBootstrap.h>
 
 #include "helper.h"
-#include "vulkanImage.h"
+#include "image.h"
 
 namespace engine
 {

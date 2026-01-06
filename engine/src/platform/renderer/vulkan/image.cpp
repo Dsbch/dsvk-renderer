@@ -1,5 +1,5 @@
 #include <pch.h>
-#include "vulkanImage.h"
+#include "image.h"
 
 namespace engine
 {

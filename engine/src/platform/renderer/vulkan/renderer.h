@@ -5,12 +5,12 @@
 
 #include "platform/renderer/renderer.h"
 
-#include "vulkanSwapChain.h"
-#include "vulkanPipeline.h"
-#include "vulkanDescriptorSet.h"
-#include "vulkanSubmit.h"
-#include "vulkanShader.h"
-#include "vulkanTexture.h"
+#include "swapChain.h"
+#include "pipeline.h"
+#include "descriptorSet.h"
+#include "submit.h"
+#include "shader.h"
+#include "texture.h"
 #include "registry.h"
 #include "pipelineData.h"
 

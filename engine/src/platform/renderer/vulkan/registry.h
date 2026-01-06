@@ -3,11 +3,11 @@
 
 #include "platform/renderer/vertex.h"
 
-#include "vulkanBuffer.h"
-#include "vulkanSubmit.h"
-#include "vulkanPipeline.h"
-#include "vulkanImage.h"
-#include "vulkanShader.h"
+#include "buffer.h"
+#include "submit.h"
+#include "pipeline.h"
+#include "image.h"
+#include "shader.h"
 
 namespace engine
 {

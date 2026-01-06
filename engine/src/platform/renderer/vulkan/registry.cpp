@@ -1,7 +1,7 @@
 #include <pch.h>
 
 #include "registry.h"
-#include "vulkanDescriptorSet.h"
+#include "descriptorSet.h"
 #include "pipelineData.h"
 
 namespace engine

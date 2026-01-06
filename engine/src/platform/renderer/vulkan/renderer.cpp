@@ -1,6 +1,6 @@
 #include <pch.h>
 #define VMA_IMPLEMENTATION
-#include "vulkanRenderer.h"
+#include "renderer.h"
 
 namespace engine
 {
@@ -1008,30 +1008,30 @@ namespace engine
 
 			// TODO:
 			// I need to update perInstance attrs in pipelineData after delete of textures.
-			//if (m.mat.albedoTexture)
-			//{
-			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.albedo);
-			//}
+			if (m.mat.albedoTexture)
+			{
+				mAlbedoRegistry.deleteTexture(m.instanceAttributes.albedoIndex);
+			}
 
-			//if (m.mat.normalTexture)
-			//{
-			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.normal);
-			//}
+			if (m.mat.normalTexture)
+			{
+				mAlbedoRegistry.deleteTexture(m.instanceAttributes.normalIndex);
+			}
 
-			//if (m.mat.roughnessTexture)
-			//{
-			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.roughness);
-			//}
+			if (m.mat.roughnessTexture)
+			{
+				mAlbedoRegistry.deleteTexture(m.instanceAttributes.roughnessIndex);
+			}
 
-			//if (m.mat.metalicTexture)
-			//{
-			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.metalic);
-			//}
+			if (m.mat.metalicTexture)
+			{
+				mAlbedoRegistry.deleteTexture(m.instanceAttributes.metalicIndex);
+			}
 
-			//if (m.mat.aoTexture)
-			//{
-			//	mAlbedoRegistry.deleteTexture(m.instanceAttributes.matOffset.ao);
-			//}
+			if (m.mat.aoTexture)
+			{
+				mAlbedoRegistry.deleteTexture(m.instanceAttributes.aoIndex);
+			}
 		}
 	}
 

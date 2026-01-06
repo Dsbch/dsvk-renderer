@@ -1,6 +1,6 @@
 #include <pch.h>
 
-#include "vulkanBuffer.h"
+#include "buffer.h"
 #include "helper.h"
 
 namespace engine
