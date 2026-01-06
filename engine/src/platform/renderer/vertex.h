@@ -21,8 +21,7 @@ namespace engine
 		glm::vec3 normal;
 		float _pad2;
 
-		glm::vec3 tangent;
-		float _pad3;
+		glm::vec4 tangent;
 	};
 
 	// Task shader buffer, to get meshlet and instanceAttrs.
@@ -120,7 +119,6 @@ namespace engine
 		std::shared_ptr<texture> roughnessTexture;
 		std::shared_ptr<texture> normalTexture;
 		std::shared_ptr<texture> metalicTexture;
-		std::shared_ptr<texture> aoTexture;
 	};
 
 	struct model

@@ -39,8 +39,13 @@ namespace engine
 
 	struct wndCfg
 	{
+#ifdef DEBUG
+		uint32_t width = 1600;
+		uint32_t height = 900;
+#else
 		uint32_t width = 1920;
 		uint32_t height = 1080;
+#endif // DEBUG
 		bool showCursor = false;
 		std::string name = "engine";
 	};

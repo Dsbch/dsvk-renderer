@@ -50,10 +50,6 @@ namespace sandbox
 		glm::vec3 position(0, 0, zPos);
 		transform = glm::translate(transform, position);
 
-		transform = glm::rotate(transform, glm::radians(120.0f), glm::vec3(0.56f, 1.0f, 0.2f));
-
-		transform = glm::scale(transform, glm::vec3(2.0f, 2.0f, 2.0f));
-
 		zPos -= 0.2f;
 		
 		return transform;
@@ -67,7 +63,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto lodMesh = engine::loadMesh("../assets/backpack.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.0f);
+				auto lodMesh = engine::loadMesh("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.0f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");
@@ -87,7 +83,6 @@ namespace sandbox
 					.roughnessTexture = nullptr,
 					.normalTexture = nullptr,
 					.metalicTexture = nullptr,
-					.aoTexture = nullptr,
 				};
 
 				engine::entity e{ mCtx, registry };
@@ -123,7 +118,6 @@ namespace sandbox
 					.roughnessTexture = nullptr,
 					.normalTexture = nullptr,
 					.metalicTexture = nullptr,
-					.aoTexture = nullptr,
 				};
 
 				engine::entity e{ mCtx, registry };

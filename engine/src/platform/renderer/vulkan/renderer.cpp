@@ -230,7 +230,7 @@ namespace engine
 
 		mGeometryBinding = geometryPipelineBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 12,
+			.totalDescriptorsCount = 11,
 
 			.vertexBinding = 0,
 			.perInstanceBinding = 1,
@@ -245,7 +245,6 @@ namespace engine
 			.normalBinding = 8,
 			.roughnessBinding = 9,
 			.metalicBinding = 10,
-			.aoBinding = 11
 		};
 
 		return {};
@@ -362,13 +361,11 @@ namespace engine
 		mRoughnessRegistry.init(mSampler);
 		mNormalRegistry.init(mSampler);
 		mMetalicRegistry.init(mSampler);
-		mAoRegistry.init(mSampler);
 
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAlbedoRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mRoughnessRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mNormalRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAoRegistry });
 
 		// Init task shader command buffer.
 		mMeshletCmdBufferNewSize = 2 << 21;
@@ -530,12 +527,6 @@ namespace engine
 		mDescriptorSetMesh.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.aoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
@@ -718,13 +709,6 @@ namespace engine
 			auto writeInfo = mMetalicRegistry.getWriteInfo(mGeometryBinding.metalicBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mMetalicRegistry.setUpdated();
-		}
-
-		if (mAoRegistry.needDecriptorUpdate())
-		{
-			auto writeInfo = mAoRegistry.getWriteInfo(mGeometryBinding.aoBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mAoRegistry.setUpdated();
 		}
 
 		return {};
@@ -931,11 +915,6 @@ namespace engine
 			m.instanceAttributes.metalicIndex = mMetalicRegistry.addTexture(m.mat.metalicTexture->hash(), static_cast<const vulkanTexture*>(m.mat.metalicTexture.get())->mImage);
 		}
 
-		if (m.mat.aoTexture)
-		{
-			m.instanceAttributes.aoIndex = mAoRegistry.addTexture(m.mat.aoTexture->hash(), static_cast<const vulkanTexture*>(m.mat.aoTexture.get())->mImage);
-		}
-
 		return {};
 	}
 
@@ -1026,11 +1005,6 @@ namespace engine
 			if (m.mat.metalicTexture)
 			{
 				mAlbedoRegistry.deleteTexture(m.instanceAttributes.metalicIndex);
-			}
-
-			if (m.mat.aoTexture)
-			{
-				mAlbedoRegistry.deleteTexture(m.instanceAttributes.aoIndex);
 			}
 		}
 	}

@@ -8,6 +8,75 @@
 
 namespace engine
 {
+	static void calculateTangents(
+		std::vector<vertex>& v,
+		const std::vector<uint32_t>& index
+	)
+	{
+		std::vector<glm::vec3> tan1{};
+		tan1.resize(v.size());
+
+		std::vector<glm::vec3> tan2{};
+		tan2.resize(v.size());
+
+		for (size_t i = 0; i < index.size(); i+=3)
+		{
+			uint32_t i1 = index[i];
+			uint32_t i2 = index[i + 1];
+			uint32_t i3 = index[i + 2];
+
+			const vertex& v1 = v[i1];
+			const vertex& v2 = v[i2];
+			const vertex& v3 = v[i3];
+
+			float x1 = v2.position.x - v1.position.x;
+			float x2 = v3.position.x - v1.position.x;
+			float y1 = v2.position.y - v1.position.y;
+			float y2 = v3.position.y - v1.position.y;
+			float z1 = v2.position.z - v1.position.z;
+			float z2 = v3.position.z - v1.position.z;
+
+			float s1 = v2.textureCoords.x - v1.textureCoords.x;
+			float s2 = v3.textureCoords.x - v1.textureCoords.x;
+			float t1 = v2.textureCoords.y - v1.textureCoords.y;
+			float t2 = v3.textureCoords.y - v1.textureCoords.y;
+
+			float r = 1.0F / (s1 * t2 - s2 * t1);
+
+			glm::vec3 sdir{
+				(t2 * x1 - t1 * x2) * r,
+				(t2 * y1 - t1 * y2) * r,
+				(t2 * z1 - t1 * z2) * r
+			};
+
+			glm::vec3 tdir{
+				(s1 * x2 - s2 * x1) * r,
+				(s1 * y2 - s2 * y1) * r,
+				(s1 * z2 - s2 * z1) * r
+			};
+
+			tan1[i1] += sdir;
+			tan1[i2] += sdir;
+			tan1[i3] += sdir;
+
+			tan2[i1] += tdir;
+			tan2[i2] += tdir;
+			tan2[i3] += tdir;
+		}
+
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			const auto& n = v[i].normal;
+			const auto& t = tan1[i];
+
+			// Gram-Schmidt orthogonalize.
+			v[i].tangent = glm::vec4(glm::normalize(t - n * glm::dot(n, t)), 1.0f);
+
+			// Calculate handedness.
+			v[i].tangent.w = (glm::dot(glm::cross(n, t), tan2[i]) < 0.0F) ? -1.0F : 1.0F;
+		}
+	}
+
 	static error loadMeshFromGLTF(const std::string& path, std::vector<vertex>& outVertices, std::vector<uint32_t>& outIndices)
 	{
 		cgltf_options options{};
@@ -171,6 +240,8 @@ namespace engine
 			}
 		}
 
+		calculateTangents(outVertices, outIndices);
+
 		cgltf_free(data);
 
 		return {};
@@ -286,13 +357,27 @@ namespace engine
 			}
 
 			std::vector<unsigned int> remap(indexBuf.size());
-			size_t vertex_count = meshopt_generateVertexRemap(
+			size_t vertex_count = meshopt_generateVertexRemapCustom(
 				remap.data(),
 				indexBuf.data(),
 				indexBuf.size(),
 				&vertexBuf.front().position.x,
 				vertexBuf.size(),
-				sizeof(vertex)
+				sizeof(vertex),
+				[&](unsigned int lhs, unsigned int rhs) -> bool
+				{
+					const vertex& lv = vertexBuf[lhs];
+					const vertex& rv = vertexBuf[rhs];
+
+					return fabsf(lv.textureCoords.x - rv.textureCoords.x) < 1e-3f &&
+						fabsf(lv.textureCoords.y - rv.textureCoords.y) < 1e-3f &&
+						fabsf(lv.normal.x - rv.normal.x) < 1e-3f &&
+						fabsf(lv.normal.y - rv.normal.y) < 1e-3f &&
+						fabsf(lv.normal.z - rv.normal.z) < 1e-3f &&
+						fabsf(lv.tangent.x - rv.tangent.x) < 1e-3f &&
+						fabsf(lv.tangent.y - rv.tangent.y) < 1e-3f &&
+						fabsf(lv.tangent.z - rv.tangent.z) < 1e-3f;
+				}
 			);
 
 			if (vertex_count == 0)

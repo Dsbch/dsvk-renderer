@@ -166,7 +166,6 @@ namespace engine
 		glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
 #ifdef DEBUG
-		mShowCursor = true;
 		monitor = nullptr;
 #endif // DEBUG
 

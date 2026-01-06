@@ -17,16 +17,9 @@
 struct vertex
 {
     float3 position;
-    float _pad0;
-
     float2 textureCoords;
-    float2 _pad1;
-
     float3 normal;
-    float _pad2;
-
-    float3 tangent;
-    float _pad3;
+    float4 tangent;
 };
 
 struct meshletBounds
@@ -278,7 +271,7 @@ void asmain(
             meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
             
             visible =
-                isFrontfaceMeshlet(instanceAttr.modelMatrix, (float3x3)instanceAttr.normalMatrix, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
+                isFrontfaceMeshlet(instanceAttr.modelMatrix, (float3x3) instanceAttr.normalMatrix, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
                 isInFrustum(instanceAttr.modelMatrix, mesh.bounds.center, mesh.bounds.radius);
             
             if (visible)
@@ -343,6 +336,21 @@ bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
     float3 center = (v1 + v2 + v3) / 3;
     
     return dot(normal, drawData.cameraPos - center) < 0;
+}
+
+float3x3 calculateTBN(float3x3 normalMatrix, vertex v)
+{
+    float4 T = v.tangent;
+    float3 N = normalize(mul(normalMatrix, v.normal));
+    float3 B = cross(N, float3(T.x, T.y, T.z)) * T.w;
+    
+    return transpose(
+            float3x3(
+                (float3) T,
+                        B,
+                        N
+                )
+            );
 }
 
 [outputtopology("triangle")]

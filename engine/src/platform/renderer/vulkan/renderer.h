@@ -73,7 +73,6 @@ namespace engine
 		uint32_t normalBinding;
 		uint32_t roughnessBinding;
 		uint32_t metalicBinding;
-		uint32_t aoBinding;
 	};
 
 	struct limits
@@ -174,7 +173,6 @@ namespace engine
 		textureRegistry mRoughnessRegistry;
 		textureRegistry mNormalRegistry;
 		textureRegistry mMetalicRegistry;
-		textureRegistry mAoRegistry;
 
 		typedef std::shared_ptr<shader> pixelShader;
 		std::map<pixelShader, pipelineData> mGeometryPipelines;
