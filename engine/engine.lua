@@ -3,6 +3,8 @@ project "engine"
    language "C++"
    architecture "x64"
    cppdialect "C++20"
+   conformancemode "On"
+   usestandardpreprocessor "On"
 
    filter { "options:gfxapi=vulkan" }
       defines { "VULKAN" }

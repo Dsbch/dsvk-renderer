@@ -3,6 +3,8 @@ project "sandbox"
    language "C++"
    architecture "x64"
    cppdialect "C++20"
+   conformancemode "On"
+   usestandardpreprocessor "On"
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
