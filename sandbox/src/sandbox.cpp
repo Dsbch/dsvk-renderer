@@ -51,7 +51,7 @@ namespace sandbox
 		transform = glm::translate(transform, position);
 
 		zPos -= 0.2f;
-		
+
 		return transform;
 	}
 
@@ -63,14 +63,14 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto lodMesh = engine::loadMesh("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.0f);
+				auto lodMesh = engine::loadMesh("../assets/trofy.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.0f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");
 					return {};
 				}
 
-				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
+				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsTest.spv");
 				if (!pixel)
 				{
 					LOGERROR("bad pixel shader");
@@ -98,7 +98,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::r)
 			{
-				auto lodMesh = engine::loadMesh("../assets/trofy.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
+				auto lodMesh = engine::loadMesh("../assets/horse_statue_01_4k.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");

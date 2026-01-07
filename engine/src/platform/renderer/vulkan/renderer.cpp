@@ -78,13 +78,6 @@ namespace engine
 			return;
 		}
 
-		for (auto& [k, v] : mGeometryPipelines)
-		{
-			v.destroy();
-		}
-
-		mGeometryPipelines.clear();
-
 		flushDeletonQueue();
 	}
 
@@ -337,6 +330,10 @@ namespace engine
 
 		mPerInstanceRegistry.init(mDevice, mAllocator, mSubmit);
 
+		error err = mPipelineRegistry.init(mDevice, mAllocator, mSubmit);
+		if (err)
+			return err;
+
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
 
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
@@ -346,6 +343,8 @@ namespace engine
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
 
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerInstanceRegistry });
+		
+		mDeletionQueue.push_back(destroyTask{ .type = pipelineReg, .pipelineReg = &mPipelineRegistry });
 
 		auto samp = descriptorSet::createSampler(mDevice, mPhysicalDeviceLimits.maxFiltering);
 		if (!samp)
@@ -366,16 +365,6 @@ namespace engine
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mRoughnessRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mNormalRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRegistry });
-
-		// Init task shader command buffer.
-		mMeshletCmdBufferNewSize = 2 << 21;
-		mMeshletCmdBuffer.init(mDevice, mAllocator);
-
-		error err = mMeshletCmdBuffer.build(mSubmit, nullptr, mMeshletCmdBufferNewSize, 0);
-		if (err)
-			return err;
-
-		mDeletionQueue.push_back(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mMeshletCmdBuffer });
 
 		// init uniform buffer.
 		mUniformBuffer.init(mDevice, mAllocator);
@@ -537,58 +526,6 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::updateCommandBuffer()
-	{
-		bool needUpdate = false;
-		for (auto& [_, v] : mGeometryPipelines)
-		{
-			needUpdate = v.needUpdate();
-
-			if (needUpdate)
-				break;
-		}
-
-		if (!needUpdate)
-			return {};
-
-		// Collect all instances across pipelines and update shader command buffer.
-		std::vector<meshletShaderCMD> cmd;
-		for (auto& [_, v] : mGeometryPipelines)
-		{
-			std::vector<meshletShaderCMD> pipelineCMD = v.getPipelineCMD();
-
-			cmd.insert(cmd.end(), std::move_iterator(pipelineCMD.begin()), std::move_iterator(pipelineCMD.end()));
-		}
-
-		error err = mMeshletCmdBuffer.updateBuffer(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
-		if (err.err() == "buffer overflow")
-		{
-			mMeshletCmdBufferNewSize = uint32_t(float(mMeshletCmdBufferNewSize) * 1.5f);
-
-			if (cmd.size() > mMeshletCmdBufferNewSize)
-				mMeshletCmdBufferNewSize = uint32_t(cmd.size());
-
-			mMeshletCmdBuffer.destroy();
-
-			err = mMeshletCmdBuffer.build(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), cmd.size() * sizeof(meshletShaderCMD));
-			if (err)
-				return err;
-		}
-		if (err)
-			return err;
-
-		std::vector<VkDescriptorBufferInfo> bufferInfo{ VkDescriptorBufferInfo{.buffer = mMeshletCmdBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
-		auto writeInfo = descriptorSet::getWriteInfo(mGeometryBinding.meshletCmdBinding, bufferInfo);
-		mDescriptorSetMesh.updateWrite(writeInfo);
-
-		for (auto& [_, v] : mGeometryPipelines)
-		{
-			v.setUpdated();
-		}
-
-		return {};
-	}
-
 	error vulkanRenderer::updateUboBuffers(renderer::renderCallIn in)
 	{
 		static std::once_flag descriptorWriteSet;
@@ -642,40 +579,47 @@ namespace engine
 			return err;
 
 		// Update command buffer for mesh pipeline.
-		err = updateCommandBuffer();
+		err = mPipelineRegistry.updateCommandBuffer();
 		if (err)
 			return err;
 
 		// update buffers.
-		if (mVertexRegistry.needDecriptorUpdate())
+		if (mPipelineRegistry.needDescriptorUpdate())
+		{
+			auto writeInfo = mPipelineRegistry.getWriteInfo(mGeometryBinding.meshletCmdBinding);
+			mDescriptorSetMesh.updateWrite(writeInfo);
+			mPipelineRegistry.setUpdated();
+		}
+		
+		if (mVertexRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mVertexRegistry.getWriteInfo(mGeometryBinding.vertexBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mVertexRegistry.setUpdated();
 		}
 
-		if (mIndexRegistry.needDecriptorUpdate())
+		if (mIndexRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mIndexRegistry.getWriteInfo(mGeometryBinding.indexBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mIndexRegistry.setUpdated();
 		}
 
-		if (mPrimitiveRegistry.needDecriptorUpdate())
+		if (mPrimitiveRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mPrimitiveRegistry.getWriteInfo(mGeometryBinding.primitiveBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mPrimitiveRegistry.setUpdated();
 		}
 
-		if (mMeshletRegistry.needDecriptorUpdate())
+		if (mMeshletRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mMeshletRegistry.getWriteInfo(mGeometryBinding.meshletBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mMeshletRegistry.setUpdated();
 		}
 
-		if (mPerInstanceRegistry.needDecriptorUpdate())
+		if (mPerInstanceRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mPerInstanceRegistry.getWriteInfo(mGeometryBinding.perInstanceBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
@@ -683,28 +627,28 @@ namespace engine
 		}
 
 		// Update textures.
-		if (mAlbedoRegistry.needDecriptorUpdate())
+		if (mAlbedoRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mAlbedoRegistry.getWriteInfo(mGeometryBinding.albedoBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mAlbedoRegistry.setUpdated();
 		}
 
-		if (mNormalRegistry.needDecriptorUpdate())
+		if (mNormalRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mNormalRegistry.getWriteInfo(mGeometryBinding.normalBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mNormalRegistry.setUpdated();
 		}
 
-		if (mRoughnessRegistry.needDecriptorUpdate())
+		if (mRoughnessRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mRoughnessRegistry.getWriteInfo(mGeometryBinding.roughnessBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mRoughnessRegistry.setUpdated();
 		}
 
-		if (mMetalicRegistry.needDecriptorUpdate())
+		if (mMetalicRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mMetalicRegistry.getWriteInfo(mGeometryBinding.metalicBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
@@ -757,6 +701,10 @@ namespace engine
 			case vulkanBuf:
 				if (it->vulkanBuf)
 					it->vulkanBuf->destroy();
+				break;
+			case pipelineReg:
+				if (it->pipelineReg)
+					it->pipelineReg->destroy();
 				break;
 			default:
 				LOGERROR("unkown sampler");
@@ -878,13 +826,13 @@ namespace engine
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();
 
-		error err = mGeometryPipelines[m.mat.pixelShader].addInstance(
+		error err = mPipelineRegistry.addInstance(
+			m.mat.pixelShader->hash(),
 			m.id,
 			m.meshData.getHash(),
 			handle.value(),
 			perInstanceHandle.value(),
-			m.meshData.mesh,
-			m.instanceAttributes
+			m.meshData.mesh
 		);
 		if (err)
 			return err;
@@ -920,33 +868,27 @@ namespace engine
 
 	error vulkanRenderer::addToRender(model& m)
 	{
-		if (auto pipeData = mGeometryPipelines.find(m.mat.pixelShader); pipeData == mGeometryPipelines.end())
-		{
-			auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
-			if (!meshShader)
-				return meshShader.err();
+		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
+		if (!meshShader)
+			return meshShader.err();
 
-			auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
-			if (!taskShader)
-				return taskShader.err();
+		auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
+		if (!taskShader)
+			return taskShader.err();
 
-			pipelineData pData;
-			error err = pData.init(
-				mDevice,
-				m.mat.pixelShader,
-				meshShader.value(),
-				taskShader.value(),
-				{ mDescriptorSetMesh.getDescriptorSet().second },
-				mSwapChain.getDepthImageFormat(),
-				mSwapChain.getDrawImageFormat()
-			);
-			if (err)
-				return err;
+		error err = mPipelineRegistry.createPipeline(
+			mDevice,
+			m.mat.pixelShader,
+			meshShader.value(),
+			taskShader.value(),
+			{ mDescriptorSetMesh.getDescriptorSet().second },
+			mSwapChain.getDepthImageFormat(),
+			mSwapChain.getDrawImageFormat()
+		);
+		if (err)
+			return err;
 
-			mGeometryPipelines[m.mat.pixelShader] = std::move(pData);
-		}
-
-		if (mGeometryPipelines[m.mat.pixelShader].instanceExists(m.id))
+		if (mPipelineRegistry.instanceExists(m.id))
 			return {};
 
 		uploadMaterialData(m);
@@ -960,22 +902,11 @@ namespace engine
 	{
 		mPerInstanceRegistry.deleteBlock(m.id);
 
-		if (auto pipeData = mGeometryPipelines.find(m.mat.pixelShader); pipeData == mGeometryPipelines.end())
-		{
-			return;
-		}
-
 		// Remove instance.
-		mGeometryPipelines[m.mat.pixelShader].removeInstance(m.id, m.meshData.getHash());
-
-		uint32_t instanceCount = 0;
-		for (const auto [_, p] : mGeometryPipelines)
-		{
-			instanceCount = std::max(p.getMeshInstanceCount(m.meshData.getHash()), instanceCount);
-		}
+		mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, m.meshData.getHash());
 
 		// Mesh isn't used.
-		if (instanceCount == 0)
+		if (!mPipelineRegistry.instanceExists(m.id))
 		{
 			mVertexRegistry.deleteBlock(m.meshData.getHash());
 
@@ -987,7 +918,8 @@ namespace engine
 
 			// TODO:
 			// I need to update perInstance attrs in pipelineData after delete of textures.
-			if (m.mat.albedoTexture)
+			// Deleting textures here is wrong!
+			/*if (m.mat.albedoTexture)
 			{
 				mAlbedoRegistry.deleteTexture(m.instanceAttributes.albedoIndex);
 			}
@@ -1005,7 +937,7 @@ namespace engine
 			if (m.mat.metalicTexture)
 			{
 				mAlbedoRegistry.deleteTexture(m.instanceAttributes.metalicIndex);
-			}
+			}*/
 		}
 	}
 
@@ -1169,7 +1101,9 @@ namespace engine
 	// TODO: add culling in task shader.
 	error vulkanRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		if (mGeometryPipelines.size() != 0)
+		auto pipelines = mPipelineRegistry.getPipelines();
+
+		if (pipelines.size() != 0)
 		{
 			//begin a render pass connected to our draw image and depth buffer.
 			VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1200,29 +1134,27 @@ namespace engine
 		}
 
 		uint32_t cmdOffset = 0;
-		for (auto& [shader, v] : mGeometryPipelines)
+		for (auto& v : pipelines)
 		{
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().first);
-
-			uint32_t meshletCount = uint32_t(v.getMeshletCount());
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.pipeline);
 
 			pushConstants pc{
 				.commandBufferOffset = cmdOffset,
-				.meshletCount = meshletCount,
+				.meshletCount = v.commandBufferLength,
 			};
 
-			vkCmdPushConstants(cmd, v.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+			vkCmdPushConstants(cmd, v.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
-			cmdOffset += meshletCount;
+			cmdOffset += v.commandBufferLength;
 
 			// bind the descriptor set.
 			auto set = mDescriptorSetMesh.getDescriptorSet().first;
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.getPipeline().second, mGeometryBinding.descriptorSet, 1, &set, 0, nullptr);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.layout, mGeometryBinding.descriptorSet, 1, &set, 0, nullptr);
 
-			vkCmdDrawMeshTasksEXT(cmd, uint32_t(v.getMeshletCount()) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+			vkCmdDrawMeshTasksEXT(cmd, uint32_t(v.commandBufferLength) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 		}
 
-		if (mGeometryPipelines.size() != 0)
+		if (pipelines.size() != 0)
 			vkCmdEndRendering(cmd);
 
 		return {};

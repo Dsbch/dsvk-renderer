@@ -12,7 +12,6 @@
 #include "shader.h"
 #include "texture.h"
 #include "registry.h"
-#include "pipelineData.h"
 
 namespace engine
 {
@@ -26,6 +25,7 @@ namespace engine
 		computePipe,
 		buffRegistry,
 		texRegistry,
+		pipelineReg,
 		sampler,
 		vulkanBuf,
 	};
@@ -44,6 +44,7 @@ namespace engine
 			textureRegistry* texRegistry;
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;
+			pipelineRegistry* pipelineReg;
 		};
 	};
 
@@ -163,19 +164,13 @@ namespace engine
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
 		bufferRegistry mPerInstanceRegistry;
-
-		uint32_t mMeshletCmdBufferNewSize;
-		vulkanBuffer mMeshletCmdBuffer;
-
+		pipelineRegistry mPipelineRegistry;
 		vulkanBuffer mUniformBuffer;
 
 		textureRegistry mAlbedoRegistry;
 		textureRegistry mRoughnessRegistry;
 		textureRegistry mNormalRegistry;
 		textureRegistry mMetalicRegistry;
-
-		typedef std::shared_ptr<shader> pixelShader;
-		std::map<pixelShader, pipelineData> mGeometryPipelines;
 	};
 
 	inline VkRenderingAttachmentInfo depthAttachmentInfo(

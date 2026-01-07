@@ -42,7 +42,7 @@ namespace engine
 		bool deleteBlock(uint32_t id);
 		void destroy();
 		void setUpdated();
-		bool needDecriptorUpdate() const;
+		bool needDescriptorUpdate() const;
 
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 	private:
@@ -64,7 +64,7 @@ namespace engine
 		void deleteTexture(uint32_t offset);
 		void destroy();
 		void setUpdated();
-		bool needDecriptorUpdate() const;
+		bool needDescriptorUpdate() const;
 
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 	private:
@@ -73,5 +73,70 @@ namespace engine
 		std::vector<VkDescriptorImageInfo> mImagesInfo;
 		VkSampler mSampler;
 		bool mNeedUpdate;
+	};
+
+	// PipelineData and pipeLineRegistry structs manage pipeline creation and constrcting command buffer for task shader.
+	struct pipelineData
+	{
+	public:
+		error init(
+			VkDevice device,
+			std::shared_ptr<shader> pixelShader,
+			std::shared_ptr<shader> meshShader,
+			std::shared_ptr<shader> taskShader,
+			const std::vector<VkDescriptorSetLayout>& descriptorSets,
+			VkFormat depthFormat,
+			VkFormat colorAttachmentFormat
+		);
+		void destroy();
+		
+		classicGraphicPipeline pipeline;
+		std::map<uint32_t, std::vector<meshletShaderCMD>> meshletShaderCMD;
+		std::map<uint32_t, uint32_t> instanceMeshCount;
+		bool needUpdate;
+	};
+
+	struct pipelineRegistry
+	{
+	public:
+		error init(VkDevice device, VmaAllocator allocator, submit is);
+		void destroy();
+
+		error createPipeline(
+			VkDevice device,
+			std::shared_ptr<shader> pixelShader,
+			std::shared_ptr<shader> meshShader,
+			std::shared_ptr<shader> taskShader,
+			const std::vector<VkDescriptorSetLayout>& descriptorSets,
+			VkFormat depthFormat,
+			VkFormat colorAttachmentFormat
+		);
+		error addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& mesh);
+		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID);
+		
+		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
+
+		bool instanceExists(uint32_t id) const;
+		struct taskShaderRender
+		{
+			VkPipeline pipeline;
+			VkPipelineLayout layout;
+			uint32_t commandBufferLength;
+		};
+		std::vector<taskShaderRender> getPipelines();
+
+		error updateCommandBuffer();
+
+		bool needDescriptorUpdate() const;
+		void setUpdated();
+	private:
+		submit mSubmit;
+
+		bool mNeedDescriptorUpdate;
+		std::vector<VkDescriptorBufferInfo> mBufferInfo;
+
+		uint32_t mCmdBufferNewSize;
+		vulkanBuffer mCmdBuffer;
+		std::map<uint32_t, pipelineData> mPipelines;
 	};
 }

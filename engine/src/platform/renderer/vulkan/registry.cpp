@@ -2,7 +2,6 @@
 
 #include "registry.h"
 #include "descriptorSet.h"
-#include "pipelineData.h"
 
 namespace engine
 {
@@ -92,7 +91,7 @@ namespace engine
 				.buffer = newBuffer,
 				.vBlock = vBlock,
 			}
-		);
+			);
 
 		mBuffers.back().bufferHandles.insert(handle);
 
@@ -110,7 +109,7 @@ namespace engine
 				vmaVirtualFree(mBuffers[i].vBlock, found->vAllocation);
 				mBuffers[i].buffer.markBytesAsDead(found->size);
 				mBuffers[i].bufferHandles.erase(bufferHandle{ .id = id });
-				
+
 				return true;
 			}
 		}
@@ -145,7 +144,7 @@ namespace engine
 		mNeedUpdate = false;
 	}
 
-	bool bufferRegistry::needDecriptorUpdate() const
+	bool bufferRegistry::needDescriptorUpdate() const
 	{
 		return mNeedUpdate;
 	}
@@ -185,7 +184,7 @@ namespace engine
 		mNeedUpdate = false;
 	}
 
-	bool textureRegistry::needDecriptorUpdate() const
+	bool textureRegistry::needDescriptorUpdate() const
 	{
 		return mNeedUpdate;
 	}
@@ -205,5 +204,263 @@ namespace engine
 		}
 
 		return descriptorSet::getWriteInfo(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, mImagesInfo);
+	}
+
+	error pipelineData::init(
+		VkDevice device,
+		std::shared_ptr<shader> pixelShader,
+		std::shared_ptr<shader> meshShader,
+		std::shared_ptr<shader> taskShader,
+		const std::vector<VkDescriptorSetLayout>& descriptorSets,
+		VkFormat depthFormat,
+		VkFormat colorAttachmentFormat
+	)
+	{
+		needUpdate = false;
+
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(pushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_ALL;
+
+		// init pipeline.
+		pipeline.init(device);
+
+		//connecting the vertex and pixel shaders to the pipeline
+		pipeline.setShaders(
+			static_cast<vulkanShader*>(taskShader.get())->mShaderModule,
+			static_cast<vulkanShader*>(meshShader.get())->mShaderModule,
+			static_cast<vulkanShader*>(pixelShader.get())->mShaderModule
+		);
+
+		pipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		pipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
+
+		// Back face culling is done in shaders.
+		pipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+
+		pipeline.setMultisamplingNone();
+
+		pipeline.disableBlending();
+
+		pipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+		//connect the image format we will draw into, from draw image
+		pipeline.setColorAttachmentFormat(colorAttachmentFormat);
+		pipeline.setDepthFormat(depthFormat);
+
+		error err = pipeline.build(&pc, descriptorSets, true);
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	void pipelineData::destroy()
+	{
+		pipeline.destroy();
+	}
+
+	error pipelineRegistry::init(VkDevice device, VmaAllocator allocator, submit is)
+	{
+		mNeedDescriptorUpdate = true;
+		mSubmit = is;
+
+		mCmdBufferNewSize = 2 << 21;
+		mCmdBuffer.init(device, allocator);
+
+		error err = mCmdBuffer.build(mSubmit, nullptr, mCmdBufferNewSize, 0);
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	void pipelineRegistry::destroy()
+	{
+		for (auto& [_, p] : mPipelines)
+			p.destroy();
+
+		mPipelines.clear();
+
+		mCmdBuffer.destroy();
+	}
+
+	error pipelineRegistry::createPipeline(
+		VkDevice device,
+		std::shared_ptr<shader> pixelShader,
+		std::shared_ptr<shader> meshShader,
+		std::shared_ptr<shader> taskShader,
+		const std::vector<VkDescriptorSetLayout>& descriptorSets,
+		VkFormat depthFormat,
+		VkFormat colorAttachmentFormat
+	)
+	{
+		if (mPipelines.find(pixelShader->hash()) != mPipelines.end())
+			return {};
+
+		pipelineData pipeline{};
+
+		error err = pipeline.init(device, pixelShader, meshShader, taskShader, descriptorSets, depthFormat, colorAttachmentFormat);
+		if (err)
+			return err;
+
+		mPipelines.insert({ pixelShader->hash(), pipeline });
+
+		return {};
+	}
+
+	error pipelineRegistry::addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& mesh)
+	{
+		if (mPipelines.find(pixelShaderID) == mPipelines.end())
+			return { "pipeline doesn't exist" };
+
+		pipelineData& pipeline = mPipelines[pixelShaderID];
+
+		if (pipeline.meshletShaderCMD.find(instanceID) != pipeline.meshletShaderCMD.end())
+			return {};
+
+		pipeline.needUpdate = true;
+
+		pipeline.instanceMeshCount[meshID]++;
+
+		std::vector<meshletShaderCMD> meshCMD;
+
+		uint32_t baseOffset = meshletHandle.offset / uint32_t(sizeof(meshlet));
+
+		for (uint32_t i = 0; i < mesh.second; i++)
+		{
+			meshCMD.push_back(
+				meshletShaderCMD{
+					.instanceIndex = perInstanceHandle.bufferIndex,
+					.instanceOffset = perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
+					.meshletIndex = meshletHandle.bufferIndex,
+					.meshletOffset1 = baseOffset + i,
+					.meshletOffset2 = i < mesh.third - mesh.second ? baseOffset + i + mesh.second : std::numeric_limits<uint32_t>::max(),
+					.meshletOffset3 = i < mesh.fourth - mesh.third ? baseOffset + i + mesh.third : std::numeric_limits<uint32_t>::max(),
+					.meshletOffset4 = i < mesh.data->size() - mesh.fourth ? baseOffset + i + mesh.fourth : std::numeric_limits<uint32_t>::max()
+				}
+			);
+		}
+
+		pipeline.meshletShaderCMD[instanceID] = meshCMD;
+
+		return {};
+	}
+
+	void pipelineRegistry::removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID)
+	{
+		if (mPipelines.find(pixelShaderID) == mPipelines.end())
+			return;
+
+		pipelineData& pipeline = mPipelines[pixelShaderID];
+
+		if (pipeline.meshletShaderCMD.find(instanceID) == pipeline.meshletShaderCMD.end())
+			return;
+
+		pipeline.meshletShaderCMD.erase(instanceID);
+
+		if (auto found = pipeline.instanceMeshCount.find(meshID); found != pipeline.instanceMeshCount.end() && found->second != 0)
+			found->second--;
+
+		pipeline.needUpdate = true;
+	}
+
+	std::vector<VkWriteDescriptorSet> pipelineRegistry::getWriteInfo(uint32_t binding)
+	{
+		mBufferInfo = { VkDescriptorBufferInfo{.buffer = mCmdBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
+
+		return descriptorSet::getWriteInfo(binding, mBufferInfo);
+	}
+
+	bool pipelineRegistry::instanceExists(uint32_t id) const
+	{
+		for (auto& [_, p] : mPipelines)
+		{
+			if (p.meshletShaderCMD.find(id) != p.meshletShaderCMD.end())
+				return true;
+		}
+
+		return false;
+	}
+
+	std::vector<pipelineRegistry::taskShaderRender> pipelineRegistry::getPipelines()
+	{
+		std::vector<pipelineRegistry::taskShaderRender> result;
+
+		for (auto& [_, p] : mPipelines)
+		{
+			uint32_t cmdLength = 0;
+
+			for (const auto [_, v] : p.meshletShaderCMD)
+			{
+				cmdLength += uint32_t(v.size());
+			}
+
+			result.push_back(
+				pipelineRegistry::taskShaderRender{
+					.pipeline = p.pipeline.getPipeline().first,
+					.layout = p.pipeline.getPipeline().second,
+					.commandBufferLength = cmdLength,
+				}
+				);
+		}
+
+		return result;
+	}
+
+	error pipelineRegistry::updateCommandBuffer()
+	{
+		bool needBufferUpdate = false;
+		for (auto& [_, p] : mPipelines)
+			needBufferUpdate |= p.needUpdate;
+
+		if (!needBufferUpdate)
+			return {};
+
+		std::vector<meshletShaderCMD> cmd;
+		for (auto& [_, p] : mPipelines)
+		{
+			for (auto& [_, v] : p.meshletShaderCMD)
+			{
+				cmd.insert(cmd.end(), v.begin(), v.end());
+			}
+		}
+
+		mCmdBuffer.markBytesAsDead(mCmdBuffer.getLoadedBytes());
+
+		error err = mCmdBuffer.updateBuffer(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
+		if (err.err() == "buffer overflow")
+		{
+			mCmdBufferNewSize = uint32_t(float(mCmdBufferNewSize) * 1.5f);
+
+			if (cmd.size() > mCmdBufferNewSize)
+				mCmdBufferNewSize = uint32_t(cmd.size());
+
+			mCmdBuffer.destroy();
+
+			err = mCmdBuffer.build(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), cmd.size() * sizeof(meshletShaderCMD));
+			if (err)
+				return err;
+
+			mNeedDescriptorUpdate = true;
+		}
+		if (err)
+			return err;
+
+		for (auto& [_, p] : mPipelines)
+			p.needUpdate = false;
+
+		return {};
+	}
+
+	bool pipelineRegistry::needDescriptorUpdate() const
+	{
+		return mNeedDescriptorUpdate;
+	}
+
+	void pipelineRegistry::setUpdated()
+	{
+		mNeedDescriptorUpdate = false;
 	}
 }
