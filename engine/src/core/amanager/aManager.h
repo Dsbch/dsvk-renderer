@@ -20,7 +20,16 @@ namespace engine
 		withError<std::shared_ptr<shader>> getDefaultComputeShader();
 		withError<std::shared_ptr<shader>> loadShader(const std::string& shaderPath);
 		withError<std::shared_ptr<texture>> loadTexture(const std::string& path);
+
+		withError<model> loadModelGLTF(
+			const std::string& path,
+			size_t maxVert = 64,
+			size_t maxTriangles = 64,
+			float coneWieght = 0.0f
+		);
 	private:
+		withError<std::shared_ptr<texture>> loadRawTexture(const uint8_t* data, size_t size);
+
 		std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)> makeShader;
 		std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)> makeTexture;
 

@@ -24,7 +24,6 @@ namespace engine
 
 	vulkanTexture::~vulkanTexture()
 	{
-		mImage.destroy();
 	}
 
 	uint32_t vulkanTexture::hash() const

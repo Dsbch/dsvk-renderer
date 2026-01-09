@@ -12,7 +12,7 @@ echo =====================================================
 echo.
 
 echo Compiling Mesh Shader...
-dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshMs.spv vkMesh.hlsl
+dxc -T ms_6_9 -E msmain -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshMs.spv vkMesh.hlsl
 if %errorlevel% neq 0 (
     echo Mesh shader compilation failed!
     pause
@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Pixel Shader...
-dxc -T ps_6_9 -E psmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
+dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
 if %errorlevel% neq 0 (
     echo Pixel shader compilation failed!
     pause
@@ -34,7 +34,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Task Shader...
-dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
+dxc -T as_6_9 -E asmain -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
 if %errorlevel% neq 0 (
     echo Task shader compilation failed!
     pause
@@ -45,7 +45,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Compute Shader...
-dxc -T cs_6_9 -E main -spirv -Fo vkCompiled/vkCompute.spv vkCompute.comp
+dxc -T cs_6_9 -E main -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkCompute.spv vkCompute.comp
 if %errorlevel% neq 0 (
     echo Compute shader compilation failed!
     pause

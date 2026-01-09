@@ -13,13 +13,13 @@ namespace engine
 		submit() 
 			:
 			mDevice(VK_NULL_HANDLE),
-			mGraphicsQueue(VK_NULL_HANDLE),
+			mQueue(VK_NULL_HANDLE),
 			mCommandPool(VK_NULL_HANDLE),
 			mCommandBuffer(VK_NULL_HANDLE),
-			mGraphicsQueueFamily(0)
+			mQueueFamily(0)
 		{}
 
-		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue graphicsQueue, uint32_t graphicsQueueFamily);
+		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue queue, uint32_t queueFamily);
 		void destroy();
 
 		engine::error immediate(std::function<void(VkCommandBuffer cmd)>&& function);
@@ -29,8 +29,8 @@ namespace engine
 		void markAllSemaAsUsed();
 	private:
 		VkDevice mDevice;
-		VkQueue mGraphicsQueue;
-		uint32_t mGraphicsQueueFamily;
+		VkQueue mQueue;
+		uint32_t mQueueFamily;
 		VkCommandPool mCommandPool;
 		VkCommandBuffer mCommandBuffer;
 

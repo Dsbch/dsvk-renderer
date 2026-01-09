@@ -1,6 +1,6 @@
-//  dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkMeshMs.spv vkMesh.hlsl
-//  dxc -T ps_6_9 -E psmain -spirv -Fo vkMeshPs.spv vkMesh.hlsl
-//  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
+//  dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkMeshMs.spv vkMesh.hlsl
+//  dxc -T ps_6_9 -E psmain -spirv -Fo -fvk-use-scalar-layout vkMeshPs.spv vkMesh.hlsl
+//  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
 //  add -fspv-reflect flag only for debug.
 #ifdef __spirv__
 #define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
@@ -55,12 +55,6 @@ struct perInstanceAttr
     float bsWorldRadius;
     float4x4 modelMatrix;
     float4x4 normalMatrix;
-    
-    uint albedoIndeex;
-    uint roughnessIndex;
-    uint normalIndex;
-    uint metalicIndex;
-    uint aoIndex;
 };
 
 struct command

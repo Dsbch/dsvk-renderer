@@ -131,7 +131,7 @@ namespace engine
 		meshShaderFeatures.multiviewMeshShader = VK_TRUE;
 		meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_TRUE;
 		meshShaderFeatures.pNext = &shadingRateFeatures;
-
+		
 		// Chain to Vulkan 1.3 features
 		VkPhysicalDeviceVulkan13Features features13{};
 		features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -151,6 +151,8 @@ namespace engine
 		features12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
 		features12.descriptorBindingPartiallyBound = VK_TRUE;
 		features12.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+		features12.scalarBlockLayout = VK_TRUE;
+		features12.uniformBufferStandardLayout = VK_TRUE;
 		features12.timelineSemaphore = VK_TRUE;
 		features12.pNext = &features13;
 
@@ -191,9 +193,6 @@ namespace engine
 
 		mGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 		mGraphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
-
-		mTransferQueue = vkbDevice.get_queue(vkb::QueueType::transfer).value();
-		mTransferQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
 
 		VmaAllocatorCreateInfo allocatorInfo = {};
 		allocatorInfo.physicalDevice = mPhysicalDevice;
@@ -287,7 +286,7 @@ namespace engine
 
 	error vulkanRenderer::initImmediateSubmit()
 	{
-		error err = mSubmit.init(mCtx, mDevice, mTransferQueue, mTransferQueueFamily);
+		error err = mSubmit.init(mCtx, mDevice, mGraphicsQueue, mGraphicsQueueFamily);
 		if (err)
 			return err;
 
@@ -706,6 +705,10 @@ namespace engine
 				if (it->pipelineReg)
 					it->pipelineReg->destroy();
 				break;
+			case vulkanTex:
+				if (it->texture)
+					it->texture->mImage.destroy();
+				break;
 			default:
 				LOGERROR("unkown sampler");
 			}
@@ -842,26 +845,7 @@ namespace engine
 
 	error vulkanRenderer::uploadMaterialData(model& m)
 	{
-		// material data.
-		if (m.mat.albedoTexture)
-		{
-			m.instanceAttributes.albedoIndex = mAlbedoRegistry.addTexture(m.mat.albedoTexture->hash(), static_cast<const vulkanTexture*>(m.mat.albedoTexture.get())->mImage);
-		}
-
-		if (m.mat.normalTexture)
-		{
-			m.instanceAttributes.normalIndex = mNormalRegistry.addTexture(m.mat.normalTexture->hash(), static_cast<const vulkanTexture*>(m.mat.normalTexture.get())->mImage);
-		}
-
-		if (m.mat.roughnessTexture)
-		{
-			m.instanceAttributes.roughnessIndex = mRoughnessRegistry.addTexture(m.mat.roughnessTexture->hash(), static_cast<const vulkanTexture*>(m.mat.roughnessTexture.get())->mImage);
-		}
-
-		if (m.mat.metalicTexture)
-		{
-			m.instanceAttributes.metalicIndex = mMetalicRegistry.addTexture(m.mat.metalicTexture->hash(), static_cast<const vulkanTexture*>(m.mat.metalicTexture.get())->mImage);
-		}
+		// TODO: upload material data.
 
 		return {};
 	}
@@ -1174,6 +1158,8 @@ namespace engine
 		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, data, width, heigth, channel);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
+
+		mDeletionQueue.push_back(destroyTask{ .type = vulkanTex, .texture = static_cast<vulkanTexture*>(vkTexture.get()) });
 
 		return vkTexture;
 	}

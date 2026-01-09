@@ -66,12 +66,11 @@ namespace engine
 
 	struct materialComponent
 	{
-		uint32_t uid;
 		material mat;
 
 		materialComponent(material mat)
 			:
-			mat(mat), uid(mat.pixelShader->hash())
+			mat(mat)
 		{
 		}
 	};

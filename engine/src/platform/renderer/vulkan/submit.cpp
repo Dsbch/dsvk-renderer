@@ -9,14 +9,14 @@ namespace engine
 	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaInUse;
 	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaToDelete;
 
-	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue graphicsQueue, uint32_t graphicsQueueFamily)
+	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue queue, uint32_t queueFamily)
 	{
 		mDevice = device;
 
-		mGraphicsQueue = graphicsQueue;
-		mGraphicsQueueFamily = graphicsQueueFamily;
+		mQueue = queue;
+		mQueueFamily = queueFamily;
 
-		VkCommandPoolCreateInfo cmdPoolInfo = commandPoolCreateInfo(mGraphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		VkCommandPoolCreateInfo cmdPoolInfo = commandPoolCreateInfo(mQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
 		VkResult vkres = (vkCreateCommandPool(mDevice, &cmdPoolInfo, nullptr, &mCommandPool));
 		if (vkres != VK_SUCCESS)
@@ -121,7 +121,7 @@ namespace engine
 		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(mCommandBuffer);
 		VkSubmitInfo2 submit = submitInfo(&cmdinfo);
 
-		vkres = vkQueueSubmit2(mGraphicsQueue, 1, &submit, fence);
+		vkres = vkQueueSubmit2(mQueue, 1, &submit, fence);
 		if (vkres != VK_SUCCESS)
 			return { vkResultToStr(vkres) };
 
@@ -171,7 +171,7 @@ namespace engine
 		if (result != VK_SUCCESS)
 			return { vkResultToStr(result) };
 
-		result = vkQueueSubmit2(mGraphicsQueue, 1, &submit, VK_NULL_HANDLE);
+		result = vkQueueSubmit2(mQueue, 1, &submit, VK_NULL_HANDLE);
 		if (result != VK_SUCCESS)
 			return { vkResultToStr(result) };
 

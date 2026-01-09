@@ -7,6 +7,7 @@
 
 namespace engine
 {
+	// Class is used only for dynamic binding.
 	class vulkanTexture : public texture
 	{
 	public:

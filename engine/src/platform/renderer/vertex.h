@@ -13,14 +13,8 @@ namespace engine
 	struct vertex
 	{
 		glm::vec3 position;
-		float _pad0;
-
 		glm::vec2 textureCoords;
-		glm::vec2 _pad1;
-
 		glm::vec3 normal;
-		float _pad2;
-
 		glm::vec4 tangent;
 	};
 
@@ -44,13 +38,6 @@ namespace engine
 		
 		glm::mat4 modelMatrix;
 		glm::mat4 normalMatrix;
-
-		uint32_t albedoIndex;
-		uint32_t roughnessIndex;
-		uint32_t normalIndex;
-		uint32_t metalicIndex;
-		uint32_t aoIndex;
-		uint32_t _pad0[3];
 	};
 
 	struct meshletBounds
@@ -75,7 +62,7 @@ namespace engine
 		uint32_t triangleBufferIndex;
 		uint32_t triangleBufferOffset;
 		uint32_t triangleCount;
-
+		
 		meshletBounds bounds;
 	};
 
@@ -111,22 +98,25 @@ namespace engine
 		}
 	};
 
+	struct materialTextures
+	{
+		std::shared_ptr<texture> albedo;
+		std::shared_ptr<texture> normal;
+		std::shared_ptr<texture> metallicRoughness;
+	};
+
 	struct material
 	{
 		std::shared_ptr<shader> pixelShader;
-
-		std::shared_ptr<texture> albedoTexture;
-		std::shared_ptr<texture> roughnessTexture;
-		std::shared_ptr<texture> normalTexture;
-		std::shared_ptr<texture> metalicTexture;
+		std::map<uint32_t, materialTextures> meshletToMaterialMappings;
 	};
 
 	struct model
 	{
 		uint32_t id;
-		material mat;
-		mesh meshData;
 		perInstanceAttr instanceAttributes;
+		mesh meshData;
+		material mat;
 	};
 
 	struct frustum
@@ -148,15 +138,12 @@ namespace engine
 	struct uboPerDraw
 	{
 		glm::mat4 debugViewProjection;
-
+		
 		glm::vec3 cameraPos;
 		uint32_t useDebugCamera;
-		
 		glm::vec3 cameraFront;
-		float _pad2;
 		
 		glm::vec3 cameraUp;
-		float _pad3;
 
 		glm::mat4 view;
 		glm::mat4 projection;

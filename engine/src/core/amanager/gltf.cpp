@@ -1,5 +1,4 @@
 #include <pch.h>
-#define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 #include <glm/gtc/quaternion.hpp>
 #include <meshoptimizer.h>
@@ -19,7 +18,7 @@ namespace engine
 		std::vector<glm::vec3> tan2{};
 		tan2.resize(v.size());
 
-		for (size_t i = 0; i < index.size(); i+=3)
+		for (size_t i = 0; i < index.size(); i += 3)
 		{
 			uint32_t i1 = index[i];
 			uint32_t i2 = index[i + 1];
@@ -247,7 +246,7 @@ namespace engine
 		return {};
 	}
 
-	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<vertex>& vertices)
+	static std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<vertex>& vertices)
 	{
 		auto findFarthest = [&](glm::vec3 point)-> glm::vec3
 			{
@@ -473,6 +472,7 @@ namespace engine
 					uint32_t packed = ((static_cast<uint32_t>(vIdx0) & 0xFF) << 0) |
 						((static_cast<uint32_t>(vIdx1) & 0xFF) << 8) |
 						((static_cast<uint32_t>(vIdx2) & 0xFF) << 16);
+
 					primitive.push_back(packed);
 				}
 
@@ -532,7 +532,6 @@ namespace engine
 						.triangleBufferIndex = 0,
 						.triangleBufferOffset = m.triangle_offset + primitiveLodOffset,
 						.triangleCount = m.triangle_count,
-
 						.bounds = meshletBounds{
 							.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
 							.radius = bounds.radius,

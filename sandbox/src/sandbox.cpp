@@ -63,12 +63,15 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto lodMesh = engine::loadMesh("../assets/trofy.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.0f);
+				auto lodMesh = engine::loadMesh("../assets/backpack.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.0f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");
 					return {};
 				}
+
+				mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
+				mCtx->mAmanager->loadModelGLTF("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf");
 
 				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsTest.spv");
 				if (!pixel)
@@ -77,17 +80,13 @@ namespace sandbox
 					return {};
 				}
 
-				engine::material mat{
+				engine::material mats{
 					.pixelShader = pixel.value(),
-					.albedoTexture = nullptr,
-					.roughnessTexture = nullptr,
-					.normalTexture = nullptr,
-					.metalicTexture = nullptr,
 				};
 
 				engine::entity e{ mCtx, registry };
 
-				e.addComponent<engine::materialComponent>(mat);
+				e.addComponent<engine::materialComponent>(mats);
 
 				e.addComponent<engine::meshComponent>(lodMesh.value());
 
@@ -98,7 +97,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::r)
 			{
-				auto lodMesh = engine::loadMesh("../assets/horse_statue_01_4k.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
+				auto lodMesh = engine::loadMesh("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
 				if (!lodMesh)
 				{
 					LOGERROR("error loading mesh");
@@ -112,17 +111,13 @@ namespace sandbox
 					return {};
 				}
 
-				engine::material mat{
+				engine::material mats{
 					.pixelShader = pixel.value(),
-					.albedoTexture = nullptr,
-					.roughnessTexture = nullptr,
-					.normalTexture = nullptr,
-					.metalicTexture = nullptr,
 				};
 
 				engine::entity e{ mCtx, registry };
 
-				e.addComponent<engine::materialComponent>(mat);
+				e.addComponent<engine::materialComponent>(mats);
 
 				e.addComponent<engine::meshComponent>(lodMesh.value());
 

@@ -24,6 +24,7 @@ namespace engine
 		return true;
 	}
 
+	// Class is used only for dynamic binding.
 	vulkanShader::vulkanShader(VkDevice device, const std::vector<uint32_t>& src)
 		:
 		shader(src),

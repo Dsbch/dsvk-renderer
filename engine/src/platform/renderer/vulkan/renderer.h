@@ -28,6 +28,7 @@ namespace engine
 		pipelineReg,
 		sampler,
 		vulkanBuf,
+		vulkanTex,
 	};
 
 	struct destroyTask
@@ -45,6 +46,7 @@ namespace engine
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;
 			pipelineRegistry* pipelineReg;
+			vulkanTexture* texture;
 		};
 	};
 
@@ -137,9 +139,6 @@ namespace engine
 
 		VkSurfaceKHR mSurface;
 		swapChain mSwapChain;
-
-		VkQueue mTransferQueue;
-		uint32_t mTransferQueueFamily;
 
 		VkQueue mGraphicsQueue;
 		uint32_t mGraphicsQueueFamily;
