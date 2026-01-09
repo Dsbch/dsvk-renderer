@@ -39,7 +39,7 @@ namespace engine
 				ctxPtr->mThreadPool->start(
 					[ctxPtr = ctxPtr, device = device]()
 					{
-						while (ctxPtr->mThreadPool->isAppRunning())
+						while (ctxPtr->mThreadPool->isThreadPoolRunning() || !semaToDelete.empty())
 						{
 							{
 								std::lock_guard m{ mu };

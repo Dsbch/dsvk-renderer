@@ -1,12 +1,17 @@
 #include <pch.h>
 
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_RECT_PACK_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define CGLTF_IMPLEMENTATION
+
 #include <stb_image.h>
+#include <stb_image_write.h>
+#include <stb_rect_pack.h>
 #include "aManager.h"
 #include "gltf.h"
 #include "platform/renderer/renderer.h"
 
-#define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 #include <meshoptimizer.h>
 #include <glm/gtc/quaternion.hpp>
@@ -694,7 +699,7 @@ namespace engine
 		auto processMaterial = [&](const cgltf_material* gltfMaterial) -> withError<materialTextures>
 			{
 				materialTextures result;
-				
+
 				std::filesystem::path baseDir = std::filesystem::path{ path }.parent_path();
 
 				if (gltfMaterial->has_pbr_metallic_roughness)
@@ -822,5 +827,107 @@ namespace engine
 		cgltf_free(data);
 
 		return result;
+	}
+
+	void aManager::testTextureAtlassing()
+	{
+		struct Img {
+			int w, h, comp;
+			int padding;
+			unsigned char* data;
+		};
+
+		std::vector<Img> images;
+		std::vector<std::string> names = {
+			"../assets/test/1.jpg",
+			"../assets/test/2.jpg",
+			"../assets/test/3.jpg",
+		};
+
+		for (auto& n : names)
+		{
+			Img img;
+
+			img.data = stbi_load(n.c_str(), &img.w, &img.h, &img.comp, 4);
+			if (!img.data)
+				return;
+
+			img.padding = std::max(img.w, img.h) / 128;
+
+			images.push_back(img);
+		}
+
+		std::vector<stbrp_rect> rects(images.size());
+
+		for (int i = 0; i < images.size(); i++)
+		{
+			rects[i].id = i;
+			rects[i].w = images[i].w + images[i].padding * 2;
+			rects[i].h = images[i].h + images[i].padding * 2;
+		}
+
+		int maxWidth = 0;
+		int maxHeight = 0;
+		int totalArea = 0;
+
+		for (int i = 0; i < images.size(); i++)
+		{
+			maxWidth = std::max(images[i].w, maxWidth);
+			maxHeight = std::max(images[i].h, maxHeight);
+			totalArea += images[i].w * images[i].h;
+		}
+
+		int size = 1;
+		while (size * size < totalArea) size <<= 1;
+
+		size = std::max(size, maxWidth);
+		size = std::max(size, maxHeight);
+
+		while (true)
+		{
+			stbrp_context ctx;
+			std::vector<stbrp_node> nodes(size);
+
+			stbrp_init_target(&ctx, size, size, nodes.data(), size);
+			if (stbrp_pack_rects(&ctx, rects.data(), int(rects.size())))
+				break;
+
+			size *= 2;
+		}
+
+		std::vector<unsigned char> atlas(size * size * 4, 0);
+
+		for (auto& r : rects)
+		{
+			if (!r.was_packed) continue;
+
+			Img& img = images[r.id];
+
+			// write main image.
+			for (int y = 0; y < img.h; y++)
+			{
+				unsigned char* src = img.data + y * img.w * 4;
+				unsigned char* dst = atlas.data() + ((r.y + y + img.padding) * size + r.x + img.padding) * 4;
+
+				std::memcpy(dst, src, img.w * 4);
+			}
+
+			// write padding.
+			// Right.
+			for (int i = 0; i < img.h; i++)
+			{
+				unsigned char* dst = atlas.data() + 4*img.padding*img.w + (img.padding + img.w)*4*(i+1);
+
+				std::memset(dst, 122, img.padding * 4);
+			}
+		}
+
+		if (!stbi_write_jpg("../assets/test/atlas.jpg", size, size, 4, atlas.data(), 90))
+			LOGERROR("can't write image");
+
+		for (auto& i : images)
+		{
+			stbi_image_free(i.data);
+		}
 	}
 }

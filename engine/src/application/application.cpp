@@ -132,7 +132,9 @@ namespace engine
 
 	application::~application()
 	{
-		LOGINFO("application destructor");
+		// Make sure all user threads are dead.
+		mCtx->mThreadPool->destroy();
+
 #ifdef DEBUG
 		DUMP_PROFILING("prof.json");
 #endif // DEBUG

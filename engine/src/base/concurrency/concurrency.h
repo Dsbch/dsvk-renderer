@@ -18,8 +18,6 @@ namespace engine {
 		std::condition_variable mCv;
 	};
 
-	class threadPool;
-
 	class threadQueue
 	{
 	private:
@@ -45,7 +43,7 @@ namespace engine {
 		size_t size();
 	};
 
-	class threadPool
+	struct threadPool
 	{
 	private:
 		std::mutex mMutex;
@@ -56,12 +54,13 @@ namespace engine {
 
 		uint32_t mMaxThreads;
 	public:
-		threadPool();
-		~threadPool();
+		void init();
+		void destroy();
+
+		bool isThreadPoolRunning();
+
 		template<class T>
 		void start(T&&);
-
-		bool isAppRunning();
 	};
 
 	template<class predicate>

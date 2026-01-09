@@ -27,6 +27,8 @@ namespace engine
 			size_t maxTriangles = 64,
 			float coneWieght = 0.0f
 		);
+
+		void testTextureAtlassing();
 	private:
 		withError<std::shared_ptr<texture>> loadRawTexture(const uint8_t* data, size_t size);
 

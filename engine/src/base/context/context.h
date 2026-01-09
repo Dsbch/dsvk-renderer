@@ -18,5 +18,6 @@ namespace engine
 		cfg<mainCfg> config;
 		
 		context(cfg<mainCfg> config);
+		~context();
 	};
 }

@@ -67,8 +67,12 @@ namespace engine
 		}
 	}
 
-	threadPool::threadPool() : mMaxThreads(std::thread::hardware_concurrency() / 2), mWatchThread(nullptr), mRunning(true)
+	void threadPool::init()
 	{
+		mMaxThreads = std::thread::hardware_concurrency() / 2;
+		mWatchThread = nullptr;
+		mRunning = true;
+
 		for (uint32_t i = 0; i < mMaxThreads; i++)
 		{
 			mThreadList.emplace_back();
@@ -78,15 +82,17 @@ namespace engine
 		mWatchThread = std::make_unique<std::thread>(&threadPool::watchPool, this);
 	}
 
-	threadPool::~threadPool()
+	void threadPool::destroy()
 	{
 		mRunning = false;
 
 		if (mWatchThread.get() && mWatchThread->joinable())
 			mWatchThread->join();
+
+		mThreadList.clear();
 	}
 
-	bool threadPool::isAppRunning()
+	bool threadPool::isThreadPoolRunning()
 	{
 		return mRunning;
 	}
@@ -97,7 +103,7 @@ namespace engine
 		{
 			mCond.wait([&] { return (!mQueue.empty() && mRunning) || !mRunning; });
 
-			while (!mQueue.empty() && mRunning)
+			while (!mQueue.empty())
 			{
 				mMutex.lock();
 				auto func = mQueue.front();

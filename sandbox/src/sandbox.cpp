@@ -70,8 +70,10 @@ namespace sandbox
 					return {};
 				}
 
-				mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
-				mCtx->mAmanager->loadModelGLTF("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf");
+				//mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
+				//mCtx->mAmanager->loadModelGLTF("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf");
+
+				//mCtx->mAmanager->testTextureAtlassing();
 
 				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsTest.spv");
 				if (!pixel)
