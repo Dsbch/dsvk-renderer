@@ -8,6 +8,12 @@ namespace engine
 	class texture;
 	class shader;
 
+	struct atlasMapping
+	{
+		int index; // Index to a input array.
+		int x, y; // Offsets for X, Y.
+	};
+
 	class aManager
 	{
 	public:
@@ -30,6 +36,16 @@ namespace engine
 
 		void testTextureAtlassing();
 	private:
+		struct image
+		{
+			uint8_t* data;
+			int w, h;
+			int padding;
+			int channels;
+		};
+
+		withError<std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>>> makeTextureAtlas(const std::vector<image>& images);
+
 		withError<std::shared_ptr<texture>> loadRawTexture(const uint8_t* data, size_t size);
 
 		std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)> makeShader;
@@ -39,6 +55,7 @@ namespace engine
 		withError<std::shared_ptr<shader>> getShader(const std::string& shaderPath);
 		
 		std::map<uint32_t, std::shared_ptr<texture>> mLoadedTextures;
+		std::map<uint32_t, std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>>> mLoadedTextureAtlases;
 		std::map<uint32_t, std::shared_ptr<shader>> mLoadedShaders;
 	};
 }

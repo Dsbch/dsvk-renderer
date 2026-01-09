@@ -829,33 +829,21 @@ namespace engine
 		return result;
 	}
 
-	void aManager::testTextureAtlassing()
+	withError<std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>>> aManager::makeTextureAtlas(const std::vector<image>& images)
 	{
-		struct Img {
-			int w, h, comp;
-			int padding;
-			unsigned char* data;
-		};
+		std::vector<uint32_t> crcVals;
 
-		std::vector<Img> images;
-		std::vector<std::string> names = {
-			"../assets/test/1.jpg",
-			"../assets/test/2.jpg",
-			"../assets/test/3.jpg",
-		};
-
-		for (auto& n : names)
+		for (auto& i : images)
 		{
-			Img img;
-
-			img.data = stbi_load(n.c_str(), &img.w, &img.h, &img.comp, 4);
-			if (!img.data)
-				return;
-
-			img.padding = std::max(img.w, img.h) / 128;
-
-			images.push_back(img);
+			crcVals.push_back(crc32(i.data, i.w * i.h * i.channels));
 		}
+
+		uint32_t merged = crc32(reinterpret_cast<uint8_t*>(crcVals.data()), crcVals.size() * sizeof(uint32_t));
+
+		if (auto found = mLoadedTextureAtlases.find(merged); found != mLoadedTextureAtlases.end())
+			return found->second;
+
+		std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>> result{ nullptr, {} };
 
 		std::vector<stbrp_rect> rects(images.size());
 
@@ -872,16 +860,15 @@ namespace engine
 
 		for (int i = 0; i < images.size(); i++)
 		{
-			maxWidth = std::max(images[i].w, maxWidth);
-			maxHeight = std::max(images[i].h, maxHeight);
-			totalArea += images[i].w * images[i].h;
+			maxWidth = std::max(images[i].w + images[i].padding * 2, maxWidth);
+			maxHeight = std::max(images[i].h + images[i].padding * 2, maxHeight);
+			totalArea += (images[i].w + images[i].padding * 2) * (images[i].h + images[i].padding * 2);
 		}
 
-		int size = 1;
-		while (size * size < totalArea) size <<= 1;
-
-		size = std::max(size, maxWidth);
+		int size = std::max(size, maxWidth);
 		size = std::max(size, maxHeight);
+
+		while (size * size < totalArea) size *= 2;
 
 		while (true)
 		{
@@ -895,13 +882,14 @@ namespace engine
 			size *= 2;
 		}
 
-		std::vector<unsigned char> atlas(size * size * 4, 0);
+		std::vector<uint8_t> atlas(size * size * 4, 0);
 
 		for (auto& r : rects)
 		{
-			if (!r.was_packed) continue;
+			if (!r.was_packed)
+				return error{ "texture wasn't packed" };
 
-			Img& img = images[r.id];
+			auto img = images[r.id];
 
 			// write main image.
 			for (int y = 0; y < img.h; y++)
@@ -912,18 +900,161 @@ namespace engine
 				std::memcpy(dst, src, img.w * 4);
 			}
 
-			// write padding.
-			// Right.
-			for (int i = 0; i < img.h; i++)
-			{
-				unsigned char* dst = atlas.data() + 4*img.padding*img.w + (img.padding + img.w)*4*(i+1);
+			// Write padding.
+			auto base = atlas.data();
 
-				std::memset(dst, 122, img.padding * 4);
+			// Top.
+			for (int i = 0; i < img.w + img.padding * 2; i++)
+			{
+				int x = r.x + i;
+				int y = r.y;
+
+				unsigned char* dst = base + (x + y * size) * 4;
+
+				unsigned char* colorPtr = base + (x + (y + img.padding) * size) * 4;
+
+				unsigned char r = *colorPtr;
+				unsigned char g = *(colorPtr + 1);
+				unsigned char b = *(colorPtr + 2);
+				unsigned char a = *(colorPtr + 3);
+
+				for (int k = 0; k < img.padding; k++)
+				{
+					dst[0] = r;
+					dst[1] = g;
+					dst[2] = b;
+					dst[3] = a;
+
+					dst += size * 4;
+				}
+			}
+
+			// Bottom.
+			for (int i = 0; i < img.w + img.padding * 2; i++)
+			{
+				int x = r.x + i;
+				int y = r.y + img.padding + img.h;
+
+				unsigned char* dst = base + (x + y * size) * 4;
+
+				unsigned char* colorPtr = base + (x + (y - 1) * size) * 4;
+
+				unsigned char r = *colorPtr;
+				unsigned char g = *(colorPtr + 1);
+				unsigned char b = *(colorPtr + 2);
+				unsigned char a = *(colorPtr + 3);
+
+				for (int k = 0; k < img.padding; k++)
+				{
+					dst[0] = r;
+					dst[1] = g;
+					dst[2] = b;
+					dst[3] = a;
+
+					dst += size * 4;
+				}
+			}
+
+			// Right.
+			for (int i = 0; i < img.h + img.padding * 2; i++)
+			{
+				int x = r.x + img.padding + img.w;
+				int y = r.y + i;
+
+				unsigned char* dst = base + (x + y * size) * 4;
+
+				unsigned char* colorPtr = dst - 4;
+
+				unsigned char r = *colorPtr;
+				unsigned char g = *(colorPtr + 1);
+				unsigned char b = *(colorPtr + 2);
+				unsigned char a = *(colorPtr + 3);
+
+				for (int k = 0; k < img.padding; k++)
+				{
+					dst[0] = r;
+					dst[1] = g;
+					dst[2] = b;
+					dst[3] = a;
+
+					dst += 4;
+				}
+			}
+
+			// Left.
+			for (int i = 0; i < img.h + img.padding * 2; i++)
+			{
+				int x = r.x;
+				int y = r.y + i;
+
+				unsigned char* dst = base + (x + y * size) * 4;
+
+				unsigned char* colorPtr = dst + img.padding * 4;
+
+				unsigned char r = *colorPtr;
+				unsigned char g = *(colorPtr + 1);
+				unsigned char b = *(colorPtr + 2);
+				unsigned char a = *(colorPtr + 3);
+
+				for (int k = 0; k < img.padding; k++)
+				{
+					dst[0] = r;
+					dst[1] = g;
+					dst[2] = b;
+					dst[3] = a;
+
+					dst += 4;
+				}
 			}
 		}
 
-		if (!stbi_write_jpg("../assets/test/atlas.jpg", size, size, 4, atlas.data(), 90))
-			LOGERROR("can't write image");
+		auto atlasTexture = makeTexture(atlas.data(), size, size, rgba);
+		if (!atlasTexture)
+			return atlasTexture.err();
+
+		result.first = atlasTexture.value();
+
+		for (auto& r : rects)
+		{
+			result.second.push_back(
+				atlasMapping{
+					.index = r.id,
+					.x = r.w,
+					.y = r.h,
+				}
+				);
+		}
+
+		mLoadedTextureAtlases[merged] = result;
+
+		return result;
+	}
+
+	void aManager::testTextureAtlassing()
+	{
+		std::vector<aManager::image> images;
+		std::vector<std::string> names = {
+			"../assets/test/1.jpg",
+			"../assets/test/2.jpg",
+			"../assets/test/3.jpg",
+			"../assets/test/4.png",
+			"../assets/test/5.png",
+		};
+
+		for (auto& n : names)
+		{
+			aManager::image img;
+
+			img.data = stbi_load(n.c_str(), &img.w, &img.h, &img.channels, 4);
+			if (!img.data)
+				return;
+
+			img.padding = std::max(img.w, img.h) / 128;
+
+			images.push_back(img);
+		}
+
+		auto texture = makeTextureAtlas(images);
 
 		for (auto& i : images)
 		{
