@@ -44,7 +44,7 @@ namespace engine
 							{
 								std::lock_guard m{ mu };
 
-								if (!semaToDelete.empty())
+								while (!semaToDelete.empty())
 								{
 									auto sema = semaToDelete.back();
 
@@ -69,7 +69,7 @@ namespace engine
 								}
 							}
 
-							std::this_thread::sleep_for(std::chrono::milliseconds(5));
+							std::this_thread::sleep_for(std::chrono::milliseconds(10));
 						}
 					}
 				);

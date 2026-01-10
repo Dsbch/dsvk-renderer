@@ -313,6 +313,7 @@ uint3 unpackUint(uint packed)
 
 struct meshOutput
 {
+    nointerpolation uint albedoIndex : TEXCOORD1;
     float4 position : SV_POSITION;
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
@@ -401,6 +402,7 @@ void msmain(
         
         vertices[gtid].color = color;
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
+        vertices[gtid].albedoIndex = instanceAttr.albedoIndex;
     }
 }
 
@@ -410,7 +412,8 @@ void msmain(
 
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    return input.color;
+    float4 color = albedo[input.albedoIndex].Sample(albedoSamplers[input.albedoIndex], input.uv);
+    return color;
 }
 
 // PIXEL SHADER END.

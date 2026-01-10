@@ -105,7 +105,7 @@ namespace engine
 	struct materialTextures
 	{
 		std::shared_ptr<texture> albedoAtlas;
-		std::shared_ptr<texture> normalAtals;
+		std::shared_ptr<texture> normalAtlas;
 		std::shared_ptr<texture> metalicRoughnesAtlas;
 	};
 

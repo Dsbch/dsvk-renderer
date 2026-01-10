@@ -74,8 +74,7 @@ namespace engine
 
 		uint32_t albedoBinding;
 		uint32_t normalBinding;
-		uint32_t roughnessBinding;
-		uint32_t metalicBinding;
+		uint32_t metalicRoughnesBinding;
 	};
 
 	struct limits
@@ -167,9 +166,8 @@ namespace engine
 		vulkanBuffer mUniformBuffer;
 
 		textureRegistry mAlbedoRegistry;
-		textureRegistry mRoughnessRegistry;
 		textureRegistry mNormalRegistry;
-		textureRegistry mMetalicRegistry;
+		textureRegistry mMetalicRoughnesRegistry;
 	};
 
 	inline VkRenderingAttachmentInfo depthAttachmentInfo(

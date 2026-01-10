@@ -76,6 +76,7 @@ namespace sandbox
 
 				engine::material mats{
 					.pixelShader = pixel.value(),
+					.textures = loadedModel.value().mat.textures,
 				};
 
 				engine::entity e{ mCtx, registry };
@@ -91,7 +92,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::r)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/horse_statue_01_4k.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/astoria.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
@@ -104,6 +105,7 @@ namespace sandbox
 
 				engine::material mats{
 					.pixelShader = pixel.value(),
+					.textures = loadedModel.value().mat.textures,
 				};
 
 				engine::entity e{ mCtx, registry };
@@ -112,7 +114,7 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(generateMatrix());
+				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.03f, 0.03f, 0.03f)));
 
 				e.addComponent<engine::newEntityComponent>();
 			}

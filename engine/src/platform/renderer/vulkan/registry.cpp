@@ -164,13 +164,12 @@ namespace engine
 		mUploadedTextures[id] = uint32_t(mTextures.size());
 		mNeedUpdate = true;
 
-		return uint32_t(mTextures.size());
+		return uint32_t(mTextures.size()) - 1;
 	}
 
 	void textureRegistry::deleteTexture(uint32_t offset)
 	{
 		mTextures.erase(mTextures.begin() + offset);
-		mNeedUpdate = true;
 	}
 
 	// here destroy does nothing, because ECS will destroy all textures.

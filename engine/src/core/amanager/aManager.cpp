@@ -869,9 +869,9 @@ namespace engine
 		if (!materials)
 			return materials.err();
 
-		auto metalicRougnesAtlas = makeTextureAtlas(materials.value().metalicRoughnes);
-		if (!metalicRougnesAtlas)
-			return metalicRougnesAtlas.err();
+		auto metalicRoughnesAtlas = makeTextureAtlas(materials.value().metalicRoughnes);
+		if (!metalicRoughnesAtlas)
+			return metalicRoughnesAtlas.err();
 
 		auto normalAtlas = makeTextureAtlas(materials.value().normal);
 		if (!normalAtlas)
@@ -880,6 +880,10 @@ namespace engine
 		auto albedoAtlas = makeTextureAtlas(materials.value().albedo);
 		if (!albedoAtlas)
 			return albedoAtlas.err();
+
+		result.mat.textures.albedoAtlas = albedoAtlas.value().first;
+		result.mat.textures.normalAtlas = normalAtlas.value().first;
+		result.mat.textures.metalicRoughnesAtlas = metalicRoughnesAtlas.value().first;
 
 		for (int i = 0; i < result.meshData.vertex->size(); i++)
 		{

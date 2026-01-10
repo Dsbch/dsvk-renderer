@@ -222,7 +222,7 @@ namespace engine
 
 		mGeometryBinding = geometryPipelineBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 11,
+			.totalDescriptorsCount = 10,
 
 			.vertexBinding = 0,
 			.perInstanceBinding = 1,
@@ -235,8 +235,7 @@ namespace engine
 
 			.albedoBinding = 7,
 			.normalBinding = 8,
-			.roughnessBinding = 9,
-			.metalicBinding = 10,
+			.metalicRoughnesBinding = 9,
 		};
 
 		return {};
@@ -356,14 +355,12 @@ namespace engine
 		mDeletionQueue.push_back(destroyTask{ .type = sampler, .sampler = &mSampler });
 
 		mAlbedoRegistry.init(mSampler);
-		mRoughnessRegistry.init(mSampler);
+		mMetalicRoughnesRegistry.init(mSampler);
 		mNormalRegistry.init(mSampler);
-		mMetalicRegistry.init(mSampler);
 
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAlbedoRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mRoughnessRegistry });
+		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRoughnesRegistry });
 		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mNormalRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRegistry });
 
 		// init uniform buffer.
 		mUniformBuffer.init(mDevice, mAllocator);
@@ -508,13 +505,7 @@ namespace engine
 
 		mDescriptorSetMesh.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.roughnessBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.metalicBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mGeometryBinding.metalicRoughnesBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
@@ -640,18 +631,11 @@ namespace engine
 			mNormalRegistry.setUpdated();
 		}
 
-		if (mRoughnessRegistry.needDescriptorUpdate())
+		if (mMetalicRoughnesRegistry.needDescriptorUpdate())
 		{
-			auto writeInfo = mRoughnessRegistry.getWriteInfo(mGeometryBinding.roughnessBinding);
+			auto writeInfo = mMetalicRoughnesRegistry.getWriteInfo(mGeometryBinding.metalicRoughnesBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
-			mRoughnessRegistry.setUpdated();
-		}
-
-		if (mMetalicRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mMetalicRegistry.getWriteInfo(mGeometryBinding.metalicBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mMetalicRegistry.setUpdated();
+			mMetalicRoughnesRegistry.setUpdated();
 		}
 
 		return {};
@@ -845,7 +829,21 @@ namespace engine
 
 	error vulkanRenderer::uploadMaterialData(model& m)
 	{
-		// TODO: upload material data.
+		// material data.
+		if (m.mat.textures.albedoAtlas)
+		{
+			m.instanceAttributes.albedoIndex = mAlbedoRegistry.addTexture(m.mat.textures.albedoAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.albedoAtlas.get())->mImage);
+		}
+
+		if (m.mat.textures.normalAtlas)
+		{
+			m.instanceAttributes.normalIndex = mNormalRegistry.addTexture(m.mat.textures.normalAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.normalAtlas.get())->mImage);
+		}
+
+		if (m.mat.textures.metalicRoughnesAtlas)
+		{
+			m.instanceAttributes.metallicRoughnesIndex = mMetalicRoughnesRegistry.addTexture(m.mat.textures.metalicRoughnesAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.metalicRoughnesAtlas.get())->mImage);
+		}
 
 		return {};
 	}
@@ -899,30 +897,9 @@ namespace engine
 			mPrimitiveRegistry.deleteBlock(m.meshData.getHash());
 
 			mMeshletRegistry.deleteBlock(m.meshData.getHash());
-
-			// TODO:
-			// I need to update perInstance attrs in pipelineData after delete of textures.
-			// Deleting textures here is wrong!
-			/*if (m.mat.albedoTexture)
-			{
-				mAlbedoRegistry.deleteTexture(m.instanceAttributes.albedoIndex);
-			}
-
-			if (m.mat.normalTexture)
-			{
-				mAlbedoRegistry.deleteTexture(m.instanceAttributes.normalIndex);
-			}
-
-			if (m.mat.roughnessTexture)
-			{
-				mAlbedoRegistry.deleteTexture(m.instanceAttributes.roughnessIndex);
-			}
-
-			if (m.mat.metalicTexture)
-			{
-				mAlbedoRegistry.deleteTexture(m.instanceAttributes.metalicIndex);
-			}*/
 		}
+
+		// TODO: figure out how to delete texture atlasses when they are no logner used.
 	}
 
 	void vulkanRenderer::clear(VkCommandBuffer cmd)
