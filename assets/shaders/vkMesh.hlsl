@@ -55,6 +55,10 @@ struct perInstanceAttr
     float bsWorldRadius;
     float4x4 modelMatrix;
     float4x4 normalMatrix;
+
+    uint albedoIndex;
+    uint normalIndex;
+    uint metallicRoughnesIndex;
 };
 
 struct command

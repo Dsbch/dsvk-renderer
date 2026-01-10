@@ -38,6 +38,10 @@ namespace engine
 		
 		glm::mat4 modelMatrix;
 		glm::mat4 normalMatrix;
+
+		uint32_t albedoIndex;
+		uint32_t normalIndex;
+		uint32_t metallicRoughnesIndex;
 	};
 
 	struct meshletBounds
@@ -100,15 +104,15 @@ namespace engine
 
 	struct materialTextures
 	{
-		std::shared_ptr<texture> albedo;
-		std::shared_ptr<texture> normal;
-		std::shared_ptr<texture> metallicRoughness;
+		std::shared_ptr<texture> albedoAtlas;
+		std::shared_ptr<texture> normalAtals;
+		std::shared_ptr<texture> metalicRoughnesAtlas;
 	};
 
 	struct material
 	{
 		std::shared_ptr<shader> pixelShader;
-		std::map<uint32_t, materialTextures> meshletToMaterialMappings;
+		materialTextures textures;
 	};
 
 	struct model

@@ -63,17 +63,9 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto lodMesh = engine::loadMesh("../assets/backpack.glb", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.0f);
-				if (!lodMesh)
-				{
-					LOGERROR("error loading mesh");
-					return {};
-				}
-
-				//mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
-				//mCtx->mAmanager->loadModelGLTF("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf");
-
-				//mCtx->mAmanager->testTextureAtlassing();
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/horse_statue_01_4k.glb");
+				if (!loadedModel)
+					return loadedModel.err();
 
 				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsTest.spv");
 				if (!pixel)
@@ -90,7 +82,7 @@ namespace sandbox
 
 				e.addComponent<engine::materialComponent>(mats);
 
-				e.addComponent<engine::meshComponent>(lodMesh.value());
+				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
 				e.addComponent<engine::transformComponent>(generateMatrix());
 
@@ -99,12 +91,9 @@ namespace sandbox
 
 			if (event->getKey() == engine::r)
 			{
-				auto lodMesh = engine::loadMesh("../assets/oldsmobile_cutlass_supreme_sedan_71/scene.gltf", mCtx->config.inner.render.shaderWorkGroup, mCtx->config.inner.render.shaderWorkGroup, 0.5f);
-				if (!lodMesh)
-				{
-					LOGERROR("error loading mesh");
-					return {};
-				}
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/horse_statue_01_4k.glb");
+				if (!loadedModel)
+					return loadedModel.err();
 
 				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
 				if (!pixel)
@@ -121,7 +110,7 @@ namespace sandbox
 
 				e.addComponent<engine::materialComponent>(mats);
 
-				e.addComponent<engine::meshComponent>(lodMesh.value());
+				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
 				e.addComponent<engine::transformComponent>(generateMatrix());
 

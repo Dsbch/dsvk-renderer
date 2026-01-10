@@ -372,10 +372,7 @@ namespace engine
 						fabsf(lv.textureCoords.y - rv.textureCoords.y) < 1e-3f &&
 						fabsf(lv.normal.x - rv.normal.x) < 1e-3f &&
 						fabsf(lv.normal.y - rv.normal.y) < 1e-3f &&
-						fabsf(lv.normal.z - rv.normal.z) < 1e-3f &&
-						fabsf(lv.tangent.x - rv.tangent.x) < 1e-3f &&
-						fabsf(lv.tangent.y - rv.tangent.y) < 1e-3f &&
-						fabsf(lv.tangent.z - rv.tangent.z) < 1e-3f;
+						fabsf(lv.normal.z - rv.normal.z) < 1e-3f;
 				}
 			);
 

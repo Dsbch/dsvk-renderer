@@ -8,10 +8,10 @@ namespace engine
 	class texture;
 	class shader;
 
-	struct atlasMapping
+	struct atlasEntry
 	{
-		int index; // Index to a input array.
 		int x, y; // Offsets for X, Y.
+		int w, h;
 	};
 
 	class aManager
@@ -29,12 +29,10 @@ namespace engine
 
 		withError<model> loadModelGLTF(
 			const std::string& path,
-			size_t maxVert = 64,
-			size_t maxTriangles = 64,
+			size_t maxVert = 32,
+			size_t maxTriangles = 32,
 			float coneWieght = 0.0f
 		);
-
-		void testTextureAtlassing();
 	private:
 		struct image
 		{
@@ -44,7 +42,7 @@ namespace engine
 			int channels;
 		};
 
-		withError<std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>>> makeTextureAtlas(const std::vector<image>& images);
+		withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> makeTextureAtlas(const std::vector<image>& images);
 
 		withError<std::shared_ptr<texture>> loadRawTexture(const uint8_t* data, size_t size);
 
@@ -55,7 +53,8 @@ namespace engine
 		withError<std::shared_ptr<shader>> getShader(const std::string& shaderPath);
 		
 		std::map<uint32_t, std::shared_ptr<texture>> mLoadedTextures;
-		std::map<uint32_t, std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>>> mLoadedTextureAtlases;
+		std::map<uint32_t, std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> mLoadedTextureAtlases;
 		std::map<uint32_t, std::shared_ptr<shader>> mLoadedShaders;
+		std::map<uint32_t, model> mLoadedModels;
 	};
 }

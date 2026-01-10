@@ -381,10 +381,7 @@ namespace engine
 					fabsf(lv.textureCoords.y - rv.textureCoords.y) < 1e-3f &&
 					fabsf(lv.normal.x - rv.normal.x) < 1e-3f &&
 					fabsf(lv.normal.y - rv.normal.y) < 1e-3f &&
-					fabsf(lv.normal.z - rv.normal.z) < 1e-3f &&
-					fabsf(lv.tangent.x - rv.tangent.x) < 1e-3f &&
-					fabsf(lv.tangent.y - rv.tangent.y) < 1e-3f &&
-					fabsf(lv.tangent.z - rv.tangent.z) < 1e-3f;
+					fabsf(lv.normal.z - rv.normal.z) < 1e-3f;
 			}
 		);
 		if (vertex_count == 0)
@@ -511,6 +508,9 @@ namespace engine
 		float coneWieght
 	)
 	{
+		if (auto found = mLoadedModels.find(key(path)); found != mLoadedModels.end())
+			return found->second;
+
 		cgltf_options options{};
 		cgltf_data* data = nullptr;
 
@@ -696,95 +696,101 @@ namespace engine
 				return result;
 			};
 
-		auto processMaterial = [&](const cgltf_material* gltfMaterial) -> withError<materialTextures>
+		struct rawTextures
+		{
+			std::vector<aManager::image> albedo;
+			std::vector<aManager::image> normal;
+			std::vector<aManager::image> metalicRoughnes;
+		};
+
+		auto processTexture = [](const cgltf_texture* texture, const std::filesystem::path& baseDir) -> withError<aManager::image>
 			{
-				materialTextures result;
+				aManager::image img{};
+
+				if (texture->image->uri)
+				{
+					auto relativePath = baseDir / texture->image->uri;
+
+					img.data = stbi_load(relativePath.string().c_str(), &img.w, &img.h, &img.channels, 4);
+					if (!img.data)
+						return error{ "can't load texture with path: {}", relativePath.string() };
+
+					img.channels = 4;
+				}
+				else if (auto bufferView = texture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
+				{
+					uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
+					ptr += bufferView->offset;
+
+					img.data = stbi_load_from_memory(ptr, int(bufferView->size), &img.w, &img.h, &img.channels, 4);
+					if (!img.data)
+						return error{ "can't load texture" };
+
+					img.channels = 4;
+				}
+
+				img.padding = std::max(img.w, img.h) / 128;
+
+				return img;
+			};
+
+		auto processMaterials = [&](const cgltf_material* materialsPtr, int materialCount) -> withError<rawTextures>
+			{
+				rawTextures result;
 
 				std::filesystem::path baseDir = std::filesystem::path{ path }.parent_path();
 
-				if (gltfMaterial->has_pbr_metallic_roughness)
+				for (int i = 0; i < materialCount; i++)
 				{
-					// albedo.
-					if (auto albedoTexture = gltfMaterial->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
+					const cgltf_material* material = materialsPtr + i;
+
+					if (material->has_pbr_metallic_roughness)
 					{
-						if (albedoTexture->image->uri)
+						// albedo.
+						if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
 						{
-							auto relatiePath = baseDir / albedoTexture->image->uri;
+							auto rawTexture = processTexture(albedoTexture, baseDir);
+							if (!rawTexture)
+								return rawTexture.err();
 
-							auto albedo = loadTexture(relatiePath.string());
-							if (!albedo)
-								return albedo.err();
-
-							result.albedo = albedo.value();
+							result.albedo.push_back(rawTexture.value());
 						}
-						else if (auto bufferView = albedoTexture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
+						else
+							return error{ "albedo texture isn't defined for model: {}", path };
+
+						// metallic-roughness.
+						if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
 						{
-							uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
-							ptr += bufferView->offset;
+							auto rawTexture = processTexture(metalicRoughnesTexture, baseDir);
+							if (!rawTexture)
+								return rawTexture.err();
 
-							auto albedo = loadRawTexture(ptr, bufferView->size);
-							if (!albedo)
-								return albedo.err();
-
-							result.albedo = albedo.value();
-						}
-					}
-
-					// metallic-roughness.
-					if (auto metallicRoughness = gltfMaterial->pbr_metallic_roughness.metallic_roughness_texture.texture; metallicRoughness && metallicRoughness->image)
-					{
-						if (metallicRoughness->image->uri)
-						{
-							auto relatiePath = baseDir / metallicRoughness->image->uri;
-
-							auto metallicRougness = loadTexture(relatiePath.string());
-							if (!metallicRougness)
-								return metallicRougness.err();
-
-							result.metallicRoughness = metallicRougness.value();
-						}
-						else if (auto bufferView = metallicRoughness->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
-						{
-							uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
-							ptr += bufferView->offset;
-
-							auto metRoughness = loadRawTexture(ptr, bufferView->size);
-							if (!metRoughness)
-								return metRoughness.err();
-
-							result.metallicRoughness = metRoughness.value();
+							result.metalicRoughnes.push_back(rawTexture.value());
 						}
 					}
-				}
+					else
+						return error{ "metalicRoughnes texture isn't defined for model: {}", path };
 
-				// normal.
-				if (auto normalTexture = gltfMaterial->normal_texture.texture; normalTexture && normalTexture->image)
-				{
-					if (normalTexture->image->uri)
+					// normal.
+					if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
 					{
-						auto relatiePath = baseDir / normalTexture->image->uri;
+						auto rawTexture = processTexture(normalTexture, baseDir);
+						if (!rawTexture)
+							return rawTexture.err();
 
-						auto normal = loadTexture(relatiePath.string());
-						if (!normal)
-							return normal.err();
-
-						result.normal = normal.value();
+						result.normal.push_back(rawTexture.value());
 					}
-					else if (auto bufferView = normalTexture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
-					{
-						uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
-						ptr += bufferView->offset;
-
-						auto normal = loadRawTexture(ptr, bufferView->size);
-						if (!normal)
-							return normal.err();
-
-						result.normal = normal.value();
-					}
+					else
+						return error{ "normal texture isn't defined for model: {}", path };
 				}
 
 				return result;
 			};
+
+		// For UV recalculation.
+		std::vector<uint32_t> vertexToTextureMapping;
+		// For tangent calculation.
+		std::vector<uint32_t> remappedIndexBuffer;
 
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
 		{
@@ -798,8 +804,6 @@ namespace engine
 			for (size_t pri = 0; pri < mesh.primitives_count; ++pri)
 			{
 				primitive crntPrimitive = processPrimitive(mesh.primitives[pri], transform);
-
-				calculateTangents(crntPrimitive.vertecies, crntPrimitive.indicies);
 
 				std::vector<vertex> remappedVertex;
 				std::vector<uint32_t> remappedIndex;
@@ -818,19 +822,252 @@ namespace engine
 
 				std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
 
-				auto material = processMaterial(mesh.primitives[pri].material);
-				if (!material)
-					return material.err();
+				// Write indices for later lod level generation.
+				for (auto& i : remappedIndex)
+					remappedIndexBuffer.push_back(i + uint32_t(result.meshData.vertex->size()));
+
+				// Write material index for later UV remap.
+				for (auto _ : remappedVertex)
+					vertexToTextureMapping.push_back(uint32_t(mesh.primitives[pri].material - data->materials));
+				
+				for (auto& m : meshlets)
+				{
+					m.indexBufferOffset += uint32_t(result.meshData.index.data->size());
+					m.triangleBufferOffset += uint32_t(result.meshData.primitive.data->size());
+				}
+
+				for (auto& i : indices)
+					i += uint32_t(result.meshData.vertex->size());
+
+				result.meshData.index.data->insert(
+					result.meshData.index.data->end(),
+					std::move_iterator(indices.begin()),
+					std::move_iterator(indices.end())
+				);
+
+				result.meshData.primitive.data->insert(
+					result.meshData.primitive.data->end(),
+					std::move_iterator(repackedPrimitives.begin()),
+					std::move_iterator(repackedPrimitives.end())
+				);
+
+				result.meshData.mesh.data->insert(
+					result.meshData.mesh.data->end(),
+					std::move_iterator(meshlets.begin()),
+					std::move_iterator(meshlets.end())
+				);
+
+				result.meshData.vertex->insert(
+					result.meshData.vertex->end(),
+					std::move_iterator(remappedVertex.begin()),
+					std::move_iterator(remappedVertex.end())
+				);
 			}
+		}
+
+		auto materials = processMaterials(data->materials, int(data->materials_count));
+		if (!materials)
+			return materials.err();
+
+		auto metalicRougnesAtlas = makeTextureAtlas(materials.value().metalicRoughnes);
+		if (!metalicRougnesAtlas)
+			return metalicRougnesAtlas.err();
+
+		auto normalAtlas = makeTextureAtlas(materials.value().normal);
+		if (!normalAtlas)
+			return normalAtlas.err();
+		
+		auto albedoAtlas = makeTextureAtlas(materials.value().albedo);
+		if (!albedoAtlas)
+			return albedoAtlas.err();
+
+		for (int i = 0; i < result.meshData.vertex->size(); i++)
+		{
+			vertex& v = result.meshData.vertex->at(i);
+			uint32_t textureIndex = vertexToTextureMapping[i];
+
+			const atlasEntry& e = albedoAtlas.value().second[textureIndex];
+			const aManager::image& img = materials.value().albedo[textureIndex];
+
+			v.textureCoords.x = (float(e.x + img.padding) + v.textureCoords.x * float(img.w)) / float(e.w);
+			v.textureCoords.y = (float(e.y + img.padding) + v.textureCoords.y * float(img.h)) / float(e.h);
+		}
+
+		calculateTangents(*result.meshData.vertex.get(), remappedIndexBuffer);
+		auto sphere = calculateBoundingSphere(*result.meshData.vertex.get());
+
+		result.meshData.bsCenter = sphere.first;
+		result.meshData.bsRadius = sphere.second;
+
+		// Add lod levels.
+		std::vector<meshlet> meshlets;
+		std::vector<uint32_t> indices;
+		std::vector<uint8_t> primitives;
+
+		error err = generateMeshlets(
+			*result.meshData.vertex.get(),
+			remappedIndexBuffer,
+			meshlets,
+			primitives,
+			indices,
+			maxVert,
+			maxTriangles,
+			coneWieght,
+			0.01f,
+			remappedIndexBuffer.size() / 2
+		);
+		if (err)
+			return err;
+
+		std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
+
+		result.meshData.index.second = uint32_t(result.meshData.index.data->size());
+		result.meshData.primitive.second = uint32_t(result.meshData.primitive.data->size());
+		result.meshData.mesh.second = uint32_t(result.meshData.mesh.data->size());
+
+		for (auto& m : meshlets)
+		{
+			m.indexBufferOffset += result.meshData.index.second;
+			m.triangleBufferOffset += result.meshData.primitive.second;
+		}
+
+		result.meshData.index.data->insert(
+			result.meshData.index.data->end(),
+			std::move_iterator(indices.begin()),
+			std::move_iterator(indices.end())
+		);
+
+		result.meshData.primitive.data->insert(
+			result.meshData.primitive.data->end(),
+			std::move_iterator(repackedPrimitives.begin()),
+			std::move_iterator(repackedPrimitives.end())
+		);
+
+		result.meshData.mesh.data->insert(
+			result.meshData.mesh.data->end(),
+			std::move_iterator(meshlets.begin()),
+			std::move_iterator(meshlets.end())
+		);
+
+		meshlets.clear();
+		indices.clear();
+		primitives.clear();
+		repackedPrimitives.clear();
+
+		err = generateMeshlets(
+			*result.meshData.vertex.get(),
+			remappedIndexBuffer,
+			meshlets,
+			primitives,
+			indices,
+			maxVert,
+			maxTriangles,
+			coneWieght,
+			0.01f,
+			remappedIndexBuffer.size() / 3
+		);
+		if (err)
+			return err;
+
+		repackedPrimitives = repackPrimitives(primitives, meshlets);
+
+		result.meshData.index.third = uint32_t(result.meshData.index.data->size());
+		result.meshData.primitive.third = uint32_t(result.meshData.primitive.data->size());
+		result.meshData.mesh.third = uint32_t(result.meshData.mesh.data->size());
+
+		for (auto& m : meshlets)
+		{
+			m.indexBufferOffset += result.meshData.index.third;
+			m.triangleBufferOffset += result.meshData.primitive.third;
+		}
+
+		result.meshData.index.data->insert(
+			result.meshData.index.data->end(),
+			std::move_iterator(indices.begin()),
+			std::move_iterator(indices.end())
+		);
+
+		result.meshData.primitive.data->insert(
+			result.meshData.primitive.data->end(),
+			std::move_iterator(repackedPrimitives.begin()),
+			std::move_iterator(repackedPrimitives.end())
+		);
+
+		result.meshData.mesh.data->insert(
+			result.meshData.mesh.data->end(),
+			std::move_iterator(meshlets.begin()),
+			std::move_iterator(meshlets.end())
+		);
+
+		meshlets.clear();
+		indices.clear();
+		primitives.clear();
+		repackedPrimitives.clear();
+
+		err = generateMeshlets(
+			*result.meshData.vertex.get(),
+			remappedIndexBuffer,
+			meshlets,
+			primitives,
+			indices,
+			maxVert,
+			maxTriangles,
+			coneWieght,
+			0.01f,
+			remappedIndexBuffer.size() / 4
+		);
+		if (err)
+			return err;
+
+		repackedPrimitives = repackPrimitives(primitives, meshlets);
+
+		result.meshData.index.fourth = uint32_t(result.meshData.index.data->size());
+		result.meshData.primitive.fourth = uint32_t(result.meshData.primitive.data->size());
+		result.meshData.mesh.fourth = uint32_t(result.meshData.mesh.data->size());
+
+		for (auto& m : meshlets)
+		{
+			m.indexBufferOffset += result.meshData.index.fourth;
+			m.triangleBufferOffset += result.meshData.primitive.fourth;
+		}
+
+		result.meshData.index.data->insert(
+			result.meshData.index.data->end(),
+			std::move_iterator(indices.begin()),
+			std::move_iterator(indices.end())
+		);
+
+		result.meshData.primitive.data->insert(
+			result.meshData.primitive.data->end(),
+			std::move_iterator(repackedPrimitives.begin()),
+			std::move_iterator(repackedPrimitives.end())
+		);
+
+		result.meshData.mesh.data->insert(
+			result.meshData.mesh.data->end(),
+			std::move_iterator(meshlets.begin()),
+			std::move_iterator(meshlets.end())
+		);
+
+		for (int i = 0; i < materials.value().albedo.size(); i++)
+		{
+			stbi_image_free(materials.value().albedo[i].data);
+			stbi_image_free(materials.value().metalicRoughnes[i].data);
+			stbi_image_free(materials.value().normal[i].data);
 		}
 
 		cgltf_free(data);
 
+		mLoadedModels[key(path)] = result;
+
 		return result;
 	}
 
-	withError<std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>>> aManager::makeTextureAtlas(const std::vector<image>& images)
+	withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> aManager::makeTextureAtlas(const std::vector<aManager::image>& images)
 	{
+		if (images.empty())
+			return error{ "empty images" };
+
 		std::vector<uint32_t> crcVals;
 
 		for (auto& i : images)
@@ -838,12 +1075,12 @@ namespace engine
 			crcVals.push_back(crc32(i.data, i.w * i.h * i.channels));
 		}
 
-		uint32_t merged = crc32(reinterpret_cast<uint8_t*>(crcVals.data()), crcVals.size() * sizeof(uint32_t));
+		uint32_t mergedCrc = crc32(reinterpret_cast<uint8_t*>(crcVals.data()), crcVals.size() * sizeof(uint32_t));
 
-		if (auto found = mLoadedTextureAtlases.find(merged); found != mLoadedTextureAtlases.end())
+		if (auto found = mLoadedTextureAtlases.find(mergedCrc); found != mLoadedTextureAtlases.end())
 			return found->second;
 
-		std::pair<std::shared_ptr<texture>, std::vector<atlasMapping>> result{ nullptr, {} };
+		std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>> result{ nullptr, {} };
 
 		std::vector<stbrp_rect> rects(images.size());
 
@@ -1016,49 +1253,16 @@ namespace engine
 
 		for (auto& r : rects)
 		{
-			result.second.push_back(
-				atlasMapping{
-					.index = r.id,
-					.x = r.w,
-					.y = r.h,
-				}
-				);
+			result.second[r.id] = atlasEntry{
+					.x = r.x,
+					.y = r.y,
+					.w = r.w,
+					.h = r.h,
+			};
 		}
 
-		mLoadedTextureAtlases[merged] = result;
+		mLoadedTextureAtlases[mergedCrc] = result;
 
 		return result;
-	}
-
-	void aManager::testTextureAtlassing()
-	{
-		std::vector<aManager::image> images;
-		std::vector<std::string> names = {
-			"../assets/test/1.jpg",
-			"../assets/test/2.jpg",
-			"../assets/test/3.jpg",
-			"../assets/test/4.png",
-			"../assets/test/5.png",
-		};
-
-		for (auto& n : names)
-		{
-			aManager::image img;
-
-			img.data = stbi_load(n.c_str(), &img.w, &img.h, &img.channels, 4);
-			if (!img.data)
-				return;
-
-			img.padding = std::max(img.w, img.h) / 128;
-
-			images.push_back(img);
-		}
-
-		auto texture = makeTextureAtlas(images);
-
-		for (auto& i : images)
-		{
-			stbi_image_free(i.data);
-		}
 	}
 }
