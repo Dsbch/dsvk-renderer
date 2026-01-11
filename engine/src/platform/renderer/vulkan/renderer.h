@@ -96,16 +96,16 @@ namespace engine
 		error checkError() const;
 		error changeViewPort(uint32_t width, uint32_t height);
 		
-		error addToRender(model& m);
-		void removeFromRender(model& m);
+		error addToRender(const model& m);
+		void removeFromRender(const model& m);
 		
 		error render(renderer::renderCallIn in);
 
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel);
 	private:
-		error uploadMaterialData(model& m);
-		error uploadGeometryData(model& m);
+		withError<std::array<uint32_t, 3>> uploadMaterialData(const model& m);
+		error uploadGeometryData(const model& m, const std::array<uint32_t, 3> materialMappings);
 
 		error geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		void clear(VkCommandBuffer cmd);

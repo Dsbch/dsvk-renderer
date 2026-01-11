@@ -11,7 +11,8 @@ namespace engine
 	struct atlasEntry
 	{
 		int x, y; // Offsets for X, Y.
-		int w, h;
+		int size;
+		float downSampleScale;
 	};
 
 	class aManager
@@ -42,7 +43,9 @@ namespace engine
 			int channels;
 		};
 
-		withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> makeTextureAtlas(const std::vector<image>& images);
+		withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> makeTextureAtlas(std::vector<image> images);
+
+		withError<image> downSampleImage(const image& img, int trashHold);
 
 		withError<std::shared_ptr<texture>> loadRawTexture(const uint8_t* data, size_t size);
 

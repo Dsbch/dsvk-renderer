@@ -117,6 +117,7 @@ namespace engine
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 
 		bool instanceExists(uint32_t id) const;
+		bool meshIsUsed(uint32_t id) const;
 		struct taskShaderRender
 		{
 			VkPipeline pipeline;

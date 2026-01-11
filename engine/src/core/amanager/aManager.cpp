@@ -4,10 +4,12 @@
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define CGLTF_IMPLEMENTATION
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
 
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <stb_rect_pack.h>
+#include <stb_image_resize2.h>
 #include "aManager.h"
 #include "gltf.h"
 #include "platform/renderer/renderer.h"
@@ -805,6 +807,9 @@ namespace engine
 			{
 				primitive crntPrimitive = processPrimitive(mesh.primitives[pri], transform);
 
+				if (crntPrimitive.indicies.size() == 0 || crntPrimitive.vertecies.size() == 0)
+					continue;
+
 				std::vector<vertex> remappedVertex;
 				std::vector<uint32_t> remappedIndex;
 
@@ -829,7 +834,7 @@ namespace engine
 				// Write material index for later UV remap.
 				for (auto _ : remappedVertex)
 					vertexToTextureMapping.push_back(uint32_t(mesh.primitives[pri].material - data->materials));
-				
+
 				for (auto& m : meshlets)
 				{
 					m.indexBufferOffset += uint32_t(result.meshData.index.data->size());
@@ -876,7 +881,7 @@ namespace engine
 		auto normalAtlas = makeTextureAtlas(materials.value().normal);
 		if (!normalAtlas)
 			return normalAtlas.err();
-		
+
 		auto albedoAtlas = makeTextureAtlas(materials.value().albedo);
 		if (!albedoAtlas)
 			return albedoAtlas.err();
@@ -889,12 +894,15 @@ namespace engine
 		{
 			vertex& v = result.meshData.vertex->at(i);
 			uint32_t textureIndex = vertexToTextureMapping[i];
-
 			const atlasEntry& e = albedoAtlas.value().second[textureIndex];
 			const aManager::image& img = materials.value().albedo[textureIndex];
 
-			v.textureCoords.x = (float(e.x + img.padding) + v.textureCoords.x * float(img.w)) / float(e.w);
-			v.textureCoords.y = (float(e.y + img.padding) + v.textureCoords.y * float(img.h)) / float(e.h);
+			float scaledW = img.w * e.downSampleScale;
+			float scaledH = img.h * e.downSampleScale;
+			float scaledPadding = img.padding * e.downSampleScale;
+
+			v.textureCoords.x = (e.x + scaledPadding + v.textureCoords.x * scaledW) / e.size;
+			v.textureCoords.y = (e.y + scaledPadding + v.textureCoords.y * scaledH) / e.size;
 		}
 
 		calculateTangents(*result.meshData.vertex.get(), remappedIndexBuffer);
@@ -1062,12 +1070,14 @@ namespace engine
 
 		cgltf_free(data);
 
+		result.meshData.generateHash();
+
 		mLoadedModels[key(path)] = result;
 
 		return result;
 	}
 
-	withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> aManager::makeTextureAtlas(const std::vector<aManager::image>& images)
+	withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> aManager::makeTextureAtlas(std::vector<aManager::image> images)
 	{
 		if (images.empty())
 			return error{ "empty images" };
@@ -1249,23 +1259,86 @@ namespace engine
 			}
 		}
 
-		auto atlasTexture = makeTexture(atlas.data(), size, size, rgba);
-		if (!atlasTexture)
-			return atlasTexture.err();
-
-		result.first = atlasTexture.value();
-
-		for (auto& r : rects)
+		auto downSampled = downSampleImage(
+			aManager::image{
+				.data = atlas.data(),
+				.w = size,
+				.h = size,
+				.channels = 4,
+			},
+			2048
+			);
+		if (downSampled)
 		{
-			result.second[r.id] = atlasEntry{
-					.x = r.x,
-					.y = r.y,
-					.w = r.w,
-					.h = r.h,
-			};
+			auto atlasTexture = makeTexture(downSampled.value().data, downSampled.value().w, downSampled.value().h, rgba);
+			if (!atlasTexture)
+				return atlasTexture.err();
+
+			result.first = atlasTexture.value();
+
+			for (auto& r : rects)
+			{
+				result.second[r.id] = atlasEntry{
+						.x = int(r.x * downSampled.value().w / size),
+						.y = int(r.y * downSampled.value().w / size),
+						.size = downSampled.value().w,
+						.downSampleScale = downSampled.value().w / float(size),
+				};
+			}
+
+			free(downSampled.value().data);
+		}
+		else
+		{
+			auto atlasTexture = makeTexture(atlas.data(), size, size, rgba);
+			if (!atlasTexture)
+				return atlasTexture.err();
+
+			result.first = atlasTexture.value();
+
+			for (auto& r : rects)
+			{
+				result.second[r.id] = atlasEntry{
+						.x = r.x,
+						.y = r.y,
+						.size = size,
+						.downSampleScale = 1.0f,
+				};
+			}
 		}
 
 		mLoadedTextureAtlases[mergedCrc] = result;
+		return result;
+	}
+
+	withError<aManager::image> aManager::downSampleImage(const image& img, int trashHold)
+	{
+		if (std::max(img.h, img.w) <= trashHold)
+			return error{ "can't down sample" };
+
+		aManager::image result{};
+
+		float scale = trashHold / float(std::max(img.h, img.w));
+
+		result.w = int(img.w * scale);
+		result.h = int(img.h * scale);
+		result.channels = img.channels;
+
+		result.data = (uint8_t*)malloc(result.w * result.h * result.channels);
+
+		void* downSampledPtr = stbir_resize_uint8_srgb(
+			img.data,
+			img.w,
+			img.h,
+			0,
+			result.data,
+			result.w,
+			result.h,
+			0,
+			(stbir_pixel_layout)result.channels
+		);
+		if (!downSampledPtr)
+			return error{ "can't downsample img" };
 
 		return result;
 	}

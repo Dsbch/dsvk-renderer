@@ -13,19 +13,19 @@ namespace engine
 		const char* typeStr = (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) ? "VALIDATION" :
 			(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) ? "PERFORMANCE" : "GENERAL";
 
-		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) 
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
 			LOGERROR("[{}] {}", typeStr, pCallbackData->pMessage);
 		}
-		else 
-		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) 
-		{
-			LOGWARN("[{}] {}", typeStr, pCallbackData->pMessage);
-		}
-		else 
-		{
-			LOGINFO("[{}] {}", typeStr, pCallbackData->pMessage);
-		}
+		else
+			if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+			{
+				LOGWARN("[{}] {}", typeStr, pCallbackData->pMessage);
+			}
+			else
+			{
+				LOGINFO("[{}] {}", typeStr, pCallbackData->pMessage);
+			}
 
 		return VK_FALSE;
 	}
@@ -131,7 +131,7 @@ namespace engine
 		meshShaderFeatures.multiviewMeshShader = VK_TRUE;
 		meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_TRUE;
 		meshShaderFeatures.pNext = &shadingRateFeatures;
-		
+
 		// Chain to Vulkan 1.3 features
 		VkPhysicalDeviceVulkan13Features features13{};
 		features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -341,7 +341,7 @@ namespace engine
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
 
 		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerInstanceRegistry });
-		
+
 		mDeletionQueue.push_back(destroyTask{ .type = pipelineReg, .pipelineReg = &mPipelineRegistry });
 
 		auto samp = descriptorSet::createSampler(mDevice, mPhysicalDeviceLimits.maxFiltering);
@@ -580,7 +580,7 @@ namespace engine
 			mDescriptorSetMesh.updateWrite(writeInfo);
 			mPipelineRegistry.setUpdated();
 		}
-		
+
 		if (mVertexRegistry.needDescriptorUpdate())
 		{
 			auto writeInfo = mVertexRegistry.getWriteInfo(mGeometryBinding.vertexBinding);
@@ -753,8 +753,16 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::uploadGeometryData(model& m)
+	error vulkanRenderer::uploadGeometryData(const model& m, const std::array<uint32_t, 3> materialMappings)
 	{
+		// Create copy of a meshlet vector to upload to GPU.
+		std::vector<meshlet> meshlets = *m.meshData.mesh.data.get();
+		
+		perInstanceAttr attr = m.instanceAttributes;
+		attr.albedoIndex = materialMappings[0];
+		attr.normalIndex = materialMappings[1];
+		attr.metallicRoughnesIndex = materialMappings[2];
+
 		auto handle = mVertexRegistry.addBlock(
 			m.meshData.getHash(),
 			m.meshData.vertex->data(),
@@ -763,10 +771,10 @@ namespace engine
 		if (!handle)
 			return handle.err();
 
-		for (auto& meshlet : *(m.meshData.mesh.data.get()))
+		for (auto& m : meshlets)
 		{
-			meshlet.vertexBufferOffset += handle.value().offset / uint32_t(sizeof(vertex));
-			meshlet.vertexBufferIndex = handle.value().bufferIndex;
+			m.vertexBufferOffset += handle.value().offset / uint32_t(sizeof(vertex));
+			m.vertexBufferIndex = handle.value().bufferIndex;
 		}
 
 		handle = mIndexRegistry.addBlock(
@@ -777,10 +785,10 @@ namespace engine
 		if (!handle)
 			return handle.err();
 
-		for (auto& meshlet : *(m.meshData.mesh.data.get()))
+		for (auto& m : meshlets)
 		{
-			meshlet.indexBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-			meshlet.indexBufferIndex = handle.value().bufferIndex;
+			m.indexBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
+			m.indexBufferIndex = handle.value().bufferIndex;
 		}
 
 		handle = mPrimitiveRegistry.addBlock(
@@ -791,23 +799,23 @@ namespace engine
 		if (!handle)
 			return handle.err();
 
-		for (auto& meshlet : *(m.meshData.mesh.data.get()))
+		for (auto& m : meshlets)
 		{
-			meshlet.triangleBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-			meshlet.triangleBufferIndex = handle.value().bufferIndex;
+			m.triangleBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
+			m.triangleBufferIndex = handle.value().bufferIndex;
 		}
 
 		handle = mMeshletRegistry.addBlock(
 			m.meshData.getHash(),
-			m.meshData.mesh.data->data(),
-			m.meshData.mesh.data->size() * sizeof(meshlet)
+			meshlets.data(),
+			meshlets.size() * sizeof(meshlet)
 		);
 		if (!handle)
 			return handle.err();
 
 		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
 			m.id,
-			&m.instanceAttributes,
+			&attr,
 			sizeof(perInstanceAttr)
 		);
 		if (!perInstanceHandle)
@@ -827,28 +835,30 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::uploadMaterialData(model& m)
+	withError<std::array<uint32_t, 3>> vulkanRenderer::uploadMaterialData(const model& m)
 	{
+		std::array<uint32_t, 3> result;
+
 		// material data.
 		if (m.mat.textures.albedoAtlas)
 		{
-			m.instanceAttributes.albedoIndex = mAlbedoRegistry.addTexture(m.mat.textures.albedoAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.albedoAtlas.get())->mImage);
+			result[0] = mAlbedoRegistry.addTexture(m.mat.textures.albedoAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.albedoAtlas.get())->mImage);
 		}
 
 		if (m.mat.textures.normalAtlas)
 		{
-			m.instanceAttributes.normalIndex = mNormalRegistry.addTexture(m.mat.textures.normalAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.normalAtlas.get())->mImage);
+			result[1] = mNormalRegistry.addTexture(m.mat.textures.normalAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.normalAtlas.get())->mImage);
 		}
 
 		if (m.mat.textures.metalicRoughnesAtlas)
 		{
-			m.instanceAttributes.metallicRoughnesIndex = mMetalicRoughnesRegistry.addTexture(m.mat.textures.metalicRoughnesAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.metalicRoughnesAtlas.get())->mImage);
+			result[2] = mMetalicRoughnesRegistry.addTexture(m.mat.textures.metalicRoughnesAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.metalicRoughnesAtlas.get())->mImage);
 		}
 
-		return {};
+		return result;
 	}
 
-	error vulkanRenderer::addToRender(model& m)
+	error vulkanRenderer::addToRender(const model& m)
 	{
 		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
 		if (!meshShader)
@@ -873,14 +883,16 @@ namespace engine
 		if (mPipelineRegistry.instanceExists(m.id))
 			return {};
 
-		uploadMaterialData(m);
+		auto materialMappings = uploadMaterialData(m);
+		if (!materialMappings)
+			return materialMappings.err();
 
-		uploadGeometryData(m);
+		uploadGeometryData(m, materialMappings.value());
 
 		return {};
 	}
 
-	void vulkanRenderer::removeFromRender(model& m)
+	void vulkanRenderer::removeFromRender(const model& m)
 	{
 		mPerInstanceRegistry.deleteBlock(m.id);
 
@@ -888,7 +900,7 @@ namespace engine
 		mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, m.meshData.getHash());
 
 		// Mesh isn't used.
-		if (!mPipelineRegistry.instanceExists(m.id))
+		if (!mPipelineRegistry.meshIsUsed(m.meshData.getHash()))
 		{
 			mVertexRegistry.deleteBlock(m.meshData.getHash());
 
@@ -1059,7 +1071,6 @@ namespace engine
 		return {};
 	}
 
-	// TODO: add culling in task shader.
 	error vulkanRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
 		auto pipelines = mPipelineRegistry.getPipelines();

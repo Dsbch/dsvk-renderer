@@ -91,13 +91,18 @@ namespace engine
 
 		uint32_t hash = 0;
 
-		uint32_t getHash()
+		uint32_t generateHash()
 		{
 			if (hash != 0)
 				return hash;
 
-			hash = crc32(reinterpret_cast<const uint8_t*>(vertex->data()), vertex->size() * sizeof(vertex)/sizeof(uint8_t));
+			hash = crc32(reinterpret_cast<const uint8_t*>(vertex->data()), vertex->size() * sizeof(vertex) / sizeof(uint8_t));
+		
+			return hash;
+		}
 
+		uint32_t getHash() const
+		{
 			return hash;
 		}
 	};

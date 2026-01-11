@@ -161,7 +161,7 @@ namespace engine
 			return offset->second;
 
 		mTextures.push_back(texture);
-		mUploadedTextures[id] = uint32_t(mTextures.size());
+		mUploadedTextures[id] = uint32_t(mTextures.size() - 1);
 		mNeedUpdate = true;
 
 		return uint32_t(mTextures.size()) - 1;
@@ -377,6 +377,17 @@ namespace engine
 		for (auto& [_, p] : mPipelines)
 		{
 			if (p.meshletShaderCMD.find(id) != p.meshletShaderCMD.end())
+				return true;
+		}
+
+		return false;
+	}
+
+	bool pipelineRegistry::meshIsUsed(uint32_t id) const
+	{
+		for (auto& [_, p] : mPipelines)
+		{
+			if (p.instanceMeshCount.find(id) != p.instanceMeshCount.end())
 				return true;
 		}
 

@@ -63,16 +63,13 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/horse_statue_01_4k.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/winter_girl.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
-				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsTest.spv");
+				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
 				if (!pixel)
-				{
-					LOGERROR("bad pixel shader");
-					return {};
-				}
+					return pixel.err();
 
 				engine::material mats{
 					.pixelShader = pixel.value(),
@@ -92,16 +89,13 @@ namespace sandbox
 
 			if (event->getKey() == engine::r)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/astoria.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/robot.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
 				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
 				if (!pixel)
-				{
-					LOGERROR("bad pixel shader");
-					return {};
-				}
+					return pixel.err();
 
 				engine::material mats{
 					.pixelShader = pixel.value(),
@@ -114,7 +108,7 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.03f, 0.03f, 0.03f)));
+				e.addComponent<engine::transformComponent>(generateMatrix());
 
 				e.addComponent<engine::newEntityComponent>();
 			}
