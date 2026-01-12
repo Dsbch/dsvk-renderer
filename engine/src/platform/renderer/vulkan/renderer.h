@@ -100,7 +100,7 @@ namespace engine
 		void removeFromRender(const model& m);
 		
 		error render(renderer::renderCallIn in);
-
+		
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel);
 	private:

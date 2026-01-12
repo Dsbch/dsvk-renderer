@@ -66,7 +66,6 @@ namespace engine
 		mErr = initPipelines();
 		if (mErr)
 			return;
-
 	}
 
 	vulkanRenderer::~vulkanRenderer()
@@ -910,7 +909,7 @@ namespace engine
 
 			mMeshletRegistry.deleteBlock(m.meshData.getHash());
 		}
-
+		                                             
 		// TODO: figure out how to delete texture atlasses when they are no logner used.
 	}
 
@@ -1146,8 +1145,6 @@ namespace engine
 		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, data, width, heigth, channel);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
-
-		mDeletionQueue.push_back(destroyTask{ .type = vulkanTex, .texture = static_cast<vulkanTexture*>(vkTexture.get()) });
 
 		return vkTexture;
 	}

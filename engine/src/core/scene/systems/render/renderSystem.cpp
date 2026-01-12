@@ -19,6 +19,17 @@ namespace engine
 
 	void renderSystem::onDetach(std::shared_ptr<entt::registry> registry)
 	{
+		std::vector<entt::entity> toDelete;
+
+		for (auto [e, material] : registry->view<materialComponent>().each())
+		{
+			toDelete.push_back(e);
+		}
+
+		for (auto& e : toDelete)
+			registry->destroy(e);
+	
+		mCtx->mAmanager->clearCache();
 	}
 
 	error renderSystem::checkError()

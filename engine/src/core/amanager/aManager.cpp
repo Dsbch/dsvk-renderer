@@ -46,30 +46,12 @@ namespace engine
 		return crc32(reinterpret_cast<const uint8_t*>(std::filesystem::canonical(path).string().data()), std::filesystem::canonical(path).string().size());
 	}
 
-	withError<std::shared_ptr<texture>> aManager::getTexture(const std::string& path)
-	{
-		auto it = mLoadedTextures.find(key(path));
-		if (it != mLoadedTextures.end())
-			return it->second;
-		else
-			return error{ "tried to access not loaded texture." };
-	}
-
-	withError<std::shared_ptr<shader>> aManager::getShader(const std::string& path)
-	{
-		auto it = mLoadedShaders.find(key(path));
-		if (it != mLoadedShaders.end())
-			return it->second;
-		else
-			return error{ "tried to access not loaded texture." };
-	}
-
 	withError<std::shared_ptr<shader>> aManager::loadShader(const std::string& path)
 	{
 		if (!makeShader)
 			return error{ "makeShader wasn't set" };
 
-		auto loadRes = getShader(path);
+		auto loadRes = mLoadedShaders.get(key(path));
 		if (loadRes)
 			return loadRes.value();
 
@@ -88,36 +70,21 @@ namespace engine
 		if (!shader)
 			shader.err();
 
-		mLoadedShaders[key(path)] = shader.value();
+		mLoadedShaders.put(key(path), shader.value());
 
 		return shader.value();
 	}
 
-	withError<std::shared_ptr<texture>> aManager::loadTexture(const std::string& path)
+	void aManager::clearCache()
 	{
-		if (!makeTexture)
-			return error{ "makeTexture wasn't set" };
+		mLoadedModels.clear();
+		mLoadedShaders.clear();
+		mLoadedTextureAtlases.clear();
+	}
 
-		auto loadRes = getTexture(path);
-		if (loadRes)
-			return loadRes.value();
-
-		int width, height, nrChannels;
-		uint8_t* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
-		if (!data)
-		{
-			return error{ "can't load texture {}", path };;
-		}
-
-		auto texture = makeTexture(data, width, height, intToChannel(nrChannels));
-		if (!texture)
-			texture.err();
-
-		stbi_image_free(data);
-
-		mLoadedTextures[key(path)] = texture.value();
-
-		return texture.value();
+	aManager::aManager()
+		: mLoadedModels(50), mLoadedShaders(100), mLoadedTextureAtlases(50)
+	{
 	}
 
 	void aManager::setMakeShaderFunc(std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)>&& func)
@@ -221,32 +188,6 @@ namespace engine
 		result.second = potentialRadius;
 
 		return result;
-	}
-
-	withError<std::shared_ptr<texture>> aManager::loadRawTexture(const uint8_t* data, size_t size)
-	{
-		if (!makeTexture)
-			return error{ "makeTexture wasn't set" };
-
-		if (auto found = mLoadedTextures.find(crc32(data, size)); found != mLoadedTextures.end())
-			return found->second;
-
-		int width, height, nrChannels;
-		uint8_t* decoded = stbi_load_from_memory(data, int(size), &width, &height, &nrChannels, 4);
-		if (!decoded)
-		{
-			return error{ "can't decode texture" };
-		}
-
-		auto texture = makeTexture(decoded, width, height, intToChannel(nrChannels));
-		if (!texture)
-			texture.err();
-
-		stbi_image_free(decoded);
-
-		mLoadedTextures[crc32(data, size)] = texture.value();
-
-		return texture.value();
 	}
 
 	static void calculateTangents(
@@ -510,8 +451,9 @@ namespace engine
 		float coneWieght
 	)
 	{
-		if (auto found = mLoadedModels.find(key(path)); found != mLoadedModels.end())
-			return found->second;
+		auto found = mLoadedModels.get(key(path));
+		if (found)
+			return found.value();
 
 		cgltf_options options{};
 		cgltf_data* data = nullptr;
@@ -1072,7 +1014,7 @@ namespace engine
 
 		result.meshData.generateHash();
 
-		mLoadedModels[key(path)] = result;
+		mLoadedModels.put(key(path), result);
 
 		return result;
 	}
@@ -1085,19 +1027,17 @@ namespace engine
 		std::vector<uint32_t> crcVals;
 
 		for (auto& i : images)
-		{
 			crcVals.push_back(crc32(i.data, i.w * i.h * i.channels));
-		}
 
 		uint32_t mergedCrc = crc32(reinterpret_cast<uint8_t*>(crcVals.data()), crcVals.size() * sizeof(uint32_t));
 
-		if (auto found = mLoadedTextureAtlases.find(mergedCrc); found != mLoadedTextureAtlases.end())
-			return found->second;
+		auto found = mLoadedTextureAtlases.get(mergedCrc);
+		if (found)
+			return found.value();
 
 		std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>> result{ nullptr, {} };
 
 		std::vector<stbrp_rect> rects(images.size());
-
 		for (int i = 0; i < images.size(); i++)
 		{
 			rects[i].id = i;
@@ -1259,86 +1199,51 @@ namespace engine
 			}
 		}
 
-		auto downSampled = downSampleImage(
-			aManager::image{
-				.data = atlas.data(),
-				.w = size,
-				.h = size,
-				.channels = 4,
-			},
-			2048
+		const int trashHold = 2048;
+		float scale = trashHold / float(size);
+
+		if (scale < 1.0f)
+		{
+			int newSize = int(scale * size);
+			std::vector<uint8_t> downSampled{};
+			downSampled.resize(newSize * newSize * 4);
+
+			void* downSampledPtr = stbir_resize_uint8_srgb(
+				atlas.data(),
+				size,
+				size,
+				0,
+				downSampled.data(),
+				newSize,
+				newSize,
+				0,
+				(stbir_pixel_layout)4
 			);
-		if (downSampled)
-		{
-			auto atlasTexture = makeTexture(downSampled.value().data, downSampled.value().w, downSampled.value().h, rgba);
-			if (!atlasTexture)
-				return atlasTexture.err();
+			if (!downSampledPtr)
+				return error{ "can't downsample img" };
 
-			result.first = atlasTexture.value();
+			size = newSize;
 
-			for (auto& r : rects)
-			{
-				result.second[r.id] = atlasEntry{
-						.x = int(r.x * downSampled.value().w / size),
-						.y = int(r.y * downSampled.value().w / size),
-						.size = downSampled.value().w,
-						.downSampleScale = downSampled.value().w / float(size),
-				};
-			}
-
-			free(downSampled.value().data);
-		}
-		else
-		{
-			auto atlasTexture = makeTexture(atlas.data(), size, size, rgba);
-			if (!atlasTexture)
-				return atlasTexture.err();
-
-			result.first = atlasTexture.value();
-
-			for (auto& r : rects)
-			{
-				result.second[r.id] = atlasEntry{
-						.x = r.x,
-						.y = r.y,
-						.size = size,
-						.downSampleScale = 1.0f,
-				};
-			}
+			atlas = std::move(downSampled);
 		}
 
-		mLoadedTextureAtlases[mergedCrc] = result;
-		return result;
-	}
+		for (auto& r : rects)
+		{
+			result.second[r.id] = atlasEntry{
+					.x = int(r.x * scale),
+					.y = int(r.y * scale),
+					.size = size,
+					.downSampleScale = scale,
+			};
+		}
 
-	withError<aManager::image> aManager::downSampleImage(const image& img, int trashHold)
-	{
-		if (std::max(img.h, img.w) <= trashHold)
-			return error{ "can't down sample" };
+		auto atlasTexture = makeTexture(atlas.data(), size, size, rgba);
+		if (!atlasTexture)
+			return atlasTexture.err();
 
-		aManager::image result{};
+		result.first = atlasTexture.value();
 
-		float scale = trashHold / float(std::max(img.h, img.w));
-
-		result.w = int(img.w * scale);
-		result.h = int(img.h * scale);
-		result.channels = img.channels;
-
-		result.data = (uint8_t*)malloc(result.w * result.h * result.channels);
-
-		void* downSampledPtr = stbir_resize_uint8_srgb(
-			img.data,
-			img.w,
-			img.h,
-			0,
-			result.data,
-			result.w,
-			result.h,
-			0,
-			(stbir_pixel_layout)result.channels
-		);
-		if (!downSampledPtr)
-			return error{ "can't downsample img" };
+		mLoadedTextureAtlases.put(mergedCrc, result);
 
 		return result;
 	}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pch.h>
+#include <entt/entt.hpp>
 #include "base/context/context.h"
 #include "shader.h"
 #include "texture.h"
