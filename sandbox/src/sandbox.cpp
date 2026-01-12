@@ -113,15 +113,45 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
+			if (event->getKey() == engine::t)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/warrior.glb");
+				if (!loadedModel)
+					return loadedModel.err();
+
+				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
+				if (!pixel)
+					return pixel.err();
+
+				engine::material mats{
+					.pixelShader = pixel.value(),
+					.textures = loadedModel.value().mat.textures,
+				};
+
+				engine::entity e{ mCtx, registry };
+
+				e.addComponent<engine::materialComponent>(mats);
+
+				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
+
+				e.addComponent<engine::transformComponent>(generateMatrix());
+
+				e.addComponent<engine::newEntityComponent>();
+			}
 
 			if (event->getKey() == engine::q)
 			{
-				// Delete random entity.
+				int i = 0;
 				for (auto [e, uid, mesh, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{
-					registry->emplace<engine::deleteComponent>(e);
+					i++;
 
-					return {};
+					if (i == 2)
+					{
+						registry->emplace<engine::deleteComponent>(e);
+						return {};
+
+					}
 				}
 			}
 		}

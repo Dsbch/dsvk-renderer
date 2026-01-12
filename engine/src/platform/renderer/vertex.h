@@ -35,7 +35,7 @@ namespace engine
 	{
 		glm::vec3 bsWorldCenter;
 		float  bsWorldRadius;
-		
+
 		glm::mat4 modelMatrix;
 		glm::mat4 normalMatrix;
 
@@ -66,7 +66,7 @@ namespace engine
 		uint32_t triangleBufferIndex;
 		uint32_t triangleBufferOffset;
 		uint32_t triangleCount;
-		
+
 		meshletBounds bounds;
 	};
 
@@ -97,7 +97,7 @@ namespace engine
 				return hash;
 
 			hash = crc32(reinterpret_cast<const uint8_t*>(vertex->data()), vertex->size() * sizeof(vertex) / sizeof(uint8_t));
-		
+
 			return hash;
 		}
 
@@ -147,11 +147,11 @@ namespace engine
 	struct uboPerDraw
 	{
 		glm::mat4 debugViewProjection;
-		
+
 		glm::vec3 cameraPos;
 		uint32_t useDebugCamera;
 		glm::vec3 cameraFront;
-		
+
 		glm::vec3 cameraUp;
 
 		glm::mat4 view;
@@ -162,7 +162,7 @@ namespace engine
 		float deltaTime;
 	};
 
-	struct pushConstants 
+	struct pushConstants
 	{
 		uint32_t commandBufferOffset;
 		uint32_t meshletCount;

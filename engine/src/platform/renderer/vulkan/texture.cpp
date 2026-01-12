@@ -5,7 +5,7 @@ namespace engine
 {
 	vulkanTexture::vulkanTexture(VkDevice device, VmaAllocator allocator, submit is, uint8_t* data, int width, int heigth, imageChannel channel)
 		:
-		texture(data, width, heigth, channel)
+		texture(data, width, heigth, channel), mHash(0), mImage{}
 	{
 		mImage.init(device, allocator);
 

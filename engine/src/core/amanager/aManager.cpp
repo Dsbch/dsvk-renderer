@@ -731,9 +731,59 @@ namespace engine
 				return result;
 			};
 
+		auto generateLodLevel = [&](const std::vector<vertex>& v, const std::vector<uint32_t> i, size_t targetIndexCount) -> error
+			{
+				std::vector<meshlet> meshlets;
+				std::vector<uint32_t> indices;
+				std::vector<uint8_t> primitives;
+
+				error err = generateMeshlets(
+					v,
+					i,
+					meshlets,
+					primitives,
+					indices,
+					maxVert,
+					maxTriangles,
+					coneWieght,
+					0.01f,
+					targetIndexCount
+				);
+				if (err)
+					return err;
+
+				std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
+
+				for (auto& m : meshlets)
+				{
+					m.indexBufferOffset += result.meshData.index.second;
+					m.triangleBufferOffset += result.meshData.primitive.second;
+				}
+
+				result.meshData.index.data->insert(
+					result.meshData.index.data->end(),
+					std::move_iterator(indices.begin()),
+					std::move_iterator(indices.end())
+				);
+
+				result.meshData.primitive.data->insert(
+					result.meshData.primitive.data->end(),
+					std::move_iterator(repackedPrimitives.begin()),
+					std::move_iterator(repackedPrimitives.end())
+				);
+
+				result.meshData.mesh.data->insert(
+					result.meshData.mesh.data->end(),
+					std::move_iterator(meshlets.begin()),
+					std::move_iterator(meshlets.end())
+				);
+
+				return {};
+			};
+
 		// For UV recalculation.
 		std::vector<uint32_t> vertexToTextureMapping;
-		// For tangent calculation.
+		// For tangent calculation and lod calculation.
 		std::vector<uint32_t> remappedIndexBuffer;
 
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
@@ -853,155 +903,30 @@ namespace engine
 		result.meshData.bsCenter = sphere.first;
 		result.meshData.bsRadius = sphere.second;
 
-		// Add lod levels.
-		std::vector<meshlet> meshlets;
-		std::vector<uint32_t> indices;
-		std::vector<uint8_t> primitives;
-
-		error err = generateMeshlets(
-			*result.meshData.vertex.get(),
-			remappedIndexBuffer,
-			meshlets,
-			primitives,
-			indices,
-			maxVert,
-			maxTriangles,
-			coneWieght,
-			0.01f,
-			remappedIndexBuffer.size() / 2
-		);
-		if (err)
-			return err;
-
-		std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
-
+		// Generate lod levels.
 		result.meshData.index.second = uint32_t(result.meshData.index.data->size());
 		result.meshData.primitive.second = uint32_t(result.meshData.primitive.data->size());
 		result.meshData.mesh.second = uint32_t(result.meshData.mesh.data->size());
 
-		for (auto& m : meshlets)
-		{
-			m.indexBufferOffset += result.meshData.index.second;
-			m.triangleBufferOffset += result.meshData.primitive.second;
-		}
-
-		result.meshData.index.data->insert(
-			result.meshData.index.data->end(),
-			std::move_iterator(indices.begin()),
-			std::move_iterator(indices.end())
-		);
-
-		result.meshData.primitive.data->insert(
-			result.meshData.primitive.data->end(),
-			std::move_iterator(repackedPrimitives.begin()),
-			std::move_iterator(repackedPrimitives.end())
-		);
-
-		result.meshData.mesh.data->insert(
-			result.meshData.mesh.data->end(),
-			std::move_iterator(meshlets.begin()),
-			std::move_iterator(meshlets.end())
-		);
-
-		meshlets.clear();
-		indices.clear();
-		primitives.clear();
-		repackedPrimitives.clear();
-
-		err = generateMeshlets(
-			*result.meshData.vertex.get(),
-			remappedIndexBuffer,
-			meshlets,
-			primitives,
-			indices,
-			maxVert,
-			maxTriangles,
-			coneWieght,
-			0.01f,
-			remappedIndexBuffer.size() / 3
-		);
+		error err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, 2);
 		if (err)
 			return err;
-
-		repackedPrimitives = repackPrimitives(primitives, meshlets);
 
 		result.meshData.index.third = uint32_t(result.meshData.index.data->size());
 		result.meshData.primitive.third = uint32_t(result.meshData.primitive.data->size());
 		result.meshData.mesh.third = uint32_t(result.meshData.mesh.data->size());
 
-		for (auto& m : meshlets)
-		{
-			m.indexBufferOffset += result.meshData.index.third;
-			m.triangleBufferOffset += result.meshData.primitive.third;
-		}
-
-		result.meshData.index.data->insert(
-			result.meshData.index.data->end(),
-			std::move_iterator(indices.begin()),
-			std::move_iterator(indices.end())
-		);
-
-		result.meshData.primitive.data->insert(
-			result.meshData.primitive.data->end(),
-			std::move_iterator(repackedPrimitives.begin()),
-			std::move_iterator(repackedPrimitives.end())
-		);
-
-		result.meshData.mesh.data->insert(
-			result.meshData.mesh.data->end(),
-			std::move_iterator(meshlets.begin()),
-			std::move_iterator(meshlets.end())
-		);
-
-		meshlets.clear();
-		indices.clear();
-		primitives.clear();
-		repackedPrimitives.clear();
-
-		err = generateMeshlets(
-			*result.meshData.vertex.get(),
-			remappedIndexBuffer,
-			meshlets,
-			primitives,
-			indices,
-			maxVert,
-			maxTriangles,
-			coneWieght,
-			0.01f,
-			remappedIndexBuffer.size() / 4
-		);
+		err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, 3);
 		if (err)
 			return err;
-
-		repackedPrimitives = repackPrimitives(primitives, meshlets);
 
 		result.meshData.index.fourth = uint32_t(result.meshData.index.data->size());
 		result.meshData.primitive.fourth = uint32_t(result.meshData.primitive.data->size());
 		result.meshData.mesh.fourth = uint32_t(result.meshData.mesh.data->size());
 
-		for (auto& m : meshlets)
-		{
-			m.indexBufferOffset += result.meshData.index.fourth;
-			m.triangleBufferOffset += result.meshData.primitive.fourth;
-		}
-
-		result.meshData.index.data->insert(
-			result.meshData.index.data->end(),
-			std::move_iterator(indices.begin()),
-			std::move_iterator(indices.end())
-		);
-
-		result.meshData.primitive.data->insert(
-			result.meshData.primitive.data->end(),
-			std::move_iterator(repackedPrimitives.begin()),
-			std::move_iterator(repackedPrimitives.end())
-		);
-
-		result.meshData.mesh.data->insert(
-			result.meshData.mesh.data->end(),
-			std::move_iterator(meshlets.begin()),
-			std::move_iterator(meshlets.end())
-		);
+		err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, 4);
+		if (err)
+			return err;
 
 		for (int i = 0; i < materials.value().albedo.size(); i++)
 		{

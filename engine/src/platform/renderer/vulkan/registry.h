@@ -56,25 +56,6 @@ namespace engine
 		bool mNeedUpdate;
 	};
 
-	struct textureRegistry
-	{
-	public:
-		void init(VkSampler sampler);
-		uint32_t addTexture(uint32_t id, const vulkanImage& texture);
-		void deleteTexture(uint32_t offset);
-		void destroy();
-		void setUpdated();
-		bool needDescriptorUpdate() const;
-
-		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
-	private:
-		std::vector<vulkanImage> mTextures;
-		std::map<uint32_t, uint32_t> mUploadedTextures;
-		std::vector<VkDescriptorImageInfo> mImagesInfo;
-		VkSampler mSampler;
-		bool mNeedUpdate;
-	};
-
 	// PipelineData and pipeLineRegistry structs manage pipeline creation and constrcting command buffer for task shader.
 	struct pipelineData
 	{
@@ -139,5 +120,32 @@ namespace engine
 		uint32_t mCmdBufferNewSize;
 		vulkanBuffer mCmdBuffer;
 		std::map<uint32_t, pipelineData> mPipelines;
+	};
+	
+	struct materialRegistry
+	{
+	public:
+		struct materialOffsets
+		{
+			uint32_t albedo;
+			uint32_t normal;
+			uint32_t metalicRoughnes;
+		};
+
+		void init(VkSampler sampler);
+		void setUpdated();
+		bool needDescriptorUpdate() const;
+
+		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
+
+		materialOffsets addMaterial(const materialTextures& textures);
+		void deleteMaterial(const materialTextures& textures);
+	private:
+		std::map<uint32_t, uint32_t> mOccupiedIndices;
+		std::list<uint32_t> mFreeIndices;
+		std::map<uint32_t, uint32_t> mTextureCount;
+		std::vector<VkDescriptorImageInfo> mImagesInfo;
+		VkSampler mSampler;
+		bool mNeedUpdate;
 	};
 }

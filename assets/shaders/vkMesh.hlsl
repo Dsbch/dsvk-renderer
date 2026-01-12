@@ -122,8 +122,8 @@ ConstantBuffer<perDrawData> drawData : register(b6, space0);
 
 // TEXTURES START.
 
-Texture2D albedo[] : register(t7, space0);
-SamplerState albedoSamplers[] : register(s7, space0);
+Texture2D materials[] : register(t7, space0);
+SamplerState materialsSampler[] : register(s7, space0);
 
 // TEXTURES END.
 
@@ -412,7 +412,7 @@ void msmain(
 
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    float4 color = albedo[input.albedoIndex].Sample(albedoSamplers[input.albedoIndex], input.uv);
+    float4 color = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
     return color;
 }
 

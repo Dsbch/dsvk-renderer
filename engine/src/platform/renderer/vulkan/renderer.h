@@ -24,7 +24,6 @@ namespace engine
 		descSet,
 		computePipe,
 		buffRegistry,
-		texRegistry,
 		pipelineReg,
 		sampler,
 		vulkanBuf,
@@ -42,7 +41,6 @@ namespace engine
 			descriptorSet* descSet;
 			computePipeline* computePipe;
 			bufferRegistry* buffRegistry;
-			textureRegistry* texRegistry;
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;
 			pipelineRegistry* pipelineReg;
@@ -72,9 +70,7 @@ namespace engine
 
 		uint32_t perDrawBufferUboBinding;
 
-		uint32_t albedoBinding;
-		uint32_t normalBinding;
-		uint32_t metalicRoughnesBinding;
+		uint32_t materialArrayBinding;
 	};
 
 	struct limits
@@ -104,8 +100,7 @@ namespace engine
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel);
 	private:
-		withError<std::array<uint32_t, 3>> uploadMaterialData(const model& m);
-		error uploadGeometryData(const model& m, const std::array<uint32_t, 3> materialMappings);
+		error uploadGeometryData(const model& m, uint32_t albedoIndex, uint32_t normalIndex, uint32_t metalicRoughnesIndex);
 
 		error geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		void clear(VkCommandBuffer cmd);
@@ -165,9 +160,7 @@ namespace engine
 		pipelineRegistry mPipelineRegistry;
 		vulkanBuffer mUniformBuffer;
 
-		textureRegistry mAlbedoRegistry;
-		textureRegistry mNormalRegistry;
-		textureRegistry mMetalicRoughnesRegistry;
+		materialRegistry mMaterialRegistry;
 	};
 
 	inline VkRenderingAttachmentInfo depthAttachmentInfo(

@@ -221,7 +221,7 @@ namespace engine
 
 		mGeometryBinding = geometryPipelineBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 10,
+			.totalDescriptorsCount = 8,
 
 			.vertexBinding = 0,
 			.perInstanceBinding = 1,
@@ -232,9 +232,7 @@ namespace engine
 
 			.perDrawBufferUboBinding = 6,
 
-			.albedoBinding = 7,
-			.normalBinding = 8,
-			.metalicRoughnesBinding = 9,
+			.materialArrayBinding = 7,
 		};
 
 		return {};
@@ -353,13 +351,7 @@ namespace engine
 
 		mDeletionQueue.push_back(destroyTask{ .type = sampler, .sampler = &mSampler });
 
-		mAlbedoRegistry.init(mSampler);
-		mMetalicRoughnesRegistry.init(mSampler);
-		mNormalRegistry.init(mSampler);
-
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mAlbedoRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mMetalicRoughnesRegistry });
-		mDeletionQueue.push_back(destroyTask{ .type = texRegistry, .texRegistry = &mNormalRegistry });
+		mMaterialRegistry.init(mSampler);
 
 		// init uniform buffer.
 		mUniformBuffer.init(mDevice, mAllocator);
@@ -442,7 +434,7 @@ namespace engine
 
 	error vulkanRenderer::setGeometryDescriptors()
 	{
-		const uint32_t combinedImageSamplers = 5;
+		const uint32_t combinedImageSamplers = 1;
 		const uint32_t bufferObjects = 6;
 		const uint32_t uniformObjects = 1;
 
@@ -489,22 +481,10 @@ namespace engine
 			)
 		);
 
-		// add bindings for textures.
+		// add bindings for materials.
 		mDescriptorSetMesh.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.albedoBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.normalBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.metalicRoughnesBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mGeometryBinding.materialArrayBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
@@ -615,26 +595,12 @@ namespace engine
 			mPerInstanceRegistry.setUpdated();
 		}
 
-		// Update textures.
-		if (mAlbedoRegistry.needDescriptorUpdate())
+		// Update materials.
+		if (mMaterialRegistry.needDescriptorUpdate())
 		{
-			auto writeInfo = mAlbedoRegistry.getWriteInfo(mGeometryBinding.albedoBinding);
+			auto writeInfo = mMaterialRegistry.getWriteInfo(mGeometryBinding.materialArrayBinding);
 			mDescriptorSetMesh.updateWrite(writeInfo);
-			mAlbedoRegistry.setUpdated();
-		}
-
-		if (mNormalRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mNormalRegistry.getWriteInfo(mGeometryBinding.normalBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mNormalRegistry.setUpdated();
-		}
-
-		if (mMetalicRoughnesRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mMetalicRoughnesRegistry.getWriteInfo(mGeometryBinding.metalicRoughnesBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mMetalicRoughnesRegistry.setUpdated();
+			mMaterialRegistry.setUpdated();
 		}
 
 		return {};
@@ -671,10 +637,6 @@ namespace engine
 			case buffRegistry:
 				if (it->buffRegistry)
 					it->buffRegistry->destroy();
-				break;
-			case texRegistry:
-				if (it->texRegistry)
-					it->texRegistry->destroy();
 				break;
 			case sampler:
 				if (it->sampler)
@@ -752,15 +714,14 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::uploadGeometryData(const model& m, const std::array<uint32_t, 3> materialMappings)
+	error vulkanRenderer::uploadGeometryData(const model& m, uint32_t albedoIndex, uint32_t normalIndex, uint32_t metalicRoughnesIndex)
 	{
-		// Create copy of a meshlet vector to upload to GPU.
 		std::vector<meshlet> meshlets = *m.meshData.mesh.data.get();
 		
 		perInstanceAttr attr = m.instanceAttributes;
-		attr.albedoIndex = materialMappings[0];
-		attr.normalIndex = materialMappings[1];
-		attr.metallicRoughnesIndex = materialMappings[2];
+		attr.albedoIndex = albedoIndex;
+		attr.normalIndex = normalIndex;
+		attr.metallicRoughnesIndex = metalicRoughnesIndex;
 
 		auto handle = mVertexRegistry.addBlock(
 			m.meshData.getHash(),
@@ -834,29 +795,6 @@ namespace engine
 		return {};
 	}
 
-	withError<std::array<uint32_t, 3>> vulkanRenderer::uploadMaterialData(const model& m)
-	{
-		std::array<uint32_t, 3> result;
-
-		// material data.
-		if (m.mat.textures.albedoAtlas)
-		{
-			result[0] = mAlbedoRegistry.addTexture(m.mat.textures.albedoAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.albedoAtlas.get())->mImage);
-		}
-
-		if (m.mat.textures.normalAtlas)
-		{
-			result[1] = mNormalRegistry.addTexture(m.mat.textures.normalAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.normalAtlas.get())->mImage);
-		}
-
-		if (m.mat.textures.metalicRoughnesAtlas)
-		{
-			result[2] = mMetalicRoughnesRegistry.addTexture(m.mat.textures.metalicRoughnesAtlas->hash(), static_cast<const vulkanTexture*>(m.mat.textures.metalicRoughnesAtlas.get())->mImage);
-		}
-
-		return result;
-	}
-
 	error vulkanRenderer::addToRender(const model& m)
 	{
 		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
@@ -882,11 +820,9 @@ namespace engine
 		if (mPipelineRegistry.instanceExists(m.id))
 			return {};
 
-		auto materialMappings = uploadMaterialData(m);
-		if (!materialMappings)
-			return materialMappings.err();
+		auto materialMappings = mMaterialRegistry.addMaterial(m.mat.textures);
 
-		uploadGeometryData(m, materialMappings.value());
+		uploadGeometryData(m, materialMappings.albedo, materialMappings.normal, materialMappings.metalicRoughnes);
 
 		return {};
 	}
@@ -909,8 +845,8 @@ namespace engine
 
 			mMeshletRegistry.deleteBlock(m.meshData.getHash());
 		}
-		                                             
-		// TODO: figure out how to delete texture atlasses when they are no logner used.
+		                                
+		mMaterialRegistry.deleteMaterial(m.mat.textures);
 	}
 
 	void vulkanRenderer::clear(VkCommandBuffer cmd)

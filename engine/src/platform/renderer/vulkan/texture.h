@@ -19,5 +19,6 @@ namespace engine
 		vulkanImage mImage;
 
 		friend class vulkanRenderer;
+		friend struct materialRegistry;
 	};
 }

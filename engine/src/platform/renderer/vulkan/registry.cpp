@@ -2,6 +2,7 @@
 
 #include "registry.h"
 #include "descriptorSet.h"
+#include "texture.h"
 
 namespace engine
 {
@@ -147,62 +148,6 @@ namespace engine
 	bool bufferRegistry::needDescriptorUpdate() const
 	{
 		return mNeedUpdate;
-	}
-
-	void textureRegistry::init(VkSampler sampler)
-	{
-		mNeedUpdate = false;
-		mSampler = sampler;
-	}
-
-	uint32_t textureRegistry::addTexture(uint32_t id, const vulkanImage& texture)
-	{
-		if (auto offset = mUploadedTextures.find(id); offset != mUploadedTextures.end())
-			return offset->second;
-
-		mTextures.push_back(texture);
-		mUploadedTextures[id] = uint32_t(mTextures.size() - 1);
-		mNeedUpdate = true;
-
-		return uint32_t(mTextures.size()) - 1;
-	}
-
-	void textureRegistry::deleteTexture(uint32_t offset)
-	{
-		mTextures.erase(mTextures.begin() + offset);
-	}
-
-	// here destroy does nothing, because ECS will destroy all textures.
-	// it's a by product of not storing textures in CPU RAM.
-	void textureRegistry::destroy()
-	{
-	}
-
-	void textureRegistry::setUpdated()
-	{
-		mNeedUpdate = false;
-	}
-
-	bool textureRegistry::needDescriptorUpdate() const
-	{
-		return mNeedUpdate;
-	}
-
-	std::vector<VkWriteDescriptorSet> textureRegistry::getWriteInfo(uint32_t binding)
-	{
-		mImagesInfo.clear();
-
-		for (auto& i : mTextures)
-		{
-			VkDescriptorImageInfo info{};
-			info.sampler = mSampler;
-			info.imageView = i.image.view;
-			info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-			mImagesInfo.push_back(info);
-		}
-
-		return descriptorSet::getWriteInfo(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, mImagesInfo);
 	}
 
 	error pipelineData::init(
@@ -464,6 +409,12 @@ namespace engine
 		return {};
 	}
 
+	void materialRegistry::init(VkSampler sampler)
+	{
+		mNeedUpdate = false;
+		mSampler = sampler;
+	}
+
 	bool pipelineRegistry::needDescriptorUpdate() const
 	{
 		return mNeedDescriptorUpdate;
@@ -472,5 +423,153 @@ namespace engine
 	void pipelineRegistry::setUpdated()
 	{
 		mNeedDescriptorUpdate = false;
+	}
+
+	materialRegistry::materialOffsets materialRegistry::addMaterial(const materialTextures& textures)
+	{
+		materialRegistry::materialOffsets result{};
+
+		VkDescriptorImageInfo info{};
+		info.sampler = mSampler;
+		info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		if (auto foundAlbedo = mOccupiedIndices.find(textures.albedoAtlas->hash()); foundAlbedo != mOccupiedIndices.end())
+		{
+			result.albedo = foundAlbedo->second;
+		}
+		else
+		{
+			mNeedUpdate = true;
+			info.imageView = static_cast<const vulkanTexture*>(textures.albedoAtlas.get())->mImage.image.view;
+
+			if (mFreeIndices.size() != 0)
+			{
+				uint32_t freeIndex = *mFreeIndices.begin();
+				mFreeIndices.pop_front();
+				mOccupiedIndices[textures.albedoAtlas->hash()] = freeIndex;
+
+				result.albedo = freeIndex;
+
+				mImagesInfo[freeIndex] = info;
+			}
+			else
+			{
+				result.albedo = uint32_t(mImagesInfo.size());
+				mOccupiedIndices[textures.albedoAtlas->hash()] = result.albedo;
+				mImagesInfo.push_back(info);
+			}
+		}
+
+		if (auto foundNormal = mOccupiedIndices.find(textures.normalAtlas->hash()); foundNormal != mOccupiedIndices.end())
+		{
+			result.normal = foundNormal->second;
+		}
+		else
+		{
+			mNeedUpdate = true;
+			info.imageView = static_cast<const vulkanTexture*>(textures.normalAtlas.get())->mImage.image.view;
+
+			if (mFreeIndices.size() != 0)
+			{
+				uint32_t freeIndex = *mFreeIndices.begin();
+				mFreeIndices.pop_front();
+				mOccupiedIndices[textures.normalAtlas->hash()] = freeIndex;
+
+				result.normal = freeIndex;
+
+				mImagesInfo[freeIndex] = info;
+			}
+			else
+			{
+				result.normal = uint32_t(mImagesInfo.size());
+				mOccupiedIndices[textures.normalAtlas->hash()] = result.normal;
+				mImagesInfo.push_back(info);
+			}
+		}
+
+		if (auto foundMetalicRoughnes = mOccupiedIndices.find(textures.metalicRoughnesAtlas->hash()); foundMetalicRoughnes != mOccupiedIndices.end())
+		{
+			result.metalicRoughnes = foundMetalicRoughnes->second;
+		}
+		else
+		{
+			mNeedUpdate = true;
+			result.metalicRoughnes = uint32_t(mImagesInfo.size());
+
+			if (mFreeIndices.size() != 0)
+			{
+				uint32_t freeIndex = *mFreeIndices.begin();
+				mFreeIndices.pop_front();
+				mOccupiedIndices[textures.metalicRoughnesAtlas->hash()] = freeIndex;
+
+				result.metalicRoughnes = freeIndex;
+
+				mImagesInfo[freeIndex] = info;
+			}
+			else
+			{
+				result.metalicRoughnes = uint32_t(mImagesInfo.size());
+				mOccupiedIndices[textures.metalicRoughnesAtlas->hash()] = result.metalicRoughnes;
+				mImagesInfo.push_back(info);
+			}
+		}
+
+		mTextureCount[textures.albedoAtlas->hash()]++;
+		mTextureCount[textures.normalAtlas->hash()]++;
+		mTextureCount[textures.metalicRoughnesAtlas->hash()]++;
+
+		return result;
+	}
+
+	void materialRegistry::deleteMaterial(const materialTextures& textures)
+	{
+		if (auto foundAlbedo = mOccupiedIndices.find(textures.albedoAtlas->hash()); foundAlbedo != mOccupiedIndices.end())
+		{
+			mTextureCount[foundAlbedo->first]--;
+
+			if (mTextureCount[foundAlbedo->first] == 0)
+			{
+				mFreeIndices.push_back(foundAlbedo->second);
+				mOccupiedIndices.erase(foundAlbedo->first);
+			}
+		}
+
+		if (auto foundNormal = mOccupiedIndices.find(textures.normalAtlas->hash()); foundNormal != mOccupiedIndices.end())
+		{
+			mTextureCount[foundNormal->first]--;
+
+			if (mTextureCount[foundNormal->first] == 0)
+			{
+				mFreeIndices.push_back(foundNormal->second);
+				mOccupiedIndices.erase(foundNormal->first);
+			}
+		}
+
+
+		if (auto foundMetalicRoughnes = mOccupiedIndices.find(textures.metalicRoughnesAtlas->hash()); foundMetalicRoughnes != mOccupiedIndices.end())
+		{
+			mTextureCount[foundMetalicRoughnes->first]--;
+
+			if (mTextureCount[foundMetalicRoughnes->first] == 0)
+			{
+				mFreeIndices.push_back(foundMetalicRoughnes->second);
+				mOccupiedIndices.erase(foundMetalicRoughnes->first);
+			}
+		}
+	}
+
+	void materialRegistry::setUpdated()
+	{
+		mNeedUpdate = false;
+	}
+
+	bool materialRegistry::needDescriptorUpdate() const
+	{
+		return mNeedUpdate;
+	}
+
+	std::vector<VkWriteDescriptorSet> materialRegistry::getWriteInfo(uint32_t binding)
+	{
+		return descriptorSet::getWriteInfo(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, mImagesInfo);
 	}
 }
