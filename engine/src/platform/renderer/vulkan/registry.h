@@ -37,8 +37,8 @@ namespace engine
 	struct bufferRegistry
 	{
 	public:
-		void init(VkDevice device, VmaAllocator allocator, submit is);
-		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, size_t newSize = newBufferSize);
+		void init(VkDevice device, VmaAllocator allocator);
+		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize = newBufferSize);
 		bool deleteBlock(uint32_t id);
 		void destroy();
 		void setUpdated();
@@ -51,7 +51,6 @@ namespace engine
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
-		submit mSubmit;
 
 		bool mNeedUpdate;
 	};
@@ -80,7 +79,7 @@ namespace engine
 	struct pipelineRegistry
 	{
 	public:
-		error init(VkDevice device, VmaAllocator allocator, submit is);
+		error init(VkDevice device, VmaAllocator allocator, submit& is);
 		void destroy();
 
 		error createPipeline(
@@ -107,13 +106,11 @@ namespace engine
 		};
 		std::vector<taskShaderRender> getPipelines();
 
-		error updateCommandBuffer();
+		error updateCommandBuffer(submit& is);
 
 		bool needDescriptorUpdate() const;
 		void setUpdated();
 	private:
-		submit mSubmit;
-
 		bool mNeedDescriptorUpdate;
 		std::vector<VkDescriptorBufferInfo> mBufferInfo;
 

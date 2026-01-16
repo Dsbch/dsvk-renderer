@@ -35,9 +35,9 @@ namespace engine
 		}
 
 		void init(VkDevice device, VmaAllocator allocator);
-		engine::error build(submit is, const void* data, size_t sizeInBytes, size_t validBytes);
-		engine::error buildAsUBO(submit is, const void* data, size_t sizeInBytes, size_t validBytes);
-		engine::error updateBuffer(submit is, const void* data, size_t sizeInBytes, size_t offset);
+		engine::error build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
+		engine::error buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
+		engine::error updateBuffer(submit& is, const void* data, size_t sizeInBytes, size_t offset);
 		void destroy();
 
 		allocatedBuffer getBuffer();

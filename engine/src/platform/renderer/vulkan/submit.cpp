@@ -26,7 +26,7 @@ namespace engine
 
 		VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);
 
-		vkres = (vkAllocateCommandBuffers(mDevice, &cmdAllocInfo, &mCommandBuffer));
+		vkres = (vkAllocateCommandBuffers(mDevice, &cmdAllocInfo, &mCommandBufferImmediate));
 		if (vkres != VK_SUCCESS)
 		{
 			return engine::error{ vkResultToStr(vkres) };
@@ -60,12 +60,16 @@ namespace engine
 
 									VkResult result = vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
 									if (result != VK_SUCCESS)
+									{
 										LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
+									}
+									else
+									{
+										if (sema.second != nullptr)
+											sema.second();
 
-									if (sema.second != nullptr)
-										sema.second();
-
-									semaToDelete.pop_back();
+										semaToDelete.pop_back();
+									}
 								}
 							}
 
@@ -87,6 +91,8 @@ namespace engine
 
 	engine::error submit::immediate(std::function<void(VkCommandBuffer cmd)>&& function)
 	{
+		std::lock_guard l{ mMu };
+
 		VkFence fence;
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 
@@ -102,23 +108,23 @@ namespace engine
 			return engine::error{ vkResultToStr(vkres) };
 		}
 
-		vkres = vkResetCommandBuffer(mCommandBuffer, 0);
+		vkres = vkResetCommandBuffer(mCommandBufferImmediate, 0);
 		if (vkres != VK_SUCCESS)
 			return { vkResultToStr(vkres) };
 
 		VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-		vkres = vkBeginCommandBuffer(mCommandBuffer, &cmdBeginInfo);
+		vkres = vkBeginCommandBuffer(mCommandBufferImmediate, &cmdBeginInfo);
 		if (vkres != VK_SUCCESS)
 			return { vkResultToStr(vkres) };
 
-		function(mCommandBuffer);
+		function(mCommandBufferImmediate);
 
-		vkres = vkEndCommandBuffer(mCommandBuffer);
+		vkres = vkEndCommandBuffer(mCommandBufferImmediate);
 		if (vkres != VK_SUCCESS)
 			return { vkResultToStr(vkres) };
 
-		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(mCommandBuffer);
+		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(mCommandBufferImmediate);
 		VkSubmitInfo2 submit = submitInfo(&cmdinfo);
 
 		vkres = vkQueueSubmit2(mQueue, 1, &submit, fence);
@@ -136,6 +142,8 @@ namespace engine
 
 	engine::error submit::queue(std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp)
 	{
+		std::lock_guard l{ mMu };
+
 		VkCommandBuffer cmd;
 		VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);
 

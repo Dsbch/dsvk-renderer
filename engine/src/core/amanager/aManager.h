@@ -51,6 +51,10 @@ namespace engine
 		
 		std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)> makeShader;
 		std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)> makeTexture;
+		
+		std::mutex mModelMu;
+		std::mutex mShaderMu;
+		std::mutex mTexturesMu;
 		lruCache<uint32_t, model> mLoadedModels;
 		lruCache<uint32_t, std::shared_ptr<shader>> mLoadedShaders;
 		lruCache<uint32_t, std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> mLoadedTextureAtlases;

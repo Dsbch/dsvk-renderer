@@ -37,12 +37,17 @@ namespace engine
 	{
 		error err;
 
-		for (auto& s : mUserSystems)
-		{
-			err = s->onRender(mSceneRegistry, deltaTime);
-			if (err)
-				return err;
-		}
+		mCtx->mThreadPool->start([registry = mSceneRegistry, deltaTime = deltaTime]
+			{
+				for (auto& s : mUserSystems)
+				{
+					error err;
+					err = s->onRender(registry, deltaTime);
+					if (err)
+						LOGERROR("User system err onRender: {}", err.err());
+				}
+			}
+		);
 
 		for (auto& s : mSystems)
 		{
@@ -56,15 +61,19 @@ namespace engine
 
 	error scene::onEvent(std::shared_ptr<baseEvent> e)
 	{
+		mCtx->mThreadPool->start([event = e, registry = mSceneRegistry] 
+			{
+				for (auto& s : mUserSystems)
+				{
+					error err;
+					err = s->onEvent(registry, event);
+					if (err)
+						LOGERROR("User system err onEvent: {}", err.err());
+				}
+			}
+		);
+
 		error err;
-
-		for (auto& s : mUserSystems)
-		{
-			err = s->onEvent(mSceneRegistry, e);
-			if (err)
-				return err;
-		}
-
 		for (auto& s : mSystems)
 		{
 			err = s->onEvent(mSceneRegistry, e);
@@ -79,12 +88,17 @@ namespace engine
 	{
 		error err;
 
-		for (auto& s : mUserSystems)
-		{
-			err = s->onFixedUpdate(mSceneRegistry);
-			if (err)
-				return err;
-		}
+		mCtx->mThreadPool->start([registry = mSceneRegistry]
+			{
+				for (auto& s : mUserSystems)
+				{
+					error err;
+					err = s->onFixedUpdate(registry);
+					if (err)
+						LOGERROR("User system err onFixedUpdate: {}", err.err());
+				}
+			}
+		);
 
 		for (auto& s : mSystems)
 		{
@@ -100,12 +114,17 @@ namespace engine
 	{
 		error err;
 
-		for (auto& s : mUserSystems)
-		{
-			s->onUpdate(mSceneRegistry, deltaTime);
-			if (err)
-				return err;
-		}
+		mCtx->mThreadPool->start([registry = mSceneRegistry, deltaTime = deltaTime]
+			{
+				for (auto& s : mUserSystems)
+				{
+					error err;
+					err = s->onUpdate(registry, deltaTime);
+					if (err)
+						LOGERROR("User system err onUpdate: {}", err.err());
+				}
+			}
+		);
 
 		for (auto& s : mSystems)
 		{

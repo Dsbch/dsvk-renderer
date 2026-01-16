@@ -51,9 +51,12 @@ namespace engine
 		if (!makeShader)
 			return error{ "makeShader wasn't set" };
 
-		auto loadRes = mLoadedShaders.get(key(path));
-		if (loadRes)
-			return loadRes.value();
+		{
+			std::lock_guard l{ mShaderMu };
+			auto loadRes = mLoadedShaders.get(key(path));
+			if (loadRes)
+				return loadRes.value();
+		}
 
 		std::ifstream file(path, std::ios::ate | std::ios::binary);
 		if (!file.is_open())
@@ -70,16 +73,30 @@ namespace engine
 		if (!shader)
 			shader.err();
 
-		mLoadedShaders.put(key(path), shader.value());
+		{
+			std::lock_guard l{ mShaderMu };
+			mLoadedShaders.put(key(path), shader.value());
+		}
 
 		return shader.value();
 	}
 
 	void aManager::clearCache()
 	{
-		mLoadedModels.clear();
-		mLoadedShaders.clear();
-		mLoadedTextureAtlases.clear();
+		{
+			std::lock_guard l1{ mShaderMu };
+			mLoadedShaders.clear();
+		}
+
+		{
+			std::lock_guard l2{ mModelMu };
+			mLoadedModels.clear();
+		}
+
+		{
+			std::lock_guard l3{ mTexturesMu };
+			mLoadedTextureAtlases.clear();
+		}
 	}
 
 	aManager::aManager()
@@ -451,9 +468,13 @@ namespace engine
 		float coneWieght
 	)
 	{
-		auto found = mLoadedModels.get(key(path));
-		if (found)
-			return found.value();
+		{
+			std::lock_guard l{ mModelMu };
+
+			auto found = mLoadedModels.get(key(path));
+			if (found)
+				return found.value();
+		}
 
 		cgltf_options options{};
 		cgltf_data* data = nullptr;
@@ -756,8 +777,8 @@ namespace engine
 
 				for (auto& m : meshlets)
 				{
-					m.indexBufferOffset += result.meshData.index.second;
-					m.triangleBufferOffset += result.meshData.primitive.second;
+					m.indexBufferOffset += uint32_t(result.meshData.index.data->size());
+					m.triangleBufferOffset += uint32_t(result.meshData.primitive.data->size());
 				}
 
 				result.meshData.index.data->insert(
@@ -908,7 +929,7 @@ namespace engine
 		result.meshData.primitive.second = uint32_t(result.meshData.primitive.data->size());
 		result.meshData.mesh.second = uint32_t(result.meshData.mesh.data->size());
 
-		error err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, 2);
+		error err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, remappedIndexBuffer.size() / 2);
 		if (err)
 			return err;
 
@@ -916,7 +937,7 @@ namespace engine
 		result.meshData.primitive.third = uint32_t(result.meshData.primitive.data->size());
 		result.meshData.mesh.third = uint32_t(result.meshData.mesh.data->size());
 
-		err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, 3);
+		err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, remappedIndexBuffer.size() / 3);
 		if (err)
 			return err;
 
@@ -924,7 +945,7 @@ namespace engine
 		result.meshData.primitive.fourth = uint32_t(result.meshData.primitive.data->size());
 		result.meshData.mesh.fourth = uint32_t(result.meshData.mesh.data->size());
 
-		err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, 4);
+		err = generateLodLevel(*result.meshData.vertex.get(), remappedIndexBuffer, remappedIndexBuffer.size() / 4);
 		if (err)
 			return err;
 
@@ -939,7 +960,11 @@ namespace engine
 
 		result.meshData.generateHash();
 
-		mLoadedModels.put(key(path), result);
+		{
+			std::lock_guard l{ mModelMu };
+
+			mLoadedModels.put(key(path), result);
+		}
 
 		return result;
 	}
@@ -956,9 +981,13 @@ namespace engine
 
 		uint32_t mergedCrc = crc32(reinterpret_cast<uint8_t*>(crcVals.data()), crcVals.size() * sizeof(uint32_t));
 
-		auto found = mLoadedTextureAtlases.get(mergedCrc);
-		if (found)
-			return found.value();
+		{
+			std::lock_guard l{ mTexturesMu };
+
+			auto found = mLoadedTextureAtlases.get(mergedCrc);
+			if (found)
+				return found.value();
+		}
 
 		std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>> result{ nullptr, {} };
 
@@ -1127,6 +1156,9 @@ namespace engine
 		const int trashHold = 2048;
 		float scale = trashHold / float(size);
 
+		if (scale > 1.0f)
+			scale = 1.0f;
+
 		if (scale < 1.0f)
 		{
 			int newSize = int(scale * size);
@@ -1168,7 +1200,11 @@ namespace engine
 
 		result.first = atlasTexture.value();
 
-		mLoadedTextureAtlases.put(mergedCrc, result);
+		{
+			std::lock_guard l{ mTexturesMu };
+
+			mLoadedTextureAtlases.put(mergedCrc, result);
+		}
 
 		return result;
 	}

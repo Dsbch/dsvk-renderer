@@ -6,15 +6,14 @@
 
 namespace engine
 {
-	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, submit is)
+	void bufferRegistry::init(VkDevice device, VmaAllocator allocator)
 	{
 		mDevice = device;
 		mAllocator = allocator;
-		mSubmit = is;
 		mNeedUpdate = false;
 	}
 
-	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, const void* data, size_t sizeInBytes, size_t newSize)
+	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
@@ -42,7 +41,7 @@ namespace engine
 
 				mBuffers[i].bufferHandles.insert(handle);
 
-				error err = mBuffers[i].buffer.updateBuffer(mSubmit, data, sizeInBytes, offset);
+				error err = mBuffers[i].buffer.updateBuffer(is, data, sizeInBytes, offset);
 				if (err)
 					return err;
 
@@ -75,7 +74,7 @@ namespace engine
 		if (vmaVirtualAllocate(vBlock, &allocateInfo, &vAllocation, &offset) != VK_SUCCESS)
 			return error{ "can't allocate in virtual block" };
 
-		error err = newBuffer.build(mSubmit, data, newSize, sizeInBytes);
+		error err = newBuffer.build(is, data, newSize, sizeInBytes);
 		if (err)
 			return err;
 
@@ -205,15 +204,14 @@ namespace engine
 		pipeline.destroy();
 	}
 
-	error pipelineRegistry::init(VkDevice device, VmaAllocator allocator, submit is)
+	error pipelineRegistry::init(VkDevice device, VmaAllocator allocator, submit& is)
 	{
 		mNeedDescriptorUpdate = true;
-		mSubmit = is;
 
 		mCmdBufferNewSize = 2 << 21;
 		mCmdBuffer.init(device, allocator);
 
-		error err = mCmdBuffer.build(mSubmit, nullptr, mCmdBufferNewSize, 0);
+		error err = mCmdBuffer.build(is, nullptr, mCmdBufferNewSize, 0);
 		if (err)
 			return err;
 
@@ -364,7 +362,7 @@ namespace engine
 		return result;
 	}
 
-	error pipelineRegistry::updateCommandBuffer()
+	error pipelineRegistry::updateCommandBuffer(submit& is)
 	{
 		bool needBufferUpdate = false;
 		for (auto& [_, p] : mPipelines)
@@ -384,7 +382,7 @@ namespace engine
 
 		mCmdBuffer.markBytesAsDead(mCmdBuffer.getLoadedBytes());
 
-		error err = mCmdBuffer.updateBuffer(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
+		error err = mCmdBuffer.updateBuffer(is, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
 		if (err.err() == "buffer overflow")
 		{
 			mCmdBufferNewSize = uint32_t(float(mCmdBufferNewSize) * 1.5f);
@@ -394,7 +392,7 @@ namespace engine
 
 			mCmdBuffer.destroy();
 
-			err = mCmdBuffer.build(mSubmit, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), cmd.size() * sizeof(meshletShaderCMD));
+			err = mCmdBuffer.build(is, cmd.data(), mCmdBufferNewSize, cmd.size() * sizeof(meshletShaderCMD));
 			if (err)
 				return err;
 

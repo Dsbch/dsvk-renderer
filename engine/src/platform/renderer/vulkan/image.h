@@ -33,7 +33,7 @@ namespace engine
 		allocatedImage image;
 
 		void init(VkDevice device, VmaAllocator allocator);
-		engine::error build(submit is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
+		engine::error build(submit& is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
 		engine::error build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
 		void destroy();
 	private:

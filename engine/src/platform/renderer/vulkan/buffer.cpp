@@ -11,7 +11,7 @@ namespace engine
 		mAllocator = allocator;
 	}
 
-	error vulkanBuffer::build(submit is, const void* data, size_t sizeInBytes, size_t validBytes)
+	error vulkanBuffer::build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -55,7 +55,7 @@ namespace engine
 		return {};
 	}
 
-	engine::error vulkanBuffer::buildAsUBO(submit is, const void* data, size_t sizeInBytes, size_t validBytes)
+	engine::error vulkanBuffer::buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -99,7 +99,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanBuffer::updateBuffer(submit is, const void* data, size_t sizeInBytes, size_t offset)
+	error vulkanBuffer::updateBuffer(submit& is, const void* data, size_t sizeInBytes, size_t offset)
 	{
 		if (sizeInBytes == 0)
 			return {};

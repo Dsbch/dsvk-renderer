@@ -15,7 +15,7 @@ namespace engine
 			mDevice(VK_NULL_HANDLE),
 			mQueue(VK_NULL_HANDLE),
 			mCommandPool(VK_NULL_HANDLE),
-			mCommandBuffer(VK_NULL_HANDLE),
+			mCommandBufferImmediate(VK_NULL_HANDLE),
 			mQueueFamily(0)
 		{}
 
@@ -28,11 +28,13 @@ namespace engine
 		std::vector<VkSemaphore> getCurrentSemaInUse();
 		void markAllSemaAsUsed();
 	private:
+		std::mutex mMu;
+
 		VkDevice mDevice;
 		VkQueue mQueue;
 		uint32_t mQueueFamily;
 		VkCommandPool mCommandPool;
-		VkCommandBuffer mCommandBuffer;
+		VkCommandBuffer mCommandBufferImmediate;
 
 		static std::mutex mu;
 		static std::vector<std::pair<VkSemaphore, std::function<void()>>> semaInUse;

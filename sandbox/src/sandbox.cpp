@@ -30,7 +30,7 @@ namespace sandbox
 	{
 		return {};
 	}
-	
+
 	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
 	{
 		return {};
@@ -144,14 +144,8 @@ namespace sandbox
 				int i = 0;
 				for (auto [e, uid, mesh, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{
-					i++;
-
-					if (i == 2)
-					{
-						registry->emplace<engine::deleteComponent>(e);
-						return {};
-
-					}
+					registry->emplace<engine::deleteComponent>(e);
+					return {};
 				}
 			}
 		}

@@ -315,15 +315,15 @@ namespace engine
 
 	error vulkanRenderer::initRegistry()
 	{
-		mVertexRegistry.init(mDevice, mAllocator, mSubmit);
+		mVertexRegistry.init(mDevice, mAllocator);
 
-		mIndexRegistry.init(mDevice, mAllocator, mSubmit);
+		mIndexRegistry.init(mDevice, mAllocator);
 
-		mPrimitiveRegistry.init(mDevice, mAllocator, mSubmit);
+		mPrimitiveRegistry.init(mDevice, mAllocator);
 
-		mMeshletRegistry.init(mDevice, mAllocator, mSubmit);
+		mMeshletRegistry.init(mDevice, mAllocator);
 
-		mPerInstanceRegistry.init(mDevice, mAllocator, mSubmit);
+		mPerInstanceRegistry.init(mDevice, mAllocator);
 
 		error err = mPipelineRegistry.init(mDevice, mAllocator, mSubmit);
 		if (err)
@@ -548,7 +548,7 @@ namespace engine
 			return err;
 
 		// Update command buffer for mesh pipeline.
-		err = mPipelineRegistry.updateCommandBuffer();
+		err = mPipelineRegistry.updateCommandBuffer(mSubmit);
 		if (err)
 			return err;
 
@@ -726,7 +726,8 @@ namespace engine
 		auto handle = mVertexRegistry.addBlock(
 			m.meshData.getHash(),
 			m.meshData.vertex->data(),
-			m.meshData.vertex->size() * sizeof(vertex)
+			m.meshData.vertex->size() * sizeof(vertex),
+			mSubmit
 		);
 		if (!handle)
 			return handle.err();
@@ -740,7 +741,8 @@ namespace engine
 		handle = mIndexRegistry.addBlock(
 			m.meshData.getHash(),
 			m.meshData.index.data->data(),
-			m.meshData.index.data->size() * sizeof(uint32_t)
+			m.meshData.index.data->size() * sizeof(uint32_t),
+			mSubmit
 		);
 		if (!handle)
 			return handle.err();
@@ -754,7 +756,8 @@ namespace engine
 		handle = mPrimitiveRegistry.addBlock(
 			m.meshData.getHash(),
 			m.meshData.primitive.data->data(),
-			m.meshData.primitive.data->size() * sizeof(uint32_t)
+			m.meshData.primitive.data->size() * sizeof(uint32_t),
+			mSubmit
 		);
 		if (!handle)
 			return handle.err();
@@ -768,7 +771,8 @@ namespace engine
 		handle = mMeshletRegistry.addBlock(
 			m.meshData.getHash(),
 			meshlets.data(),
-			meshlets.size() * sizeof(meshlet)
+			meshlets.size() * sizeof(meshlet),
+			mSubmit
 		);
 		if (!handle)
 			return handle.err();
@@ -776,7 +780,8 @@ namespace engine
 		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
 			m.id,
 			&attr,
-			sizeof(perInstanceAttr)
+			sizeof(perInstanceAttr),
+			mSubmit
 		);
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();

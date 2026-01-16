@@ -170,7 +170,7 @@ namespace engine
 		mAllocator = allocator;
 	}
 
-	engine::error vulkanImage::build(submit is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+	engine::error vulkanImage::build(submit& is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
 	{
 		size_t dataSize = size.depth * size.width * size.height * bytesPerTexel(format);
 		auto uploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
