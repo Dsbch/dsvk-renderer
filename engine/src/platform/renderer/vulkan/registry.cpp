@@ -492,7 +492,7 @@ namespace engine
 		else
 		{
 			mNeedUpdate = true;
-			result.metalicRoughnes = uint32_t(mImagesInfo.size());
+			info.imageView = static_cast<const vulkanTexture*>(textures.metalicRoughnesAtlas.get())->mImage.image.view;
 
 			if (mFreeIndices.size() != 0)
 			{

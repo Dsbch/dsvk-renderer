@@ -499,7 +499,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     float3 normal = normalize(materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv).rgb * 2.0f - 1.0f);
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;
-    
+
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
     float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWroldPos);
