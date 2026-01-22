@@ -37,7 +37,7 @@ namespace engine
 		float  bsWorldRadius;
 
 		glm::mat4 modelMatrix;
-		glm::mat4 normalMatrix;
+		glm::mat3 normalMatrix;
 
 		uint32_t albedoIndex;
 		uint32_t normalIndex;

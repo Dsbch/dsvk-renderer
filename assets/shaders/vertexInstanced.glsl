@@ -37,3 +37,17 @@ void main()
     vsOut.tangentCameraPos = TBN*uCameraPos;
     vsOut.tangentFragmentPos = TBN*worldPos.xyz;
 }
+
+if (tangentAccessor)
+{
+    float tan[4]{};
+    cgltf_accessor_read_float(tangentAccessor, i, tan, 4);
+
+    glm::vec3 t(tan[0], tan[1], tan[2]);
+
+    // Tangent is a direction → w = 0
+    glm::vec3 worldTangent =
+        glm::normalize(glm::transpose(glm::inverse(glm::mat3(transform))) * t);
+
+    v.tangent = glm::vec4(worldTangent, tan[3]); // keep handedness in .w
+}

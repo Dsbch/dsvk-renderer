@@ -50,7 +50,7 @@ namespace engine
 					.bsWorldCenter = glm::vec3(transform.transform * glm::vec4(mesh.meshData.bsCenter, 1.0f)),
 					.bsWorldRadius = mesh.meshData.bsRadius * scale,
 					.modelMatrix = transform.transform,
-					.normalMatrix = glm::mat4(glm::transpose(glm::inverse(glm::mat3(transform.transform)))),
+					.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform.transform))),
 				},
 				.meshData = mesh.meshData,
 				.mat = material.mat,

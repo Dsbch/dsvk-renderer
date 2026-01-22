@@ -1,4 +1,4 @@
-#include <pch.h>
+﻿#include <pch.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_RECT_PACK_IMPLEMENTATION
@@ -11,7 +11,6 @@
 #include <stb_rect_pack.h>
 #include <stb_image_resize2.h>
 #include "aManager.h"
-#include "gltf.h"
 #include "platform/renderer/renderer.h"
 
 #include <cgltf.h>
@@ -269,7 +268,9 @@ namespace engine
 			const auto& t = tan1[i];
 
 			// Gram-Schmidt orthogonalize.
-			v[i].tangent = glm::vec4(glm::normalize(t - n * glm::dot(n, t)), 1.0f);
+			glm::vec3 tangent = glm::normalize(t - n * glm::dot(n, t));
+
+			v[i].tangent = glm::vec4(tangent, 0.0f);
 
 			// Calculate handedness.
 			v[i].tangent.w = (glm::dot(glm::cross(n, t), tan2[i]) < 0.0F) ? -1.0F : 1.0F;
@@ -597,7 +598,7 @@ namespace engine
 						float norm[3]{};
 						cgltf_accessor_read_float(normalAccessor, i, norm, 3);
 						glm::vec3 n(norm[0], norm[1], norm[2]);
-						v.normal = glm::normalize(glm::mat3(glm::transpose(glm::inverse(transform))) * n);
+						v.normal = glm::normalize(glm::transpose(glm::inverse(glm::mat3(transform))) * n);
 					}
 
 					if (texcoordAccessor)

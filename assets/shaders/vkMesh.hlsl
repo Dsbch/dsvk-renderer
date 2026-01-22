@@ -10,6 +10,10 @@
 
 #define THREADS_COUNT 32
 
+#define PI 3.14159265359f
+
+#define GAMMA 2.2f
+
 // INPUT START.
 
 // DescriptorSet START.
@@ -54,7 +58,7 @@ struct perInstanceAttr
     float3 bsWorldCenter;
     float bsWorldRadius;
     float4x4 modelMatrix;
-    float4x4 normalMatrix;
+    float3x3 normalMatrix;
 
     uint albedoIndex;
     uint normalIndex;
@@ -313,10 +317,13 @@ uint3 unpackUint(uint packed)
 
 struct meshOutput
 {
-    nointerpolation uint albedoIndex : TEXCOORD1;
+    float3 tangentWroldPos : TANGENT0;
+    float3 tangentCameraPos : TANGENT1;
     float4 position : SV_POSITION;
-    float4 color : COLOR;
     float2 uv : TEXCOORD0;
+    nointerpolation uint albedoIndex : TEXCOORD1;
+    nointerpolation uint normalIndex : TEXCOORD2;
+    nointerpolation uint metalicRoughnesIndex : TEXCOORD3;
 };
 
 struct meshletPrimitiveOut
@@ -339,17 +346,14 @@ bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
 
 float3x3 calculateTBN(float3x3 normalMatrix, vertex v)
 {
-    float4 T = v.tangent;
+    float3 T = normalize(mul(normalMatrix, float3(v.tangent.xyz)));
     float3 N = normalize(mul(normalMatrix, v.normal));
-    float3 B = cross(N, float3(T.x, T.y, T.z)) * T.w;
     
-    return transpose(
-            float3x3(
-                (float3) T,
-                        B,
-                        N
-                )
-            );
+    T = normalize(T - dot(T, N) * N);
+    
+    float3 B = v.tangent.w * cross(N, T);
+    
+    return transpose(float3x3(T, B, N));
 }
 
 [outputtopology("triangle")]
@@ -390,19 +394,20 @@ void msmain(
     if (gtid < mesh.vertexCount)
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
-
-        vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, mul(instanceAttr.modelMatrix, float4(vertexBuffer[mesh.vertexBufferIndex][vertexIndex].position, 1.0)));
         
-        float4 color = float4(
-            float(payload.meshletOffset[gid] & 1),
-            float(payload.meshletOffset[gid] & 3) / 4,
-            float(payload.meshletOffset[gid] & 7) / 8,
-            payload.perInstanceOffset[gid] % 2 == 0 ? 0.5f : 1.0f
-        );
+        vertex v = vertexBuffer[mesh.vertexBufferIndex][vertexIndex];
+        float4 worldPos = mul(instanceAttr.modelMatrix, float4(v.position, 1.0));
         
-        vertices[gtid].color = color;
+        vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
+        
+        float3x3 TBN = calculateTBN(instanceAttr.normalMatrix, v);
+        
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
         vertices[gtid].albedoIndex = instanceAttr.albedoIndex;
+        vertices[gtid].normalIndex = instanceAttr.normalIndex;
+        vertices[gtid].metalicRoughnesIndex = instanceAttr.metallicRoughnesIndex;
+        vertices[gtid].tangentCameraPos = mul(TBN, drawData.cameraPos);
+        vertices[gtid].tangentWroldPos = mul(TBN, worldPos.xyz);
     }
 }
 
@@ -410,10 +415,151 @@ void msmain(
 
 // PIXEL SHADER START.
 
+// it's just approxiamtion the formula itself quite complex and using radiant flux that we do not have.
+float3 lightRadiance(float3 lightColor, float distance)
+{
+    float attenuation = 1.0 / (distance * distance);
+    float3 radiance = mul(lightColor, attenuation);
+
+    return radiance;
+}
+
+// baseReflectivity F0 really hard to calculate, so we use trick like that.
+// for dielectrics we return approximation 0.04, for mettalic we return mix.
+float3 baseReflectivity(float3 albedo, float metalic)
+{
+    float3 f0 = float3(0.04f, 0.04f, 0.04f); // base reflectivity of dielectrics.
+    f0 = lerp(f0, albedo, metalic);
+
+    return f0;
+}
+
+// The Fresnel equation describes the ratio of surface reflection at different surface angles.
+float3 fresnelSchlick(float cosTheta, float3 f0)
+{
+    return f0 + (1.0 - f0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// distributionGGX - approximates the amount the surface's microfacets are aligned to the halfway vector, influenced by the roughness of the surface; this is the primary function approximating the microfacets.
+float distributionGGX(float3 n, float3 h, float roughness)
+{
+    // not sure why we use roughness^4.
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float nDotH = max(dot(n, h), 0.0);
+    float nDotH2 = nDotH * nDotH;
+    
+    float num = a2;
+    float denom = (nDotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    
+    return num / denom;
+}
+
+// geometrySchlickGGX - describes the self-shadowing property of the microfacets. When a surface is relatively rough, the surface's microfacets can overshadow other microfacets reducing the light the surface reflects.
+float geometrySchlickGGX(float nDotV, float roughness)
+{
+    // remap roughness.
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+
+    float num = nDotV;
+    float denom = nDotV * (1.0 - k) + k;
+    
+    return num / denom;
+}
+
+// geometrySmith - is used for approximation of geometrySchlickGGX.
+float geometrySmith(float3 n, float3 v, float3 l, float roughness)
+{
+    float nDotV = max(dot(n, v), 0.0);
+    float nDotL = max(dot(n, l), 0.0);
+    float ggx2 = geometrySchlickGGX(nDotV, roughness);
+    float ggx1 = geometrySchlickGGX(nDotL, roughness);
+    
+    return ggx1 * ggx2;
+}
+
+float3 toRGB(float3 color)
+{
+    return pow(color, GAMMA);
+}
+
+float3 toSRGB(float3 color)
+{
+    return pow(color, 1.0f / GAMMA);
+}
+
+// All calculations are made in tangent space.
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    float4 color = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
-    return color;
+    float4 metalicRoughnes = materials[input.metalicRoughnesIndex].Sample(materialsSampler[input.metalicRoughnesIndex], input.uv);
+
+    float4 albedo = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
+    float3 normal = normalize(materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv).rgb * 2.0f - 1.0f);
+    float metalic = metalicRoughnes.b;
+    float roughnes = metalicRoughnes.g;
+    
+    albedo = float4(toRGB(albedo.rgb), albedo.a);
+    
+    float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWroldPos);
+    
+    // render equation.
+    float3 l0 = float3(0.0f, 0.0f, 0.0f);
+    for (int i = 0; i < 1; ++i)
+    {
+        float3 lightPos = input.tangentCameraPos;
+        
+        float3 lightColor = float3(128, 128, 128);
+
+        float3 fromFragmentToLight = normalize(lightPos - input.tangentWroldPos);
+        float3 halfway = normalize(fromFragmentToLight + fromFragmentToCamera);
+
+        // radiance per per light source.
+        float3 radiance = lightRadiance(lightColor, length(lightPos - input.tangentWroldPos));
+
+        // Cook-Torrance BRDF
+        float d = distributionGGX(normal, halfway, roughnes);
+        float g = geometrySmith(normal, fromFragmentToCamera, fromFragmentToLight, roughnes);
+        float3 f = fresnelSchlick(max(dot(halfway, fromFragmentToCamera), 0.0), baseReflectivity(albedo.rgb, metalic));
+
+        float3 numerator = d * f * g;
+        float denominator = 4.0 * max(dot(normal, fromFragmentToCamera), 0.0) * max(dot(normal, fromFragmentToLight), 0.0) + 0.0001;
+        // + 0.0001 to prevent divide by zero
+        float3 specular = numerator / denominator;
+
+        // kS is equal to Fresnel
+        float3 kS = f;
+        // for energy conservation, the diffuse and specular light can't
+        // be above 1.0 (unless the surface emits light); to preserve this
+        // relationship the diffuse component (kD) should equal 1.0 - kS.
+        float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;
+        // multiply kD by the inverse metalness such that only non-metals 
+        // have diffuse lighting, or a linear blend if partly metal (pure metals
+        // have no diffuse light).
+        kD *= 1.0 - metalic;
+
+        // scale light by nDotL
+        float nDotL = max(dot(normal, fromFragmentToLight), 0.0);
+
+        // add to outgoing radiance Lo
+        l0 += (kD * albedo.rgb / PI + specular) * radiance * nDotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+    }
+
+
+    // ambient lighting part, removed for now.
+    // note that in future you need to replace that ambient light with some Voxel Cone Tracing for reflections.
+    // for now we just use AO texture.
+    float3 ambient = mul(float3(0.02f, 0.02f, 0.02f), albedo.rgb);
+    
+    float3 color = l0;
+
+    // HDR tonemapping
+    color = color / (color + float3(1.0f, 1.0f, 1.0f));
+    
+    color = toSRGB(color);
+    
+    return float4(color.rgb, albedo.a);
 }
 
 // PIXEL SHADER END.

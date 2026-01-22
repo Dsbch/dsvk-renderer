@@ -1,5 +1,4 @@
 #include "sandbox.h"
-#include <core/amanager/gltf.h>
 #include <core/scene/components.h>
 #include <core/scene/entity.h>
 
@@ -63,7 +62,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/winter_girl.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/stone_sphere.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 

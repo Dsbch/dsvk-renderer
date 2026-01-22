@@ -106,6 +106,12 @@ namespace engine
 			while (!mQueue.empty())
 			{
 				mMutex.lock();
+				if (mQueue.empty())
+				{
+					mMutex.unlock();
+					break;
+				}
+
 				auto func = mQueue.front();
 				mQueue.pop_front();
 				mMutex.unlock();
