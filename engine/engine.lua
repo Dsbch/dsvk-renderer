@@ -40,6 +40,7 @@ project "engine"
       "../vendor/meshoptimizer/src",
       "../vendor/cgltf",
       "../vendor/glfw/include",
+      "../vendor/imgui",
    }
 
    defines("_CRT_SECURE_NO_WARNINGS")
@@ -54,6 +55,7 @@ project "engine"
    {
       "spdlog",
       "meshoptimizer",
+      "imgui",
       "glfw",
    }
 

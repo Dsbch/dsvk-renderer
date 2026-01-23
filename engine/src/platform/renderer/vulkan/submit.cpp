@@ -63,13 +63,11 @@ namespace engine
 									{
 										LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
 									}
-									else
-									{
-										if (sema.second != nullptr)
-											sema.second();
+								
+									if (sema.second != nullptr)
+										sema.second();
 
-										semaToDelete.pop_back();
-									}
+									semaToDelete.pop_back();
 								}
 							}
 

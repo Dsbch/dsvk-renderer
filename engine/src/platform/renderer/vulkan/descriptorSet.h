@@ -25,17 +25,18 @@ namespace engine
 	struct descriptorPool
 	{
 	public:
-
 		void init(VkDevice device, poolConstraints constraints);
 		void destroy();
 		withError<VkDescriptorSet> allocate(VkDescriptorSetLayout layout);
+	
+		VkDescriptorPool getCurrentPool();
+		error createPool();
 	private:
 		poolConstraints mConstraints;
 
 		VkDevice mDevice;
 		std::vector<VkDescriptorPoolSize> mPoolSizes;
 
-		error createPool();
 		VkDescriptorPool mCurrentPool;
 		std::vector<VkDescriptorPool> mPoolsInUse;
 	};

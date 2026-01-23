@@ -81,14 +81,14 @@ namespace engine
 		return mSwapchain;
 	}
 
-	std::vector<VkImage> swapChain::getSwapChainImages()
+	VkImage swapChain::getCurrentSwapChainImage()
 	{
-		return mSwapchainImages;
+		return mSwapchainImages[mSwapchainIndex];
 	}
 
-	std::vector<VkImageView> swapChain::getSwapChainImageViews()
+	VkImageView swapChain::getCurrentSwapChainImageView()
 	{
-		return mSwapchainImageViews;
+		return mSwapchainImageViews[mSwapchainIndex];
 	}
 
 	VkFormat swapChain::getSwapChainImageFormat()
@@ -96,7 +96,7 @@ namespace engine
 		return mSwapchainImageFormat;
 	}
 
-	error swapChain::present(VkQueue graphicQueue, uint32_t swapChainImageIndex)
+	error swapChain::present(VkQueue graphicQueue)
 	{
 		//prepare present
 		// this will put the image we just rendered to into the visible window.
@@ -107,32 +107,32 @@ namespace engine
 		presInfo.pSwapchains = &mSwapchain;
 		presInfo.swapchainCount = 1;
 
-		presInfo.pWaitSemaphores = &getCurrentFrameData().renderSemaphore;
+		presInfo.pWaitSemaphores = &mRenderSema[mSwapchainIndex];
 		presInfo.waitSemaphoreCount = 1;
 
-		presInfo.pImageIndices = &swapChainImageIndex;
+		presInfo.pImageIndices = &mSwapchainIndex;
 
 		auto result = vkQueuePresentKHR(graphicQueue, &presInfo);
 		if (result != VK_SUCCESS)
 			return vkResultToStr(result);
 
+		increment();
+
 		return {};
 	}
 
-	withError<uint32_t> swapChain::acquireImageIndex()
+	error swapChain::acquireImageIndex()
 	{
-		uint32_t result = 0;
-		VkResult e = vkAcquireNextImageKHR(mDevice, mSwapchain, 1000000000, getCurrentFrameData().swapchainSemaphore, nullptr, &result);
+		VkResult e = vkAcquireNextImageKHR(mDevice, mSwapchain, 1000000000, getCurrentFrameData().swapchainSemaphore, nullptr, &mSwapchainIndex);
 		if (e != VK_SUCCESS)
 		{
 			return { vkResultToStr(e) };
 		}
 
-		return result;
+		return {};
 	}
 
-
-	error swapChain::waitOnCurrentFence()
+	error swapChain::waitOnRenderFence()
 	{
 		auto result = vkWaitForFences(mDevice, 1, &getCurrentFrameData().renderFence, true, 1000000000);
 		if (result != VK_SUCCESS)
@@ -141,13 +141,33 @@ namespace engine
 		return {};
 	}
 
-	error swapChain::resetCurrentFence()
+	error swapChain::resetRenderFence()
 	{
 		auto result = vkResetFences(mDevice, 1, &getCurrentFrameData().renderFence);
 		if (result != VK_SUCCESS)
 			return { vkResultToStr(result) };
-	
+
 		return {};
+	}
+
+	VkCommandBuffer swapChain::getCommandBuffer()
+	{
+		return getCurrentFrameData().commandBuffer;
+	}
+
+	VkSemaphore swapChain::getSwapchainSemaphore()
+	{
+		return getCurrentFrameData().swapchainSemaphore;
+	}
+
+	VkSemaphore swapChain::getRenderSemaphore()
+	{
+		return mRenderSema[mSwapchainIndex];
+	}
+
+	VkFence swapChain::getRenderFence()
+	{
+		return getCurrentFrameData().renderFence;
 	}
 
 	error swapChain::resetCommandBuffer()
@@ -199,7 +219,7 @@ namespace engine
 		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		drawImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		
+
 		error err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false);
 		if (err)
 			return err;
@@ -232,7 +252,7 @@ namespace engine
 			if (result != VK_SUCCESS)
 				return { vkResultToStr(result) };
 
-			result = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mFrames[i].renderSemaphore);
+			result = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mRenderSema[i]);
 			if (result != VK_SUCCESS)
 				return { vkResultToStr(result) };
 
@@ -269,7 +289,7 @@ namespace engine
 		{
 			vkDestroyCommandPool(mDevice, mFrames[i].commandPool, nullptr);
 			vkDestroyFence(mDevice, mFrames[i].renderFence, nullptr);
-			vkDestroySemaphore(mDevice, mFrames[i].renderSemaphore, nullptr);
+			vkDestroySemaphore(mDevice, mRenderSema[i], nullptr);
 			vkDestroySemaphore(mDevice, mFrames[i].swapchainSemaphore, nullptr);
 		}
 

@@ -30,7 +30,7 @@ namespace engine
 		return VK_FALSE;
 	}
 
-	PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT = nullptr;
+	static PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT = nullptr;
 
 	vulkanRenderer::vulkanRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window)
 		:
@@ -66,16 +66,21 @@ namespace engine
 		mErr = initPipelines();
 		if (mErr)
 			return;
+
+		mErr = mUi.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain.getDrawImageFormat());
+		if (mErr)
+			return;
 	}
 
 	vulkanRenderer::~vulkanRenderer()
 	{
 		auto result = vkDeviceWaitIdle(mDevice);
 		if (result != VK_SUCCESS)
-		{
 			LOGERROR(vkResultToStr(result));
-			return;
-		}
+
+		auto err = mUi.destroy();
+		if (err)
+			LOGERROR(err.err());
 
 		flushDeletonQueue();
 	}
@@ -717,7 +722,7 @@ namespace engine
 	error vulkanRenderer::uploadGeometryData(const model& m, uint32_t albedoIndex, uint32_t normalIndex, uint32_t metalicRoughnesIndex)
 	{
 		std::vector<meshlet> meshlets = *m.meshData.mesh.data.get();
-		
+
 		perInstanceAttr attr = m.instanceAttributes;
 		attr.albedoIndex = albedoIndex;
 		attr.normalIndex = normalIndex;
@@ -850,7 +855,7 @@ namespace engine
 
 			mMeshletRegistry.deleteBlock(m.meshData.getHash());
 		}
-		                                
+
 		mMaterialRegistry.deleteMaterial(m.mat.textures);
 	}
 
@@ -877,43 +882,37 @@ namespace engine
 		if (err)
 			return err;
 
-		auto waitResult = mSwapChain.waitOnCurrentFence();
+		auto waitResult = mSwapChain.waitOnRenderFence();
 		if (waitResult)
-		{
 			return waitResult.err();
-		}
-
-		mSwapChain.pickImageExtent();
 
 		// request image from the swapchain.
 		// keep in mind that we use swapChain semaphore as signaling here.
-		auto indexResult = mSwapChain.acquireImageIndex();
-		if (!indexResult)
+		err = mSwapChain.acquireImageIndex();
+		if (err)
 		{
-			if (indexResult.err().err() == "VK_ERROR_OUT_OF_DATE_KHR")
+			if (err.err() == "VK_ERROR_OUT_OF_DATE_KHR")
 			{
 				mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(mWindow->getFbWidth(), mWindow->getFbHeight()));
 
 				return {};
 			}
 
-			return indexResult.err();
+			return err;
 		}
 
-		auto resetResult = mSwapChain.resetCurrentFence();
+		mSwapChain.pickImageExtent();
+
+		auto resetResult = mSwapChain.resetRenderFence();
 		if (resetResult)
-		{
 			return resetResult.err();
-		}
 
-		auto resetRes = mSwapChain.resetCommandBuffer();
-		if (resetRes)
-		{
-			return resetRes.err();
-		}
+		resetResult = mSwapChain.resetCommandBuffer();
+		if (resetResult)
+			return resetResult.err();
 
 		//naming it cmd for shorter writing
-		VkCommandBuffer cmd = mSwapChain.getCurrentFrameData().commandBuffer;
+		VkCommandBuffer cmd = mSwapChain.getCommandBuffer();
 
 		//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
 		VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -939,18 +938,21 @@ namespace engine
 		if (err)
 			return err;
 
+		// Render UI.
+		mUi.onRender(cmd, mSwapChain.getDrawImageView(), mSwapChain.getDrawImageExtent());
+
 		//transition the draw image and the swapchain image into their correct transfer layouts
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 		// copy from the draw image into the swapchain
-		copyImageToImage(cmd, mSwapChain.getDrawImage(), mSwapChain.getSwapChainImages()[indexResult.value()], mSwapChain.getDrawImageExtent(), mSwapChain.getSwapChainExtent());
+		copyImageToImage(cmd, mSwapChain.getDrawImage(), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageExtent(), mSwapChain.getSwapChainExtent());
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
-		transitionImage(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		// set swapchain image layout to Present so we can draw it
-		transitionImage(cmd, mSwapChain.getSwapChainImages()[indexResult.value()], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)
 		vkResult = vkEndCommandBuffer(cmd);
@@ -958,7 +960,6 @@ namespace engine
 		{
 			return vkResultToStr(vkResult);
 		}
-
 
 		// Prepare the submission to the queue. 
 		//	we want to wait on the _presentSemaphore and all semaphores that were created during resource creating, 
@@ -970,8 +971,8 @@ namespace engine
 		std::vector<VkSemaphoreSubmitInfo> waitInfo{};
 		std::vector<VkSemaphoreSubmitInfo> signalInfo;
 
-		waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getCurrentFrameData().swapchainSemaphore));
-		signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getCurrentFrameData().renderSemaphore));
+		waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getSwapchainSemaphore()));
+		signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getRenderSemaphore()));
 
 		auto waitSema = mSubmit.getCurrentSemaInUse();
 		for (auto& sema : waitSema)
@@ -981,7 +982,7 @@ namespace engine
 
 		// submit command buffer to the queue and execute it.
 		// _renderFence will now block until the graphic commands finish execution
-		vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getCurrentFrameData().renderFence);
+		vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
 		if (vkResult != VK_SUCCESS)
 		{
 			return vkResultToStr(vkResult);
@@ -993,7 +994,7 @@ namespace engine
 		// this will put the image we just rendered to into the visible window.
 		// we want to wait on the _renderSemaphore for that, 
 		// as its necessary that drawing commands have finished before the image is displayed to the user
-		auto presentErr = mSwapChain.present(mGraphicsQueue, indexResult.value());
+		auto presentErr = mSwapChain.present(mGraphicsQueue);
 		if (presentErr)
 		{
 			if (presentErr.err() == "VK_ERROR_OUT_OF_DATE_KHR")
@@ -1005,8 +1006,6 @@ namespace engine
 
 			return presentErr;
 		}
-
-		mSwapChain.increment();
 
 		return {};
 	}

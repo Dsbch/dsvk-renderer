@@ -107,6 +107,11 @@ namespace engine
 		return ds;
 	}
 
+	VkDescriptorPool descriptorPool::getCurrentPool()
+	{
+		return mCurrentPool;
+	}
+
 	error descriptorSet::init(VkDevice device, VkPhysicalDevice physicalDevice, poolConstraints constraints)
 	{
 		mDevice = device;

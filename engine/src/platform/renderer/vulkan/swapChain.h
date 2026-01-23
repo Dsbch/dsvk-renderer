@@ -18,8 +18,7 @@ namespace engine
 	{
 		VkCommandPool commandPool;
 		VkCommandBuffer commandBuffer;
-
-		VkSemaphore swapchainSemaphore, renderSemaphore;
+		VkSemaphore swapchainSemaphore;
 		VkFence renderFence;
 	};
 
@@ -33,23 +32,31 @@ namespace engine
 			mChosenGPU(VK_NULL_HANDLE),
 			mSwapchain(VK_NULL_HANDLE),
 			mSwapchainImageFormat(VK_FORMAT_B8G8R8A8_UNORM),
-			mSwapchainExtent(),
-			mFrameNumber(0),
 			mFrames(
 				{
-					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE },
-					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE },
-					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE }
+					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE },
+					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE },
+					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE }
 				}
-			)
+			),
+			mRenderSema(
+				{
+					VK_NULL_HANDLE,
+					VK_NULL_HANDLE,
+					VK_NULL_HANDLE,
+				}
+			),
+			mDepthImage(),
+			mDrawImage(),
+			mSwapchainExtent(),
+			mSwapchainIndex(0),
+			mFrameNumber(0)
 		{
 		}
 
 		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU);
 		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
 		void destroy();
-
-		frameData& getCurrentFrameData();
 
 		VkFormat getDrawImageFormat();
 		VkFormat getDepthImageFormat();
@@ -59,26 +66,33 @@ namespace engine
 
 		VkImage getDrawImage();
 		VkImage getDepthImage();
-		
+
 		VkImageView getDrawImageView();
 		VkImageView getDepthImageView();
 
-		void increment();
 		void pickImageExtent();
 
 		VkExtent2D& getSwapChainExtent();
 		VkSwapchainKHR& getSwapChain();
-		std::vector<VkImage> getSwapChainImages();
-		std::vector<VkImageView> getSwapChainImageViews();
 		VkFormat getSwapChainImageFormat();
-		
-		withError<uint32_t> acquireImageIndex();
-		error waitOnCurrentFence();
-		error resetCurrentFence();
+
+		VkImage getCurrentSwapChainImage();
+		VkImageView getCurrentSwapChainImageView();
+
+		error acquireImageIndex();
+		error waitOnRenderFence();
+		error resetRenderFence();
 		error resetCommandBuffer();
-		error present(VkQueue graphicQueue, uint32_t swapChainImageIndex);
+		error present(VkQueue graphicQueue);
+		VkCommandBuffer getCommandBuffer();
+		VkSemaphore getSwapchainSemaphore();
+		VkSemaphore getRenderSemaphore();
+		VkFence getRenderFence();
 	private:
+		void increment();
 		error createSwapChain(uint32_t width, uint32_t height);
+
+		frameData& getCurrentFrameData();
 
 		// VMA.
 		VmaAllocator mAllocator;
@@ -95,13 +109,14 @@ namespace engine
 		std::vector<VkImage> mSwapchainImages;
 		std::vector<VkImageView> mSwapchainImageViews;
 		VkExtent2D mSwapchainExtent;
-		
+
 		vulkanImage mDrawImage;
 		vulkanImage mDepthImage;
 
 		uint32_t mFrameNumber;
-		// frame data, relates to swap chain.
-		// We have triple buffered swap chain.
+		uint32_t mSwapchainIndex;
+
 		std::array<frameData, FRAME_OVERLAP> mFrames;
+		std::array<VkSemaphore, FRAME_OVERLAP> mRenderSema;
 	};
 }

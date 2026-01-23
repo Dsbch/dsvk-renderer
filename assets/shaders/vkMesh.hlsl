@@ -317,8 +317,9 @@ uint3 unpackUint(uint packed)
 
 struct meshOutput
 {
-    float3 tangentWroldPos : TANGENT0;
+    float3 tangentWorldPos : TANGENT0;
     float3 tangentCameraPos : TANGENT1;
+    float3 vertexNormal : TANGENT2;
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
     nointerpolation uint albedoIndex : TEXCOORD1;
@@ -353,7 +354,7 @@ float3x3 calculateTBN(float3x3 normalMatrix, vertex v)
     
     float3 B = v.tangent.w * cross(N, T);
     
-    return transpose(float3x3(T, B, N));
+    return float3x3(T, B, N);
 }
 
 [outputtopology("triangle")]
@@ -400,14 +401,15 @@ void msmain(
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
-        float3x3 TBN = calculateTBN(instanceAttr.normalMatrix, v);
+        float3x3 TBN = transpose(calculateTBN(instanceAttr.normalMatrix, v));
         
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
         vertices[gtid].albedoIndex = instanceAttr.albedoIndex;
         vertices[gtid].normalIndex = instanceAttr.normalIndex;
         vertices[gtid].metalicRoughnesIndex = instanceAttr.metallicRoughnesIndex;
-        vertices[gtid].tangentCameraPos = mul(TBN, drawData.cameraPos);
-        vertices[gtid].tangentWroldPos = mul(TBN, worldPos.xyz);
+        vertices[gtid].tangentCameraPos = drawData.cameraPos;
+        vertices[gtid].tangentWorldPos = worldPos.xyz;
+        vertices[gtid].vertexNormal = v.normal;
     }
 }
 
@@ -502,21 +504,30 @@ float4 psmain(meshOutput input) : SV_TARGET
 
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
-    float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWroldPos);
+    float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWorldPos);
+    
+    normal = input.vertexNormal;
+    
+    float3 lightPositions[4] = { 
+        float3(0.0f, 0.0f, 2.0f),
+        float3(0.0f, 0.0f, -2.0f),
+        float3(2.0f, 0.0f, 0.0f),
+        float3(-2.0f, 0.0f, 0.0f),
+    };
     
     // render equation.
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
-    for (int i = 0; i < 1; ++i)
+    for (int i = 0; i < 4; ++i)
     {
-        float3 lightPos = input.tangentCameraPos;
+        float3 lightPos = lightPositions[i];
         
-        float3 lightColor = float3(128, 128, 128);
+        float3 lightColor = float3(45.0f, 45.0f, 45.0f);
 
-        float3 fromFragmentToLight = normalize(lightPos - input.tangentWroldPos);
+        float3 fromFragmentToLight = normalize(lightPos - input.tangentWorldPos);
         float3 halfway = normalize(fromFragmentToLight + fromFragmentToCamera);
 
         // radiance per per light source.
-        float3 radiance = lightRadiance(lightColor, length(lightPos - input.tangentWroldPos));
+        float3 radiance = lightRadiance(lightColor, length(lightPos - input.tangentWorldPos));
 
         // Cook-Torrance BRDF
         float d = distributionGGX(normal, halfway, roughnes);

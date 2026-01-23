@@ -54,6 +54,11 @@ namespace engine
 		}
 	}
 
+	GLFWwindow* window::getGLFWhandle()
+	{
+		return mWnd;
+	}
+
 	void window::keyCallback(GLFWwindow* wnd, int k, int scancode, int action, int mods)
 	{
 		if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
@@ -167,6 +172,7 @@ namespace engine
 
 #ifdef DEBUG
 		monitor = nullptr;
+		mShowCursor = true;
 #endif // DEBUG
 
 		mWnd = glfwCreateWindow(width, heigth, name.c_str(), monitor, nullptr);

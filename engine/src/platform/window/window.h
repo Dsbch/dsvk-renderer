@@ -37,6 +37,8 @@ namespace engine
 
 		window(const window&) = delete;
 		window& operator=(const window&) = delete;
+
+		GLFWwindow* getGLFWhandle();
 	private:
 		static void keyCallback(GLFWwindow* wnd, int key, int scancode, int action, int mods);
 		static void mouseKeyCallback(GLFWwindow* wnd, int button, int action, int mods);
