@@ -186,39 +186,9 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in, VkImageView depthImage, VkImageView drawImage, VkExtent3D drawImageExtent)
+	error meshletRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
 		auto pipelines = mPipelineRegistry.getPipelines();
-
-		if (pipelines.size() != 0)
-		{
-			//begin a render pass connected to our draw image and depth buffer.
-			VkRenderingAttachmentInfo colorAttachment = attachmentInfo(drawImage, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-			VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(depthImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
-			VkRenderingInfo renderInfo = renderingInfo(drawImageExtent, &colorAttachment, &depthAttachment);
-
-			vkCmdBeginRendering(cmd, &renderInfo);
-
-			//set dynamic viewport and scissor
-			VkViewport viewport = {};
-			viewport.x = 0;
-			viewport.y = 0;
-			viewport.width = float(drawImageExtent.width);
-			viewport.height = float(drawImageExtent.height);
-			viewport.minDepth = 0.f;
-			viewport.maxDepth = 1.f;
-
-			vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-			VkRect2D scissor = {};
-			scissor.offset.x = 0;
-			scissor.offset.y = 0;
-			scissor.extent.width = (drawImageExtent.width);
-			scissor.extent.height = (drawImageExtent.height);
-
-			vkCmdSetScissor(cmd, 0, 1, &scissor);
-		}
 
 		uint32_t cmdOffset = 0;
 		for (auto& v : pipelines)
@@ -240,9 +210,6 @@ namespace engine
 
 			mVkCmdDrawMeshTasksEXT(cmd, uint32_t(v.commandBufferLength) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 		}
-
-		if (pipelines.size() != 0)
-			vkCmdEndRendering(cmd);
 
 		return {};
 	}

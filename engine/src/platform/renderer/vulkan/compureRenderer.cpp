@@ -100,6 +100,7 @@ namespace engine
 
 		return {};
 	}
+
 	void computeRenderer::clear(VkCommandBuffer cmd, VkExtent3D colorAttachmentExtent)
 	{
 		// bind the compute pipeline

@@ -28,6 +28,8 @@ namespace engine
 		withError<std::shared_ptr<shader>> getDefaultMeshShader();
 		withError<std::shared_ptr<shader>> getDefaultPixelShader();
 		withError<std::shared_ptr<shader>> getDefaultComputeShader();
+		withError<std::shared_ptr<shader>> getDefaultLineVertexShader();
+		withError<std::shared_ptr<shader>> getDefaultLinePixelShader();
 		withError<std::shared_ptr<shader>> loadShader(const std::string& shaderPath);
 
 		void clearCache();

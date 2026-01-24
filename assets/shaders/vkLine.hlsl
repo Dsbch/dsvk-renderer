@@ -61,7 +61,7 @@ ConstantBuffer<perDrawData> drawData : register(b1, space0);
 
 struct vertexOutput
 {
-    float4 position : POSITION;
+    float4 position : SV_POSITION;
 };
 
 vertexOutput vsmain(uint vertexID : SV_VertexID)
@@ -81,7 +81,7 @@ vertexOutput vsmain(uint vertexID : SV_VertexID)
 
 float4 psmain(vertexOutput input) : SV_TARGET
 {
-    return float4(0.5f, 0.5f, 0.5f, 1.0f);
+    return float4(0.0f, 0.0f, 1.0f, 1.0f);
 }
 
 // PIXEL SHADER END.

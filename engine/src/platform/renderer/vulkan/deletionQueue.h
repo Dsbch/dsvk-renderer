@@ -21,6 +21,7 @@ namespace engine
 		sChain,
 		descSet,
 		computePipe,
+		graphicsPipe,
 		buffRegistry,
 		pipelineReg,
 		sampler,
@@ -37,6 +38,7 @@ namespace engine
 			swapChain* sChain;
 			descriptorSet* descSet;
 			computePipeline* computePipe;
+			classicGraphicPipeline* graphicsPipe;
 			bufferRegistry* buffRegistry;
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;

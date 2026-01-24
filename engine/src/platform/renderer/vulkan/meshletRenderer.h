@@ -37,7 +37,7 @@ namespace engine
 		void removeFromRender(const model& m);
 		
 		error updateDescriptors(renderer::renderCallIn in, submit& is);
-		error geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in, VkImageView depthImage, VkImageView drawImage, VkExtent3D drawImageExtent);
+		error geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;

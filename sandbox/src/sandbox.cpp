@@ -43,17 +43,12 @@ namespace sandbox
 	glm::mat4 generateMatrix()
 	{
 		static float zPos = -1.0f;
-		static float rotation = 30.0f;
-
 		glm::mat4 transform = glm::mat4(1.0f);
 
 		glm::vec3 position(0, 0, zPos);
 		transform = glm::translate(transform, position);
 
-		transform = glm::rotate(transform, glm::radians(rotation), glm::vec3(0.5f, 0.4f, 0.7f));
-
 		zPos -= 0.2f;
-		rotation += 30.0f;
 
 		return transform;
 	}

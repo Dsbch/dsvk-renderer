@@ -8,29 +8,44 @@ namespace engine
 	void descriptorPool::init(VkDevice device, poolConstraints constraints)
 	{
 		mCurrentPool = VK_NULL_HANDLE;
-		
+
 		mDevice = device;
 
 		mConstraints = constraints;
 
-		mPoolSizes = {
-					{
-						.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-						.descriptorCount = mConstraints.maxImageDescriptors
-					},
-					{
-						.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-						.descriptorCount = mConstraints.maxCombinedImageDescriptors
-					},
-					{
-						.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-						.descriptorCount = mConstraints.maxBuffersDescriptors
-					},
-					{
-						.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-						.descriptorCount = mConstraints.maxUniformBuffersDescriptors
-					}
-		};
+		if (constraints.maxBuffersDescriptors != 0)
+			mPoolSizes.push_back(
+				{
+					.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					.descriptorCount = mConstraints.maxBuffersDescriptors
+				}
+			);
+
+		if (constraints.maxImageDescriptors != 0)
+			mPoolSizes.push_back(
+				{
+					.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					.descriptorCount = mConstraints.maxImageDescriptors
+				}
+			);
+
+
+		if (constraints.maxCombinedImageDescriptors != 0)
+			mPoolSizes.push_back(
+				{
+					.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount = mConstraints.maxCombinedImageDescriptors
+				}
+			);
+
+
+		if (constraints.maxUniformBuffersDescriptors != 0)
+			mPoolSizes.push_back(
+				{
+					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount = mConstraints.maxUniformBuffersDescriptors
+				}
+			);
 	}
 
 	void descriptorPool::destroy()
@@ -140,7 +155,7 @@ namespace engine
 			VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT_EXT;
 
 		std::vector<VkDescriptorBindingFlagsEXT> pFlagsV{};
-		
+
 		for (uint32_t i = 0; i < totalDescriptorsCount; i++)
 		{
 			pFlagsV.push_back(pFlags);

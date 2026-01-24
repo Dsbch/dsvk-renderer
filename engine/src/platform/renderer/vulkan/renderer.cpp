@@ -81,6 +81,10 @@ namespace engine
 		if (err)
 			LOGERROR(err.err());
 
+		err = mLineRenderer.destroy();
+		if (err)
+			LOGERROR(err.err());
+
 		mDeletionQueue.flushDeletonQueue();
 	}
 
@@ -273,13 +277,17 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer});
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer });
 
 		err = mComputeRenderer.init(mCtx, mDevice, mPhysicalDevice, mPhysicalDeviceLimits, mSwapChain.getDrawImageView());
 		if (err)
 			return err;
 
 		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mPhysicalDeviceLimits, mUboPerDrawBuffer.getBuffer().buffer);
+		if (err)
+			return err;
+
+		err = mLineRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat());
 		if (err)
 			return err;
 
@@ -365,6 +373,26 @@ namespace engine
 
 	error vulkanRenderer::addToRender(const model& m)
 	{
+		const glm::vec3 lightPositions[4] = {
+			glm::vec3(0.0f, 0.0f, 2.0f),
+			glm::vec3(0.0f, 0.0f, -2.0f),
+			glm::vec3(2.0f, 0.0f, 0.0f),
+			glm::vec3(-2.0f, 0.0f, 0.0f),
+		};
+
+		for (auto& l : lightPositions)
+		{
+			mLineRenderer.addLine(m.instanceAttributes.bsWorldCenter, l);
+		}
+
+		//for (const auto& v : *m.meshData.vertex.get())
+		//{
+		//	glm::vec3 n = m.instanceAttributes.normalMatrix * v.normal;
+		//	glm::vec3 pos = glm::vec3(m.instanceAttributes.modelMatrix * glm::vec4{ v.position, 1.0f });
+
+		//	mLineRenderer.addLine(pos, pos + n);
+		//}
+
 		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), m);
 	}
 
@@ -378,7 +406,11 @@ namespace engine
 		if (mWindowMinimized)
 			return {};
 
-		error err = mMeshletRenderer.updateDescriptors(in, mSubmit);
+		error err = mLineRenderer.updateDescriptors(mAllocator, mSubmit);
+		if (err)
+			return err;
+
+		err = mMeshletRenderer.updateDescriptors(in, mSubmit);
 		if (err)
 			return err;
 
@@ -439,9 +471,43 @@ namespace engine
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-		err = mMeshletRenderer.geometryPass(cmd, in, mSwapChain.getDepthImageView(), mSwapChain.getDrawImageView(), mSwapChain.getDrawImageExtent());
+		// Geometry pass START.
+		// Begin a render pass connected to our draw image and depth buffer.
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), &colorAttachment, &depthAttachment);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		//set dynamic viewport and scissor
+		VkViewport viewport = {};
+		viewport.x = 0;
+		viewport.y = 0;
+		viewport.width = float(mSwapChain.getDrawImageExtent().width);
+		viewport.height = float(mSwapChain.getDrawImageExtent().height);
+		viewport.minDepth = 0.f;
+		viewport.maxDepth = 1.f;
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+		VkRect2D scissor = {};
+		scissor.offset.x = 0;
+		scissor.offset.y = 0;
+		scissor.extent.width = (mSwapChain.getDrawImageExtent().width);
+		scissor.extent.height = (mSwapChain.getDrawImageExtent().height);
+
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+		err = mLineRenderer.drawLines(cmd);
 		if (err)
 			return err;
+
+		err = mMeshletRenderer.geometryPass(cmd, in);
+		if (err)
+			return err;
+
+		vkCmdEndRendering(cmd);
+		// Geometry pass END.
 
 		// Render UI.
 		mUi.onRender(cmd, mSwapChain.getDrawImageView(), mSwapChain.getDrawImageExtent());

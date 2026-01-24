@@ -157,6 +157,28 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
+	withError<std::shared_ptr<shader>> aManager::getDefaultLineVertexShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkLineVs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultLinePixelShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkLinePs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
 	static std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<vertex>& vertices)
 	{
 		auto findFarthest = [&](glm::vec3 point)-> glm::vec3

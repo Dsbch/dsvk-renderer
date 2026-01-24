@@ -38,6 +38,10 @@ namespace engine
 				if (it->computePipe)
 					it->computePipe->destroy();
 				break;
+			case graphicsPipe:
+				if (it->graphicsPipe)
+					it->graphicsPipe->destroy();
+				break;
 			case buffRegistry:
 				if (it->buffRegistry)
 					it->buffRegistry->destroy();

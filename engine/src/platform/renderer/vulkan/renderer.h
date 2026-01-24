@@ -65,6 +65,8 @@ namespace engine
 		meshletRenderer mMeshletRenderer;
 		// Compute clear.
 		computeRenderer mComputeRenderer;
+		// Line renderer.
+		lineRenderer mLineRenderer;
 
 		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
 

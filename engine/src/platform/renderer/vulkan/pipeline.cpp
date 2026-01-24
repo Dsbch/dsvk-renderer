@@ -132,10 +132,10 @@ namespace engine
 		mShaderStages.clear();
 
 		mShaderStages.push_back(
-			pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader, "main"));
+			pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader, "vsmain"));
 
 		mShaderStages.push_back(
-			pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "main"));
+			pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "psmain"));
 	}
 
 	void classicGraphicPipeline::setShaders(VkShaderModule taskShader, VkShaderModule meshShader, VkShaderModule fragmentShader)
@@ -153,8 +153,6 @@ namespace engine
 	void classicGraphicPipeline::setInputTopology(VkPrimitiveTopology topology)
 	{
 		mInputAssembly.topology = topology;
-		// we are not going to use primitive restart on the entire tutorial so leave
-		// it on false
 		mInputAssembly.primitiveRestartEnable = VK_FALSE;
 	}
 

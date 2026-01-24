@@ -220,7 +220,7 @@ namespace engine
 	}
 
 	inline VkRenderingAttachmentInfo depthAttachmentInfo(
-		VkImageView view, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+		VkImageView view, VkImageLayout layout)
 	{
 		VkRenderingAttachmentInfo depthAttachment{};
 		depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
