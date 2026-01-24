@@ -3,6 +3,8 @@
 #include "core/scene/systems/camera/cameraSystem.h"
 #include "platform/renderer/renderer.h"
 
+#include <imgui.h>
+
 namespace engine
 {
 	renderSystem::renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)

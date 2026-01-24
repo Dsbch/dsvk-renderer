@@ -64,6 +64,8 @@ namespace engine
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
+		// Add calls to imgui here.
+
 		ImGui::Render();
 
 		//begin a render pass connected to our draw image and depth buffer.

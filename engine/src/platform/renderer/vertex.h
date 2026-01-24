@@ -167,6 +167,11 @@ namespace engine
 		uint32_t commandBufferOffset;
 		uint32_t meshletCount;
 	};
+	
+	struct lineVertex
+	{
+		glm::vec3 position;
+	};
 }
 
 static_assert(std::is_trivially_constructible_v<engine::vertex>&& std::is_standard_layout_v<engine::vertex>);

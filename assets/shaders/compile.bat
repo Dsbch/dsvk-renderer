@@ -55,4 +55,30 @@ if %errorlevel% neq 0 (
 
 echo.
 
+echo.
+
+echo Compiling Vertex line Shader...
+dxc -T vs_6_9 -E vsmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkLineVs.spv vkLine.hlsl
+if %errorlevel% neq 0 (
+    echo Vertex line Shader compilation failed!
+    pause
+) else (
+    echo Vertex line Shader compiled successfully.
+)
+
+echo.
+
+echo.
+
+echo Compiling Pixel Line Shader...
+dxc -T ps_6_9 -E psmain -spirv -Fo -fvk-use-scalar-layout -Fo vkCompiled/vkLinePs.spv vkLine.hlsl
+if %errorlevel% neq 0 (
+    echo Pixel Line Shader compilation failed!
+    pause
+) else (
+    echo Pixel Line Shader compiled successfully.
+)
+
+echo.
+
 pause
