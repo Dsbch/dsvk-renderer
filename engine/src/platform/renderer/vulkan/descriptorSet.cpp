@@ -5,14 +5,6 @@
 
 namespace engine
 {
-	std::once_flag descriptorSet::isPoolCreated;
-	descriptorPool descriptorSet::pool;
-
-	void descriptorSet::destroyPool()
-	{
-		pool.destroy();
-	}
-
 	void descriptorPool::init(VkDevice device, poolConstraints constraints)
 	{
 		mCurrentPool = VK_NULL_HANDLE;
@@ -115,26 +107,16 @@ namespace engine
 	error descriptorSet::init(VkDevice device, VkPhysicalDevice physicalDevice, poolConstraints constraints)
 	{
 		mDevice = device;
+		mPool.init(mDevice, constraints);
 
-		error err;
-		if (mDevice)
-		{
-			std::call_once(
-				isPoolCreated,
-				[&]()->void
-				{
-					pool.init(mDevice, constraints);
-				}
-			);
-		}
-
-		return err;
+		return {};
 	}
 
 	void descriptorSet::destroy()
 	{
 		clearBindings();
 		vkDestroyDescriptorSetLayout(mDevice, mDescriptorSetLayout, nullptr);
+		mPool.destroy();
 	}
 
 	void descriptorSet::clearBindings()
@@ -175,7 +157,7 @@ namespace engine
 
 		mDescriptorSetLayout = buildLayoutRes.value();
 
-		auto allocRes = pool.allocate(mDescriptorSetLayout);
+		auto allocRes = mPool.allocate(mDescriptorSetLayout);
 		if (!allocRes)
 			return allocRes.err();
 

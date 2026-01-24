@@ -5,6 +5,15 @@
 
 namespace engine
 {
+	struct deviceLimits
+	{
+		uint32_t maxUniformBuffers;
+		uint32_t maxStorageBuffers;
+		uint32_t maxCombinedImageSamplers;
+		uint32_t maxImage;
+		float maxFiltering;
+	};
+
 	inline std::string vkResultToStr(VkResult result)
 	{
 		switch (result) {

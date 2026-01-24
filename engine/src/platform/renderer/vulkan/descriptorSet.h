@@ -77,10 +77,8 @@ namespace engine
 			VkBool32 unnormalizedCoordinates = VK_FALSE
 		);
 
-		static void destroyPool();
 	private:
-		static descriptorPool pool;
-		static std::once_flag isPoolCreated;;
+		descriptorPool mPool;
 
 		VkDevice mDevice;
 		VkDescriptorSet mDescriptorSet;

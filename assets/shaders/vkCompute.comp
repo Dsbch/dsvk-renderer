@@ -2,7 +2,7 @@
 
 RWTexture2D<min16float4> colorAttachment : register(u0, space0);
 
-[numthreads(16, 16, 1)]
+[numthreads(32, 32, 1)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
     // Write a white pixel into the target texel

@@ -1,6 +1,7 @@
 #include <pch.h>
 #define VMA_IMPLEMENTATION
 #include "renderer.h"
+#include "deletionQueue.h"
 
 namespace engine
 {
@@ -30,19 +31,17 @@ namespace engine
 		return VK_FALSE;
 	}
 
-	static PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT = nullptr;
-
 	vulkanRenderer::vulkanRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window)
 		:
 		renderer(ctx, window),
-		mWindowMinimized(false)
+		mWindowMinimized(false),
+		mVkCmdDrawMeshTasksEXT(nullptr)
 	{
 		mErr = initVulkan();
 		if (mErr)
 			return;
 
 		mErr = setLimits();
-		mErr = setDefaultBindings();
 
 		mErr = initImmediateSubmit();
 		if (mErr)
@@ -52,22 +51,14 @@ namespace engine
 		if (mErr)
 			return;
 
-		mErr = initRegistry();
-		if (mErr)
-			return;
-
 		mCtx->mAmanager->setMakeShaderFunc([&](const std::vector<uint32_t>& src) { return makeShader(src); });
 		mCtx->mAmanager->setMakeTextureFunc([&](uint8_t* data, int width, int heigth, imageChannel channel) { return makeTexture(data, width, heigth, channel); });
 
-		mErr = initDescriptors();
-		if (mErr)
-			return;
-
-		mErr = initPipelines();
-		if (mErr)
-			return;
-
 		mErr = mUi.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain.getDrawImageFormat());
+		if (mErr)
+			return;
+
+		mErr = initRenderers();
 		if (mErr)
 			return;
 	}
@@ -78,11 +69,19 @@ namespace engine
 		if (result != VK_SUCCESS)
 			LOGERROR(vkResultToStr(result));
 
-		auto err = mUi.destroy();
+		error err = mUi.destroy();
 		if (err)
 			LOGERROR(err.err());
 
-		flushDeletonQueue();
+		err = mComputeRenderer.destroy();
+		if (err)
+			LOGERROR(err.err());
+
+		err = mMeshletRenderer.destroy();
+		if (err)
+			LOGERROR(err.err());
+
+		mDeletionQueue.flushDeletonQueue();
 	}
 
 	error vulkanRenderer::initVulkan()
@@ -211,62 +210,9 @@ namespace engine
 
 		loadExtensions();
 
-		mDeletionQueue.push_back(destroyTask{ .type = allocator, .allocator = mAllocator });
+		mDeletionQueue.init(mDevice);
 
-		return {};
-	}
-
-	error vulkanRenderer::setDefaultBindings()
-	{
-		mComputeBinding = computePipelineBindings{
-			.descriptorSet = 0,
-			.totalDescriptorsCount = 1,
-			.colorAttachment = 0,
-		};
-
-		mGeometryBinding = geometryPipelineBindings{
-			.descriptorSet = 0,
-			.totalDescriptorsCount = 8,
-
-			.vertexBinding = 0,
-			.perInstanceBinding = 1,
-			.meshletCmdBinding = 2,
-			.indexBinding = 3,
-			.primitiveBinding = 4,
-			.meshletBinding = 5,
-
-			.perDrawBufferUboBinding = 6,
-
-			.materialArrayBinding = 7,
-		};
-
-		return {};
-	}
-
-	error vulkanRenderer::initPipelines()
-	{
-		return initBackgroundPipeline();
-	}
-
-	error vulkanRenderer::initBackgroundPipeline()
-	{
-		VkShaderModule computeDrawShader;
-		auto shader = mCtx->mAmanager->getDefaultComputeShader();
-		if (!shader)
-		{
-			return shader.err();
-		}
-
-		computeDrawShader = static_cast<vulkanShader*>(shader.value().get())->mShaderModule;
-
-		mComputePipeline.init(mDevice);
-		mComputePipeline.setShader(computeDrawShader);
-
-		auto buildErr = mComputePipeline.build(VK_NULL_HANDLE, { mDescriptorSetCompute.getDescriptorSet().second });
-		if (buildErr)
-			return buildErr;
-
-		mDeletionQueue.push_back(destroyTask{ .type = computePipe, .computePipe = &mComputePipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = allocator, .allocator = mAllocator });
 
 		return {};
 	}
@@ -291,15 +237,15 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.push_back(destroyTask{ .type = iSub, .iSubmit = &mSubmit });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = iSub, .iSubmit = &mSubmit });
 
 		return {};
 	}
 
 	error vulkanRenderer::loadExtensions()
 	{
-		vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksEXT");
-		if (!vkCmdDrawMeshTasksEXT)
+		mVkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksEXT");
+		if (!mVkCmdDrawMeshTasksEXT)
 			return { "can't load extensions" };
 
 		return {};
@@ -313,210 +259,35 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.push_back(destroyTask{ .type = sChain, .sChain = &mSwapChain });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = sChain, .sChain = &mSwapChain });
 
 		return {};
 	}
 
-	error vulkanRenderer::initRegistry()
+	error vulkanRenderer::initRenderers()
 	{
-		mVertexRegistry.init(mDevice, mAllocator);
+		// Init UBO perDrawBuffer.
+		mUboPerDrawBuffer.init(mDevice, mAllocator);
 
-		mIndexRegistry.init(mDevice, mAllocator);
-
-		mPrimitiveRegistry.init(mDevice, mAllocator);
-
-		mMeshletRegistry.init(mDevice, mAllocator);
-
-		mPerInstanceRegistry.init(mDevice, mAllocator);
-
-		error err = mPipelineRegistry.init(mDevice, mAllocator, mSubmit);
+		error err = mUboPerDrawBuffer.buildAsUBO(mSubmit, nullptr, sizeof(uboPerDraw), 0);
 		if (err)
 			return err;
 
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer});
 
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
-
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPrimitiveRegistry });
-
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
-
-		mDeletionQueue.push_back(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerInstanceRegistry });
-
-		mDeletionQueue.push_back(destroyTask{ .type = pipelineReg, .pipelineReg = &mPipelineRegistry });
-
-		auto samp = descriptorSet::createSampler(mDevice, mPhysicalDeviceLimits.maxFiltering);
-		if (!samp)
-		{
-			return samp.err();
-		}
-
-		mSampler = samp.value();
-
-		mDeletionQueue.push_back(destroyTask{ .type = sampler, .sampler = &mSampler });
-
-		mMaterialRegistry.init(mSampler);
-
-		// init uniform buffer.
-		mUniformBuffer.init(mDevice, mAllocator);
-
-		err = mUniformBuffer.buildAsUBO(mSubmit, nullptr, sizeof(uboPerDraw), 0);
+		err = mComputeRenderer.init(mCtx, mDevice, mPhysicalDevice, mPhysicalDeviceLimits, mSwapChain.getDrawImageView());
 		if (err)
 			return err;
 
-		mDeletionQueue.push_back(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUniformBuffer });
-
-		return {};
-	}
-
-	error vulkanRenderer::initDescriptors()
-	{
-		error err = mDescriptorSetMesh.init(
-			mDevice,
-			mPhysicalDevice,
-			poolConstraints{
-				.maxImageDescriptors = mPhysicalDeviceLimits.maxImage,
-				.maxCombinedImageDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers,
-				.maxBuffersDescriptors = mPhysicalDeviceLimits.maxStorageBuffers,
-				.maxUniformBuffersDescriptors = mPhysicalDeviceLimits.maxUniformBuffers,
-			}
-			);
-		if (err)
-			return err;
-
-		err = mDescriptorSetCompute.init(
-			mDevice,
-			mPhysicalDevice,
-			poolConstraints{
-				.maxImageDescriptors = mPhysicalDeviceLimits.maxImage,
-				.maxCombinedImageDescriptors = mPhysicalDeviceLimits.maxCombinedImageSamplers,
-				.maxBuffersDescriptors = mPhysicalDeviceLimits.maxStorageBuffers,
-				.maxUniformBuffersDescriptors = mPhysicalDeviceLimits.maxUniformBuffers,
-			}
-			);
-		if (err)
-			return err;
-
-		err = setBackgroundDescriptors();
-		if (err)
-			return err;
-
-		err = setGeometryDescriptors();
-		if (err)
-			return err;
-
-		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetCompute });
-		mDeletionQueue.push_back(destroyTask{ .type = descSet, .descSet = &mDescriptorSetMesh });
-		mDeletionQueue.push_back(destroyTask{ .type = descPool });
-
-		return {};
-	}
-
-	error vulkanRenderer::setBackgroundDescriptors()
-	{
-		std::vector<VkDescriptorImageInfo> colorAttachmentInfo = {
-			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDrawImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
-		};
-
-		std::vector<VkDescriptorImageInfo> depthAttachmentInfo = {
-			{.sampler = VK_NULL_HANDLE, .imageView = mSwapChain.getDepthImageView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL,}
-		};
-
-		mDescriptorSetCompute.addBinding(
-			descriptorSet::getLayoutBindingInfo(mComputeBinding.colorAttachment, uint32_t(colorAttachmentInfo.size()), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		);
-
-		error err = mDescriptorSetCompute.build(VK_SHADER_STAGE_COMPUTE_BIT, mComputeBinding.totalDescriptorsCount);
-		if (err)
-			return err;
-
-		auto writeInfo = descriptorSet::getWriteInfo(mComputeBinding.colorAttachment, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, colorAttachmentInfo);
-		mDescriptorSetCompute.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error vulkanRenderer::setGeometryDescriptors()
-	{
-		const uint32_t combinedImageSamplers = 1;
-		const uint32_t bufferObjects = 6;
-		const uint32_t uniformObjects = 1;
-
-		// add bindings for buffers.
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.vertexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.perInstanceBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.meshletCmdBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.indexBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.primitiveBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.meshletBinding, mPhysicalDeviceLimits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.perDrawBufferUboBinding, mPhysicalDeviceLimits.maxUniformBuffers / uniformObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-			)
-		);
-
-		// add bindings for materials.
-		mDescriptorSetMesh.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mGeometryBinding.materialArrayBinding, mPhysicalDeviceLimits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		error err = mDescriptorSetMesh.build(VK_SHADER_STAGE_ALL, mGeometryBinding.totalDescriptorsCount);
+		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mPhysicalDeviceLimits, mUboPerDrawBuffer.getBuffer().buffer);
 		if (err)
 			return err;
 
 		return {};
 	}
 
-	error vulkanRenderer::updateUboBuffers(renderer::renderCallIn in)
+	error vulkanRenderer::updatePerDrawBuffer(renderer::renderCallIn in)
 	{
-		static std::once_flag descriptorWriteSet;
-
-		std::call_once(
-			descriptorWriteSet,
-			[&]
-			{
-				std::vector<VkDescriptorBufferInfo> bufferInfo{
-					VkDescriptorBufferInfo{.buffer = mUniformBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE }
-				};
-
-				auto writeInfo = descriptorSet::getWriteInfo(mGeometryBinding.perDrawBufferUboBinding, bufferInfo, true);
-				mDescriptorSetMesh.updateWrite(writeInfo);
-			}
-		);
-
 		uboPerDraw data{
 			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
 			.cameraPos = in.cameraPos,
@@ -530,9 +301,9 @@ namespace engine
 			.deltaTime = in.deltaTime,
 		};
 
-		mUniformBuffer.markBytesAsDead(sizeof(uboPerDraw));
+		mUboPerDrawBuffer.markBytesAsDead(sizeof(uboPerDraw));
 
-		error err = mUniformBuffer.updateBuffer(
+		error err = mUboPerDrawBuffer.updateBuffer(
 			mSubmit,
 			&data,
 			sizeof(uboPerDraw),
@@ -542,129 +313,6 @@ namespace engine
 			return err;
 
 		return {};
-	}
-
-	// Should be called before each frame.
-	error vulkanRenderer::updateGeometryDescriptorsPerFrame(renderer::renderCallIn in)
-	{
-		// Update UBO buffers.
-		error err = updateUboBuffers(in);
-		if (err)
-			return err;
-
-		// Update command buffer for mesh pipeline.
-		err = mPipelineRegistry.updateCommandBuffer(mSubmit);
-		if (err)
-			return err;
-
-		// update buffers.
-		if (mPipelineRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mPipelineRegistry.getWriteInfo(mGeometryBinding.meshletCmdBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mPipelineRegistry.setUpdated();
-		}
-
-		if (mVertexRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mVertexRegistry.getWriteInfo(mGeometryBinding.vertexBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mVertexRegistry.setUpdated();
-		}
-
-		if (mIndexRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mIndexRegistry.getWriteInfo(mGeometryBinding.indexBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mIndexRegistry.setUpdated();
-		}
-
-		if (mPrimitiveRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mPrimitiveRegistry.getWriteInfo(mGeometryBinding.primitiveBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mPrimitiveRegistry.setUpdated();
-		}
-
-		if (mMeshletRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mMeshletRegistry.getWriteInfo(mGeometryBinding.meshletBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mMeshletRegistry.setUpdated();
-		}
-
-		if (mPerInstanceRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mPerInstanceRegistry.getWriteInfo(mGeometryBinding.perInstanceBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mPerInstanceRegistry.setUpdated();
-		}
-
-		// Update materials.
-		if (mMaterialRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mMaterialRegistry.getWriteInfo(mGeometryBinding.materialArrayBinding);
-			mDescriptorSetMesh.updateWrite(writeInfo);
-			mMaterialRegistry.setUpdated();
-		}
-
-		return {};
-	}
-
-	void vulkanRenderer::flushDeletonQueue()
-	{
-		for (auto it = mDeletionQueue.rbegin(); it != mDeletionQueue.rend(); it++)
-		{
-			switch (it->type)
-			{
-			case allocator:
-				vmaDestroyAllocator(it->allocator);
-				break;
-			case iSub:
-				if (it->iSubmit)
-					it->iSubmit->destroy();
-				break;
-			case sChain:
-				if (it->sChain)
-					it->sChain->destroy();
-				break;
-			case descPool:
-				descriptorSet::destroyPool();
-				break;
-			case descSet:
-				if (it->descSet)
-					it->descSet->destroy();
-				break;
-			case computePipe:
-				if (it->computePipe)
-					it->computePipe->destroy();
-				break;
-			case buffRegistry:
-				if (it->buffRegistry)
-					it->buffRegistry->destroy();
-				break;
-			case sampler:
-				if (it->sampler)
-					vkDestroySampler(mDevice, *it->sampler, nullptr);
-				break;
-			case vulkanBuf:
-				if (it->vulkanBuf)
-					it->vulkanBuf->destroy();
-				break;
-			case pipelineReg:
-				if (it->pipelineReg)
-					it->pipelineReg->destroy();
-				break;
-			case vulkanTex:
-				if (it->texture)
-					it->texture->mImage.destroy();
-				break;
-			default:
-				LOGERROR("unkown sampler");
-			}
-		}
-
-		mDeletionQueue.clear();
 	}
 
 	std::string vulkanRenderer::getVersion() const
@@ -710,166 +358,19 @@ namespace engine
 		if (swapChainErr)
 			return swapChainErr;
 
-		// reconfigure source for destroyed imageView.
-		mDescriptorSetCompute.clearBindings();
-		mDescriptorSetCompute.destroy();
-
-		setBackgroundDescriptors();
-
-		return {};
-	}
-
-	error vulkanRenderer::uploadGeometryData(const model& m, uint32_t albedoIndex, uint32_t normalIndex, uint32_t metalicRoughnesIndex)
-	{
-		std::vector<meshlet> meshlets = *m.meshData.mesh.data.get();
-
-		perInstanceAttr attr = m.instanceAttributes;
-		attr.albedoIndex = albedoIndex;
-		attr.normalIndex = normalIndex;
-		attr.metallicRoughnesIndex = metalicRoughnesIndex;
-
-		auto handle = mVertexRegistry.addBlock(
-			m.meshData.getHash(),
-			m.meshData.vertex->data(),
-			m.meshData.vertex->size() * sizeof(vertex),
-			mSubmit
-		);
-		if (!handle)
-			return handle.err();
-
-		for (auto& m : meshlets)
-		{
-			m.vertexBufferOffset += handle.value().offset / uint32_t(sizeof(vertex));
-			m.vertexBufferIndex = handle.value().bufferIndex;
-		}
-
-		handle = mIndexRegistry.addBlock(
-			m.meshData.getHash(),
-			m.meshData.index.data->data(),
-			m.meshData.index.data->size() * sizeof(uint32_t),
-			mSubmit
-		);
-		if (!handle)
-			return handle.err();
-
-		for (auto& m : meshlets)
-		{
-			m.indexBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-			m.indexBufferIndex = handle.value().bufferIndex;
-		}
-
-		handle = mPrimitiveRegistry.addBlock(
-			m.meshData.getHash(),
-			m.meshData.primitive.data->data(),
-			m.meshData.primitive.data->size() * sizeof(uint32_t),
-			mSubmit
-		);
-		if (!handle)
-			return handle.err();
-
-		for (auto& m : meshlets)
-		{
-			m.triangleBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-			m.triangleBufferIndex = handle.value().bufferIndex;
-		}
-
-		handle = mMeshletRegistry.addBlock(
-			m.meshData.getHash(),
-			meshlets.data(),
-			meshlets.size() * sizeof(meshlet),
-			mSubmit
-		);
-		if (!handle)
-			return handle.err();
-
-		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
-			m.id,
-			&attr,
-			sizeof(perInstanceAttr),
-			mSubmit
-		);
-		if (!perInstanceHandle)
-			return perInstanceHandle.err();
-
-		error err = mPipelineRegistry.addInstance(
-			m.mat.pixelShader->hash(),
-			m.id,
-			m.meshData.getHash(),
-			handle.value(),
-			perInstanceHandle.value(),
-			m.meshData.mesh
-		);
-		if (err)
-			return err;
+		mComputeRenderer.updateDescriptors(mSwapChain.getDrawImageView());
 
 		return {};
 	}
 
 	error vulkanRenderer::addToRender(const model& m)
 	{
-		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
-		if (!meshShader)
-			return meshShader.err();
-
-		auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
-		if (!taskShader)
-			return taskShader.err();
-
-		error err = mPipelineRegistry.createPipeline(
-			mDevice,
-			m.mat.pixelShader,
-			meshShader.value(),
-			taskShader.value(),
-			{ mDescriptorSetMesh.getDescriptorSet().second },
-			mSwapChain.getDepthImageFormat(),
-			mSwapChain.getDrawImageFormat()
-		);
-		if (err)
-			return err;
-
-		if (mPipelineRegistry.instanceExists(m.id))
-			return {};
-
-		auto materialMappings = mMaterialRegistry.addMaterial(m.mat.textures);
-
-		uploadGeometryData(m, materialMappings.albedo, materialMappings.normal, materialMappings.metalicRoughnes);
-
-		return {};
+		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), m);
 	}
 
 	void vulkanRenderer::removeFromRender(const model& m)
 	{
-		mPerInstanceRegistry.deleteBlock(m.id);
-
-		// Remove instance.
-		mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, m.meshData.getHash());
-
-		// Mesh isn't used.
-		if (!mPipelineRegistry.meshIsUsed(m.meshData.getHash()))
-		{
-			mVertexRegistry.deleteBlock(m.meshData.getHash());
-
-			mIndexRegistry.deleteBlock(m.meshData.getHash());
-
-			mPrimitiveRegistry.deleteBlock(m.meshData.getHash());
-
-			mMeshletRegistry.deleteBlock(m.meshData.getHash());
-		}
-
-		mMaterialRegistry.deleteMaterial(m.mat.textures);
-	}
-
-	void vulkanRenderer::clear(VkCommandBuffer cmd)
-	{
-		// bind the compute pipeline
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().first);
-
-		// bind the descriptor set containing the draw image for the compute pipeline
-		auto set = mDescriptorSetCompute.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().second, mComputeBinding.descriptorSet, 1, &set, 0, nullptr);
-
-		// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
-		vkCmdDispatch(cmd, uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().width) / 16.0)), uint32_t(std::ceil(double(mSwapChain.getDrawImageExtent().height) / 16.0)), 1);
+		mMeshletRenderer.removeFromRender(m);
 	}
 
 	error vulkanRenderer::render(renderer::renderCallIn in)
@@ -877,8 +378,12 @@ namespace engine
 		if (mWindowMinimized)
 			return {};
 
-		// Geometry buffers/textures updated frequintly.
-		error err = updateGeometryDescriptorsPerFrame(in);
+		error err = mMeshletRenderer.updateDescriptors(in, mSubmit);
+		if (err)
+			return err;
+
+		// Update global UBO.
+		err = updatePerDrawBuffer(in);
 		if (err)
 			return err;
 
@@ -929,12 +434,12 @@ namespace engine
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 		// draw with compute, clear image.
-		clear(cmd);
+		mComputeRenderer.clear(cmd, mSwapChain.getDrawImageExtent());
 
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-		err = geometryPass(cmd, in);
+		err = mMeshletRenderer.geometryPass(cmd, in, mSwapChain.getDepthImageView(), mSwapChain.getDrawImageView(), mSwapChain.getDrawImageExtent());
 		if (err)
 			return err;
 
@@ -1006,67 +511,6 @@ namespace engine
 
 			return presentErr;
 		}
-
-		return {};
-	}
-
-	error vulkanRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
-	{
-		auto pipelines = mPipelineRegistry.getPipelines();
-
-		if (pipelines.size() != 0)
-		{
-			//begin a render pass connected to our draw image and depth buffer.
-			VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-			VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
-			VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), &colorAttachment, &depthAttachment);
-
-			vkCmdBeginRendering(cmd, &renderInfo);
-
-			//set dynamic viewport and scissor
-			VkViewport viewport = {};
-			viewport.x = 0;
-			viewport.y = 0;
-			viewport.width = float(mSwapChain.getDrawImageExtent().width);
-			viewport.height = float(mSwapChain.getDrawImageExtent().height);
-			viewport.minDepth = 0.f;
-			viewport.maxDepth = 1.f;
-
-			vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-			VkRect2D scissor = {};
-			scissor.offset.x = 0;
-			scissor.offset.y = 0;
-			scissor.extent.width = (mSwapChain.getDrawImageExtent().width);
-			scissor.extent.height = (mSwapChain.getDrawImageExtent().height);
-
-			vkCmdSetScissor(cmd, 0, 1, &scissor);
-		}
-
-		uint32_t cmdOffset = 0;
-		for (auto& v : pipelines)
-		{
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.pipeline);
-
-			pushConstants pc{
-				.commandBufferOffset = cmdOffset,
-				.meshletCount = v.commandBufferLength,
-			};
-
-			vkCmdPushConstants(cmd, v.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
-
-			cmdOffset += v.commandBufferLength;
-
-			// bind the descriptor set.
-			auto set = mDescriptorSetMesh.getDescriptorSet().first;
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.layout, mGeometryBinding.descriptorSet, 1, &set, 0, nullptr);
-
-			vkCmdDrawMeshTasksEXT(cmd, uint32_t(v.commandBufferLength) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
-		}
-
-		if (pipelines.size() != 0)
-			vkCmdEndRendering(cmd);
 
 		return {};
 	}
