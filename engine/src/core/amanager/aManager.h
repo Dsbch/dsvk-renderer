@@ -43,13 +43,13 @@ namespace engine
 	private:
 		struct image
 		{
-			uint8_t* data;
+			std::vector<uint8_t> data;
 			int w, h;
 			int padding;
 			int channels;
 		};
 
-		withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> makeTextureAtlas(std::vector<image> images);
+		withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> makeTextureAtlas(const std::vector<image>& images);
 		
 		std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)> makeShader;
 		std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)> makeTexture;

@@ -504,20 +504,29 @@ float4 psmain(meshOutput input) : SV_TARGET
     
     float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWorldPos);
     
-    float3 lightPositions[4] = { 
+    float3 lightPositions[4] =
+    {
         float3(0.0f, 0.0f, 2.0f),
         float3(0.0f, 0.0f, -2.0f),
         float3(2.0f, 0.0f, 0.0f),
         float3(-2.0f, 0.0f, 0.0f),
     };
     
+    float3 lightColors[4] =
+    {
+        float3(32.0f, 32.0f, 32.0f),
+        float3(42.0f, 12.0f, 12.0f),
+        float3(12.0f, 12.0f, 42.0f),
+        float3(12.0f, 45.0f, 12.0f),
+    };
+    
     // render equation.
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 1; ++i)
     {
-        float3 lightPos = lightPositions[i];
+        float3 lightPos = input.tangentCameraPos;
         
-        float3 lightColor = float3(45.0f, 45.0f, 45.0f);
+        float3 lightColor = float3(22.0f, 22.0f, 22.0f);
 
         float3 fromFragmentToLight = normalize(lightPos - input.tangentWorldPos);
         float3 halfway = normalize(fromFragmentToLight + fromFragmentToCamera);

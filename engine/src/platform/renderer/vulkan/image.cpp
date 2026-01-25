@@ -9,6 +9,7 @@ namespace engine
 		{
 		case VK_FORMAT_R8_UNORM:                  return 1;
 		case VK_FORMAT_R8G8_UNORM:                return 2;
+		case VK_FORMAT_R8G8B8_UNORM:			  return 3;
 		case VK_FORMAT_R8G8B8A8_UNORM:			  return 4;
 		case VK_FORMAT_B8G8R8A8_UNORM:            return 4;
 		case VK_FORMAT_R16_SFLOAT:                return 2;

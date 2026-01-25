@@ -45,6 +45,16 @@ namespace engine
 		return crc32(reinterpret_cast<const uint8_t*>(std::filesystem::canonical(path).string().data()), std::filesystem::canonical(path).string().size());
 	}
 
+	static float toRGB(float color)
+	{
+		return pow(color, 2.2f);
+	}
+
+	static float toSRGB(float color)
+	{
+		return pow(color, 1.0f / 2.2f);
+	}
+
 	withError<std::shared_ptr<shader>> aManager::loadShader(const std::string& path)
 	{
 		if (!makeShader)
@@ -691,16 +701,48 @@ namespace engine
 			std::vector<aManager::image> metalicRoughnes;
 		};
 
-		auto processTexture = [](const cgltf_texture* texture, const std::filesystem::path& baseDir) -> withError<aManager::image>
+		struct imageInfo
+		{
+			int w, h, channels;
+		};
+
+		auto getImageInfo = [](const cgltf_texture* texture, const std::filesystem::path& baseDir)->withError<imageInfo>
 			{
-				aManager::image img{};
+				imageInfo result{};
 
 				if (texture->image->uri)
 				{
 					auto relativePath = baseDir / texture->image->uri;
 
-					img.data = stbi_load(relativePath.string().c_str(), &img.w, &img.h, &img.channels, 4);
-					if (!img.data)
+					if (!stbi_info(relativePath.string().c_str(), &result.w, &result.h, &result.channels))
+						return error{ "can't get image info: {}", relativePath.string() };
+				}
+				else if (auto bufferView = texture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
+				{
+					uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
+					ptr += bufferView->offset;
+
+					if (!stbi_info_from_memory(ptr, int(bufferView->size), &result.w, &result.h, &result.channels))
+						return error{ "can't get image info" };
+				}
+
+				return result;
+			};
+
+		auto processTexture = [](const cgltf_texture* texture, const std::filesystem::path& baseDir) -> withError<aManager::image>
+			{
+				aManager::image img{};
+
+				uint8_t* data = nullptr;
+
+				if (texture->image->uri)
+				{
+					auto relativePath = baseDir / texture->image->uri;
+
+					int factChannels = 0;
+
+					data = stbi_load(relativePath.string().c_str(), &img.w, &img.h, &factChannels, 4);
+					if (!data)
 						return error{ "can't load texture with path: {}", relativePath.string() };
 
 					img.channels = 4;
@@ -710,8 +752,10 @@ namespace engine
 					uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
 					ptr += bufferView->offset;
 
-					img.data = stbi_load_from_memory(ptr, int(bufferView->size), &img.w, &img.h, &img.channels, 4);
-					if (!img.data)
+					int factChannels = 0;
+
+					data = stbi_load_from_memory(ptr, int(bufferView->size), &img.w, &img.h, &factChannels, 4);
+					if (!data)
 						return error{ "can't load texture" };
 
 					img.channels = 4;
@@ -719,7 +763,50 @@ namespace engine
 
 				img.padding = std::max(img.w, img.h) / 128;
 
+				img.data.resize(img.w * img.h * img.channels);
+
+				std::memcpy(img.data.data(), data, img.w * img.h * img.channels);
+
+				stbi_image_free(data);
+
 				return img;
+			};
+
+		auto applyBaseFactor = [](aManager::image& img, float factor[4])
+			{
+				if (img.channels != 4)
+					return error{ "applyBaseFactor: not RGBA" };
+
+				if (factor[0] == 1.0f && factor[1] == 1.0f && factor[2] == 1.0f && factor[3] == 1.0f)
+					return error{};
+
+				auto ptr = img.data.data();
+				for (int i = 0; i < img.h * img.w * img.channels; i += img.channels)
+				{
+					ptr[0] = uint8_t(toSRGB(toRGB(ptr[0] / 255.0f) * factor[0]) * 255.0f);
+					ptr[1] = uint8_t(toSRGB(toRGB(ptr[1] / 255.0f) * factor[1]) * 255.0f);
+					ptr[2] = uint8_t(toSRGB(toRGB(ptr[2] / 255.0f) * factor[2]) * 255.0f);
+					ptr[3] = uint8_t(ptr[3] / 255.0f * factor[3] * 255.0f);
+
+					ptr += img.channels;
+				}
+
+				return error{};
+			};
+
+		auto applyMetallicRoughnessFactor = [](aManager::image& img, float metallic, float roughness)
+			{
+				if (metallic == 1.0f && roughness == 1.0f)
+					return;
+
+				auto ptr = img.data.data();
+				for (int i = 0; i < img.h * img.w * img.channels; i += img.channels)
+				{
+					ptr[1] = uint8_t(toSRGB(toRGB(ptr[1] / 255.0f) * roughness) * 255.0f);
+					ptr[2] = uint8_t(toSRGB(toRGB(ptr[2] / 255.0f) * metallic) * 255.0f);
+
+					ptr += img.channels;
+				}
 			};
 
 		auto processMaterials = [&](const cgltf_material* materialsPtr, int materialCount) -> withError<rawTextures>
@@ -734,6 +821,43 @@ namespace engine
 
 					if (material->has_pbr_metallic_roughness)
 					{
+						// In case if all materials doesn't have textures.
+						int w = 64, h = 64, padding = 0;
+						if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
+						{
+							auto info = getImageInfo(metalicRoughnesTexture, baseDir);
+							if (!info)
+								return info.err();
+
+							w = info.value().w, h = info.value().h;
+							padding = std::max(w, h) / 128;
+						}
+						else if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
+						{
+							auto info = getImageInfo(albedoTexture, baseDir);
+							if (!info)
+								return info.err();
+
+							w = info.value().w, h = info.value().h;
+							padding = std::max(w, h) / 128;
+						}
+						else if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
+						{
+							auto info = getImageInfo(normalTexture, baseDir);
+							if (!info)
+								return info.err();
+
+							w = info.value().w, h = info.value().h;
+							padding = std::max(w, h) / 128;
+						}
+
+						float albedoFactor[4] = {
+							material->pbr_metallic_roughness.base_color_factor[0],
+							material->pbr_metallic_roughness.base_color_factor[1],
+							material->pbr_metallic_roughness.base_color_factor[2],
+							material->pbr_metallic_roughness.base_color_factor[3],
+						};
+
 						// albedo.
 						if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
 						{
@@ -741,10 +865,40 @@ namespace engine
 							if (!rawTexture)
 								return rawTexture.err();
 
+
+							error err = applyBaseFactor(rawTexture.value(), albedoFactor);
+							if (err)
+								return err;
+
 							result.albedo.push_back(rawTexture.value());
 						}
 						else
-							return error{ "albedo texture isn't defined for model: {}", path };
+						{
+							aManager::image img{
+								.data = {},
+								.w = w,
+								.h = h,
+								.padding = padding,
+								.channels = 4,
+							};
+							img.data.resize(img.w * img.h * img.channels);
+
+							auto ptr = img.data.begin();
+							for (int y = 0; y < img.h; y++)
+							{
+								for (int w = 0; w < img.w; w++)
+								{
+									ptr[0] = uint8_t(toSRGB(albedoFactor[0]) * 255.0f);
+									ptr[1] = uint8_t(toSRGB(albedoFactor[1]) * 255.0f);
+									ptr[2] = uint8_t(toSRGB(albedoFactor[2]) * 255.0f);
+									ptr[3] = uint8_t(albedoFactor[3] * 255.0f);
+
+									ptr += 4;
+								}
+							}
+
+							result.albedo.push_back(img);
+						}
 
 						// metallic-roughness.
 						if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
@@ -753,23 +907,77 @@ namespace engine
 							if (!rawTexture)
 								return rawTexture.err();
 
+							applyMetallicRoughnessFactor(rawTexture.value(), material->pbr_metallic_roughness.metallic_factor, material->pbr_metallic_roughness.roughness_factor);
+
 							result.metalicRoughnes.push_back(rawTexture.value());
+						}
+						else
+						{
+							aManager::image img{
+								.data = {},
+								.w = w,
+								.h = h,
+								.padding = padding,
+								.channels = 4,
+							};
+							img.data.resize(img.w * img.h * img.channels);
+
+							auto ptr = img.data.begin();
+							for (int y = 0; y < img.h; y++)
+							{
+								for (int w = 0; w < img.w; w++)
+								{
+									ptr[0] = 0;
+									ptr[1] = uint8_t(toSRGB(material->pbr_metallic_roughness.roughness_factor) * 255.0f);
+									ptr[2] = uint8_t(toSRGB(material->pbr_metallic_roughness.metallic_factor) * 255.0f);
+									ptr[3] = 0;
+
+									ptr += 4;
+								}
+							}
+
+							result.metalicRoughnes.push_back(img);
+						}
+
+						// normal.
+						if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
+						{
+							auto rawTexture = processTexture(normalTexture, baseDir);
+							if (!rawTexture)
+								return rawTexture.err();
+
+							result.normal.push_back(rawTexture.value());
+						}
+						else
+						{
+							aManager::image img{
+								.data = {},
+								.w = w,
+								.h = h,
+								.padding = padding,
+								.channels = 4,
+							};
+							img.data.resize(img.w * img.h * img.channels);
+
+							auto ptr = img.data.begin();
+							for (int y = 0; y < img.h; y++)
+							{
+								for (int w = 0; w < img.w; w++)
+								{
+									ptr[0] = 0;
+									ptr[1] = 0;
+									ptr[2] = 255;
+									ptr[3] = 0;
+
+									ptr += 4;
+								}
+							}
+
+							result.normal.push_back(img);
 						}
 					}
 					else
 						return error{ "metalicRoughnes texture isn't defined for model: {}", path };
-
-					// normal.
-					if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
-					{
-						auto rawTexture = processTexture(normalTexture, baseDir);
-						if (!rawTexture)
-							return rawTexture.err();
-
-						result.normal.push_back(rawTexture.value());
-					}
-					else
-						return error{ "normal texture isn't defined for model: {}", path };
 				}
 
 				return result;
@@ -972,13 +1180,6 @@ namespace engine
 		if (err)
 			return err;
 
-		for (int i = 0; i < materials.value().albedo.size(); i++)
-		{
-			stbi_image_free(materials.value().albedo[i].data);
-			stbi_image_free(materials.value().metalicRoughnes[i].data);
-			stbi_image_free(materials.value().normal[i].data);
-		}
-
 		cgltf_free(data);
 
 		result.meshData.generateHash();
@@ -992,7 +1193,7 @@ namespace engine
 		return result;
 	}
 
-	withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> aManager::makeTextureAtlas(std::vector<aManager::image> images)
+	withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> aManager::makeTextureAtlas(const std::vector<aManager::image>& images)
 	{
 		if (images.empty())
 			return error{ "empty images" };
@@ -1000,7 +1201,7 @@ namespace engine
 		std::vector<uint32_t> crcVals;
 
 		for (auto& i : images)
-			crcVals.push_back(crc32(i.data, i.w * i.h * i.channels));
+			crcVals.push_back(crc32(i.data.data(), i.w * i.h * i.channels));
 
 		uint32_t mergedCrc = crc32(reinterpret_cast<uint8_t*>(crcVals.data()), crcVals.size() * sizeof(uint32_t));
 
@@ -1050,7 +1251,7 @@ namespace engine
 			size *= 2;
 		}
 
-		std::vector<uint8_t> atlas(size * size * 4, 0);
+		std::vector<uint8_t> atlas(size * size * images.front().channels, 0);
 
 		for (auto& r : rects)
 		{
@@ -1062,10 +1263,10 @@ namespace engine
 			// write main image.
 			for (int y = 0; y < img.h; y++)
 			{
-				unsigned char* src = img.data + y * img.w * 4;
-				unsigned char* dst = atlas.data() + ((r.y + y + img.padding) * size + r.x + img.padding) * 4;
+				uint8_t* src = img.data.data() + y * img.w * img.channels;
+				uint8_t* dst = atlas.data() + ((r.y + y + img.padding) * size + r.x + img.padding) * img.channels;
 
-				std::memcpy(dst, src, img.w * 4);
+				std::memcpy(dst, src, img.w * img.channels);
 			}
 
 			// Write padding.
@@ -1077,9 +1278,9 @@ namespace engine
 				int x = r.x + i;
 				int y = r.y;
 
-				unsigned char* dst = base + (x + y * size) * 4;
+				uint8_t* dst = base + (x + y * size) * img.channels;
 
-				unsigned char* colorPtr = base + (x + (y + img.padding) * size) * 4;
+				uint8_t* colorPtr = base + (x + (y + img.padding) * size) * img.channels;
 
 				unsigned char r = *colorPtr;
 				unsigned char g = *(colorPtr + 1);
@@ -1093,7 +1294,7 @@ namespace engine
 					dst[2] = b;
 					dst[3] = a;
 
-					dst += size * 4;
+					dst += size * img.channels;
 				}
 			}
 
@@ -1103,9 +1304,9 @@ namespace engine
 				int x = r.x + i;
 				int y = r.y + img.padding + img.h;
 
-				unsigned char* dst = base + (x + y * size) * 4;
+				uint8_t* dst = base + (x + y * size) * img.channels;
 
-				unsigned char* colorPtr = base + (x + (y - 1) * size) * 4;
+				uint8_t* colorPtr = base + (x + (y - 1) * size) * img.channels;
 
 				unsigned char r = *colorPtr;
 				unsigned char g = *(colorPtr + 1);
@@ -1119,7 +1320,7 @@ namespace engine
 					dst[2] = b;
 					dst[3] = a;
 
-					dst += size * 4;
+					dst += size * img.channels;
 				}
 			}
 
@@ -1129,9 +1330,9 @@ namespace engine
 				int x = r.x + img.padding + img.w;
 				int y = r.y + i;
 
-				unsigned char* dst = base + (x + y * size) * 4;
+				uint8_t* dst = base + (x + y * size) * img.channels;
 
-				unsigned char* colorPtr = dst - 4;
+				uint8_t* colorPtr = dst - img.channels;
 
 				unsigned char r = *colorPtr;
 				unsigned char g = *(colorPtr + 1);
@@ -1145,7 +1346,7 @@ namespace engine
 					dst[2] = b;
 					dst[3] = a;
 
-					dst += 4;
+					dst += img.channels;
 				}
 			}
 
@@ -1155,9 +1356,9 @@ namespace engine
 				int x = r.x;
 				int y = r.y + i;
 
-				unsigned char* dst = base + (x + y * size) * 4;
+				uint8_t* dst = base + (x + y * size) * img.channels;
 
-				unsigned char* colorPtr = dst + img.padding * 4;
+				uint8_t* colorPtr = dst + img.padding * img.channels;
 
 				unsigned char r = *colorPtr;
 				unsigned char g = *(colorPtr + 1);
@@ -1171,7 +1372,7 @@ namespace engine
 					dst[2] = b;
 					dst[3] = a;
 
-					dst += 4;
+					dst += img.channels;
 				}
 			}
 		}
@@ -1197,7 +1398,7 @@ namespace engine
 				newSize,
 				newSize,
 				0,
-				(stbir_pixel_layout)4
+				(stbir_pixel_layout)images.front().channels
 			);
 			if (!downSampledPtr)
 				return error{ "can't downsample img" };
@@ -1217,7 +1418,7 @@ namespace engine
 			};
 		}
 
-		auto atlasTexture = makeTexture(atlas.data(), size, size, rgba);
+		auto atlasTexture = makeTexture(atlas.data(), size, size, imageChannel(images.front().channels));
 		if (!atlasTexture)
 			return atlasTexture.err();
 

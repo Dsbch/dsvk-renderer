@@ -25,6 +25,21 @@ namespace engine
 		}
 	}
 
+	inline int channelToInt(imageChannel chan)
+	{
+		switch (chan)
+		{
+		case grayscale:
+			return 1;
+		case rgb:
+			return 3;
+		case rgba:
+			return 4;
+		default:
+			return 3;
+		}
+	}
+
 	class texture
 	{
 	public:

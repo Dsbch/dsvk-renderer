@@ -66,7 +66,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/stone_sphere.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/knight.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
