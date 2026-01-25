@@ -5,6 +5,7 @@
 #include "descriptorSet.h"
 #include "buffer.h"
 #include "platform/renderer/vertex.h"
+#include "platform/renderer/renderer.h"
 #include "deletionQueue.h"
 
 namespace engine
@@ -28,14 +29,17 @@ namespace engine
 			VmaAllocator allocator, 
 			submit& is, 
 			VkBuffer UBObuffer,
-			VkFormat depthFormat, VkFormat drawFormat
+			VkFormat depthFormat, VkFormat drawFormat,
+			graphicsPreset preset
 		);
 		error destroy();
 		error addLine(glm::vec3 p1, glm::vec3 p2);
 		error updateDescriptors(VmaAllocator allocator, submit& is);
 		error drawLines(VkCommandBuffer cmd);
+		error updateGraphicsPreset();
 	private:
 		std::shared_ptr<context> mCtx;
+		graphicsPreset mPreset;
 
 		deletionQueue mDeletionQueue;
 

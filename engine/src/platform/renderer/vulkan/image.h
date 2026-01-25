@@ -11,7 +11,7 @@
 namespace engine
 {
 	void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
-	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels = 1);
+	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 	VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags, uint32_t mipLevels = 1);
 
 	void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
@@ -34,10 +34,10 @@ namespace engine
 
 		void init(VkDevice device, VmaAllocator allocator);
 		engine::error build(submit& is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
-		engine::error build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
+		engine::error build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 		void destroy();
 	private:
-		engine::withError<allocatedImage> createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
+		engine::withError<allocatedImage> createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 		uint32_t mipLevels(VkExtent3D size) const;
 
 		VmaAllocator mAllocator;

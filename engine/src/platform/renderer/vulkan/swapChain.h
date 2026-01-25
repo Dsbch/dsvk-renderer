@@ -7,6 +7,7 @@
 
 #include "helper.h"
 #include "image.h"
+#include "platform/renderer/renderer.h"
 
 namespace engine
 {
@@ -55,20 +56,23 @@ namespace engine
 		}
 
 		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU);
-		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
+		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily, graphicsPreset preset);
 		void destroy();
 
 		VkFormat getDrawImageFormat();
 		VkFormat getDepthImageFormat();
 
 		VkExtent3D getDrawImageExtent();
+		VkExtent3D getResolveImageExtent();
 		VkExtent3D getDepthImageExtent();
 
 		VkImage getDrawImage();
 		VkImage getDepthImage();
+		VkImage getResolveImage();
 
 		VkImageView getDrawImageView();
 		VkImageView getDepthImageView();
+		VkImageView getResolveImageView();
 
 		void pickImageExtent();
 
@@ -78,6 +82,7 @@ namespace engine
 
 		VkImage getCurrentSwapChainImage();
 		VkImageView getCurrentSwapChainImageView();
+
 
 		error acquireImageIndex();
 		error waitOnRenderFence();
@@ -90,7 +95,7 @@ namespace engine
 		VkFence getRenderFence();
 	private:
 		void increment();
-		error createSwapChain(uint32_t width, uint32_t height);
+		error createSwapChain(uint32_t width, uint32_t height, graphicsPreset preset);
 
 		frameData& getCurrentFrameData();
 
@@ -112,6 +117,7 @@ namespace engine
 
 		vulkanImage mDrawImage;
 		vulkanImage mDepthImage;
+		vulkanImage mResolveImage;
 
 		uint32_t mFrameNumber;
 		uint32_t mSwapchainIndex;

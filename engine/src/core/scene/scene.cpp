@@ -1,6 +1,5 @@
 #include <pch.h>
 #include "scene.h"
-#include "base/profiling/profiling.h"
 #include "core/scene/entity.h"
 #include "core/scene/components.h"
 #include "core/scene/systems/render/renderSystem.h"

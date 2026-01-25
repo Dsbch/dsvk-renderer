@@ -238,7 +238,7 @@ namespace engine
 		return result;
 	}
 
-	static void calculateTangents(
+	void aManager::calculateTangents(
 		std::vector<vertex>& v,
 		const std::vector<uint32_t>& index
 	)
@@ -309,7 +309,7 @@ namespace engine
 		}
 	}
 
-	static std::vector<uint32_t> repackPrimitives(
+	std::vector<uint32_t> aManager::repackPrimitives(
 		const std::vector<uint8_t>& primitives,
 		std::vector<meshlet>& meshlets
 	)
@@ -346,7 +346,7 @@ namespace engine
 		return repacked;
 	}
 
-	static error remapMesh(
+	error aManager::remapMesh(
 		const std::vector<vertex>& vertecies,
 		const std::vector<uint32_t> indicies,
 		std::vector<vertex>& vOut,
@@ -389,7 +389,7 @@ namespace engine
 		return {};
 	}
 
-	static error generateMeshlets(
+	error aManager::generateMeshlets(
 		const std::vector<vertex>& vertecies,
 		const std::vector<uint32_t>& indicies,
 		std::vector<meshlet>& mOut,
@@ -494,62 +494,9 @@ namespace engine
 		return {};
 	}
 
-	withError<model> aManager::loadModelGLTF(
-		const std::string& path,
-		size_t maxVert,
-		size_t maxTriangles,
-		float coneWieght
-	)
+	glm::mat4 aManager::getNodeWorldTransform(const cgltf_node* node)
 	{
-		{
-			std::lock_guard l{ mModelMu };
-
-			auto found = mLoadedModels.get(key(path));
-			if (found)
-				return found.value();
-		}
-
-		cgltf_options options{};
-		cgltf_data* data = nullptr;
-
-		if (cgltf_parse_file(&options, path.c_str(), &data) != cgltf_result_success)
-			return error{ "can't open file {}", path };
-
-		if (cgltf_load_buffers(&options, data, path.c_str()) != cgltf_result_success)
-		{
-			cgltf_free(data);
-			return error{ "can't load buffers for gtlf: {}", path };
-		}
-
-		model result{
-			.id = genUID(),
-			.meshData = mesh{
-				.vertex = std::make_shared<std::vector<vertex>>(),
-				.index = dataWithLodLevels<uint32_t>{
-					.second = 0,
-					.third = 0,
-					.fourth = 0,
-					.data = std::make_shared<std::vector<uint32_t>>()
-				},
-				.primitive = dataWithLodLevels<uint32_t>{
-					.second = 0,
-					.third = 0,
-					.fourth = 0,
-					.data = std::make_shared<std::vector<uint32_t>>()
-				},
-				.mesh = dataWithLodLevels<meshlet>{
-					.second = 0,
-					.third = 0,
-					.fourth = 0,
-					.data = std::make_shared<std::vector<meshlet>>()
-				},
-				.bsCenter = glm::vec3(0.f),
-				.bsRadius = 0.0f
-			},
-			.mat = material{},
-		};
-
-		auto getNodeLocalTransform = [](const cgltf_node* node) -> glm::mat4
+		auto getNodeLocalTransform = [](const cgltf_node* node)
 			{
 				if (node->has_matrix)
 				{
@@ -574,414 +521,437 @@ namespace engine
 				}
 			};
 
-		std::function<glm::mat4(const cgltf_node*)> getNodeWorldTransform = [&](const cgltf_node* node) -> glm::mat4
-			{
-				if (!node->parent)
-					return getNodeLocalTransform(node);
+		if (!node->parent)
+			return getNodeLocalTransform(node);
 
-				return getNodeWorldTransform(node->parent) * getNodeLocalTransform(node);
-			};
+		return getNodeWorldTransform(node->parent) * getNodeLocalTransform(node);
+	}
 
-		struct primitive
+	aManager::primitive aManager::processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform)
+	{
+		primitive result;
+
+		if (prim.type != cgltf_primitive_type_triangles)
+			return result;
+
+		const cgltf_accessor* positionAccessor = nullptr;
+		const cgltf_accessor* normalAccessor = nullptr;
+		const cgltf_accessor* texcoordAccessor = nullptr;
+
+		for (size_t ai = 0; ai < prim.attributes_count; ++ai)
 		{
-			std::vector<vertex> vertecies;
-			std::vector<uint32_t> indicies;
-		};
-
-		auto processPrimitive = [](const cgltf_primitive& prim, const glm::mat4& transform) -> primitive
+			const cgltf_attribute& attr = prim.attributes[ai];
+			switch (attr.type)
 			{
-				primitive result;
+			case cgltf_attribute_type_position: positionAccessor = attr.data; break;
+			case cgltf_attribute_type_normal: normalAccessor = attr.data; break;
+			case cgltf_attribute_type_texcoord: texcoordAccessor = attr.data; break;
+			default: break;
+			}
+		}
 
-				if (prim.type != cgltf_primitive_type_triangles)
-					return result;
+		if (!positionAccessor || positionAccessor->component_type != cgltf_component_type_r_32f || positionAccessor->type != cgltf_type_vec3)
+			return result;
 
-				const cgltf_accessor* positionAccessor = nullptr;
-				const cgltf_accessor* normalAccessor = nullptr;
-				const cgltf_accessor* texcoordAccessor = nullptr;
+		result.vertecies.reserve(positionAccessor->count);
 
-				for (size_t ai = 0; ai < prim.attributes_count; ++ai)
-				{
-					const cgltf_attribute& attr = prim.attributes[ai];
-					switch (attr.type)
-					{
-					case cgltf_attribute_type_position: positionAccessor = attr.data; break;
-					case cgltf_attribute_type_normal: normalAccessor = attr.data; break;
-					case cgltf_attribute_type_texcoord: texcoordAccessor = attr.data; break;
-					default: break;
-					}
-				}
-
-				if (!positionAccessor || positionAccessor->component_type != cgltf_component_type_r_32f || positionAccessor->type != cgltf_type_vec3)
-					return result;
-
-				result.vertecies.reserve(positionAccessor->count);
-
-				for (size_t i = 0; i < positionAccessor->count; ++i)
-				{
-					vertex v{};
-
-					float pos[3]{};
-					cgltf_accessor_read_float(positionAccessor, i, pos, 3);
-					glm::vec4 localPos(pos[0], pos[1], pos[2], 1.0f);
-					v.position = glm::vec3(transform * localPos);
-
-					if (normalAccessor)
-					{
-						float norm[3]{};
-						cgltf_accessor_read_float(normalAccessor, i, norm, 3);
-						glm::vec3 n(norm[0], norm[1], norm[2]);
-						v.normal = glm::normalize(glm::transpose(glm::inverse(glm::mat3(transform))) * n);
-					}
-
-					if (texcoordAccessor)
-					{
-						float uv[2]{};
-						cgltf_accessor_read_float(texcoordAccessor, i, uv, 2);
-						v.textureCoords = glm::vec2(uv[0], uv[1]);
-					}
-
-					result.vertecies.push_back(v);
-				}
-
-				if (prim.indices)
-				{
-					const cgltf_accessor* indexAccessor = prim.indices;
-					const uint8_t* bufferStart = reinterpret_cast<const uint8_t*>(
-						indexAccessor->buffer_view->buffer->data) +
-						indexAccessor->buffer_view->offset + indexAccessor->offset;
-
-					size_t stride = 1;
-					if (indexAccessor->stride)
-					{
-						stride = indexAccessor->stride;
-					}
-					else if (indexAccessor->component_type == cgltf_component_type_r_16u)
-					{
-						stride = 2;
-					}
-					else if (indexAccessor->component_type == cgltf_component_type_r_32u)
-					{
-						stride = 4;
-					}
-
-					if (prim.indices)
-						result.indicies.reserve(indexAccessor->count);
-
-					for (size_t i = 0; i < indexAccessor->count; ++i)
-					{
-						const uint8_t* elem = bufferStart + i * stride;
-						uint32_t index = 0;
-
-						switch (indexAccessor->component_type)
-						{
-						case cgltf_component_type_r_16u:
-							index = *reinterpret_cast<const uint16_t*>(elem);
-							break;
-						case cgltf_component_type_r_32u:
-							index = *reinterpret_cast<const uint32_t*>(elem);
-							break;
-						case cgltf_component_type_r_8u:
-							index = *reinterpret_cast<const uint8_t*>(elem);
-							break;
-						default:
-							continue;
-						}
-
-						result.indicies.push_back(index);
-					}
-				}
-
-				return result;
-			};
-
-		struct rawTextures
+		for (size_t i = 0; i < positionAccessor->count; ++i)
 		{
-			std::vector<aManager::image> albedo;
-			std::vector<aManager::image> normal;
-			std::vector<aManager::image> metalicRoughnes;
-		};
+			vertex v{};
 
-		struct imageInfo
+			float pos[3]{};
+			cgltf_accessor_read_float(positionAccessor, i, pos, 3);
+			glm::vec4 localPos(pos[0], pos[1], pos[2], 1.0f);
+			v.position = glm::vec3(transform * localPos);
+
+			if (normalAccessor)
+			{
+				float norm[3]{};
+				cgltf_accessor_read_float(normalAccessor, i, norm, 3);
+				glm::vec3 n(norm[0], norm[1], norm[2]);
+				v.normal = glm::normalize(glm::transpose(glm::inverse(glm::mat3(transform))) * n);
+			}
+
+			if (texcoordAccessor)
+			{
+				float uv[2]{};
+				cgltf_accessor_read_float(texcoordAccessor, i, uv, 2);
+				v.textureCoords = glm::vec2(uv[0], uv[1]);
+			}
+
+			result.vertecies.push_back(v);
+		}
+
+		if (prim.indices)
 		{
-			int w, h, channels;
-		};
+			const cgltf_accessor* indexAccessor = prim.indices;
+			const uint8_t* bufferStart = reinterpret_cast<const uint8_t*>(
+				indexAccessor->buffer_view->buffer->data) +
+				indexAccessor->buffer_view->offset + indexAccessor->offset;
 
-		auto getImageInfo = [](const cgltf_texture* texture, const std::filesystem::path& baseDir)->withError<imageInfo>
+			size_t stride = 1;
+			if (indexAccessor->stride)
 			{
-				imageInfo result{};
-
-				if (texture->image->uri)
-				{
-					auto relativePath = baseDir / texture->image->uri;
-
-					if (!stbi_info(relativePath.string().c_str(), &result.w, &result.h, &result.channels))
-						return error{ "can't get image info: {}", relativePath.string() };
-				}
-				else if (auto bufferView = texture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
-				{
-					uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
-					ptr += bufferView->offset;
-
-					if (!stbi_info_from_memory(ptr, int(bufferView->size), &result.w, &result.h, &result.channels))
-						return error{ "can't get image info" };
-				}
-
-				return result;
-			};
-
-		auto processTexture = [](const cgltf_texture* texture, const std::filesystem::path& baseDir) -> withError<aManager::image>
+				stride = indexAccessor->stride;
+			}
+			else if (indexAccessor->component_type == cgltf_component_type_r_16u)
 			{
-				aManager::image img{};
-
-				uint8_t* data = nullptr;
-
-				if (texture->image->uri)
-				{
-					auto relativePath = baseDir / texture->image->uri;
-
-					int factChannels = 0;
-
-					data = stbi_load(relativePath.string().c_str(), &img.w, &img.h, &factChannels, 4);
-					if (!data)
-						return error{ "can't load texture with path: {}", relativePath.string() };
-
-					img.channels = 4;
-				}
-				else if (auto bufferView = texture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
-				{
-					uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
-					ptr += bufferView->offset;
-
-					int factChannels = 0;
-
-					data = stbi_load_from_memory(ptr, int(bufferView->size), &img.w, &img.h, &factChannels, 4);
-					if (!data)
-						return error{ "can't load texture" };
-
-					img.channels = 4;
-				}
-
-				img.padding = std::max(img.w, img.h) / 128;
-
-				img.data.resize(img.w * img.h * img.channels);
-
-				std::memcpy(img.data.data(), data, img.w * img.h * img.channels);
-
-				stbi_image_free(data);
-
-				return img;
-			};
-
-		auto applyBaseFactor = [](aManager::image& img, float factor[4])
+				stride = 2;
+			}
+			else if (indexAccessor->component_type == cgltf_component_type_r_32u)
 			{
-				if (img.channels != 4)
-					return error{ "applyBaseFactor: not RGBA" };
+				stride = 4;
+			}
 
-				if (factor[0] == 1.0f && factor[1] == 1.0f && factor[2] == 1.0f && factor[3] == 1.0f)
-					return error{};
+			if (prim.indices)
+				result.indicies.reserve(indexAccessor->count);
 
-				auto ptr = img.data.data();
-				for (int i = 0; i < img.h * img.w * img.channels; i += img.channels)
+			for (size_t i = 0; i < indexAccessor->count; ++i)
+			{
+				const uint8_t* elem = bufferStart + i * stride;
+				uint32_t index = 0;
+
+				switch (indexAccessor->component_type)
 				{
-					ptr[0] = uint8_t(toSRGB(toRGB(ptr[0] / 255.0f) * factor[0]) * 255.0f);
-					ptr[1] = uint8_t(toSRGB(toRGB(ptr[1] / 255.0f) * factor[1]) * 255.0f);
-					ptr[2] = uint8_t(toSRGB(toRGB(ptr[2] / 255.0f) * factor[2]) * 255.0f);
-					ptr[3] = uint8_t(ptr[3] / 255.0f * factor[3] * 255.0f);
-
-					ptr += img.channels;
+				case cgltf_component_type_r_16u:
+					index = *reinterpret_cast<const uint16_t*>(elem);
+					break;
+				case cgltf_component_type_r_32u:
+					index = *reinterpret_cast<const uint32_t*>(elem);
+					break;
+				case cgltf_component_type_r_8u:
+					index = *reinterpret_cast<const uint8_t*>(elem);
+					break;
+				default:
+					continue;
 				}
 
-				return error{};
-			};
+				result.indicies.push_back(index);
+			}
+		}
 
-		auto applyMetallicRoughnessFactor = [](aManager::image& img, float metallic, float roughness)
+		return result;
+	}
+
+	withError<aManager::imageInfo> aManager::getImageInfo(const cgltf_texture* texture, const std::filesystem::path& baseDir)
+	{
+		imageInfo result{};
+
+		if (texture->image->uri)
+		{
+			auto relativePath = baseDir / texture->image->uri;
+
+			if (!stbi_info(relativePath.string().c_str(), &result.w, &result.h, &result.channels))
+				return error{ "can't get image info: {}", relativePath.string() };
+		}
+		else if (auto bufferView = texture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
+		{
+			uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
+			ptr += bufferView->offset;
+
+			if (!stbi_info_from_memory(ptr, int(bufferView->size), &result.w, &result.h, &result.channels))
+				return error{ "can't get image info" };
+		}
+
+		return result;
+	}
+
+	withError<aManager::image> aManager::processTexture(const cgltf_texture* texture, const std::filesystem::path& baseDir)
+	{
+		aManager::image img{};
+
+		uint8_t* data = nullptr;
+
+		if (texture->image->uri)
+		{
+			auto relativePath = baseDir / texture->image->uri;
+
+			int factChannels = 0;
+
+			data = stbi_load(relativePath.string().c_str(), &img.w, &img.h, &factChannels, 4);
+			if (!data)
+				return error{ "can't load texture with path: {}", relativePath.string() };
+
+			img.channels = 4;
+		}
+		else if (auto bufferView = texture->image->buffer_view; bufferView && bufferView->buffer->data && bufferView->size != 0)
+		{
+			uint8_t* ptr = static_cast<uint8_t*>(bufferView->buffer->data);
+			ptr += bufferView->offset;
+
+			int factChannels = 0;
+
+			data = stbi_load_from_memory(ptr, int(bufferView->size), &img.w, &img.h, &factChannels, 4);
+			if (!data)
+				return error{ "can't load texture" };
+
+			img.channels = 4;
+		}
+
+		img.padding = std::max(img.w, img.h) / 128;
+
+		img.data.resize(img.w * img.h * img.channels);
+
+		std::memcpy(img.data.data(), data, img.w * img.h * img.channels);
+
+		stbi_image_free(data);
+
+		return img;
+	}
+
+	error aManager::applyBaseFactor(aManager::image& img, float factor[4])
+	{
+		if (img.channels != 4)
+			return error{ "applyBaseFactor: not RGBA" };
+
+		if (factor[0] == 1.0f && factor[1] == 1.0f && factor[2] == 1.0f && factor[3] == 1.0f)
+			return error{};
+
+		auto ptr = img.data.data();
+		for (int i = 0; i < img.h * img.w * img.channels; i += img.channels)
+		{
+			ptr[0] = uint8_t(toSRGB(toRGB(ptr[0] / 255.0f) * factor[0]) * 255.0f);
+			ptr[1] = uint8_t(toSRGB(toRGB(ptr[1] / 255.0f) * factor[1]) * 255.0f);
+			ptr[2] = uint8_t(toSRGB(toRGB(ptr[2] / 255.0f) * factor[2]) * 255.0f);
+			ptr[3] = uint8_t(ptr[3] / 255.0f * factor[3] * 255.0f);
+
+			ptr += img.channels;
+		}
+
+		return {};
+	}
+
+	void aManager::applyMetallicRoughnessFactor(aManager::image& img, float metallic, float roughness)
+	{
+		if (metallic == 1.0f && roughness == 1.0f)
+			return;
+
+		auto ptr = img.data.data();
+		for (int i = 0; i < img.h * img.w * img.channels; i += img.channels)
+		{
+			ptr[1] = uint8_t(toSRGB(toRGB(ptr[1] / 255.0f) * roughness) * 255.0f);
+			ptr[2] = uint8_t(toSRGB(toRGB(ptr[2] / 255.0f) * metallic) * 255.0f);
+
+			ptr += img.channels;
+		}
+	}
+
+	withError<aManager::rawTextures> aManager::processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount)
+	{
+		rawTextures result;
+
+		for (int i = 0; i < materialCount; i++)
+		{
+			const cgltf_material* material = materialsPtr + i;
+
+			if (material->has_pbr_metallic_roughness)
 			{
-				if (metallic == 1.0f && roughness == 1.0f)
-					return;
-
-				auto ptr = img.data.data();
-				for (int i = 0; i < img.h * img.w * img.channels; i += img.channels)
+				// In case if all materials doesn't have textures.
+				int w = 64, h = 64, padding = 0;
+				if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
 				{
-					ptr[1] = uint8_t(toSRGB(toRGB(ptr[1] / 255.0f) * roughness) * 255.0f);
-					ptr[2] = uint8_t(toSRGB(toRGB(ptr[2] / 255.0f) * metallic) * 255.0f);
+					auto info = getImageInfo(metalicRoughnesTexture, baseDir);
+					if (!info)
+						return info.err();
 
-					ptr += img.channels;
+					w = info.value().w, h = info.value().h;
+					padding = std::max(w, h) / 128;
 				}
-			};
-
-		auto processMaterials = [&](const cgltf_material* materialsPtr, int materialCount) -> withError<rawTextures>
-			{
-				rawTextures result;
-
-				std::filesystem::path baseDir = std::filesystem::path{ path }.parent_path();
-
-				for (int i = 0; i < materialCount; i++)
+				else if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
 				{
-					const cgltf_material* material = materialsPtr + i;
+					auto info = getImageInfo(albedoTexture, baseDir);
+					if (!info)
+						return info.err();
 
-					if (material->has_pbr_metallic_roughness)
+					w = info.value().w, h = info.value().h;
+					padding = std::max(w, h) / 128;
+				}
+				else if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
+				{
+					auto info = getImageInfo(normalTexture, baseDir);
+					if (!info)
+						return info.err();
+
+					w = info.value().w, h = info.value().h;
+					padding = std::max(w, h) / 128;
+				}
+
+				float albedoFactor[4] = {
+					material->pbr_metallic_roughness.base_color_factor[0],
+					material->pbr_metallic_roughness.base_color_factor[1],
+					material->pbr_metallic_roughness.base_color_factor[2],
+					material->pbr_metallic_roughness.base_color_factor[3],
+				};
+
+				// albedo.
+				if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
+				{
+					auto rawTexture = processTexture(albedoTexture, baseDir);
+					if (!rawTexture)
+						return rawTexture.err();
+
+
+					error err = applyBaseFactor(rawTexture.value(), albedoFactor);
+					if (err)
+						return err;
+
+					result.albedo.push_back(rawTexture.value());
+				}
+				else
+				{
+					aManager::image img{
+						.data = {},
+						.w = w,
+						.h = h,
+						.padding = padding,
+						.channels = 4,
+					};
+					img.data.resize(img.w * img.h * img.channels);
+
+					auto ptr = img.data.begin();
+					for (int y = 0; y < img.h; y++)
 					{
-						// In case if all materials doesn't have textures.
-						int w = 64, h = 64, padding = 0;
-						if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
+						for (int w = 0; w < img.w; w++)
 						{
-							auto info = getImageInfo(metalicRoughnesTexture, baseDir);
-							if (!info)
-								return info.err();
+							ptr[0] = uint8_t(toSRGB(albedoFactor[0]) * 255.0f);
+							ptr[1] = uint8_t(toSRGB(albedoFactor[1]) * 255.0f);
+							ptr[2] = uint8_t(toSRGB(albedoFactor[2]) * 255.0f);
+							ptr[3] = uint8_t(albedoFactor[3] * 255.0f);
 
-							w = info.value().w, h = info.value().h;
-							padding = std::max(w, h) / 128;
-						}
-						else if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
-						{
-							auto info = getImageInfo(albedoTexture, baseDir);
-							if (!info)
-								return info.err();
-
-							w = info.value().w, h = info.value().h;
-							padding = std::max(w, h) / 128;
-						}
-						else if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
-						{
-							auto info = getImageInfo(normalTexture, baseDir);
-							if (!info)
-								return info.err();
-
-							w = info.value().w, h = info.value().h;
-							padding = std::max(w, h) / 128;
-						}
-
-						float albedoFactor[4] = {
-							material->pbr_metallic_roughness.base_color_factor[0],
-							material->pbr_metallic_roughness.base_color_factor[1],
-							material->pbr_metallic_roughness.base_color_factor[2],
-							material->pbr_metallic_roughness.base_color_factor[3],
-						};
-
-						// albedo.
-						if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
-						{
-							auto rawTexture = processTexture(albedoTexture, baseDir);
-							if (!rawTexture)
-								return rawTexture.err();
-
-
-							error err = applyBaseFactor(rawTexture.value(), albedoFactor);
-							if (err)
-								return err;
-
-							result.albedo.push_back(rawTexture.value());
-						}
-						else
-						{
-							aManager::image img{
-								.data = {},
-								.w = w,
-								.h = h,
-								.padding = padding,
-								.channels = 4,
-							};
-							img.data.resize(img.w * img.h * img.channels);
-
-							auto ptr = img.data.begin();
-							for (int y = 0; y < img.h; y++)
-							{
-								for (int w = 0; w < img.w; w++)
-								{
-									ptr[0] = uint8_t(toSRGB(albedoFactor[0]) * 255.0f);
-									ptr[1] = uint8_t(toSRGB(albedoFactor[1]) * 255.0f);
-									ptr[2] = uint8_t(toSRGB(albedoFactor[2]) * 255.0f);
-									ptr[3] = uint8_t(albedoFactor[3] * 255.0f);
-
-									ptr += 4;
-								}
-							}
-
-							result.albedo.push_back(img);
-						}
-
-						// metallic-roughness.
-						if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
-						{
-							auto rawTexture = processTexture(metalicRoughnesTexture, baseDir);
-							if (!rawTexture)
-								return rawTexture.err();
-
-							applyMetallicRoughnessFactor(rawTexture.value(), material->pbr_metallic_roughness.metallic_factor, material->pbr_metallic_roughness.roughness_factor);
-
-							result.metalicRoughnes.push_back(rawTexture.value());
-						}
-						else
-						{
-							aManager::image img{
-								.data = {},
-								.w = w,
-								.h = h,
-								.padding = padding,
-								.channels = 4,
-							};
-							img.data.resize(img.w * img.h * img.channels);
-
-							auto ptr = img.data.begin();
-							for (int y = 0; y < img.h; y++)
-							{
-								for (int w = 0; w < img.w; w++)
-								{
-									ptr[0] = 0;
-									ptr[1] = uint8_t(toSRGB(material->pbr_metallic_roughness.roughness_factor) * 255.0f);
-									ptr[2] = uint8_t(toSRGB(material->pbr_metallic_roughness.metallic_factor) * 255.0f);
-									ptr[3] = 0;
-
-									ptr += 4;
-								}
-							}
-
-							result.metalicRoughnes.push_back(img);
-						}
-
-						// normal.
-						if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
-						{
-							auto rawTexture = processTexture(normalTexture, baseDir);
-							if (!rawTexture)
-								return rawTexture.err();
-
-							result.normal.push_back(rawTexture.value());
-						}
-						else
-						{
-							aManager::image img{
-								.data = {},
-								.w = w,
-								.h = h,
-								.padding = padding,
-								.channels = 4,
-							};
-							img.data.resize(img.w * img.h * img.channels);
-
-							auto ptr = img.data.begin();
-							for (int y = 0; y < img.h; y++)
-							{
-								for (int w = 0; w < img.w; w++)
-								{
-									ptr[0] = 0;
-									ptr[1] = 0;
-									ptr[2] = 255;
-									ptr[3] = 0;
-
-									ptr += 4;
-								}
-							}
-
-							result.normal.push_back(img);
+							ptr += 4;
 						}
 					}
-					else
-						return error{ "metalicRoughnes texture isn't defined for model: {}", path };
+
+					result.albedo.push_back(img);
 				}
 
-				return result;
-			};
+				// metallic-roughness.
+				if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
+				{
+					auto rawTexture = processTexture(metalicRoughnesTexture, baseDir);
+					if (!rawTexture)
+						return rawTexture.err();
+
+					applyMetallicRoughnessFactor(rawTexture.value(), material->pbr_metallic_roughness.metallic_factor, material->pbr_metallic_roughness.roughness_factor);
+
+					result.metalicRoughnes.push_back(rawTexture.value());
+				}
+				else
+				{
+					aManager::image img{
+						.data = {},
+						.w = w,
+						.h = h,
+						.padding = padding,
+						.channels = 4,
+					};
+					img.data.resize(img.w * img.h * img.channels);
+
+					auto ptr = img.data.begin();
+					for (int y = 0; y < img.h; y++)
+					{
+						for (int w = 0; w < img.w; w++)
+						{
+							ptr[0] = 0;
+							ptr[1] = uint8_t(toSRGB(material->pbr_metallic_roughness.roughness_factor) * 255.0f);
+							ptr[2] = uint8_t(toSRGB(material->pbr_metallic_roughness.metallic_factor) * 255.0f);
+							ptr[3] = 0;
+
+							ptr += 4;
+						}
+					}
+
+					result.metalicRoughnes.push_back(img);
+				}
+
+				// normal.
+				if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
+				{
+					auto rawTexture = processTexture(normalTexture, baseDir);
+					if (!rawTexture)
+						return rawTexture.err();
+
+					result.normal.push_back(rawTexture.value());
+				}
+				else
+				{
+					aManager::image img{
+						.data = {},
+						.w = w,
+						.h = h,
+						.padding = padding,
+						.channels = 4,
+					};
+					img.data.resize(img.w * img.h * img.channels);
+
+					auto ptr = img.data.begin();
+					for (int y = 0; y < img.h; y++)
+					{
+						for (int w = 0; w < img.w; w++)
+						{
+							ptr[0] = 128;
+							ptr[1] = 128;
+							ptr[2] = 255;
+							ptr[3] = 0;
+
+							ptr += 4;
+						}
+					}
+
+					result.normal.push_back(img);
+				}
+			}
+			else
+				return error{ "metalicRoughnes texture isn't defined for model: {}", baseDir.string() };
+		}
+
+		return result;
+	}
+
+	withError<model> aManager::loadModelGLTF(
+		const std::string& path,
+		size_t maxVert,
+		size_t maxTriangles,
+		float coneWieght
+	)
+	{
+		{
+			std::lock_guard l{ mModelMu };
+
+			auto found = mLoadedModels.get(key(path));
+			if (found)
+				return found.value();
+		}
+		
+		std::filesystem::path baseDir = std::filesystem::path{ path }.parent_path();
+
+		cgltf_options options{};
+		cgltf_data* data = nullptr;
+
+		if (cgltf_parse_file(&options, path.c_str(), &data) != cgltf_result_success)
+			return error{ "can't open file {}", path };
+
+		if (cgltf_load_buffers(&options, data, path.c_str()) != cgltf_result_success)
+		{
+			cgltf_free(data);
+			return error{ "cgltf_load_buffers: {}", path };
+		}
+
+		model result{
+			.id = genUID(),
+			.meshData = mesh{
+				.vertex = std::make_shared<std::vector<vertex>>(),
+				.index = dataWithLodLevels<uint32_t>{
+					.data = std::make_shared<std::vector<uint32_t>>()
+				},
+				.primitive = dataWithLodLevels<uint32_t>{
+					.data = std::make_shared<std::vector<uint32_t>>()
+				},
+				.mesh = dataWithLodLevels<meshlet>{
+					.data = std::make_shared<std::vector<meshlet>>()
+				},
+			},
+		};
 
 		auto generateLodLevel = [&](const std::vector<vertex>& v, const std::vector<uint32_t> i, size_t targetIndexCount) -> error
 			{
@@ -1114,7 +1084,7 @@ namespace engine
 			}
 		}
 
-		auto materials = processMaterials(data->materials, int(data->materials_count));
+		auto materials = processMaterials(baseDir, data->materials, int(data->materials_count));
 		if (!materials)
 			return materials.err();
 
@@ -1193,6 +1163,125 @@ namespace engine
 		return result;
 	}
 
+	void aManager::writeImageToAtlas(std::vector<uint8_t>& atlas, int size, const stbrp_rect* r, image& img)
+	{
+		// write main image.
+		for (int y = 0; y < img.h; y++)
+		{
+			uint8_t* src = img.data.data() + y * img.w * img.channels;
+			uint8_t* dst = atlas.data() + ((r->y + y + img.padding) * size + r->x + img.padding) * img.channels;
+
+			std::memcpy(dst, src, img.w * img.channels);
+		}
+
+		// Write padding.
+		auto base = atlas.data();
+
+		// Top.
+		for (int i = 0; i < img.w + img.padding * 2; i++)
+		{
+			int x = r->x + i;
+			int y = r->y;
+
+			uint8_t* dst = base + (x + y * size) * img.channels;
+
+			uint8_t* colorPtr = base + (x + (y + img.padding) * size) * img.channels;
+
+			unsigned char r = *colorPtr;
+			unsigned char g = *(colorPtr + 1);
+			unsigned char b = *(colorPtr + 2);
+			unsigned char a = *(colorPtr + 3);
+
+			for (int k = 0; k < img.padding; k++)
+			{
+				dst[0] = r;
+				dst[1] = g;
+				dst[2] = b;
+				dst[3] = a;
+
+				dst += size * img.channels;
+			}
+		}
+
+		// Bottom.
+		for (int i = 0; i < img.w + img.padding * 2; i++)
+		{
+			int x = r->x + i;
+			int y = r->y + img.padding + img.h;
+
+			uint8_t* dst = base + (x + y * size) * img.channels;
+
+			uint8_t* colorPtr = base + (x + (y - 1) * size) * img.channels;
+
+			unsigned char r = *colorPtr;
+			unsigned char g = *(colorPtr + 1);
+			unsigned char b = *(colorPtr + 2);
+			unsigned char a = *(colorPtr + 3);
+
+			for (int k = 0; k < img.padding; k++)
+			{
+				dst[0] = r;
+				dst[1] = g;
+				dst[2] = b;
+				dst[3] = a;
+
+				dst += size * img.channels;
+			}
+		}
+
+		// Right.
+		for (int i = 0; i < img.h + img.padding * 2; i++)
+		{
+			int x = r->x + img.padding + img.w;
+			int y = r->y + i;
+
+			uint8_t* dst = base + (x + y * size) * img.channels;
+
+			uint8_t* colorPtr = dst - img.channels;
+
+			unsigned char r = *colorPtr;
+			unsigned char g = *(colorPtr + 1);
+			unsigned char b = *(colorPtr + 2);
+			unsigned char a = *(colorPtr + 3);
+
+			for (int k = 0; k < img.padding; k++)
+			{
+				dst[0] = r;
+				dst[1] = g;
+				dst[2] = b;
+				dst[3] = a;
+
+				dst += img.channels;
+			}
+		}
+
+		// Left.
+		for (int i = 0; i < img.h + img.padding * 2; i++)
+		{
+			int x = r->x;
+			int y = r->y + i;
+
+			uint8_t* dst = base + (x + y * size) * img.channels;
+
+			uint8_t* colorPtr = dst + img.padding * img.channels;
+
+			unsigned char r = *colorPtr;
+			unsigned char g = *(colorPtr + 1);
+			unsigned char b = *(colorPtr + 2);
+			unsigned char a = *(colorPtr + 3);
+
+			for (int k = 0; k < img.padding; k++)
+			{
+				dst[0] = r;
+				dst[1] = g;
+				dst[2] = b;
+				dst[3] = a;
+
+				dst += img.channels;
+			}
+		}
+	}
+
 	withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> aManager::makeTextureAtlas(const std::vector<aManager::image>& images)
 	{
 		if (images.empty())
@@ -1237,7 +1326,7 @@ namespace engine
 		int size = std::max(size, maxWidth);
 		size = std::max(size, maxHeight);
 
-		while (size * size < totalArea) size *= 2;
+		while (size * size < totalArea) size = int(size * 1.1f);
 
 		while (true)
 		{
@@ -1248,7 +1337,7 @@ namespace engine
 			if (stbrp_pack_rects(&ctx, rects.data(), int(rects.size())))
 				break;
 
-			size *= 2;
+			size = int(size * 1.1f);
 		}
 
 		std::vector<uint8_t> atlas(size * size * images.front().channels, 0);
@@ -1260,124 +1349,10 @@ namespace engine
 
 			auto img = images[r.id];
 
-			// write main image.
-			for (int y = 0; y < img.h; y++)
-			{
-				uint8_t* src = img.data.data() + y * img.w * img.channels;
-				uint8_t* dst = atlas.data() + ((r.y + y + img.padding) * size + r.x + img.padding) * img.channels;
-
-				std::memcpy(dst, src, img.w * img.channels);
-			}
-
-			// Write padding.
-			auto base = atlas.data();
-
-			// Top.
-			for (int i = 0; i < img.w + img.padding * 2; i++)
-			{
-				int x = r.x + i;
-				int y = r.y;
-
-				uint8_t* dst = base + (x + y * size) * img.channels;
-
-				uint8_t* colorPtr = base + (x + (y + img.padding) * size) * img.channels;
-
-				unsigned char r = *colorPtr;
-				unsigned char g = *(colorPtr + 1);
-				unsigned char b = *(colorPtr + 2);
-				unsigned char a = *(colorPtr + 3);
-
-				for (int k = 0; k < img.padding; k++)
-				{
-					dst[0] = r;
-					dst[1] = g;
-					dst[2] = b;
-					dst[3] = a;
-
-					dst += size * img.channels;
-				}
-			}
-
-			// Bottom.
-			for (int i = 0; i < img.w + img.padding * 2; i++)
-			{
-				int x = r.x + i;
-				int y = r.y + img.padding + img.h;
-
-				uint8_t* dst = base + (x + y * size) * img.channels;
-
-				uint8_t* colorPtr = base + (x + (y - 1) * size) * img.channels;
-
-				unsigned char r = *colorPtr;
-				unsigned char g = *(colorPtr + 1);
-				unsigned char b = *(colorPtr + 2);
-				unsigned char a = *(colorPtr + 3);
-
-				for (int k = 0; k < img.padding; k++)
-				{
-					dst[0] = r;
-					dst[1] = g;
-					dst[2] = b;
-					dst[3] = a;
-
-					dst += size * img.channels;
-				}
-			}
-
-			// Right.
-			for (int i = 0; i < img.h + img.padding * 2; i++)
-			{
-				int x = r.x + img.padding + img.w;
-				int y = r.y + i;
-
-				uint8_t* dst = base + (x + y * size) * img.channels;
-
-				uint8_t* colorPtr = dst - img.channels;
-
-				unsigned char r = *colorPtr;
-				unsigned char g = *(colorPtr + 1);
-				unsigned char b = *(colorPtr + 2);
-				unsigned char a = *(colorPtr + 3);
-
-				for (int k = 0; k < img.padding; k++)
-				{
-					dst[0] = r;
-					dst[1] = g;
-					dst[2] = b;
-					dst[3] = a;
-
-					dst += img.channels;
-				}
-			}
-
-			// Left.
-			for (int i = 0; i < img.h + img.padding * 2; i++)
-			{
-				int x = r.x;
-				int y = r.y + i;
-
-				uint8_t* dst = base + (x + y * size) * img.channels;
-
-				uint8_t* colorPtr = dst + img.padding * img.channels;
-
-				unsigned char r = *colorPtr;
-				unsigned char g = *(colorPtr + 1);
-				unsigned char b = *(colorPtr + 2);
-				unsigned char a = *(colorPtr + 3);
-
-				for (int k = 0; k < img.padding; k++)
-				{
-					dst[0] = r;
-					dst[1] = g;
-					dst[2] = b;
-					dst[3] = a;
-
-					dst += img.channels;
-				}
-			}
+			writeImageToAtlas(atlas, size, &r, img);
 		}
 
-		const int trashHold = 2048;
+		const int trashHold = 7000;
 		float scale = trashHold / float(size);
 
 		if (scale > 1.0f)

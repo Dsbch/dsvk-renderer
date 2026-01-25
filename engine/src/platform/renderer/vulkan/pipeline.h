@@ -55,7 +55,7 @@ namespace engine
 		void setInputTopology(VkPrimitiveTopology topology);
 		void setPolygonMode(VkPolygonMode mode);
 		void setCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
-		void setMultisamplingNone();
+		void setMultisampling(VkSampleCountFlagBits sampleCount);
 		void disableBlending();
 		void enableBlendingAdditive();
 		void enableBlendingAlphablend();

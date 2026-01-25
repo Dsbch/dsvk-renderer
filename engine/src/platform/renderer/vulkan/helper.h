@@ -11,6 +11,7 @@ namespace engine
 		uint32_t maxStorageBuffers;
 		uint32_t maxCombinedImageSamplers;
 		uint32_t maxImage;
+		VkSampleCountFlagBits maxMultiSampling;
 		float maxFiltering;
 	};
 
@@ -236,13 +237,21 @@ namespace engine
 	}
 
 	inline VkRenderingAttachmentInfo attachmentInfo(
-		VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+		VkImageView drawImageView,
+		VkImageView resolveImageView,
+		VkResolveModeFlagBits resolveMode,
+		VkClearValue* clear,
+		VkImageLayout layout
+	)
 	{
 		VkRenderingAttachmentInfo colorAttachment{};
 		colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		colorAttachment.pNext = nullptr;
 
-		colorAttachment.imageView = view;
+		colorAttachment.imageView = drawImageView;
+		colorAttachment.resolveImageView = resolveImageView;
+		colorAttachment.resolveImageLayout = layout;
+		colorAttachment.resolveMode = resolveMode;
 		colorAttachment.imageLayout = layout;
 		colorAttachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -267,5 +276,65 @@ namespace engine
 		renderInfo.pStencilAttachment = nullptr;
 
 		return renderInfo;
+	}
+
+	inline VkSampleCountFlagBits sampleCounts(uint32_t sampleCount)
+	{
+		if (sampleCount == 0 || sampleCount == 1)
+			return VK_SAMPLE_COUNT_1_BIT;
+
+		if (sampleCount == 2)
+			return VK_SAMPLE_COUNT_2_BIT;
+
+		if (sampleCount == 4)
+			return VK_SAMPLE_COUNT_4_BIT;
+
+		if (sampleCount == 8)
+			return VK_SAMPLE_COUNT_8_BIT;
+
+		if (sampleCount == 16)
+			return VK_SAMPLE_COUNT_16_BIT;
+
+		if (sampleCount == 32)
+			return VK_SAMPLE_COUNT_32_BIT;
+
+		if (sampleCount == 64)
+			return VK_SAMPLE_COUNT_64_BIT;
+
+		return VK_SAMPLE_COUNT_1_BIT;
+	}
+
+	inline uint32_t sampleCountsAsUint(VkSampleCountFlagBits samples)
+	{
+		if (samples == VK_SAMPLE_COUNT_1_BIT)
+			return 1;
+
+		if (samples == VK_SAMPLE_COUNT_2_BIT)
+			return 2;
+
+		if (samples == VK_SAMPLE_COUNT_4_BIT)
+			return 4;
+
+		if (samples == VK_SAMPLE_COUNT_8_BIT)
+			return 8;
+
+		if (samples == VK_SAMPLE_COUNT_16_BIT)
+			return 16;
+
+		if (samples == VK_SAMPLE_COUNT_32_BIT)
+			return 32;
+
+		if (samples == VK_SAMPLE_COUNT_64_BIT)
+			return 64;
+
+		return 1;
+	}
+
+	inline VkResolveModeFlagBits getResolveMode(uint32_t sampleCount)
+	{
+		if (sampleCount <= 1)
+			return VK_RESOLVE_MODE_NONE;
+
+		return VK_RESOLVE_MODE_AVERAGE_BIT;
 	}
 }

@@ -168,11 +168,14 @@ namespace engine
 		mRasterizer.frontFace = frontFace;
 	}
 
-	void classicGraphicPipeline::setMultisamplingNone()
+	void classicGraphicPipeline::setMultisampling(VkSampleCountFlagBits sampleCount)
 	{
 		mMultisampling.sampleShadingEnable = VK_FALSE;
+		if (sampleCount != VK_SAMPLE_COUNT_1_BIT)
+			mMultisampling.sampleShadingEnable = VK_TRUE;
+
 		// multisampling defaulted to no multisampling (1 sample per pixel)
-		mMultisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+		mMultisampling.rasterizationSamples = sampleCount;
 		mMultisampling.minSampleShading = 1.0f;
 		mMultisampling.pSampleMask = nullptr;
 		// no alpha to coverage either

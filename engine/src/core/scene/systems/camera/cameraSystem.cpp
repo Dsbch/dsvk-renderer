@@ -50,7 +50,6 @@ namespace engine
 		return {};
 	}
 
-	// TODO: figure out how to apply application settings to it.
 	error cameraSystem::applyInput(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
 	{
 		if (e->getEventType() == eventType::keyDown)

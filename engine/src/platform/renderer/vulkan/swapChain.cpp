@@ -39,6 +39,11 @@ namespace engine
 		return mDrawImage.image.extent;
 	}
 
+	VkExtent3D swapChain::getResolveImageExtent()
+	{
+		return mResolveImage.image.extent;
+	}
+
 	VkExtent3D swapChain::getDepthImageExtent()
 	{
 		return mDepthImage.image.extent;
@@ -54,6 +59,11 @@ namespace engine
 		return mDepthImage.image.image;
 	}
 
+	VkImage swapChain::getResolveImage()
+	{
+		return mResolveImage.image.image;
+	}
+
 	VkImageView swapChain::getDrawImageView()
 	{
 		return mDrawImage.image.view;
@@ -62,6 +72,11 @@ namespace engine
 	VkImageView swapChain::getDepthImageView()
 	{
 		return mDepthImage.image.view;
+	}
+
+	VkImageView swapChain::getResolveImageView()
+	{
+		return mResolveImage.image.view;
 	}
 
 	void swapChain::increment()
@@ -184,7 +199,7 @@ namespace engine
 		return mSwapchainExtent;
 	}
 
-	error swapChain::createSwapChain(uint32_t width, uint32_t height)
+	error swapChain::createSwapChain(uint32_t width, uint32_t height, graphicsPreset preset)
 	{
 		vkb::SwapchainBuilder swapchainBuilder{ mChosenGPU, mDevice, mSurface };
 
@@ -218,25 +233,27 @@ namespace engine
 		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		drawImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-		error err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false);
+		error err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(preset.msaa));
+		if (err)
+			return err;
+
+		err = mResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, VK_SAMPLE_COUNT_1_BIT);
 		if (err)
 			return err;
 
 		// build depth image.
 		VkImageUsageFlags depthImageUsages{};
 		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		depthImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-		err = mDepthImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false);
+		err = mDepthImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(preset.msaa));
 		if (err)
 			return err;
 
 		return {};
 	}
 
-	error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
+	error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily, graphicsPreset preset)
 	{
 		VkCommandPoolCreateInfo commandPoolInfo = commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
@@ -267,10 +284,15 @@ namespace engine
 				return { vkResultToStr(result) };
 		}
 
-		return createSwapChain(width, height);
+		return createSwapChain(width, height, preset);
 	}
 
-	void swapChain::init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU)
+	void swapChain::init(
+		VmaAllocator vma, 
+		VkDevice device, 
+		VkSurfaceKHR surface, 
+		VkPhysicalDevice chosenGPU 
+	)
 	{
 		mAllocator = vma;
 		mDevice = device;
@@ -279,6 +301,7 @@ namespace engine
 
 		mDrawImage.init(mDevice, mAllocator);
 		mDepthImage.init(mDevice, mAllocator);
+		mResolveImage.init(mDevice, mAllocator);
 	}
 
 	void swapChain::destroy()
@@ -295,6 +318,7 @@ namespace engine
 
 		mDepthImage.destroy();
 		mDrawImage.destroy();
+		mResolveImage.destroy();
 
 		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
 

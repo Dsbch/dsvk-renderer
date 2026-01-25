@@ -453,7 +453,7 @@ float distributionGGX(float3 n, float3 h, float roughness)
     float denom = (nDotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
     
-    return num / denom;
+    return num / max(denom, 0.001);
 }
 
 // geometrySchlickGGX - describes the self-shadowing property of the microfacets. When a surface is relatively rough, the surface's microfacets can overshadow other microfacets reducing the light the surface reflects.
@@ -466,7 +466,7 @@ float geometrySchlickGGX(float nDotV, float roughness)
     float num = nDotV;
     float denom = nDotV * (1.0 - k) + k;
     
-    return num / denom;
+    return num / max(denom, 0.001);
 }
 
 // geometrySmith - is used for approximation of geometrySchlickGGX.
@@ -499,7 +499,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     float3 normal = normalize(materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv).rgb * 2.0f - 1.0f);
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;
-
+    
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
     float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWorldPos);
@@ -522,11 +522,11 @@ float4 psmain(meshOutput input) : SV_TARGET
     
     // render equation.
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
-    for (int i = 0; i < 1; ++i)
+    for (int i = 0; i < 4; ++i)
     {
-        float3 lightPos = input.tangentCameraPos;
+        float3 lightPos = lightPositions[i];
         
-        float3 lightColor = float3(22.0f, 22.0f, 22.0f);
+        float3 lightColor = lightColors[i];
 
         float3 fromFragmentToLight = normalize(lightPos - input.tangentWorldPos);
         float3 halfway = normalize(fromFragmentToLight + fromFragmentToCamera);
@@ -566,7 +566,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     // ambient lighting part, removed for now.
     // note that in future you need to replace that ambient light with some Voxel Cone Tracing for reflections.
     // for now we just use AO texture.
-    float3 ambient = mul(float3(0.02f, 0.02f, 0.02f), albedo.rgb);
+    float3 ambient = mul(float3(0.03f, 0.03f, 0.03f), albedo.rgb);
     
     float3 color = l0;
 

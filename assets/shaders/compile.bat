@@ -44,19 +44,6 @@ if %errorlevel% neq 0 (
 
 echo.
 
-echo Compiling Compute Shader...
-dxc -T cs_6_9 -E main -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkCompute.spv vkCompute.comp
-if %errorlevel% neq 0 (
-    echo Compute shader compilation failed!
-    pause
-) else (
-    echo Compute shader compiled successfully.
-)
-
-echo.
-
-echo.
-
 echo Compiling Vertex line Shader...
 dxc -T vs_6_9 -E vsmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkLineVs.spv vkLine.hlsl
 if %errorlevel% neq 0 (

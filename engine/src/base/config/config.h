@@ -17,6 +17,12 @@ namespace engine
 		float farPlane = 1000.0f;
 	};
 
+	struct graphicsCfg
+	{
+		uint32_t msaa = 4;
+		uint32_t anisotropicFiltering = 16;
+	};
+
 	struct gameLoopCfg
 	{
 		uint32_t fps = 120;
@@ -58,6 +64,7 @@ namespace engine
 		gameLoopCfg gameLoop;
 		cameraCfg camera;
 		renderCfg render;
+		graphicsCfg graphics;
 	};
 
 	void to_json(nlohmann::json& j, const cameraCfg& p);
@@ -74,16 +81,18 @@ namespace engine
 	void from_json(const nlohmann::json& j, renderCfg& p);
 	void to_json(nlohmann::json& j, const mainCfg& p);
 	void from_json(const nlohmann::json& j, mainCfg& p);
+	void to_json(nlohmann::json& j, const graphicsCfg& p);
+	void from_json(const nlohmann::json& j, graphicsCfg& p);
 
 	template<class T>
 	struct cfg {
-	private:
-		error mErr;
 	public:
 		cfg(const std::string& fileName = "config.json");
 		error checkError() const;
 		~cfg();
 		T inner;
+	private:
+		error mErr;
 	};
 
 	template<class T>

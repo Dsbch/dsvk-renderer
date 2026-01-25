@@ -4,6 +4,16 @@
 
 namespace engine
 {
+	graphicsPreset renderer::getGraphicsPreset() const
+	{
+		return mPreset;
+	}
+
+	void renderer::setGraphicsPreset(graphicsPreset preset)
+	{
+		mPreset = preset;
+	}
+
 	std::shared_ptr<renderer> makeRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window)
 	{
 #ifdef VULKAN

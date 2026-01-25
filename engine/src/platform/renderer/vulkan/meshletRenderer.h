@@ -30,7 +30,17 @@ namespace engine
 	struct meshletRenderer
 	{
 	public:
-		error init(std::shared_ptr<context> ctx, PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, submit& is, deviceLimits limits, VkBuffer UBObuffer);
+		error init(
+			std::shared_ptr<context> ctx, 
+			PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT, 
+			VkDevice device, 
+			VkPhysicalDevice physicalDevice, 
+			VmaAllocator allocator, 
+			submit& is, 
+			deviceLimits limits, 
+			graphicsPreset preset,
+			VkBuffer UBObuffer
+		);
 		error destroy();
 
 		error addToRender(VkDevice device, submit& is, VkFormat depthFormat, VkFormat drawFormat, const model& m);
@@ -38,10 +48,12 @@ namespace engine
 		
 		error updateDescriptors(renderer::renderCallIn in, submit& is);
 		error geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error updateGraphicsPreset();
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
 		meshletBindings mBindings;
+		graphicsPreset mPreset;
 		
 		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
 
@@ -55,7 +67,7 @@ namespace engine
 		pipelineRegistry mPipelineRegistry;
 		materialRegistry mMaterialRegistry;
 
-		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is, deviceLimits limits);
+		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
 		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits, VkBuffer UBObuffer);
 	};
 }

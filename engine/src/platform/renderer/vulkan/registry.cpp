@@ -3,6 +3,7 @@
 #include "registry.h"
 #include "descriptorSet.h"
 #include "texture.h"
+#include "platform/renderer/renderer.h"
 
 namespace engine
 {
@@ -156,7 +157,8 @@ namespace engine
 		std::shared_ptr<shader> taskShader,
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
-		VkFormat colorAttachmentFormat
+		VkFormat colorAttachmentFormat,
+		VkSampleCountFlagBits sampleCount
 	)
 	{
 		needUpdate = false;
@@ -182,7 +184,7 @@ namespace engine
 		// Back face culling is done in shaders.
 		pipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
-		pipeline.setMultisamplingNone();
+		pipeline.setMultisampling(sampleCount);
 
 		pipeline.disableBlending();
 
@@ -235,7 +237,8 @@ namespace engine
 		std::shared_ptr<shader> taskShader,
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
-		VkFormat colorAttachmentFormat
+		VkFormat colorAttachmentFormat,
+		graphicsPreset preset
 	)
 	{
 		if (mPipelines.find(pixelShader->hash()) != mPipelines.end())
@@ -243,7 +246,7 @@ namespace engine
 
 		pipelineData pipeline{};
 
-		error err = pipeline.init(device, pixelShader, meshShader, taskShader, descriptorSets, depthFormat, colorAttachmentFormat);
+		error err = pipeline.init(device, pixelShader, meshShader, taskShader, descriptorSets, depthFormat, colorAttachmentFormat, sampleCounts(preset.msaa));
 		if (err)
 			return err;
 
@@ -259,7 +262,7 @@ namespace engine
 
 		pipelineData& pipeline = mPipelines[pixelShaderID];
 
-		if (pipeline.meshletShaderCMD.find(instanceID) != pipeline.meshletShaderCMD.end())
+		if (pipeline.entityCmd.find(instanceID) != pipeline.entityCmd.end())
 			return {};
 
 		pipeline.needUpdate = true;
@@ -285,7 +288,7 @@ namespace engine
 			);
 		}
 
-		pipeline.meshletShaderCMD[instanceID] = meshCMD;
+		pipeline.entityCmd[instanceID] = meshCMD;
 
 		return {};
 	}
@@ -297,10 +300,10 @@ namespace engine
 
 		pipelineData& pipeline = mPipelines[pixelShaderID];
 
-		if (pipeline.meshletShaderCMD.find(instanceID) == pipeline.meshletShaderCMD.end())
+		if (pipeline.entityCmd.find(instanceID) == pipeline.entityCmd.end())
 			return;
 
-		pipeline.meshletShaderCMD.erase(instanceID);
+		pipeline.entityCmd.erase(instanceID);
 
 		if (auto found = pipeline.instanceMeshCount.find(meshID); found != pipeline.instanceMeshCount.end() && found->second != 0)
 			found->second--;
@@ -319,7 +322,7 @@ namespace engine
 	{
 		for (auto& [_, p] : mPipelines)
 		{
-			if (p.meshletShaderCMD.find(id) != p.meshletShaderCMD.end())
+			if (p.entityCmd.find(id) != p.entityCmd.end())
 				return true;
 		}
 
@@ -337,29 +340,9 @@ namespace engine
 		return false;
 	}
 
-	std::vector<pipelineRegistry::taskShaderRender> pipelineRegistry::getPipelines()
+	const std::map<pixelShaderHash, pipelineRegistry::taskShaderRender> pipelineRegistry::getPipelines() const
 	{
-		std::vector<pipelineRegistry::taskShaderRender> result;
-
-		for (auto& [_, p] : mPipelines)
-		{
-			uint32_t cmdLength = 0;
-
-			for (const auto [_, v] : p.meshletShaderCMD)
-			{
-				cmdLength += uint32_t(v.size());
-			}
-
-			result.push_back(
-				pipelineRegistry::taskShaderRender{
-					.pipeline = p.pipeline.getPipeline().first,
-					.layout = p.pipeline.getPipeline().second,
-					.commandBufferLength = cmdLength,
-				}
-				);
-		}
-
-		return result;
+		return mCmdMappings;
 	}
 
 	error pipelineRegistry::updateCommandBuffer(submit& is)
@@ -371,13 +354,25 @@ namespace engine
 		if (!needBufferUpdate)
 			return {};
 
+		uint32_t startOffset = 0;
+		uint32_t endOffset = 0;
 		std::vector<meshletShaderCMD> cmd;
-		for (auto& [_, p] : mPipelines)
+		for (auto& [k, p] : mPipelines)
 		{
-			for (auto& [_, v] : p.meshletShaderCMD)
+			for (auto& [_, v] : p.entityCmd)
 			{
 				cmd.insert(cmd.end(), v.begin(), v.end());
+				endOffset += uint32_t(v.size());
 			}
+
+			mCmdMappings[k] = taskShaderRender{
+				.pipeline = p.pipeline.getPipeline().first,
+				.layout = p.pipeline.getPipeline().second,
+				.cmdPipelineStartOffset = startOffset,
+				.cmdPipelineEndOffset = endOffset,
+			};
+
+			startOffset += endOffset;
 		}
 
 		mCmdBuffer.markBytesAsDead(mCmdBuffer.getLoadedBytes());

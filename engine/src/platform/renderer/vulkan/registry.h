@@ -2,6 +2,7 @@
 #include <pch.h>
 
 #include "platform/renderer/vertex.h"
+#include "platform/renderer/renderer.h"
 
 #include "buffer.h"
 #include "submit.h"
@@ -66,13 +67,15 @@ namespace engine
 			std::shared_ptr<shader> taskShader,
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
-			VkFormat colorAttachmentFormat
+			VkFormat colorAttachmentFormat,
+			VkSampleCountFlagBits sampleCount
 		);
 		void destroy();
 		
 		classicGraphicPipeline pipeline;
-		std::map<uint32_t, std::vector<meshletShaderCMD>> meshletShaderCMD;
-		std::map<uint32_t, uint32_t> instanceMeshCount;
+		// Command buffer to render enity.
+		std::map<entityHash, std::vector<meshletShaderCMD>> entityCmd;
+		std::map<meshHash, uint32_t> instanceMeshCount;
 		bool needUpdate;
 	};
 
@@ -89,7 +92,8 @@ namespace engine
 			std::shared_ptr<shader> taskShader,
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
-			VkFormat colorAttachmentFormat
+			VkFormat colorAttachmentFormat,
+			graphicsPreset preset
 		);
 		error addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& mesh);
 		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID);
@@ -102,9 +106,10 @@ namespace engine
 		{
 			VkPipeline pipeline;
 			VkPipelineLayout layout;
-			uint32_t commandBufferLength;
+			uint32_t cmdPipelineStartOffset;
+			uint32_t cmdPipelineEndOffset;
 		};
-		std::vector<taskShaderRender> getPipelines();
+		const std::map<pixelShaderHash, taskShaderRender> getPipelines() const;
 
 		error updateCommandBuffer(submit& is);
 
@@ -116,7 +121,9 @@ namespace engine
 
 		uint32_t mCmdBufferNewSize;
 		vulkanBuffer mCmdBuffer;
-		std::map<uint32_t, pipelineData> mPipelines;
+		
+		std::map<pixelShaderHash, taskShaderRender> mCmdMappings;
+		std::map<pixelShaderHash, pipelineData> mPipelines;
 	};
 	
 	struct materialRegistry
@@ -138,9 +145,9 @@ namespace engine
 		materialOffsets addMaterial(const materialTextures& textures);
 		void deleteMaterial(const materialTextures& textures);
 	private:
-		std::map<uint32_t, uint32_t> mOccupiedIndices;
+		std::map<textureHash, uint32_t> mOccupiedIndices;
+		std::map<textureHash, uint32_t> mTextureCount;
 		std::list<uint32_t> mFreeIndices;
-		std::map<uint32_t, uint32_t> mTextureCount;
 		std::vector<VkDescriptorImageInfo> mImagesInfo;
 		VkSampler mSampler;
 		bool mNeedUpdate;

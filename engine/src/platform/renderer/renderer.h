@@ -10,6 +10,12 @@
 
 namespace engine
 {
+	struct graphicsPreset
+	{
+		uint32_t msaa;
+		uint32_t anisotropicFiltering;
+	};
+
 	class renderer
 	{
 	public:
@@ -27,8 +33,10 @@ namespace engine
 			frustum cameraFrustum;
 		};
 
-		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mWindow(window), mErr() {};
+		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mPreset(), mWindow(window), mErr() {};
 		virtual ~renderer() = default;
+		virtual graphicsPreset getGraphicsPreset() const;
+		virtual void setGraphicsPreset(graphicsPreset);
 		virtual std::string getVersion() const = 0;
 		virtual std::string getGpuName() const = 0;
 		virtual error checkError() const = 0;
@@ -41,6 +49,7 @@ namespace engine
 		virtual withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel) = 0;
 	protected:
 		error mErr;
+		graphicsPreset mPreset;
 		std::shared_ptr<context> mCtx;
 		std::shared_ptr<window> mWindow;
 	};

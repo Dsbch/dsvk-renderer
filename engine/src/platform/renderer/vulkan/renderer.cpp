@@ -42,6 +42,10 @@ namespace engine
 			return;
 
 		mErr = setLimits();
+		if (mErr)
+			return;
+
+		chooseGraphicsPreset();
 
 		mErr = initImmediateSubmit();
 		if (mErr)
@@ -70,10 +74,6 @@ namespace engine
 			LOGERROR(vkResultToStr(result));
 
 		error err = mUi.destroy();
-		if (err)
-			LOGERROR(err.err());
-
-		err = mComputeRenderer.destroy();
 		if (err)
 			LOGERROR(err.err());
 
@@ -166,6 +166,8 @@ namespace engine
 		VkPhysicalDeviceFeatures deviceFeatures{};
 		deviceFeatures.samplerAnisotropy = VK_TRUE;
 		deviceFeatures.fillModeNonSolid = VK_TRUE;
+		deviceFeatures.sampleRateShading = VK_TRUE;
+		deviceFeatures.shaderStorageImageMultisample = VK_TRUE;
 
 		//use vkbootstrap to select a gpu. 
 		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features
@@ -226,11 +228,28 @@ namespace engine
 		VkPhysicalDeviceProperties props{};
 		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
 
-		mPhysicalDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
-		mPhysicalDeviceLimits.maxImage = props.limits.maxPerStageDescriptorStorageImages;
-		mPhysicalDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
-		mPhysicalDeviceLimits.maxUniformBuffers = props.limits.maxPerStageDescriptorUniformBuffers;
-		mPhysicalDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
+		mDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
+		mDeviceLimits.maxImage = props.limits.maxPerStageDescriptorStorageImages;
+		mDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
+		mDeviceLimits.maxUniformBuffers = props.limits.maxPerStageDescriptorUniformBuffers;
+		mDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
+
+		VkSampleCountFlags counts = props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
+
+		if (counts & VK_SAMPLE_COUNT_64_BIT)
+			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_64_BIT;
+		else if (counts & VK_SAMPLE_COUNT_32_BIT)
+			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_32_BIT;
+		else if (counts & VK_SAMPLE_COUNT_16_BIT)
+			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_16_BIT;
+		else if (counts & VK_SAMPLE_COUNT_8_BIT)
+			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_8_BIT;
+		else if (counts & VK_SAMPLE_COUNT_4_BIT)
+			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_4_BIT;
+		else if (counts & VK_SAMPLE_COUNT_2_BIT)
+			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_2_BIT;
+		else
+			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_1_BIT;
 
 		return {};
 	}
@@ -259,7 +278,7 @@ namespace engine
 	{
 		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice);
 
-		error err = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		error err = mSwapChain.build(width, height, mGraphicsQueueFamily, mPreset);
 		if (err)
 			return err;
 
@@ -273,21 +292,17 @@ namespace engine
 		// Init UBO perDrawBuffer.
 		mUboPerDrawBuffer.init(mDevice, mAllocator);
 
-		error err = mUboPerDrawBuffer.buildAsUBO(mSubmit, nullptr, sizeof(uboPerDraw), 0);
+		error err = mUboPerDrawBuffer.buildAsUBO(mSubmit, nullptr, sizeof(preDrawData), 0);
 		if (err)
 			return err;
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer });
 
-		err = mComputeRenderer.init(mCtx, mDevice, mPhysicalDevice, mPhysicalDeviceLimits, mSwapChain.getDrawImageView());
+		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer.getBuffer().buffer);
 		if (err)
 			return err;
 
-		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mPhysicalDeviceLimits, mUboPerDrawBuffer.getBuffer().buffer);
-		if (err)
-			return err;
-
-		err = mLineRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat());
+		err = mLineRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), mPreset);
 		if (err)
 			return err;
 
@@ -296,7 +311,7 @@ namespace engine
 
 	error vulkanRenderer::updatePerDrawBuffer(renderer::renderCallIn in)
 	{
-		uboPerDraw data{
+		preDrawData data{
 			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
 			.cameraPos = in.cameraPos,
 			.useDebugCamera = in.useDebugCamera,
@@ -309,18 +324,34 @@ namespace engine
 			.deltaTime = in.deltaTime,
 		};
 
-		mUboPerDrawBuffer.markBytesAsDead(sizeof(uboPerDraw));
+		mUboPerDrawBuffer.markBytesAsDead(sizeof(preDrawData));
 
 		error err = mUboPerDrawBuffer.updateBuffer(
 			mSubmit,
 			&data,
-			sizeof(uboPerDraw),
+			sizeof(preDrawData),
 			0
 		);
 		if (err)
 			return err;
 
 		return {};
+	}
+
+	void vulkanRenderer::chooseGraphicsPreset()
+	{
+		graphicsPreset preset{
+			.msaa = mCtx->config.inner.graphics.msaa,
+			.anisotropicFiltering = mCtx->config.inner.graphics.anisotropicFiltering,
+		};
+
+		if (preset.anisotropicFiltering > uint32_t(mDeviceLimits.maxFiltering))
+			preset.anisotropicFiltering = uint32_t(mDeviceLimits.maxFiltering);
+
+		if (preset.msaa > sampleCountsAsUint(mDeviceLimits.maxMultiSampling))
+			preset.msaa = sampleCountsAsUint(mDeviceLimits.maxMultiSampling);
+
+		renderer::setGraphicsPreset(preset);
 	}
 
 	std::string vulkanRenderer::getVersion() const
@@ -362,17 +393,28 @@ namespace engine
 		}
 
 		mSwapChain.destroy();
-		auto swapChainErr = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		auto swapChainErr = mSwapChain.build(width, height, mGraphicsQueueFamily, mPreset);
 		if (swapChainErr)
 			return swapChainErr;
-
-		mComputeRenderer.updateDescriptors(mSwapChain.getDrawImageView());
 
 		return {};
 	}
 
 	error vulkanRenderer::addToRender(const model& m)
 	{
+		glm::vec3 lightPositions[4] =
+		{
+			glm::vec3(0.0f, 0.0f, 2.0f),
+			glm::vec3(0.0f, 0.0f, -2.0f),
+			glm::vec3(2.0f, 0.0f, 0.0f),
+			glm::vec3(-2.0f, 0.0f, 0.0f),
+		};
+
+		for (auto& p : lightPositions)
+		{
+			mLineRenderer.addLine(p, m.instanceAttributes.bsWorldCenter);
+		}
+
 		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), m);
 	}
 
@@ -443,17 +485,20 @@ namespace engine
 
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
-		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		//transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-		// draw with compute, clear image.
-		mComputeRenderer.clear(cmd, mSwapChain.getDrawImageExtent());
-
-		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		// Geometry pass START.
 		// Begin a render pass connected to our draw image and depth buffer.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		VkClearValue clear{
+			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
+		};
+
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), mPreset.msaa <= 1 ? nullptr : mSwapChain.getResolveImageView(), getResolveMode(mPreset.msaa), &clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), &colorAttachment, &depthAttachment);
 
@@ -489,15 +534,26 @@ namespace engine
 		vkCmdEndRendering(cmd);
 		// Geometry pass END.
 
-		// Render UI.
-		mUi.onRender(cmd, mSwapChain.getDrawImageView(), mSwapChain.getDrawImageExtent());
+		// UI pass START.
+		// Imgui can't work with msaa color attachments.
+		colorAttachment = attachmentInfo(mPreset.msaa <= 1 ? mSwapChain.getDrawImageView() : mSwapChain.getResolveImageView(), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-		//transition the draw image and the swapchain image into their correct transfer layouts
-		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), &colorAttachment, nullptr);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		// Render UI.
+		mUi.onRender(cmd);
+
+		vkCmdEndRendering(cmd);
+		// UI pass end.
+
+		//transition the resolve image and the swapchain image into their correct transfer layouts
+		transitionImage(cmd, mPreset.msaa <= 1 ? mSwapChain.getDrawImage() : mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-		// copy from the draw image into the swapchain
-		copyImageToImage(cmd, mSwapChain.getDrawImage(), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageExtent(), mSwapChain.getSwapChainExtent());
+		// copy from the resolve image into the swapchain
+		copyImageToImage(cmd, mPreset.msaa <= 1 ? mSwapChain.getDrawImage() : mSwapChain.getResolveImage(), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
 		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);

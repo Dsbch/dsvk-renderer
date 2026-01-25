@@ -119,4 +119,18 @@ namespace engine
 			{"shaderWorkGroup", p.shaderWorkGroup},
 		};
 	}
+
+	void from_json(const nlohmann::json& j, graphicsCfg& p)
+	{
+		j.at("msaa").get_to(p.msaa);
+		j.at("anisotropicFiltering").get_to(p.anisotropicFiltering);
+	}
+
+	void to_json(nlohmann::json& j, const graphicsCfg& p)
+	{
+		j = nlohmann::json{
+			{"msaa", p.msaa},
+			{"anisotropicFiltering", p.anisotropicFiltering},
+		};
+	}
 }

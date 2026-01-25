@@ -55,7 +55,7 @@ namespace engine
 		vkCmdPipelineBarrier2(cmd, &depInfo);
 	}
 
-	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels)
+	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels, VkSampleCountFlagBits samples)
 	{
 		VkImageCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -69,8 +69,8 @@ namespace engine
 		info.mipLevels = mipLevels;
 		info.arrayLayers = 1;
 
-		//for MSAA. we will not be using it by default, so default it to 1 sample per pixel.
-		info.samples = VK_SAMPLE_COUNT_1_BIT;
+		// msaa.
+		info.samples = samples;
 
 		//optimal tiling, which means the image is stored on the best gpu format
 		info.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -299,9 +299,9 @@ namespace engine
 		return { };
 	}
 
-	engine::error vulkanImage::build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+	engine::error vulkanImage::build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples)
 	{
-		auto newImage = createImage(size, format, usage, mipmapped);
+		auto newImage = createImage(size, format, usage, mipmapped, samples);
 		if (!newImage)
 			return newImage.err();
 
@@ -320,7 +320,7 @@ namespace engine
 		image.allocation = VK_NULL_HANDLE;
 	}
 
-	engine::withError<allocatedImage> vulkanImage::createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+	engine::withError<allocatedImage> vulkanImage::createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples)
 	{
 		allocatedImage newImage = {};
 
@@ -331,7 +331,7 @@ namespace engine
 		if (mipmapped)
 			mips = mipLevels(size);
 
-		VkImageCreateInfo img_info = imageCreateInfo(format, usage, size, mips);
+		VkImageCreateInfo img_info = imageCreateInfo(format, usage, size, mips, samples);
 
 		// always allocate images on dedicated GPU memory.
 		VmaAllocationCreateInfo allocinfo = {};

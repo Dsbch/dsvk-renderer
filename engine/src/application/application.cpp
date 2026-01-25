@@ -54,8 +54,8 @@ namespace engine
 
 	error application::fixedUpdate(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
 	{
-		auto k = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
-		for (uint32_t i = 0; mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
+		auto k = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
+		for (uint32_t i = 0; std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
 		{
 			// Queue events in main dispatcher.
 			mWindow->pollInput();
@@ -93,7 +93,7 @@ namespace engine
 
 	error application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift, float deltaTime)
 	{
-		if (mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
+		if (std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
 		{
 			error err = mScene->onRender(deltaTime);
 			if (err)
@@ -132,23 +132,18 @@ namespace engine
 
 	application::~application()
 	{
-		// Make sure all user threads are dead.
 		mCtx->mThreadPool->destroy();
-
-#ifdef DEBUG
-		DUMP_PROFILING("prof.json");
-#endif // DEBUG
 	}
 
 	error application::run()
 	{
 		mRunning = true;
 
-		auto nextGameUpdate = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
+		auto nextGameUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
 		uint32_t maxFrameSkip = mCtx->config.inner.gameLoop.gups / mCtx->config.inner.gameLoop.minimumFps;
 		auto updateShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.gups);
 
-		auto nextRender = mCtx->appTimer.toMS(mCtx->appTimer.getTimeSinceStart());
+		auto nextRender = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
 		auto renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
 
 		auto lastFrame = std::chrono::steady_clock::now();

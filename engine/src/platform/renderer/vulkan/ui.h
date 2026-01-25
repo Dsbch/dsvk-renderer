@@ -12,7 +12,7 @@ namespace engine
 	{
 		error init(GLFWwindow* wnd, VkDevice device, VkPhysicalDevice physicalDevice, VkInstance instance, uint32_t queueFamily, VkQueue queue, VkFormat colorAttachmentFormat);
 		error destroy();
-		error onRender(VkCommandBuffer cmd, VkImageView drawImageView, VkExtent3D renderExtent);
+		error onRender(VkCommandBuffer cmd);
 	private:
 		VkFormat mColorAttachmentFormat;
 	};

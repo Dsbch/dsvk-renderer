@@ -58,26 +58,18 @@ namespace engine
 		return {};
 	}
 
-	error vulkanUI::onRender(VkCommandBuffer cmd, VkImageView drawImageView, VkExtent3D renderExtent)
+	error vulkanUI::onRender(VkCommandBuffer cmd)
 	{
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
 		// Add calls to imgui here.
+		ImGui::ShowDemoWindow();
 
 		ImGui::Render();
 
-		//begin a render pass connected to our draw image and depth buffer.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(drawImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-		VkRenderingInfo renderInfo = renderingInfo(renderExtent, &colorAttachment, nullptr);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-
-		vkCmdEndRendering(cmd);
 
 		return {};
 	}

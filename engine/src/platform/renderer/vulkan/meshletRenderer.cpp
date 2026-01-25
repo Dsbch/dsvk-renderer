@@ -11,6 +11,7 @@ namespace engine
 		VmaAllocator allocator,
 		submit& is,
 		deviceLimits limits,
+		graphicsPreset preset,
 		VkBuffer UBObuffer
 	)
 	{
@@ -39,7 +40,9 @@ namespace engine
 
 		mDeletionQueue.init(device);
 
-		error err = initRegistry(device, allocator, is, limits);
+		mPreset = preset;
+
+		error err = initRegistry(device, allocator, is);
 		if (err)
 			return err;
 
@@ -57,7 +60,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::initRegistry(VkDevice device, VmaAllocator allocator, submit& is, deviceLimits limits)
+	error meshletRenderer::initRegistry(VkDevice device, VmaAllocator allocator, submit& is)
 	{
 		mVertexRegistry.init(device, allocator);
 
@@ -85,7 +88,7 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipelineReg, .pipelineReg = &mPipelineRegistry });
 
-		auto samp = descriptorSet::createSampler(device, limits.maxFiltering);
+		auto samp = descriptorSet::createSampler(device, float(mPreset.anisotropicFiltering));
 		if (!samp)
 		{
 			return samp.err();
@@ -190,25 +193,22 @@ namespace engine
 	{
 		auto pipelines = mPipelineRegistry.getPipelines();
 
-		uint32_t cmdOffset = 0;
-		for (auto& v : pipelines)
+		for (auto& [_, v] : pipelines)
 		{
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.pipeline);
 
 			pushConstants pc{
-				.commandBufferOffset = cmdOffset,
-				.meshletCount = v.commandBufferLength,
+				.commandBufferOffset = v.cmdPipelineStartOffset,
+				.meshletCount = v.cmdPipelineEndOffset - v.cmdPipelineStartOffset,
 			};
 
 			vkCmdPushConstants(cmd, v.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
-
-			cmdOffset += v.commandBufferLength;
 
 			// bind the descriptor set.
 			auto set = mDescriptorSet.getDescriptorSet().first;
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.layout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
-			mVkCmdDrawMeshTasksEXT(cmd, uint32_t(v.commandBufferLength) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+			mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 		}
 
 		return {};
@@ -231,7 +231,8 @@ namespace engine
 			taskShader.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			depthFormat,
-			drawFormat
+			drawFormat,
+			mPreset
 		);
 		if (err)
 			return err;
@@ -407,6 +408,11 @@ namespace engine
 			mMaterialRegistry.setUpdated();
 		}
 
+		return {};
+	}
+
+	error meshletRenderer::updateGraphicsPreset()
+	{
 		return {};
 	}
 }

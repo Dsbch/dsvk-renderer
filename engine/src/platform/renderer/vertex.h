@@ -10,6 +10,11 @@
 
 namespace engine
 {
+	typedef uint32_t entityHash;
+	typedef uint32_t pixelShaderHash;
+	typedef uint32_t meshHash;
+	typedef uint32_t textureHash;
+
 	struct vertex
 	{
 		glm::vec3 position;
@@ -18,7 +23,7 @@ namespace engine
 		glm::vec4 tangent;
 	};
 
-	// Task shader buffer, to get meshlet and instanceAttrs.
+	// Task/Amplification shader buffer.
 	struct meshletShaderCMD
 	{
 		uint32_t instanceIndex;
@@ -144,7 +149,7 @@ namespace engine
 		float bottomDistance;
 	};
 
-	struct uboPerDraw
+	struct preDrawData
 	{
 		glm::mat4 debugViewProjection;
 

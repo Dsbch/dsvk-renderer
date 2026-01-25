@@ -4,7 +4,17 @@
 
 namespace engine
 {
-	error lineRenderer::init(std::shared_ptr<context> ctx, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, submit& is, VkBuffer UBObuffer, VkFormat depthFormat, VkFormat drawFormat)
+	error lineRenderer::init(
+		std::shared_ptr<context> ctx,
+		VkDevice device,
+		VkPhysicalDevice physicalDevice,
+		VmaAllocator allocator,
+		submit& is,
+		VkBuffer UBObuffer,
+		VkFormat depthFormat,
+		VkFormat drawFormat,
+		graphicsPreset preset
+	)
 	{
 		mCtx = ctx;
 
@@ -16,6 +26,8 @@ namespace engine
 		};
 
 		mNeedDescrotprUpdate = false;
+
+		mPreset = preset;
 
 		mDeletionQueue.init(device);
 
@@ -123,7 +135,7 @@ namespace engine
 
 		mPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
-		mPipeline.setMultisamplingNone();
+		mPipeline.setMultisampling(sampleCounts(mPreset.msaa));
 
 		mPipeline.disableBlending();
 

@@ -43,17 +43,14 @@ namespace sandbox
 	glm::mat4 generateMatrix()
 	{
 		static float zPos = -1.0f;
-		static float rotation = 30.0f;
 
 		glm::mat4 transform = glm::mat4(1.0f);
 
 		glm::vec3 position(0, 0, zPos);
 		transform = glm::translate(transform, position);
 
-		transform = glm::rotate(transform, glm::radians(rotation), glm::vec3(0.5f, 0.4f, 0.7f));
 
 		zPos -= 0.2f;
-		rotation += 30.0f;
 
 		return transform;
 	}
@@ -66,7 +63,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/knight.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
@@ -85,44 +82,18 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(generateMatrix());
-
-				e.addComponent<engine::newEntityComponent>();
-			}
-
-			if (event->getKey() == engine::r)
-			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/robot.glb");
-				if (!loadedModel)
-					return loadedModel.err();
-
-				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
-				if (!pixel)
-					return pixel.err();
-
-				engine::material mats{
-					.pixelShader = pixel.value(),
-					.textures = loadedModel.value().mat.textures,
-				};
-
-				engine::entity e{ mCtx, registry };
-
-				e.addComponent<engine::materialComponent>(mats);
-
-				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
-
-				e.addComponent<engine::transformComponent>(generateMatrix());
+				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.001f)));
 
 				e.addComponent<engine::newEntityComponent>();
 			}
 
 			if (event->getKey() == engine::t)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/warrior.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
-				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
+				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsAlbedo.spv");
 				if (!pixel)
 					return pixel.err();
 
@@ -137,7 +108,7 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(generateMatrix());
+				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.1f)));
 
 				e.addComponent<engine::newEntityComponent>();
 			}
