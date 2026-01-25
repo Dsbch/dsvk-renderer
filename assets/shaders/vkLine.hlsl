@@ -70,7 +70,7 @@ vertexOutput vsmain(uint vertexID : SV_VertexID)
     
     lineVertex v = positionBuffer[vertexID];
     
-    result.position = mul(drawData.viewProjection, float4(v.position.xyz, 1.0f));
+    result.position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, float4(v.position.xyz, 1.0f));
 
     return result;
 }

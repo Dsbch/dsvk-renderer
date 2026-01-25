@@ -319,7 +319,6 @@ struct meshOutput
 {
     float3 tangentWorldPos : TANGENT0;
     float3 tangentCameraPos : TANGENT1;
-    float3 vertexNormal : TANGENT2;
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
     nointerpolation uint albedoIndex : TEXCOORD1;
@@ -401,15 +400,14 @@ void msmain(
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
-        float3x3 TBN = transpose(calculateTBN(instanceAttr.normalMatrix, v));
+        float3x3 TBN = calculateTBN(instanceAttr.normalMatrix, v);
         
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
         vertices[gtid].albedoIndex = instanceAttr.albedoIndex;
         vertices[gtid].normalIndex = instanceAttr.normalIndex;
         vertices[gtid].metalicRoughnesIndex = instanceAttr.metallicRoughnesIndex;
-        vertices[gtid].tangentCameraPos = drawData.cameraPos;
-        vertices[gtid].tangentWorldPos = worldPos.xyz;
-        vertices[gtid].vertexNormal = v.normal;
+        vertices[gtid].tangentCameraPos = mul(TBN, drawData.cameraPos);
+        vertices[gtid].tangentWorldPos = mul(TBN, worldPos.xyz);
     }
 }
 
@@ -505,8 +503,6 @@ float4 psmain(meshOutput input) : SV_TARGET
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
     float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWorldPos);
-    
-    normal = input.vertexNormal;
     
     float3 lightPositions[4] = { 
         float3(0.0f, 0.0f, 2.0f),
