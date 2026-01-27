@@ -21,6 +21,10 @@ namespace engine
 		error onRender(std::shared_ptr<entt::registry> registry, float deltaTime);
 		error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e);
 	private:
+		error handleNewEntities(std::shared_ptr<entt::registry> registry);
+		error handleDeletedEntities(std::shared_ptr<entt::registry> registry);
+		error handleUpdatedEntities(std::shared_ptr<entt::registry> registry);
+
 		std::shared_ptr<renderer> mRenderer;
 	};
 }

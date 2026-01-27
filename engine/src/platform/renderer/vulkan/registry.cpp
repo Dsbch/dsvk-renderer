@@ -101,6 +101,23 @@ namespace engine
 		return handle;
 	}
 
+	error bufferRegistry::updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is)
+	{
+		for (uint32_t i = 0; i < mBuffers.size(); i++)
+		{						
+			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end())
+			{
+				mBuffers[i].buffer.markBytesAsDead(sizeInBytes);
+
+				error err = mBuffers[i].buffer.updateBuffer(is, data, sizeInBytes, handle->offset);
+				if (err)
+					return err;
+			}
+		}
+
+		return {};
+	}
+
 	bool bufferRegistry::deleteBlock(uint32_t id)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)

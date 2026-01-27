@@ -16,16 +16,16 @@ namespace engine
 
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
-			LOGERROR("[{}] {}", typeStr, pCallbackData->pMessage);
+			LOGERROR("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
 		}
 		else
 			if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 			{
-				LOGWARN("[{}] {}", typeStr, pCallbackData->pMessage);
+				LOGWARN("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
 			}
 			else
 			{
-				LOGINFO("[{}] {}", typeStr, pCallbackData->pMessage);
+				LOGINFO("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
 			}
 
 		return VK_FALSE;
@@ -71,19 +71,19 @@ namespace engine
 	{
 		auto result = vkDeviceWaitIdle(mDevice);
 		if (result != VK_SUCCESS)
-			LOGERROR(vkResultToStr(result));
+			LOGERROR("~vulkanRenderer vkDeviceWaitIdle: {}", vkResultToStr(result));
 
 		error err = mUi.destroy();
 		if (err)
-			LOGERROR(err.err());
+			LOGERROR("~vulkanRenderer mUi.destroy: {}", err.err());
 
 		err = mMeshletRenderer.destroy();
 		if (err)
-			LOGERROR(err.err());
+			LOGERROR("~vulkanRenderer mMeshletRenderer.destroy {}", err.err());
 
 		err = mLineRenderer.destroy();
 		if (err)
-			LOGERROR(err.err());
+			LOGERROR("~vulkanRenderer mLineRenderer.destroy {}", err.err());
 
 		mDeletionQueue.flushDeletonQueue();
 	}
@@ -416,6 +416,11 @@ namespace engine
 		}
 
 		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), m);
+	}
+
+	error vulkanRenderer::updateInstance(const model& m)
+	{
+		return mMeshletRenderer.updateInstance(m, mSubmit);
 	}
 
 	void vulkanRenderer::removeFromRender(const model& m)

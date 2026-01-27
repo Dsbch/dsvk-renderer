@@ -116,7 +116,18 @@ namespace engine
 				mQueue.pop_front();
 				mMutex.unlock();
 
-				func();
+				try
+				{
+					func();
+				}
+				catch (std::exception& e)
+				{
+					LOGERROR("exception was caught in threadQueue::run std::exception: {}", e.what());
+				}
+				catch (...)
+				{
+					LOGERROR("exception was caught in threadQueue::run");
+				}
 			}
 		}
 	}

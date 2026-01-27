@@ -40,6 +40,7 @@ namespace engine
 	public:
 		void init(VkDevice device, VmaAllocator allocator);
 		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize = newBufferSize);
+		error updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is);
 		bool deleteBlock(uint32_t id);
 		void destroy();
 		void setUpdated();

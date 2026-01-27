@@ -36,7 +36,8 @@ namespace engine
 	{
 		error err;
 
-		mCtx->mThreadPool->start([registry = mSceneRegistry, deltaTime = deltaTime]
+		mCtx->mThreadPool->start(
+			[registry = mSceneRegistry, deltaTime = deltaTime]()
 			{
 				for (auto& s : mUserSystems)
 				{
@@ -60,7 +61,7 @@ namespace engine
 
 	error scene::onEvent(std::shared_ptr<baseEvent> e)
 	{
-		mCtx->mThreadPool->start([event = e, registry = mSceneRegistry] 
+		mCtx->mThreadPool->start([event = e, registry = mSceneRegistry]
 			{
 				for (auto& s : mUserSystems)
 				{
@@ -105,7 +106,7 @@ namespace engine
 			if (err)
 				return err;
 		}
-	
+
 		return err;
 	}
 
@@ -155,7 +156,7 @@ namespace engine
 	void scene::addSystem(std::unique_ptr<system>&& s)
 	{
 		s->onAttach(mSceneRegistry);
-	
+
 		mSystems.push_back(std::move(s));
 	}
 

@@ -42,6 +42,7 @@ namespace engine
 		virtual error checkError() const = 0;
 		virtual error changeViewPort(uint32_t width, uint32_t height) = 0;
 		virtual error addToRender(const model& m) = 0;
+		virtual error updateInstance(const model& m) = 0;
 		virtual void removeFromRender(const model& m) = 0;
 		virtual error render(renderCallIn in) = 0;
 

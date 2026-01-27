@@ -44,6 +44,7 @@ namespace engine
 		error destroy();
 
 		error addToRender(VkDevice device, submit& is, VkFormat depthFormat, VkFormat drawFormat, const model& m);
+		error updateInstance(const model& m, submit& is);
 		void removeFromRender(const model& m);
 		
 		error updateDescriptors(renderer::renderCallIn in, submit& is);

@@ -30,6 +30,7 @@ namespace engine
 		error changeViewPort(uint32_t width, uint32_t height);
 		
 		error addToRender(const model& m);
+		error updateInstance(const model& m);
 		void removeFromRender(const model& m);
 		
 		error render(renderer::renderCallIn in);

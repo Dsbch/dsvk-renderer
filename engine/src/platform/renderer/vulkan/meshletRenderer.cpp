@@ -243,9 +243,6 @@ namespace engine
 		// Upload material.
 		materialRegistry::materialOffsets materialOffsets = mMaterialRegistry.addMaterial(m.mat.textures);
 
-		// Upload geometry.
-		std::vector<meshlet> meshlets = *m.meshData.mesh.data.get();
-
 		perInstanceAttr attr = m.instanceAttributes;
 		attr.albedoIndex = materialOffsets.albedo;
 		attr.normalIndex = materialOffsets.normal;
@@ -259,6 +256,9 @@ namespace engine
 		);
 		if (!handle)
 			return handle.err();
+
+		// Upload geometry.
+		std::vector<meshlet> meshlets = *m.meshData.mesh.data.get();
 
 		for (auto& m : meshlets)
 		{
@@ -326,6 +326,20 @@ namespace engine
 			return err;
 
 		return {};
+	}
+
+	error meshletRenderer::updateInstance(const model& m, submit& is)
+	{
+		// Upload/get material.
+		materialRegistry::materialOffsets materialOffsets = mMaterialRegistry.addMaterial(m.mat.textures);
+
+		// Form new instance attrs.
+		perInstanceAttr attr = m.instanceAttributes;
+		attr.albedoIndex = materialOffsets.albedo;
+		attr.normalIndex = materialOffsets.normal;
+		attr.metallicRoughnesIndex = materialOffsets.metalicRoughnes;
+
+		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), is);
 	}
 
 	void meshletRenderer::removeFromRender(const model& m)

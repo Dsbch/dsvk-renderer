@@ -30,7 +30,7 @@ namespace engine
 
 		for (auto& e : toDelete)
 			registry->destroy(e);
-	
+
 		mCtx->mAmanager->clearCache();
 	}
 
@@ -41,42 +41,11 @@ namespace engine
 
 	error renderSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
-		{
-			// Extract scale asume that scale is the same on all axis.
-			float scale = glm::length(glm::vec3(transform.transform[0]));
+		handleDeletedEntities(registry);
 
-			model m{
-				.id = uid.uid,
-				.instanceAttributes = perInstanceAttr{
-					.bsWorldCenter = glm::vec3(transform.transform * glm::vec4(mesh.meshData.bsCenter, 1.0f)),
-					.bsWorldRadius = mesh.meshData.bsRadius * scale,
-					.modelMatrix = transform.transform,
-					.normalMatrix = glm::transpose(glm::inverse(glm::mat3{transform.transform})),
-				},
-				.meshData = mesh.meshData,
-				.mat = material.mat,
-			};
+		handleUpdatedEntities(registry);
 
-			error err = mRenderer->addToRender(m);
-			if (err)
-				return err;
-
-			registry->erase<newEntityComponent>(e);
-		}
-
-		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, deleteComponent>().each())
-		{
-			model m{
-				.id = uid.uid,
-				.meshData = mesh.meshData,
-				.mat = material.mat,
-			};
-
-			mRenderer->removeFromRender(m);
-
-			registry->destroy(e);
-		}
+		handleNewEntities(registry);
 
 		return {};
 	}
@@ -88,7 +57,7 @@ namespace engine
 
 	error renderSystem::onRender(std::shared_ptr<entt::registry> registry, float deltaTime)
 	{
-		renderer::renderCallIn renderCall {
+		renderer::renderCallIn renderCall{
 			.deltaTime = deltaTime,
 		};
 
@@ -153,6 +122,82 @@ namespace engine
 			auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
 
 			return mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+		}
+
+		return {};
+	}
+
+	error renderSystem::handleNewEntities(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
+		{
+			// Extract scale asume that scale is the same on all axis.
+			float scale = glm::length(glm::vec3(transform.transform[0]));
+
+			model m{
+				.id = uid.uid,
+				.instanceAttributes = perInstanceAttr{
+					.bsWorldCenter = glm::vec3(transform.transform * glm::vec4(mesh.meshData.bsCenter, 1.0f)),
+					.bsWorldRadius = mesh.meshData.bsRadius * scale,
+					.modelMatrix = transform.transform,
+					.normalMatrix = glm::transpose(glm::inverse(glm::mat3{transform.transform})),
+				},
+				.meshData = mesh.meshData,
+				.mat = material.mat,
+			};
+
+			error err = mRenderer->addToRender(m);
+			if (err)
+				return err;
+
+			registry->erase<newEntityComponent>(e);
+		}
+
+		return {};
+	}
+
+	error renderSystem::handleDeletedEntities(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, deleteComponent>().each())
+		{
+			model m{
+				.id = uid.uid,
+				.meshData = mesh.meshData,
+				.mat = material.mat,
+			};
+
+			mRenderer->removeFromRender(m);
+
+			registry->destroy(e);
+		}
+
+		return {};
+	}
+
+	error renderSystem::handleUpdatedEntities(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, applyTransformComponent>().each())
+		{
+			// Extract scale asume that scale is the same on all axis.
+			float scale = glm::length(glm::vec3(transform.transform[0]));
+
+			model m{
+				.id = uid.uid,
+				.instanceAttributes = perInstanceAttr{
+					.bsWorldCenter = glm::vec3(transform.transform * glm::vec4(mesh.meshData.bsCenter, 1.0f)),
+					.bsWorldRadius = mesh.meshData.bsRadius * scale,
+					.modelMatrix = transform.transform,
+					.normalMatrix = glm::transpose(glm::inverse(glm::mat3{transform.transform})),
+				},
+				.meshData = mesh.meshData,
+				.mat = material.mat,
+			};
+
+			error err = mRenderer->updateInstance(m);
+			if (err)
+				return err;
+
+			registry->erase<applyTransformComponent>(e);
 		}
 
 		return {};

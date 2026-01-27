@@ -57,6 +57,27 @@ namespace sandbox
 
 	engine::error sandboxSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<engine::baseEvent> e)
 	{
+		if (e->getEventType() == engine::keyDown)
+		{
+			auto event = static_cast<engine::keyPressedEvent*>(e.get());
+
+			if (event->getKey() == engine::t)
+			{
+				for (auto [e, uid, mesh, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
+				{
+					engine::entity entity{ mCtx, e, registry };
+
+					glm::mat4 newTransform = glm::rotate(transform.transform, glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+					entity.addOrReplaceComponent<engine::transformComponent>(newTransform);
+
+					entity.addOrReplaceComponent<engine::applyTransformComponent>();
+
+					return {};
+				}
+			}
+		}
+
 		if (e->getEventType() == engine::keyPressed)
 		{
 			auto event = static_cast<engine::keyPressedEvent*>(e.get());
@@ -87,7 +108,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::t)
+			if (event->getKey() == engine::r)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
 				if (!loadedModel)
@@ -108,17 +129,19 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.1f)));
+				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.001f)));
 
 				e.addComponent<engine::newEntityComponent>();
 			}
 
 			if (event->getKey() == engine::q)
 			{
-				int i = 0;
 				for (auto [e, uid, mesh, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{
-					registry->emplace<engine::deleteComponent>(e);
+					engine::entity entity{ mCtx, e, registry };
+
+					entity.addComponent<engine::deleteComponent>();
+
 					return {};
 				}
 			}
