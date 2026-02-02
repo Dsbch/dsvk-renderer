@@ -374,7 +374,10 @@ namespace engine
 					fabsf(lv.textureCoords.y - rv.textureCoords.y) < 1e-3f &&
 					fabsf(lv.normal.x - rv.normal.x) < 1e-3f &&
 					fabsf(lv.normal.y - rv.normal.y) < 1e-3f &&
-					fabsf(lv.normal.z - rv.normal.z) < 1e-3f;
+					fabsf(lv.normal.z - rv.normal.z) < 1e-3f &&
+					fabsf(lv.position.x - rv.position.x) < 1e-3f &&
+					fabsf(lv.position.y - rv.position.y) < 1e-3f &&
+					fabsf(lv.position.z - rv.position.z) < 1e-3f;
 			}
 		);
 		if (vertex_count == 0)
@@ -1107,6 +1110,10 @@ namespace engine
 		for (int i = 0; i < result.meshData.vertex->size(); i++)
 		{
 			vertex& v = result.meshData.vertex->at(i);
+
+			v.textureCoords.x = v.textureCoords.x - std::floor(v.textureCoords.x);
+			v.textureCoords.y = v.textureCoords.y - std::floor(v.textureCoords.y);
+
 			uint32_t textureIndex = vertexToTextureMapping[i];
 			const atlasEntry& e = albedoAtlas.value().second[textureIndex];
 			const aManager::image& img = materials.value().albedo[textureIndex];
@@ -1362,7 +1369,7 @@ namespace engine
 		{
 			int newSize = int(scale * size);
 			std::vector<uint8_t> downSampled{};
-			downSampled.resize(newSize * newSize * 4);
+			downSampled.resize(newSize * newSize * images.front().channels);
 
 			void* downSampledPtr = stbir_resize_uint8_srgb(
 				atlas.data(),

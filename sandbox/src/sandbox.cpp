@@ -84,7 +84,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/sponza.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
@@ -103,7 +103,7 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.001f)));
+				e.addComponent<engine::transformComponent>(generateMatrix());
 
 				e.addComponent<engine::newEntityComponent>();
 			}

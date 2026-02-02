@@ -172,7 +172,6 @@ namespace engine
 
 #ifdef DEBUG
 		monitor = nullptr;
-		mShowCursor = true;
 #endif // DEBUG
 
 		mWnd = glfwCreateWindow(width, heigth, name.c_str(), monitor, nullptr);

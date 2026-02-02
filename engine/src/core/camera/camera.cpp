@@ -1,6 +1,9 @@
 #include <pch.h>
 #include "camera.h"
 
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/string_cast.hpp>
+
 namespace engine
 {
 	void fpsCamera::updateFront()
@@ -9,7 +12,7 @@ namespace engine
 		float y = sin(glm::radians(mPitch));
 		float z = cos(glm::radians(mPitch)) * cos(glm::radians(mYaw));
 
-		mFront = glm::vec3(x, y, -z);
+		mFront = glm::normalize(glm::vec3(x, y, -z));
 	}
 
 	void fpsCamera::updateUp()
@@ -18,12 +21,19 @@ namespace engine
 		float z = sin(glm::radians(mPitch)) * cos(glm::radians(mYaw));
 		float x = sin(glm::radians(mYaw)) * sin(glm::radians(mPitch));
 
-		mUp = glm::vec3(-x, y, z);
+		mUp = glm::normalize(glm::vec3(-x, y, z));
 	}
 
 	void fpsCamera::updateView()
 	{
-		mView = glm::lookAt(mPos, mPos + mFront, mUp);
+		//mView = glm::lookAt(mPos, mPos + mFront, mUp);
+
+		auto rotate = glm::rotate(glm::mat4{ 1.0f }, -glm::radians(mPitch), glm::vec3{ 1.0f, 0.0f, 0.0f });
+		rotate = glm::rotate(rotate, glm::radians(mYaw), glm::vec3{ 0.0f, 1.0f, 0.0f });
+
+		auto translation = glm::translate(glm::mat4{ 1.0f }, -mPos);
+
+		mView = rotate * translation;
 	}
 
 	void fpsCamera::updateProjection()
@@ -54,7 +64,7 @@ namespace engine
 		mPitch(pitch),
 		mFront(glm::vec3(0.0f)),
 		mUp(up),
-		mView(glm::lookAt(mFront, mPos, mUp)),
+		mView(glm::mat4(1.0f)),
 		mCtx(ctx),
 		mFov(fov),
 		mNearPlane(nearPlane),
@@ -92,11 +102,13 @@ namespace engine
 		return mPos;
 	}
 
-	void fpsCamera::changePosition(glm::vec3 shift)
+	void fpsCamera::changePosition(float x, float z, float y)
 	{
-		mPos += mFront * shift.z;
+		mPos += mFront * z;
 
-		mPos += glm::cross(mFront, mUp) * shift.x;
+		mPos += glm::cross(mFront, mUp) * x;
+
+		mPos += mUp * y;
 
 		updateView();
 	}

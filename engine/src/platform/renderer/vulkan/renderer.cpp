@@ -402,18 +402,25 @@ namespace engine
 
 	error vulkanRenderer::addToRender(const model& m)
 	{
-		glm::vec3 lightPositions[4] =
-		{
-			glm::vec3(0.0f, 0.0f, 2.0f),
-			glm::vec3(0.0f, 0.0f, -2.0f),
-			glm::vec3(2.0f, 0.0f, 0.0f),
-			glm::vec3(-2.0f, 0.0f, 0.0f),
-		};
+		//glm::vec3 lightPositions[4] =
+		//{
+		//	glm::vec3(0.0f, 0.0f, 2.0f),
+		//	glm::vec3(0.0f, 0.0f, -2.0f),
+		//	glm::vec3(2.0f, 0.0f, 0.0f),
+		//	glm::vec3(-2.0f, 0.0f, 0.0f),
+		//};
 
-		for (auto& p : lightPositions)
+		/*for (auto& p : lightPositions)
 		{
 			mLineRenderer.addLine(p, m.instanceAttributes.bsWorldCenter);
-		}
+		}*/
+
+		//for (auto& v : *m.meshData.vertex.get())
+		//{
+		//	glm::vec3 pos = glm::vec3(m.instanceAttributes.modelMatrix * glm::vec4(v.position, 1.0f));
+
+		//	mLineRenderer.addLine(pos, pos + v.normal);
+		//}
 
 		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), m);
 	}

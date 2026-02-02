@@ -61,16 +61,16 @@ namespace engine
 					switch (key)
 					{
 					case key::w:
-						camera.camera->changePosition(glm::vec3(0.0f, 0.0f, 0.1f));
+						camera.camera->changePosition(0.0f, 0.1f);
 						break;
 					case key::s:
-						camera.camera->changePosition(glm::vec3(0.0f, 0.0f, -0.1f));
+						camera.camera->changePosition(0.0f, -0.1f);
 						break;
 					case key::a:
-						camera.camera->changePosition(glm::vec3(-0.1f, 0.0f, 0.0f));
+						camera.camera->changePosition(-0.1f, 0.0f);
 						break;
 					case key::d:
-						camera.camera->changePosition(glm::vec3(0.1f, 0.0f, 0.0f));
+						camera.camera->changePosition(0.1f, 0.0f);
 						break;
 					}
 				}
