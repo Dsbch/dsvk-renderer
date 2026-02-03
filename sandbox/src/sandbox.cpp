@@ -40,19 +40,18 @@ namespace sandbox
 		return {};
 	}
 
-	glm::mat4 generateMatrix()
+	engine::transform generateTransform()
 	{
 		static float zPos = -1.0f;
 
-		glm::mat4 transform = glm::mat4(1.0f);
+		engine::transform result{};
 
-		glm::vec3 position(0, 0, zPos);
-		transform = glm::translate(transform, position);
-
+		result.scale = glm::vec3{ 1.0f };
+		result.translation = glm::vec3{ 0.0f, 0.0f, zPos };
 
 		zPos -= 0.2f;
 
-		return transform;
+		return result;
 	}
 
 	engine::error sandboxSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<engine::baseEvent> e)
@@ -63,15 +62,19 @@ namespace sandbox
 
 			if (event->getKey() == engine::t)
 			{
-				for (auto [e, uid, mesh, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
+				for (auto [e, uid, mesh, material, tr] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{
 					engine::entity entity{ mCtx, e, registry };
 
-					glm::mat4 newTransform = glm::rotate(transform.transform, glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+					static float angle = 0.5f;
 
-					entity.addOrReplaceComponent<engine::transformComponent>(newTransform);
+					tr.rotation = glm::quat{ cos(glm::radians(angle)), sin(glm::radians(angle)) * glm::vec3{0.0f, 1.0f, 0.0f} };
+
+					entity.addOrReplaceComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
 
 					entity.addOrReplaceComponent<engine::applyTransformComponent>();
+
+					angle += 0.5f;
 
 					return {};
 				}
@@ -103,7 +106,9 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(generateMatrix());
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
 
 				e.addComponent<engine::newEntityComponent>();
 			}
@@ -129,7 +134,9 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
-				e.addComponent<engine::transformComponent>(glm::scale(generateMatrix(), glm::vec3(0.001f)));
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
 
 				e.addComponent<engine::newEntityComponent>();
 			}

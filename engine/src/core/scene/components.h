@@ -31,8 +31,12 @@ namespace engine
 
 	struct transformComponent
 	{
-		glm::mat4 transform;
-		transformComponent(glm::mat4 transform) : transform(transform) {}
+		glm::vec3 translation;
+		glm::vec3 scale;
+		glm::quat rotation;
+
+		transformComponent(glm::vec3 translation, glm::vec3 scale, glm::quat rotation) : translation(translation), scale(scale), rotation(rotation) {}
+		transformComponent(const transformComponent& other) : translation(other.translation), scale(other.scale), rotation(other.rotation) {}
 	};
 
 	struct inputListenerComponent

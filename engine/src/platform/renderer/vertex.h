@@ -4,6 +4,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include "shader.h"
 #include "texture.h"
@@ -21,6 +22,13 @@ namespace engine
 		glm::vec2 textureCoords;
 		glm::vec3 normal;
 		glm::vec4 tangent;
+	};
+
+	struct transform
+	{
+		glm::vec3 translation;
+		glm::vec3 scale;
+		glm::quat rotation;
 	};
 
 	// Task/Amplification shader buffer.
@@ -41,8 +49,7 @@ namespace engine
 		glm::vec3 bsWorldCenter;
 		float  bsWorldRadius;
 
-		glm::mat4 modelMatrix;
-		glm::mat3 normalMatrix;
+		transform modelTransform;
 
 		uint32_t albedoIndex;
 		uint32_t normalIndex;
@@ -153,13 +160,13 @@ namespace engine
 	{
 		glm::mat4 debugViewProjection;
 
-		glm::vec3 cameraPos;
 		uint32_t useDebugCamera;
+		
 		glm::vec3 cameraFront;
-
+		glm::vec3 cameraPos;
 		glm::vec3 cameraUp;
-
 		glm::mat4 view;
+		
 		glm::mat4 projection;
 		glm::mat4 viewProjection;
 

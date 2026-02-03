@@ -15,6 +15,8 @@ namespace engine
 		template<typename T, typename... Args>
 		T& addComponent(Args&&... args)
 		{
+			std::lock_guard l{ mU };
+			
 			T& component = mRegistry->emplace<T>(mEntityHandle, std::forward<Args>(args)...);
 			return component;
 		}
@@ -22,12 +24,16 @@ namespace engine
 		template<typename T>
 		void addComponent()
 		{
+			std::lock_guard l{ mU };
+
 			mRegistry->emplace<T>(mEntityHandle);
 		}
 
 		template<typename T, typename... Args>
 		T& addOrReplaceComponent(Args&&... args)
 		{
+			std::lock_guard l{ mU };
+
 			T& component = mRegistry->emplace_or_replace<T>(mEntityHandle, std::forward<Args>(args)...);
 			return component;
 		}
@@ -35,18 +41,24 @@ namespace engine
 		template<typename T>
 		void addOrReplaceComponent()
 		{
+			std::lock_guard l{ mU };
+
 			mRegistry->emplace_or_replace<T>(mEntityHandle);
 		}
 
 		template<typename T>
 		T& getComponent()
 		{
+			std::lock_guard l{ mU };
+
 			return mRegistry->get<T>(mEntityHandle);
 		}
 
 		template<typename T>
 		void removeComponent()
 		{
+			std::lock_guard l{ mU };
+
 			mRegistry->remove<T>(mEntityHandle);
 		}
 
@@ -56,5 +68,7 @@ namespace engine
 		std::shared_ptr<context> mCtx;
 		entt::entity mEntityHandle;
 		std::shared_ptr<entt::registry> mRegistry;
+
+		static std::mutex mU;
 	};
 }

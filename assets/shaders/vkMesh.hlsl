@@ -10,115 +10,9 @@
 
 #define THREADS_COUNT 32
 
-#define PI 3.14159265359f
-
-#define GAMMA 2.2f
-
-// INPUT START.
-
-// DescriptorSet START.
-
-struct vertex
-{
-    float3 position;
-    float2 textureCoords;
-    float3 normal;
-    float4 tangent;
-};
-
-struct meshletBounds
-{
-	/* bounding sphere, useful for frustum and occlusion culling */
-    float3 center;
-    float radius;
-
-	/* normal cone, useful for backface culling */
-    float3 coneAxis;
-    float coneCutoff; /* = cos(angle/2) */
-};
-
-struct meshlet
-{
-    uint indexBufferIndex;
-    uint indexBufferOffset;
-    
-    uint vertexBufferIndex;
-    uint vertexBufferOffset;
-    uint vertexCount;
-    
-    uint triangleBufferIndex;
-    uint triangleBufferOffset;
-    uint triangleCount;
-    
-    meshletBounds bounds;
-};
-
-struct perInstanceAttr
-{
-    float3 bsWorldCenter;
-    float bsWorldRadius;
-    float4x4 modelMatrix;
-    float3x3 normalMatrix;
-
-    uint albedoIndex;
-    uint normalIndex;
-    uint metallicRoughnesIndex;
-};
-
-struct command
-{
-    uint instanceIndex;
-    uint instanceOffset;
-    
-    uint meshletIndex;
-    uint meshletOffset1;
-    uint meshletOffset2;
-    uint meshletOffset3;
-    uint meshletOffset4;
-};
-
-// SSBO START.
-
-StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t1, space0);
-StructuredBuffer<command> commandBuffer : register(t2, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t3, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t4, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
-
-// SSBO END.
+#include "common.hlsl"
 
 // UBO START.
-
-struct frustum
-{
-    float3 worldFrontN;
-    float frontDistance;
-    float3 worldBackN;
-    float backDistance;
-    float3 worldRightN;
-    float rightDistance;
-    float3 worldLeftN;
-    float leftDistance;
-    float3 worldTopN;
-    float topDistance;
-    float3 worldBottomN;
-    float bottomDistance;
-};
-
-struct perDrawData
-{
-    float4x4 debugViewProjection;
-    float3 cameraPos;
-    uint useDebugCamera;
-    float3 cameraFront;
-    float3 cameraUp;
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
-    frustum cameraFrustum;
-    float deltaTime;
-};
 
 ConstantBuffer<perDrawData> drawData : register(b6, space0);
 
@@ -183,7 +77,7 @@ uint getMeshletOffset(uint lodLevel, uint idx)
     return result;
 }
 
-uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
+uint selectLodLevel(float3 bsWorldCenter, float bsWorldRadius)
 {
     // Get viewSpace of the center.
     float4 vsCenter = mul(drawData.view, float4(bsWorldCenter, 1.0f));
@@ -213,7 +107,7 @@ uint selectLodLevel(float4x4 model, float3 bsWorldCenter, float bsWorldRadius)
 }
 
 // Back face cone culling.
-bool isFrontfaceMeshlet(float4x4 model, float3x3 normalMatrix, float3 coneAxis, float3 coneApex, float coneCutoff)
+bool isFrontfaceMeshlet(transform modelTransform, float3 coneAxis, float3 coneApex, float coneCutoff)
 {
     if (coneAxis.x == 0 && coneAxis.y == 0 && coneAxis.z == 0)
         return true;
@@ -221,18 +115,21 @@ bool isFrontfaceMeshlet(float4x4 model, float3x3 normalMatrix, float3 coneAxis, 
     if (coneCutoff == 1.0f)
         return true;
     
-    float3 worldConeApex = mul(model, float4(coneApex, 1.0f)).xyz;
-    float3 worldConeAxis = normalize(mul(normalMatrix, coneAxis));
+    float3 worldConeApex = transformPoint(modelTransform, coneApex);
+    float3 worldConeAxis = normalize(rotate(modelTransform.rotation, coneAxis));
     float3 viewDir = normalize(worldConeApex - drawData.cameraPos);
     
     return dot(viewDir, worldConeAxis) < coneCutoff;
 }
 
-bool isInFrustum(float4x4 model, float3 bsCenter, float bsRadius)
+bool isInFrustum(transform modelTransform, float3 bsCenter, float bsRadius)
 {
-    float3 worldCenter = mul(model, float4(bsCenter, 1.0f)).xyz;
+    float3 worldCenter = transformPoint(modelTransform, bsCenter);
     
-    float scale = length(model[0]);
+    float scale = max(1.0f, modelTransform.scale.x);
+    scale = max(scale, modelTransform.scale.y);
+    scale = max(scale, modelTransform.scale.z);
+
     float worldRadius = scale * bsRadius;
     
     bool front = dot(worldRadius * drawData.cameraFrustum.worldFrontN + worldCenter, drawData.cameraFrustum.worldFrontN) - drawData.cameraFrustum.frontDistance > 0;
@@ -263,7 +160,7 @@ void asmain(
         uint perInstanceOffset = commandBuffer[dtid + push.commandBufferOffset].instanceOffset;
     
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
-        uint selectedLod = selectLodLevel(instanceAttr.modelMatrix, instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
+        uint selectedLod = selectLodLevel(instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
         uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
         uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
     
@@ -273,8 +170,8 @@ void asmain(
             meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
             
             visible =
-                isFrontfaceMeshlet(instanceAttr.modelMatrix, (float3x3) instanceAttr.normalMatrix, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
-                isInFrustum(instanceAttr.modelMatrix, mesh.bounds.center, mesh.bounds.radius);
+                isFrontfaceMeshlet(instanceAttr.modelTransform, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
+                isInFrustum(instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
             
             if (visible)
             {
@@ -331,11 +228,11 @@ struct meshletPrimitiveOut
     bool cullPrimitive : SV_CULLPRIMITIVE;
 };
 
-bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
+bool isBackface(transform modelTransform, float3 v1, float3 v2, float3 v3)
 {
-    v1 = mul(model, float4(v1, 1.0f)).xyz;
-    v2 = mul(model, float4(v2, 1.0f)).xyz;
-    v3 = mul(model, float4(v3, 1.0f)).xyz;
+    v1 = transformPoint(modelTransform, v1);
+    v2 = transformPoint(modelTransform, v2);
+    v3 = transformPoint(modelTransform, v3);
     
     float3 normal = cross(v2 - v1, v3 - v1);
     
@@ -344,10 +241,10 @@ bool isBackface(float4x4 model, float3 v1, float3 v2, float3 v3)
     return dot(normal, drawData.cameraPos - center) < 0;
 }
 
-float3x3 calculateTBN(float3x3 normalMatrix, vertex v)
+float3x3 calculateTBN(float4 quat, vertex v)
 {
-    float3 T = normalize(mul(normalMatrix, float3(v.tangent.xyz)));
-    float3 N = normalize(mul(normalMatrix, v.normal));
+    float3 T = normalize(rotate(quat, float3(v.tangent.xyz)));
+    float3 N = normalize(rotate(quat, v.normal));
     
     T = normalize(T - dot(T, N) * N);
     
@@ -384,7 +281,7 @@ void msmain(
         uint idx3 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.vertexBufferOffset;
         
         primitives[gtid].cullPrimitive = isBackface(
-                instanceAttr.modelMatrix,
+                instanceAttr.modelTransform,
                 vertexBuffer[mesh.vertexBufferIndex][idx1].position,
                 vertexBuffer[mesh.vertexBufferIndex][idx2].position,
                 vertexBuffer[mesh.vertexBufferIndex][idx3].position
@@ -396,11 +293,11 @@ void msmain(
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
         
         vertex v = vertexBuffer[mesh.vertexBufferIndex][vertexIndex];
-        float4 worldPos = mul(instanceAttr.modelMatrix, float4(v.position, 1.0));
+        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, v.position), 1.0f);
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
-        float3x3 TBN = calculateTBN(instanceAttr.normalMatrix, v);
+        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, v);
         
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
         vertices[gtid].albedoIndex = instanceAttr.albedoIndex;
@@ -562,7 +459,6 @@ float4 psmain(meshOutput input) : SV_TARGET
         l0 += (kD * albedo.rgb / PI + specular) * radiance * nDotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
     }
 
-
     // ambient lighting part, removed for now.
     // note that in future you need to replace that ambient light with some Voxel Cone Tracing for reflections.
     // for now we just use AO texture.
@@ -575,7 +471,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     
     color = toSRGB(color);
     
-    return float4(color.rgb, albedo.a);
+    return float4(color, albedo.a);
 }
 
 // PIXEL SHADER END.

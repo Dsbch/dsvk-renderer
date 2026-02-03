@@ -6,6 +6,8 @@
 #define DEFINE_AS_PUSH_CONSTANT
 #endif
 
+#include "common.hlsl"
+
 // INPUT START.
 
 // SSBO START.
@@ -20,36 +22,6 @@ StructuredBuffer<lineVertex> positionBuffer : register(t0, space0);
 // SSBO END.
 
 // UBO START.
-
-struct frustum
-{
-    float3 worldFrontN;
-    float frontDistance;
-    float3 worldBackN;
-    float backDistance;
-    float3 worldRightN;
-    float rightDistance;
-    float3 worldLeftN;
-    float leftDistance;
-    float3 worldTopN;
-    float topDistance;
-    float3 worldBottomN;
-    float bottomDistance;
-};
-
-struct perDrawData
-{
-    float4x4 debugViewProjection;
-    float3 cameraPos;
-    uint useDebugCamera;
-    float3 cameraFront;
-    float3 cameraUp;
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
-    frustum cameraFrustum;
-    float deltaTime;
-};
 
 ConstantBuffer<perDrawData> drawData : register(b1, space0);
 

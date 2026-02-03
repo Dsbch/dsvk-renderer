@@ -50,6 +50,7 @@ namespace engine
 		return {};
 	}
 
+	// TODO: fix bug on W,D sqrt(2) speed.
 	error cameraSystem::applyInput(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
 	{
 		if (e->getEventType() == eventType::keyDown)

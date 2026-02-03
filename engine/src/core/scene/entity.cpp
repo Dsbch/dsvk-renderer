@@ -4,6 +4,8 @@
 
 namespace engine
 {
+	std::mutex entity::mU;
+
 	entity::entity(std::shared_ptr<context> ctx, entt::entity handle, std::shared_ptr<entt::registry> registry)
 		:
 		mEntityHandle(handle), mRegistry(registry), mCtx(ctx)

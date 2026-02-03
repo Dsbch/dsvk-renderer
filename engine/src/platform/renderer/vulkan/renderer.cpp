@@ -313,9 +313,9 @@ namespace engine
 	{
 		preDrawData data{
 			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
-			.cameraPos = in.cameraPos,
 			.useDebugCamera = in.useDebugCamera,
 			.cameraFront = in.cameraFront,
+			.cameraPos = in.cameraPos,
 			.cameraUp = in.cameraUp,
 			.view = in.view,
 			.projection = in.projection,

@@ -129,18 +129,22 @@ namespace engine
 
 	error renderSystem::handleNewEntities(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
+		for (auto [e, uid, mesh, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
 		{
-			// Extract scale asume that scale is the same on all axis.
-			float scale = glm::length(glm::vec3(transform.transform[0]));
+			float scale = std::max(1.0f, tr.scale.x);
+			scale = std::max(scale, tr.scale.y);
+			scale = std::max(scale, tr.scale.z);
 
 			model m{
 				.id = uid.uid,
 				.instanceAttributes = perInstanceAttr{
-					.bsWorldCenter = glm::vec3(transform.transform * glm::vec4(mesh.meshData.bsCenter, 1.0f)),
+					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * mesh.meshData.bsCenter),
 					.bsWorldRadius = mesh.meshData.bsRadius * scale,
-					.modelMatrix = transform.transform,
-					.normalMatrix = glm::transpose(glm::inverse(glm::mat3{transform.transform})),
+					.modelTransform = transform{
+						.translation = tr.translation,
+						.scale = tr.scale,
+						.rotation = tr.rotation,
+					},
 				},
 				.meshData = mesh.meshData,
 				.mat = material.mat,
@@ -176,18 +180,22 @@ namespace engine
 
 	error renderSystem::handleUpdatedEntities(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, applyTransformComponent>().each())
+		for (auto [e, uid, mesh, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, applyTransformComponent>().each())
 		{
-			// Extract scale asume that scale is the same on all axis.
-			float scale = glm::length(glm::vec3(transform.transform[0]));
+			float scale = std::max(1.0f, tr.scale.x);
+			scale = std::max(scale, tr.scale.y);
+			scale = std::max(scale, tr.scale.z);
 
 			model m{
 				.id = uid.uid,
 				.instanceAttributes = perInstanceAttr{
-					.bsWorldCenter = glm::vec3(transform.transform * glm::vec4(mesh.meshData.bsCenter, 1.0f)),
+					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * mesh.meshData.bsCenter),
 					.bsWorldRadius = mesh.meshData.bsRadius * scale,
-					.modelMatrix = transform.transform,
-					.normalMatrix = glm::transpose(glm::inverse(glm::mat3{transform.transform})),
+					.modelTransform = transform{
+						.translation = tr.translation,
+						.scale = tr.scale,
+						.rotation = tr.rotation,
+					},
 				},
 				.meshData = mesh.meshData,
 				.mat = material.mat,
