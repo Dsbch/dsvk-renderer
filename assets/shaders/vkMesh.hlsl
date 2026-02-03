@@ -250,7 +250,7 @@ float3x3 calculateTBN(float4 quat, vertex v)
     
     float3 B = v.tangent.w * cross(N, T);
     
-    return float3x3(T, B, N);
+    return transpose(float3x3(T, B, N));
 }
 
 [outputtopology("triangle")]
@@ -303,8 +303,8 @@ void msmain(
         vertices[gtid].albedoIndex = instanceAttr.albedoIndex;
         vertices[gtid].normalIndex = instanceAttr.normalIndex;
         vertices[gtid].metalicRoughnesIndex = instanceAttr.metallicRoughnesIndex;
-        vertices[gtid].tangentCameraPos = mul(TBN, drawData.cameraPos);
-        vertices[gtid].tangentWorldPos = mul(TBN, worldPos.xyz);
+        vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
+        vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
     }
 }
 
@@ -315,7 +315,7 @@ void msmain(
 // it's just approxiamtion the formula itself quite complex and using radiant flux that we do not have.
 float3 lightRadiance(float3 lightColor, float distance)
 {
-    float attenuation = 1.0 / (distance * distance);
+    float attenuation = 1.0 / max(distance * distance, 1.0f);
     float3 radiance = mul(lightColor, attenuation);
 
     return radiance;
@@ -419,9 +419,9 @@ float4 psmain(meshOutput input) : SV_TARGET
     
     // render equation.
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 1; ++i)
     {
-        float3 lightPos = lightPositions[i];
+        float3 lightPos = input.tangentCameraPos;
         
         float3 lightColor = lightColors[i];
 
@@ -447,6 +447,7 @@ float4 psmain(meshOutput input) : SV_TARGET
         // be above 1.0 (unless the surface emits light); to preserve this
         // relationship the diffuse component (kD) should equal 1.0 - kS.
         float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;
+        
         // multiply kD by the inverse metalness such that only non-metals 
         // have diffuse lighting, or a linear blend if partly metal (pure metals
         // have no diffuse light).

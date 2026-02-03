@@ -415,12 +415,12 @@ namespace engine
 			mLineRenderer.addLine(p, m.instanceAttributes.bsWorldCenter);
 		}*/
 
-		//for (auto& v : *m.meshData.vertex.get())
-		//{
-		//	glm::vec3 pos = glm::vec3(m.instanceAttributes.modelMatrix * glm::vec4(v.position, 1.0f));
+		/*for (auto& v : *m.meshData.vertex.get())
+		{
+			glm::vec3 pos = glm::vec3(m.instanceAttributes.modelTransform.translation + m.instanceAttributes.modelTransform.rotation * m.instanceAttributes.modelTransform.scale * v.position);
 
-		//	mLineRenderer.addLine(pos, pos + v.normal);
-		//}
+			mLineRenderer.addLine(pos, pos + v.normal/10.0f);
+		}*/
 
 		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), m);
 	}
