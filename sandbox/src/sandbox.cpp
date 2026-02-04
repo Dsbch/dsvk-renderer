@@ -95,14 +95,11 @@ namespace sandbox
 				if (!pixel)
 					return pixel.err();
 
-				engine::material mats{
-					.pixelShader = pixel.value(),
-					.textures = loadedModel.value().mat.textures,
-				};
-
 				engine::entity e{ mCtx, registry };
 
-				e.addComponent<engine::materialComponent>(mats);
+				loadedModel.value().mat.pixelShader = pixel.value();
+
+				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
@@ -123,14 +120,11 @@ namespace sandbox
 				if (!pixel)
 					return pixel.err();
 
-				engine::material mats{
-					.pixelShader = pixel.value(),
-					.textures = loadedModel.value().mat.textures,
-				};
-
 				engine::entity e{ mCtx, registry };
 
-				e.addComponent<engine::materialComponent>(mats);
+				loadedModel.value().mat.pixelShader = pixel.value();
+
+				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 

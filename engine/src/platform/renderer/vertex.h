@@ -19,6 +19,7 @@ namespace engine
 	struct vertex
 	{
 		glm::vec3 position;
+		uint32_t localTextureOffset;
 		glm::vec2 textureCoords;
 		glm::vec3 normal;
 		glm::vec4 tangent;
@@ -51,9 +52,9 @@ namespace engine
 
 		transform modelTransform;
 
-		uint32_t albedoIndex;
-		uint32_t normalIndex;
-		uint32_t metallicRoughnesIndex;
+		uint32_t albedoStart;
+		uint32_t normalStart;
+		uint32_t metallicRoughnessStart;
 	};
 
 	struct meshletBounds
@@ -112,24 +113,44 @@ namespace engine
 
 			return hash;
 		}
-
-		uint32_t getHash() const
-		{
-			return hash;
-		}
 	};
 
 	struct materialTextures
 	{
-		std::shared_ptr<texture> albedoAtlas;
-		std::shared_ptr<texture> normalAtlas;
-		std::shared_ptr<texture> metalicRoughnesAtlas;
+		std::shared_ptr<texture> albedo;
+		std::shared_ptr<texture> normal;
+		std::shared_ptr<texture> metallicRoughness;
 	};
 
-	struct material
+	struct materials
 	{
 		std::shared_ptr<shader> pixelShader;
-		materialTextures textures;
+		std::vector<materialTextures> textures;
+
+		uint32_t albedoHash = 0;
+		uint32_t normalHash = 0;
+		uint32_t metallicRoughnessHash = 0;
+
+		void generateHashes()
+		{ 
+			std::vector<uint32_t> crcVals;
+			for (const auto& t : textures)
+				crcVals.push_back(t.albedo->hash());
+
+			albedoHash = mergeCrc32(crcVals);
+
+			crcVals.clear();
+			for (const auto& t : textures)
+				crcVals.push_back(t.normal->hash());
+
+			normalHash = mergeCrc32(crcVals);
+
+			crcVals.clear();
+			for (const auto& t : textures)
+				crcVals.push_back(t.metallicRoughness->hash());
+
+			metallicRoughnessHash = mergeCrc32(crcVals);
+		}
 	};
 
 	struct model
@@ -137,7 +158,7 @@ namespace engine
 		uint32_t id;
 		perInstanceAttr instanceAttributes;
 		mesh meshData;
-		material mat;
+		materials mat;
 	};
 
 	struct frustum

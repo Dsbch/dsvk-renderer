@@ -63,7 +63,7 @@ namespace engine
 									{
 										LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
 									}
-								
+
 									if (sema.second != nullptr)
 										sema.second();
 
@@ -166,7 +166,7 @@ namespace engine
 			return { vkResultToStr(result) };
 
 		std::vector<VkSemaphoreSubmitInfo> semaSubmitInfo{};
-		semaSubmitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, sema));
+		semaSubmitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, sema));
 
 		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
 		VkSubmitInfo2 submit = submitInfo(&cmdinfo, semaSubmitInfo);

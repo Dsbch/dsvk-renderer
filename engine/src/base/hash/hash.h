@@ -46,4 +46,9 @@ namespace engine
 
 		return distrib(gen);
 	}
+
+	inline uint32_t mergeCrc32(const std::vector<uint32_t> crc)
+	{
+		return crc32(reinterpret_cast<const uint8_t*>(crc.data()), crc.size() * sizeof(uint32_t));
+	}
 }

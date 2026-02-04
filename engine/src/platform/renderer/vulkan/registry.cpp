@@ -104,7 +104,7 @@ namespace engine
 	error bufferRegistry::updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
-		{						
+		{
 			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end())
 			{
 				mBuffers[i].buffer.markBytesAsDead(sizeInBytes);
@@ -419,10 +419,19 @@ namespace engine
 		return {};
 	}
 
-	void materialRegistry::init(VkSampler sampler)
+	error materialRegistry::init(VkSampler sampler)
 	{
 		mNeedUpdate = false;
 		mSampler = sampler;
+
+		VmaVirtualBlockCreateInfo vBlockInfo{
+			.size = 2 << 15,
+		};
+
+		if (vmaCreateVirtualBlock(&vBlockInfo, &mVBlock) != VK_SUCCESS)
+			return error{ "can't create virtual block" };
+
+		return {};
 	}
 
 	bool pipelineRegistry::needDescriptorUpdate() const
@@ -435,135 +444,167 @@ namespace engine
 		mNeedDescriptorUpdate = false;
 	}
 
-	materialRegistry::materialOffsets materialRegistry::addMaterial(const materialTextures& textures)
+	// Forms texture positions of each type in one descriptor set.
+	// Returns only a startIndex for each texture type, because order is preserved.
+	// If you uploaded 20 albedo textures and returned startIndex is 0, then albedo will be from 
+	// 0 to 19 with preserved order.
+	withError<materialRegistry::materialsOffsets> materialRegistry::addMaterials(const materials& materials)
 	{
-		materialRegistry::materialOffsets result{};
+		materialRegistry::materialsOffsets result{};
 
 		VkDescriptorImageInfo info{};
 		info.sampler = mSampler;
 		info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-		if (auto foundAlbedo = mOccupiedIndices.find(textures.albedoAtlas->hash()); foundAlbedo != mOccupiedIndices.end())
+		if (auto found = mUploadedTextures.find(materials.albedoHash); found != mUploadedTextures.end() && found->second.count != 0)
 		{
-			result.albedo = foundAlbedo->second;
+			result.albedoStart = found->second.offset;
+			found->second.count++;
 		}
 		else
 		{
+			VkDeviceSize offset;
+			VmaVirtualAllocation allocation;
+
+			VmaVirtualAllocationCreateInfo allocateInfo{
+				.size = materials.textures.size(),
+			};
+
+			if (VkResult res = vmaVirtualAllocate(mVBlock, &allocateInfo, &allocation, &offset); res != VK_SUCCESS)
+				return error{"materialRegistry::addMaterials: {}", vkResultToStr(res)};
+
+			mUploadedTextures[materials.albedoHash] = materialRegistry::virtualTextureBlock{
+				.count = 1,
+				.offset = uint32_t(offset),
+				.allocation = allocation,
+			};
+
+			result.albedoStart = uint32_t(offset);
+		
 			mNeedUpdate = true;
-			info.imageView = static_cast<const vulkanTexture*>(textures.albedoAtlas.get())->mImage.image.view;
-
-			if (mFreeIndices.size() != 0)
+			if (offset + materials.textures.size() > mImagesInfo.size())
 			{
-				uint32_t freeIndex = *mFreeIndices.begin();
-				mFreeIndices.pop_front();
-				mOccupiedIndices[textures.albedoAtlas->hash()] = freeIndex;
-
-				result.albedo = freeIndex;
-
-				mImagesInfo[freeIndex] = info;
+				mImagesInfo.resize(mImagesInfo.size() + materials.textures.size());
 			}
-			else
+
+			for (auto& t : materials.textures)
 			{
-				result.albedo = uint32_t(mImagesInfo.size());
-				mOccupiedIndices[textures.albedoAtlas->hash()] = result.albedo;
-				mImagesInfo.push_back(info);
+				info.imageView = static_cast<const vulkanTexture*>(t.albedo.get())->mImage.image.view;
+				mImagesInfo[offset] = info;
+				offset++;
 			}
 		}
 
-		if (auto foundNormal = mOccupiedIndices.find(textures.normalAtlas->hash()); foundNormal != mOccupiedIndices.end())
+		if (auto found = mUploadedTextures.find(materials.normalHash); found != mUploadedTextures.end() && found->second.count != 0)
 		{
-			result.normal = foundNormal->second;
+			result.normalStart = found->second.offset;
+			found->second.count++;
 		}
 		else
 		{
+			VkDeviceSize offset;
+			VmaVirtualAllocation allocation;
+
+			VmaVirtualAllocationCreateInfo allocateInfo{
+				.size = materials.textures.size(),
+			};
+
+			if (VkResult res = vmaVirtualAllocate(mVBlock, &allocateInfo, &allocation, &offset); res != VK_SUCCESS)
+				return error{ "materialRegistry::addMaterials: {}", vkResultToStr(res) };
+
+			mUploadedTextures[materials.normalHash] = materialRegistry::virtualTextureBlock{
+				.count = 1,
+				.offset = uint32_t(offset),
+				.allocation = allocation,
+			};
+
+			result.normalStart = uint32_t(offset);
+
 			mNeedUpdate = true;
-			info.imageView = static_cast<const vulkanTexture*>(textures.normalAtlas.get())->mImage.image.view;
-
-			if (mFreeIndices.size() != 0)
+			if (offset + materials.textures.size() > mImagesInfo.size())
 			{
-				uint32_t freeIndex = *mFreeIndices.begin();
-				mFreeIndices.pop_front();
-				mOccupiedIndices[textures.normalAtlas->hash()] = freeIndex;
-
-				result.normal = freeIndex;
-
-				mImagesInfo[freeIndex] = info;
+				mImagesInfo.resize(mImagesInfo.size() + materials.textures.size());
 			}
-			else
+
+			for (auto& t : materials.textures)
 			{
-				result.normal = uint32_t(mImagesInfo.size());
-				mOccupiedIndices[textures.normalAtlas->hash()] = result.normal;
-				mImagesInfo.push_back(info);
+				info.imageView = static_cast<const vulkanTexture*>(t.normal.get())->mImage.image.view;
+				mImagesInfo[offset] = info;
+				offset++;
 			}
 		}
 
-		if (auto foundMetalicRoughnes = mOccupiedIndices.find(textures.metalicRoughnesAtlas->hash()); foundMetalicRoughnes != mOccupiedIndices.end())
+		if (auto found = mUploadedTextures.find(materials.metallicRoughnessHash); found != mUploadedTextures.end() && found->second.count != 0)
 		{
-			result.metalicRoughnes = foundMetalicRoughnes->second;
+			result.metallicRoughnessStart = found->second.offset;
+			found->second.count++;
 		}
 		else
 		{
+			VkDeviceSize offset;
+			VmaVirtualAllocation allocation;
+
+			VmaVirtualAllocationCreateInfo allocateInfo{
+				.size = materials.textures.size(),
+			};
+
+			if (VkResult res = vmaVirtualAllocate(mVBlock, &allocateInfo, &allocation, &offset); res != VK_SUCCESS)
+				return error{ "materialRegistry::addMaterials: {}", vkResultToStr(res) };
+
+			mUploadedTextures[materials.metallicRoughnessHash] = materialRegistry::virtualTextureBlock{
+				.count = 1,
+				.offset = uint32_t(offset),
+				.allocation = allocation,
+			};
+
+			result.metallicRoughnessStart = uint32_t(offset);
+
 			mNeedUpdate = true;
-			info.imageView = static_cast<const vulkanTexture*>(textures.metalicRoughnesAtlas.get())->mImage.image.view;
-
-			if (mFreeIndices.size() != 0)
+			if (offset + materials.textures.size() > mImagesInfo.size())
 			{
-				uint32_t freeIndex = *mFreeIndices.begin();
-				mFreeIndices.pop_front();
-				mOccupiedIndices[textures.metalicRoughnesAtlas->hash()] = freeIndex;
-
-				result.metalicRoughnes = freeIndex;
-
-				mImagesInfo[freeIndex] = info;
+				mImagesInfo.resize(mImagesInfo.size() + materials.textures.size());
 			}
-			else
+
+			for (auto& t : materials.textures)
 			{
-				result.metalicRoughnes = uint32_t(mImagesInfo.size());
-				mOccupiedIndices[textures.metalicRoughnesAtlas->hash()] = result.metalicRoughnes;
-				mImagesInfo.push_back(info);
+				info.imageView = static_cast<const vulkanTexture*>(t.metallicRoughness.get())->mImage.image.view;
+				mImagesInfo[offset] = info;
+				offset++;
 			}
 		}
-
-		mTextureCount[textures.albedoAtlas->hash()]++;
-		mTextureCount[textures.normalAtlas->hash()]++;
-		mTextureCount[textures.metalicRoughnesAtlas->hash()]++;
 
 		return result;
 	}
 
-	void materialRegistry::deleteMaterial(const materialTextures& textures)
+	void materialRegistry::deleteMaterials(const materials& materials)
 	{
-		if (auto foundAlbedo = mOccupiedIndices.find(textures.albedoAtlas->hash()); foundAlbedo != mOccupiedIndices.end())
+		if (auto found = mUploadedTextures.find(materials.albedoHash); found != mUploadedTextures.end())
 		{
-			mTextureCount[foundAlbedo->first]--;
+			found->second.count--;
 
-			if (mTextureCount[foundAlbedo->first] == 0)
+			if (found->second.count == 0)
 			{
-				mFreeIndices.push_back(foundAlbedo->second);
-				mOccupiedIndices.erase(foundAlbedo->first);
+				vmaVirtualFree(mVBlock, found->second.allocation);
 			}
 		}
 
-		if (auto foundNormal = mOccupiedIndices.find(textures.normalAtlas->hash()); foundNormal != mOccupiedIndices.end())
+		if (auto found = mUploadedTextures.find(materials.normalHash); found != mUploadedTextures.end())
 		{
-			mTextureCount[foundNormal->first]--;
+			found->second.count--;
 
-			if (mTextureCount[foundNormal->first] == 0)
+			if (found->second.count == 0)
 			{
-				mFreeIndices.push_back(foundNormal->second);
-				mOccupiedIndices.erase(foundNormal->first);
+				vmaVirtualFree(mVBlock, found->second.allocation);
 			}
 		}
 
-
-		if (auto foundMetalicRoughnes = mOccupiedIndices.find(textures.metalicRoughnesAtlas->hash()); foundMetalicRoughnes != mOccupiedIndices.end())
+		if (auto found = mUploadedTextures.find(materials.metallicRoughnessHash); found != mUploadedTextures.end())
 		{
-			mTextureCount[foundMetalicRoughnes->first]--;
+			found->second.count--;
 
-			if (mTextureCount[foundMetalicRoughnes->first] == 0)
+			if (found->second.count == 0)
 			{
-				mFreeIndices.push_back(foundMetalicRoughnes->second);
-				mOccupiedIndices.erase(foundMetalicRoughnes->first);
+				vmaVirtualFree(mVBlock, found->second.allocation);
 			}
 		}
 	}

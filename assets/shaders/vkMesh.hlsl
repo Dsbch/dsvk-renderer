@@ -220,7 +220,7 @@ struct meshOutput
     float2 uv : TEXCOORD0;
     nointerpolation uint albedoIndex : TEXCOORD1;
     nointerpolation uint normalIndex : TEXCOORD2;
-    nointerpolation uint metalicRoughnesIndex : TEXCOORD3;
+    nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
 };
 
 struct meshletPrimitiveOut
@@ -300,11 +300,11 @@ void msmain(
         float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, v);
         
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
-        vertices[gtid].albedoIndex = instanceAttr.albedoIndex;
-        vertices[gtid].normalIndex = instanceAttr.normalIndex;
-        vertices[gtid].metalicRoughnesIndex = instanceAttr.metallicRoughnesIndex;
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
+        vertices[gtid].albedoIndex = instanceAttr.albedoStart + v.localTextureOffset;
+        vertices[gtid].normalIndex = instanceAttr.normalStart + v.localTextureOffset;
+        vertices[gtid].metallicRoughnessIndex = instanceAttr.metallicRoughnessStart + v.localTextureOffset;
     }
 }
 
@@ -390,7 +390,7 @@ float3 toSRGB(float3 color)
 // All calculations are made in tangent space.
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    float4 metalicRoughnes = materials[input.metalicRoughnesIndex].Sample(materialsSampler[input.metalicRoughnesIndex], input.uv);
+    float4 metalicRoughnes = materials[input.metallicRoughnessIndex].Sample(materialsSampler[input.metallicRoughnessIndex], input.uv);
 
     float4 albedo = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
     float3 normal = normalize(materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv).rgb * 2.0f - 1.0f);

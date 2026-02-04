@@ -79,7 +79,7 @@ namespace engine
 			std::vector<vertex> vertecies;
 			std::vector<uint32_t> indicies;
 		};
-		static primitive processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform);
+		static primitive processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials);
 
 		struct imageInfo
 		{
@@ -98,13 +98,7 @@ namespace engine
 		static error applyBaseFactor(image& img, float factor[4]);
 		static void applyMetallicRoughnessFactor(image& img, float metallic, float roughness);
 		
-		struct rawTextures
-		{
-			std::vector<aManager::image> albedo;
-			std::vector<aManager::image> normal;
-			std::vector<aManager::image> metalicRoughnes;
-		};
-		static withError<rawTextures> processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount);
+		withError<materials> processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount);
 
 		static void writeImageToAtlas(std::vector<uint8_t>& atlas, int size, const stbrp_rect* r, image& img);
 		withError<std::pair<std::shared_ptr<texture>, std::map<uint32_t, atlasEntry>>> makeTextureAtlas(const std::vector<image>& images);

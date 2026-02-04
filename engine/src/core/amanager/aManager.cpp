@@ -530,7 +530,7 @@ namespace engine
 		return getNodeWorldTransform(node->parent) * getNodeLocalTransform(node);
 	}
 
-	aManager::primitive aManager::processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform)
+	aManager::primitive aManager::processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials)
 	{
 		primitive result;
 
@@ -560,7 +560,9 @@ namespace engine
 
 		for (size_t i = 0; i < positionAccessor->count; ++i)
 		{
-			vertex v{};
+			vertex v{
+				.localTextureOffset = uint32_t(prim.material - materials),
+			};
 
 			float pos[3]{};
 			cgltf_accessor_read_float(positionAccessor, i, pos, 3);
@@ -739,9 +741,9 @@ namespace engine
 		}
 	}
 
-	withError<aManager::rawTextures> aManager::processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount)
+	withError<materials> aManager::processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount)
 	{
-		rawTextures result;
+		materials result;
 
 		for (int i = 0; i < materialCount; i++)
 		{
@@ -751,9 +753,9 @@ namespace engine
 			{
 				// In case if all materials doesn't have textures.
 				int w = 64, h = 64, padding = 0;
-				if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
+				if (auto metalicRoughnessTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnessTexture && metalicRoughnessTexture->image)
 				{
-					auto info = getImageInfo(metalicRoughnesTexture, baseDir);
+					auto info = getImageInfo(metalicRoughnessTexture, baseDir);
 					if (!info)
 						return info.err();
 
@@ -786,6 +788,11 @@ namespace engine
 					material->pbr_metallic_roughness.base_color_factor[3],
 				};
 
+				materialTextures textures{};
+				aManager::image albedo{};
+				aManager::image normal{};
+				aManager::image metallicRoughness{};
+
 				// albedo.
 				if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)
 				{
@@ -793,28 +800,27 @@ namespace engine
 					if (!rawTexture)
 						return rawTexture.err();
 
-
 					error err = applyBaseFactor(rawTexture.value(), albedoFactor);
 					if (err)
 						return err;
 
-					result.albedo.push_back(rawTexture.value());
+					albedo = rawTexture.value();
 				}
 				else
 				{
-					aManager::image img{
+					albedo = aManager::image{
 						.data = {},
 						.w = w,
 						.h = h,
 						.padding = padding,
 						.channels = 4,
 					};
-					img.data.resize(img.w * img.h * img.channels);
+					albedo.data.resize(albedo.w * albedo.h * albedo.channels);
 
-					auto ptr = img.data.begin();
-					for (int y = 0; y < img.h; y++)
+					auto ptr = albedo.data.begin();
+					for (int y = 0; y < albedo.h; y++)
 					{
-						for (int w = 0; w < img.w; w++)
+						for (int w = 0; w < albedo.w; w++)
 						{
 							ptr[0] = uint8_t(toSRGB(albedoFactor[0]) * 255.0f);
 							ptr[1] = uint8_t(toSRGB(albedoFactor[1]) * 255.0f);
@@ -824,9 +830,13 @@ namespace engine
 							ptr += 4;
 						}
 					}
-
-					result.albedo.push_back(img);
 				}
+
+				auto albedoTexture = makeTexture(albedo.data.data(), albedo.w, albedo.h, intToChannel(albedo.channels));
+				if (!albedoTexture)
+					return albedoTexture.err();
+
+				textures.albedo = albedoTexture.value();
 
 				// metallic-roughness.
 				if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
@@ -837,23 +847,23 @@ namespace engine
 
 					applyMetallicRoughnessFactor(rawTexture.value(), material->pbr_metallic_roughness.metallic_factor, material->pbr_metallic_roughness.roughness_factor);
 
-					result.metalicRoughnes.push_back(rawTexture.value());
+					metallicRoughness = rawTexture.value();
 				}
 				else
 				{
-					aManager::image img{
+					metallicRoughness = aManager::image{
 						.data = {},
 						.w = w,
 						.h = h,
 						.padding = padding,
 						.channels = 4,
 					};
-					img.data.resize(img.w * img.h * img.channels);
+					metallicRoughness.data.resize(metallicRoughness.w* metallicRoughness.h* metallicRoughness.channels);
 
-					auto ptr = img.data.begin();
-					for (int y = 0; y < img.h; y++)
+					auto ptr = metallicRoughness.data.begin();
+					for (int y = 0; y < metallicRoughness.h; y++)
 					{
-						for (int w = 0; w < img.w; w++)
+						for (int w = 0; w < metallicRoughness.w; w++)
 						{
 							ptr[0] = 0;
 							ptr[1] = uint8_t(toSRGB(material->pbr_metallic_roughness.roughness_factor) * 255.0f);
@@ -863,9 +873,13 @@ namespace engine
 							ptr += 4;
 						}
 					}
-
-					result.metalicRoughnes.push_back(img);
 				}
+
+				auto metallicRougnesTexture = makeTexture(metallicRoughness.data.data(), metallicRoughness.w, metallicRoughness.h, intToChannel(metallicRoughness.channels));
+				if (!metallicRougnesTexture)
+					return metallicRougnesTexture.err();
+
+				textures.metallicRoughness = metallicRougnesTexture.value();
 
 				// normal.
 				if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
@@ -874,23 +888,23 @@ namespace engine
 					if (!rawTexture)
 						return rawTexture.err();
 
-					result.normal.push_back(rawTexture.value());
+					normal = rawTexture.value();
 				}
 				else
 				{
-					aManager::image img{
+					normal = aManager::image{
 						.data = {},
 						.w = w,
 						.h = h,
 						.padding = padding,
 						.channels = 4,
 					};
-					img.data.resize(img.w * img.h * img.channels);
+					normal.data.resize(normal.w* normal.h* normal.channels);
 
-					auto ptr = img.data.begin();
-					for (int y = 0; y < img.h; y++)
+					auto ptr = normal.data.begin();
+					for (int y = 0; y < normal.h; y++)
 					{
-						for (int w = 0; w < img.w; w++)
+						for (int w = 0; w < normal.w; w++)
 						{
 							ptr[0] = 128;
 							ptr[1] = 128;
@@ -900,9 +914,15 @@ namespace engine
 							ptr += 4;
 						}
 					}
-
-					result.normal.push_back(img);
 				}
+
+				auto normalTexture = makeTexture(normal.data.data(), normal.w, normal.h, intToChannel(normal.channels));
+				if (!normalTexture)
+					return normalTexture.err();
+
+				textures.normal = normalTexture.value();
+
+				result.textures.push_back(textures);
 			}
 			else
 				return error{ "metalicRoughnes texture isn't defined for model: {}", baseDir.string() };
@@ -1006,8 +1026,6 @@ namespace engine
 				return {};
 			};
 
-		// For UV recalculation.
-		std::vector<uint32_t> vertexToTextureMapping;
 		// For tangent calculation and lod calculation.
 		std::vector<uint32_t> remappedIndexBuffer;
 
@@ -1022,7 +1040,7 @@ namespace engine
 
 			for (size_t pri = 0; pri < mesh.primitives_count; ++pri)
 			{
-				primitive crntPrimitive = processPrimitive(mesh.primitives[pri], transform);
+				primitive crntPrimitive = processPrimitive(mesh.primitives[pri], transform, data->materials);
 
 				if (crntPrimitive.indicies.size() == 0 || crntPrimitive.vertecies.size() == 0)
 					continue;
@@ -1047,10 +1065,6 @@ namespace engine
 				// Write indices for later lod level generation.
 				for (auto& i : remappedIndex)
 					remappedIndexBuffer.push_back(i + uint32_t(result.meshData.vertex->size()));
-
-				// Write material index for later UV remap.
-				for (auto _ : remappedVertex)
-					vertexToTextureMapping.push_back(uint32_t(mesh.primitives[pri].material - data->materials));
 
 				for (auto& m : meshlets)
 				{
@@ -1091,40 +1105,9 @@ namespace engine
 		if (!materials)
 			return materials.err();
 
-		auto metalicRoughnesAtlas = makeTextureAtlas(materials.value().metalicRoughnes);
-		if (!metalicRoughnesAtlas)
-			return metalicRoughnesAtlas.err();
-
-		auto normalAtlas = makeTextureAtlas(materials.value().normal);
-		if (!normalAtlas)
-			return normalAtlas.err();
-
-		auto albedoAtlas = makeTextureAtlas(materials.value().albedo);
-		if (!albedoAtlas)
-			return albedoAtlas.err();
-
-		result.mat.textures.albedoAtlas = albedoAtlas.value().first;
-		result.mat.textures.normalAtlas = normalAtlas.value().first;
-		result.mat.textures.metalicRoughnesAtlas = metalicRoughnesAtlas.value().first;
-
-		for (int i = 0; i < result.meshData.vertex->size(); i++)
-		{
-			vertex& v = result.meshData.vertex->at(i);
-
-			v.textureCoords.x = v.textureCoords.x - std::floor(v.textureCoords.x);
-			v.textureCoords.y = v.textureCoords.y - std::floor(v.textureCoords.y);
-
-			uint32_t textureIndex = vertexToTextureMapping[i];
-			const atlasEntry& e = albedoAtlas.value().second[textureIndex];
-			const aManager::image& img = materials.value().albedo[textureIndex];
-
-			float scaledW = img.w * e.downSampleScale;
-			float scaledH = img.h * e.downSampleScale;
-			float scaledPadding = img.padding * e.downSampleScale;
-
-			v.textureCoords.x = (e.x + scaledPadding + v.textureCoords.x * scaledW) / e.size;
-			v.textureCoords.y = (e.y + scaledPadding + v.textureCoords.y * scaledH) / e.size;
-		}
+		materials.value().generateHashes();
+		
+		result.mat = materials.value();
 
 		calculateTangents(*result.meshData.vertex.get(), remappedIndexBuffer);
 		auto sphere = calculateBoundingSphere(*result.meshData.vertex.get());
@@ -1299,7 +1282,7 @@ namespace engine
 		for (auto& i : images)
 			crcVals.push_back(crc32(i.data.data(), i.w * i.h * i.channels));
 
-		uint32_t mergedCrc = crc32(reinterpret_cast<uint8_t*>(crcVals.data()), crcVals.size() * sizeof(uint32_t));
+		uint32_t mergedCrc = mergeCrc32(crcVals);
 
 		{
 			std::lock_guard l{ mTexturesMu };

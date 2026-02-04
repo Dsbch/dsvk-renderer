@@ -64,15 +64,15 @@ namespace engine
 		mesh meshData;
 
 		meshComponent(mesh meshData)
-			: meshData(meshData), uid(meshData.getHash()) {
+			: meshData(meshData), uid(meshData.hash) {
 		}
 	};
 
 	struct materialComponent
 	{
-		material mat;
+		materials mat;
 
-		materialComponent(material mat)
+		materialComponent(materials mat)
 			:
 			mat(mat)
 		{

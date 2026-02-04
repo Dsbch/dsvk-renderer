@@ -9,6 +9,7 @@
 struct vertex
 {
     float3 position;
+    uint localTextureOffset;
     float2 textureCoords;
     float3 normal;
     float4 tangent;
@@ -55,9 +56,9 @@ struct perInstanceAttr
     
     transform modelTransform;
 
-    uint albedoIndex;
-    uint normalIndex;
-    uint metallicRoughnesIndex;
+	uint albedoStart;
+	uint normalStart;
+    uint metallicRoughnessStart;
 };
 
 struct command

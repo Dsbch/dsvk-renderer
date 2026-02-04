@@ -98,7 +98,9 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = sampler, .sampler = &mSampler });
 
-		mMaterialRegistry.init(mSampler);
+		err = mMaterialRegistry.init(mSampler);
+		if (err)
+			return err;
 
 		return {};
 	}
@@ -241,15 +243,15 @@ namespace engine
 			return {};
 
 		// Upload material.
-		materialRegistry::materialOffsets materialOffsets = mMaterialRegistry.addMaterial(m.mat.textures);
+		auto materialOffsets = mMaterialRegistry.addMaterials(m.mat);
 
 		perInstanceAttr attr = m.instanceAttributes;
-		attr.albedoIndex = materialOffsets.albedo;
-		attr.normalIndex = materialOffsets.normal;
-		attr.metallicRoughnesIndex = materialOffsets.metalicRoughnes;
+		attr.albedoStart = materialOffsets.value().albedoStart;
+		attr.normalStart = materialOffsets.value().normalStart;
+		attr.metallicRoughnessStart = materialOffsets.value().metallicRoughnessStart;
 
 		auto handle = mVertexRegistry.addBlock(
-			m.meshData.getHash(),
+			m.meshData.hash,
 			m.meshData.vertex->data(),
 			m.meshData.vertex->size() * sizeof(vertex),
 			is
@@ -267,7 +269,7 @@ namespace engine
 		}
 
 		handle = mIndexRegistry.addBlock(
-			m.meshData.getHash(),
+			m.meshData.hash,
 			m.meshData.index.data->data(),
 			m.meshData.index.data->size() * sizeof(uint32_t),
 			is
@@ -282,7 +284,7 @@ namespace engine
 		}
 
 		handle = mPrimitiveRegistry.addBlock(
-			m.meshData.getHash(),
+			m.meshData.hash,
 			m.meshData.primitive.data->data(),
 			m.meshData.primitive.data->size() * sizeof(uint32_t),
 			is
@@ -297,7 +299,7 @@ namespace engine
 		}
 
 		handle = mMeshletRegistry.addBlock(
-			m.meshData.getHash(),
+			m.meshData.hash,
 			meshlets.data(),
 			meshlets.size() * sizeof(meshlet),
 			is
@@ -317,7 +319,7 @@ namespace engine
 		err = mPipelineRegistry.addInstance(
 			m.mat.pixelShader->hash(),
 			m.id,
-			m.meshData.getHash(),
+			m.meshData.hash,
 			handle.value(),
 			perInstanceHandle.value(),
 			m.meshData.mesh
@@ -331,13 +333,15 @@ namespace engine
 	error meshletRenderer::updateInstance(const model& m, submit& is)
 	{
 		// Upload/get material.
-		materialRegistry::materialOffsets materialOffsets = mMaterialRegistry.addMaterial(m.mat.textures);
+		auto materialOffsets = mMaterialRegistry.addMaterials(m.mat);
+		if (!materialOffsets)
+			return materialOffsets.err();
 
 		// Form new instance attrs.
 		perInstanceAttr attr = m.instanceAttributes;
-		attr.albedoIndex = materialOffsets.albedo;
-		attr.normalIndex = materialOffsets.normal;
-		attr.metallicRoughnesIndex = materialOffsets.metalicRoughnes;
+		attr.albedoStart = materialOffsets.value().albedoStart;
+		attr.normalStart = materialOffsets.value().normalStart;
+		attr.metallicRoughnessStart = materialOffsets.value().metallicRoughnessStart;
 
 		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), is);
 	}
@@ -347,21 +351,21 @@ namespace engine
 		mPerInstanceRegistry.deleteBlock(m.id);
 
 		// Remove instance.
-		mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, m.meshData.getHash());
+		mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, m.meshData.hash);
 
 		// Mesh isn't used.
-		if (!mPipelineRegistry.meshIsUsed(m.meshData.getHash()))
+		if (!mPipelineRegistry.meshIsUsed(m.meshData.hash))
 		{
-			mVertexRegistry.deleteBlock(m.meshData.getHash());
+			mVertexRegistry.deleteBlock(m.meshData.hash);
 
-			mIndexRegistry.deleteBlock(m.meshData.getHash());
+			mIndexRegistry.deleteBlock(m.meshData.hash);
 
-			mPrimitiveRegistry.deleteBlock(m.meshData.getHash());
+			mPrimitiveRegistry.deleteBlock(m.meshData.hash);
 
-			mMeshletRegistry.deleteBlock(m.meshData.getHash());
+			mMeshletRegistry.deleteBlock(m.meshData.hash);
 		}
 
-		mMaterialRegistry.deleteMaterial(m.mat.textures);
+		mMaterialRegistry.deleteMaterials(m.mat);
 	}
 
 	error meshletRenderer::updateDescriptors(renderer::renderCallIn in, submit& is)

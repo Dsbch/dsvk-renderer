@@ -130,25 +130,32 @@ namespace engine
 	struct materialRegistry
 	{
 	public:
-		struct materialOffsets
+		struct materialsOffsets
 		{
-			uint32_t albedo;
-			uint32_t normal;
-			uint32_t metalicRoughnes;
+			uint32_t albedoStart;
+			uint32_t normalStart;
+			uint32_t metallicRoughnessStart;
 		};
 
-		void init(VkSampler sampler);
+		error init(VkSampler sampler);
 		void setUpdated();
 		bool needDescriptorUpdate() const;
 
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 
-		materialOffsets addMaterial(const materialTextures& textures);
-		void deleteMaterial(const materialTextures& textures);
+		withError<materialsOffsets> addMaterials(const materials& materials);
+		void deleteMaterials(const materials& materials);
 	private:
-		std::map<textureHash, uint32_t> mOccupiedIndices;
-		std::map<textureHash, uint32_t> mTextureCount;
-		std::list<uint32_t> mFreeIndices;
+		VmaVirtualBlock mVBlock;
+
+		struct virtualTextureBlock
+		{
+			uint32_t count;
+			uint32_t offset;
+			VmaVirtualAllocation allocation;
+		};
+		std::map<textureHash, virtualTextureBlock> mUploadedTextures;
+
 		std::vector<VkDescriptorImageInfo> mImagesInfo;
 		VkSampler mSampler;
 		bool mNeedUpdate;
