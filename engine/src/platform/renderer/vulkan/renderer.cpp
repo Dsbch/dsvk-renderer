@@ -35,7 +35,8 @@ namespace engine
 		:
 		renderer(ctx, window),
 		mWindowMinimized(false),
-		mVkCmdDrawMeshTasksEXT(nullptr)
+		mVkCmdDrawMeshTasksEXT(nullptr),
+		mRenderMutex(std::make_shared<std::mutex>())
 	{
 		mErr = initVulkan();
 		if (mErr)
@@ -256,7 +257,7 @@ namespace engine
 
 	error vulkanRenderer::initImmediateSubmit()
 	{
-		error err = mSubmit.init(mCtx, mDevice, mGraphicsQueue, mGraphicsQueueFamily);
+		error err = mSubmit.init(mCtx, mDevice, mGraphicsQueue, mGraphicsQueueFamily, mRenderMutex);
 		if (err)
 			return err;
 
@@ -601,10 +602,14 @@ namespace engine
 
 		// submit command buffer to the queue and execute it.
 		// _renderFence will now block until the graphic commands finish execution
-		vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
-		if (vkResult != VK_SUCCESS)
 		{
-			return vkResultToStr(vkResult);
+			std::lock_guard l{ *mRenderMutex.get() };
+
+			vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
+			if (vkResult != VK_SUCCESS)
+			{
+				return vkResultToStr(vkResult);
+			}
 		}
 
 		mSubmit.markAllSemaAsUsed();

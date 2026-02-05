@@ -87,7 +87,13 @@ namespace sandbox
 
 			if (event->getKey() == engine::e)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/sponza.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/sponza.glb",
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
 				if (!loadedModel)
 					return loadedModel.err();
 

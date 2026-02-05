@@ -9,8 +9,9 @@ namespace engine
 	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaInUse;
 	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaToDelete;
 
-	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue queue, uint32_t queueFamily)
+	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue queue, uint32_t queueFamily, std::shared_ptr<std::mutex> renderMutex)
 	{
+		mRenderMutex = renderMutex;
 		mDevice = device;
 
 		mQueue = queue;
@@ -89,7 +90,7 @@ namespace engine
 
 	engine::error submit::immediate(std::function<void(VkCommandBuffer cmd)>&& function)
 	{
-		std::lock_guard l{ mMu };
+		std::lock_guard l{ *mRenderMutex.get() };
 
 		VkFence fence;
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
@@ -140,7 +141,7 @@ namespace engine
 
 	engine::error submit::queue(std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp)
 	{
-		std::lock_guard l{ mMu };
+		std::lock_guard l{ *mRenderMutex.get() };
 
 		VkCommandBuffer cmd;
 		VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);

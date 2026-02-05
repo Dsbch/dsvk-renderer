@@ -16,10 +16,11 @@ namespace engine
 			mQueue(VK_NULL_HANDLE),
 			mCommandPool(VK_NULL_HANDLE),
 			mCommandBufferImmediate(VK_NULL_HANDLE),
-			mQueueFamily(0)
+			mQueueFamily(0),
+			mRenderMutex(nullptr)
 		{}
 
-		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue queue, uint32_t queueFamily);
+		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue queue, uint32_t queueFamily, std::shared_ptr<std::mutex> renderMutex);
 		void destroy();
 
 		engine::error immediate(std::function<void(VkCommandBuffer cmd)>&& function);
@@ -28,7 +29,7 @@ namespace engine
 		std::vector<VkSemaphore> getCurrentSemaInUse();
 		void markAllSemaAsUsed();
 	private:
-		std::mutex mMu;
+		std::shared_ptr<std::mutex> mRenderMutex;
 
 		VkDevice mDevice;
 		VkQueue mQueue;

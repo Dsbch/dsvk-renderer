@@ -5,6 +5,14 @@
 
 namespace engine
 {
+	struct meshletCfg
+	{
+		uint32_t maxVert = 32;
+		uint32_t maxTriangles = 32;
+		float coneWieght = 0.0f;
+		float errorLevel = 0.01f;
+	};
+
 	struct renderCfg
 	{
 		uint32_t shaderWorkGroup = 32;
@@ -65,6 +73,7 @@ namespace engine
 		cameraCfg camera;
 		renderCfg render;
 		graphicsCfg graphics;
+		meshletCfg meshlets;
 	};
 
 	void to_json(nlohmann::json& j, const cameraCfg& p);
@@ -83,6 +92,8 @@ namespace engine
 	void from_json(const nlohmann::json& j, mainCfg& p);
 	void to_json(nlohmann::json& j, const graphicsCfg& p);
 	void from_json(const nlohmann::json& j, graphicsCfg& p);
+	void to_json(nlohmann::json& j, const meshletCfg& p);
+	void from_json(const nlohmann::json& j, meshletCfg& p);
 
 	template<class T>
 	struct cfg {

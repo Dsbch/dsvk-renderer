@@ -133,4 +133,22 @@ namespace engine
 			{"anisotropicFiltering", p.anisotropicFiltering},
 		};
 	}
+
+	void from_json(const nlohmann::json& j, meshletCfg& p)
+	{
+		j.at("maxVert").get_to(p.maxVert);
+		j.at("maxTriangles").get_to(p.maxTriangles);
+		j.at("coneWieght").get_to(p.coneWieght);
+		j.at("errorLevel").get_to(p.errorLevel);
+	}
+
+	void to_json(nlohmann::json& j, const meshletCfg& p)
+	{
+		j = nlohmann::json{
+			{"maxVert", p.maxVert},
+			{"maxTriangles", p.maxTriangles},
+			{"coneWieght", p.coneWieght},
+			{"errorLevel", p.errorLevel},
+		};
+	}
 }

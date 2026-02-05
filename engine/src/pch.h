@@ -15,6 +15,7 @@
 #include <list>
 #include <set>
 #include <variant>
+#include <filesystem>
 
 // base.
 #include <base/logger/logger.h>
