@@ -9,9 +9,10 @@ namespace engine
 	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaInUse;
 	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaToDelete;
 
-	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue queue, uint32_t queueFamily, std::shared_ptr<std::mutex> renderMutex)
+	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue queue, uint32_t queueFamily)
 	{
-		mRenderMutex = renderMutex;
+		mCommandPoolMutex = std::make_shared<std::mutex>();
+
 		mDevice = device;
 
 		mQueue = queue;
@@ -88,10 +89,8 @@ namespace engine
 			vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
 	}
 
-	engine::error submit::immediate(std::function<void(VkCommandBuffer cmd)>&& function)
+	engine::error submit::immediate(const std::function<void(VkCommandBuffer cmd)>&& function)
 	{
-		std::lock_guard l{ *mRenderMutex.get() };
-
 		VkFence fence;
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 
@@ -139,55 +138,87 @@ namespace engine
 		return {};
 	}
 
-	engine::error submit::queue(std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp)
+	engine::error submit::queue(const std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp)
 	{
-		std::lock_guard l{ *mRenderMutex.get() };
-
 		VkCommandBuffer cmd;
-		VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);
+		VkSemaphore sema;
 
-		VkResult result = (vkAllocateCommandBuffers(mDevice, &cmdAllocInfo, &cmd));
-		if (result != VK_SUCCESS)
 		{
-			return engine::error{ vkResultToStr(result) };
+			std::lock_guard l{ *mCommandPoolMutex.get() };
+
+			VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);
+
+			VkResult result = (vkAllocateCommandBuffers(mDevice, &cmdAllocInfo, &cmd));
+			if (result != VK_SUCCESS)
+				return engine::error{ vkResultToStr(result) };
+
+			VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+			result = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
+			if (result != VK_SUCCESS)
+				return { vkResultToStr(result) };
+
+			VkSemaphoreTypeCreateInfo timelineInfo = timelineSemaphoreCreateInfo(0);
+			VkSemaphoreCreateInfo semaphoreInfo = semaphoreCreateInfo(0, &timelineInfo);
+
+			result = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &sema);
+			if (result != VK_SUCCESS)
+				return { vkResultToStr(result) };
+
+			function(cmd);
+
+			result = vkEndCommandBuffer(cmd);
+			if (result != VK_SUCCESS)
+				return { vkResultToStr(result) };
 		}
 
-		VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+		{
+			std::lock_guard l{ mSubmitedCommandsMu };
 
-		result = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
-		if (result != VK_SUCCESS)
-			return { vkResultToStr(result) };
-
-		VkSemaphore sema;
-		VkSemaphoreTypeCreateInfo timelineInfo = timelineSemaphoreCreateInfo(0);
-		VkSemaphoreCreateInfo semaphoreInfo = semaphoreCreateInfo(0, &timelineInfo);
-
-		result = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &sema);
-		if (result != VK_SUCCESS)
-			return { vkResultToStr(result) };
-
-		std::vector<VkSemaphoreSubmitInfo> semaSubmitInfo{};
-		semaSubmitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, sema));
-
-		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
-		VkSubmitInfo2 submit = submitInfo(&cmdinfo, semaSubmitInfo);
-
-		function(cmd);
-
-		result = vkEndCommandBuffer(cmd);
-		if (result != VK_SUCCESS)
-			return { vkResultToStr(result) };
-
-		result = vkQueueSubmit2(mQueue, 1, &submit, VK_NULL_HANDLE);
-		if (result != VK_SUCCESS)
-			return { vkResultToStr(result) };
+			std::vector<VkSemaphoreSubmitInfo> semaSubmitInfo = { semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, sema) };
+			VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
+			mSubmitedCommands.push_back({ std::move(cmdinfo), std::move(semaSubmitInfo) });
+		}
 
 		{
 			std::lock_guard m{ mu };
-			semaInUse.push_back(std::pair<VkSemaphore, std::function<void()>>{ sema, cleanUp });
+			semaInUse.push_back(
+				std::pair<VkSemaphore, std::function<void()>>
+			{
+				sema,
+					[cleanUp = cleanUp, device = mDevice, commandPool = mCommandPool, cmd = cmd, commandPoolMu = mCommandPoolMutex]()
+					{
+						{
+							std::lock_guard l{ *commandPoolMu.get() };
+							vkFreeCommandBuffers(device, commandPool, 1, &cmd);
+						}
+
+						cleanUp();
+					}
+			});
 		}
 
 		return {};
+	}
+
+	std::vector<VkSubmitInfo2> submit::getSumbitedCommands()
+	{
+		std::lock_guard l{ mSubmitedCommandsMu };
+
+		std::vector<VkSubmitInfo2> result{};
+		result.reserve(mSubmitedCommands.size());
+
+		for (auto& c : mSubmitedCommands)
+			result.push_back(submitInfo(&c.first, c.second));
+
+		return result;
+	}
+
+	void submit::deleteSubmitedCommands(size_t index)
+	{
+		std::lock_guard l{ mSubmitedCommandsMu };
+
+		mSubmitedCommands.erase(mSubmitedCommands.begin(), mSubmitedCommands.begin() + index);
 	}
 
 	std::vector<VkSemaphore> submit::getCurrentSemaInUse()
@@ -202,12 +233,12 @@ namespace engine
 		return result;
 	}
 
-	void submit::markAllSemaAsUsed()
+	void submit::deleteSemaInUse(size_t index)
 	{
 		std::lock_guard m{ mu };
 
-		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.end()));
+		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.begin() + index));
 
-		semaInUse.clear();
+		semaInUse.erase(semaInUse.begin(), semaInUse.begin() + index);
 	}
 }

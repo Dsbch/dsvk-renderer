@@ -35,8 +35,7 @@ namespace engine
 		:
 		renderer(ctx, window),
 		mWindowMinimized(false),
-		mVkCmdDrawMeshTasksEXT(nullptr),
-		mRenderMutex(std::make_shared<std::mutex>())
+		mVkCmdDrawMeshTasksEXT(nullptr)
 	{
 		mErr = initVulkan();
 		if (mErr)
@@ -257,7 +256,7 @@ namespace engine
 
 	error vulkanRenderer::initImmediateSubmit()
 	{
-		error err = mSubmit.init(mCtx, mDevice, mGraphicsQueue, mGraphicsQueueFamily, mRenderMutex);
+		error err = mSubmit.init(mCtx, mDevice, mGraphicsQueue, mGraphicsQueueFamily);
 		if (err)
 			return err;
 
@@ -454,6 +453,14 @@ namespace engine
 		if (err)
 			return err;
 
+		// Register all queued events from submit, get semaphores to wait upon before render.
+		auto waitSema = mSubmit.getCurrentSemaInUse();
+		std::vector<VkSubmitInfo2> commands = mSubmit.getSumbitedCommands();
+
+		auto vkResult = vkQueueSubmit2(mGraphicsQueue, uint32_t(commands.size()), commands.data(), nullptr);
+		if (vkResult != VK_SUCCESS)
+			return vkResultToStr(vkResult);
+
 		auto waitResult = mSwapChain.waitOnRenderFence();
 		if (waitResult)
 			return waitResult.err();
@@ -490,11 +497,9 @@ namespace engine
 		VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 		// start recording.
-		auto vkResult = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
+		vkResult = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
 		if (vkResult != VK_SUCCESS)
-		{
 			return vkResultToStr(vkResult);
-		}
 
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
@@ -577,9 +582,7 @@ namespace engine
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)
 		vkResult = vkEndCommandBuffer(cmd);
 		if (vkResult != VK_SUCCESS)
-		{
 			return vkResultToStr(vkResult);
-		}
 
 		// Prepare the submission to the queue. 
 		//	we want to wait on the _presentSemaphore and all semaphores that were created during resource creating, 
@@ -594,7 +597,6 @@ namespace engine
 		waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getSwapchainSemaphore()));
 		signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getRenderSemaphore()));
 
-		auto waitSema = mSubmit.getCurrentSemaInUse();
 		for (auto& sema : waitSema)
 			waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT, sema));
 
@@ -602,17 +604,13 @@ namespace engine
 
 		// submit command buffer to the queue and execute it.
 		// _renderFence will now block until the graphic commands finish execution
-		{
-			std::lock_guard l{ *mRenderMutex.get() };
+		vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
+		if (vkResult != VK_SUCCESS)
+			return vkResultToStr(vkResult);
 
-			vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
-			if (vkResult != VK_SUCCESS)
-			{
-				return vkResultToStr(vkResult);
-			}
-		}
-
-		mSubmit.markAllSemaAsUsed();
+		// Delete all submitted commands and semaphores.
+		mSubmit.deleteSemaInUse(waitSema.size());
+		mSubmit.deleteSubmitedCommands(commands.size());
 
 		// prepare present
 		// this will put the image we just rendered to into the visible window.

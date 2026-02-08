@@ -49,7 +49,7 @@ namespace engine
 				}
 			);
 			if (err)
-				return err;		
+				return err;
 		}
 
 		return {};

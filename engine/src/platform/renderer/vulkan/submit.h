@@ -16,26 +16,28 @@ namespace engine
 			mQueue(VK_NULL_HANDLE),
 			mCommandPool(VK_NULL_HANDLE),
 			mCommandBufferImmediate(VK_NULL_HANDLE),
-			mQueueFamily(0),
-			mRenderMutex(nullptr)
+			mQueueFamily(0)
 		{}
 
-		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue queue, uint32_t queueFamily, std::shared_ptr<std::mutex> renderMutex);
+		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue queue, uint32_t queueFamily);
 		void destroy();
 
-		engine::error immediate(std::function<void(VkCommandBuffer cmd)>&& function);
-		engine::error queue(std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp);
+		engine::error immediate(const std::function<void(VkCommandBuffer cmd)>&& function);
+		engine::error queue(const std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp);
 
+		std::vector<VkSubmitInfo2> getSumbitedCommands();
+		void deleteSubmitedCommands(size_t index);
 		std::vector<VkSemaphore> getCurrentSemaInUse();
-		void markAllSemaAsUsed();
+		void deleteSemaInUse(size_t index);
 	private:
-		std::shared_ptr<std::mutex> mRenderMutex;
-
 		VkDevice mDevice;
 		VkQueue mQueue;
 		uint32_t mQueueFamily;
 		VkCommandPool mCommandPool;
+		std::shared_ptr<std::mutex> mCommandPoolMutex;
 		VkCommandBuffer mCommandBufferImmediate;
+		std::mutex mSubmitedCommandsMu;
+		std::vector<std::pair<VkCommandBufferSubmitInfo, std::vector<VkSemaphoreSubmitInfo>>> mSubmitedCommands;
 
 		static std::mutex mu;
 		static std::vector<std::pair<VkSemaphore, std::function<void()>>> semaInUse;

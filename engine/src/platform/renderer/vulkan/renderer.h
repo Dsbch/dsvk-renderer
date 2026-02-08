@@ -38,8 +38,6 @@ namespace engine
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel);
 	private:
-		std::shared_ptr<std::mutex> mRenderMutex;
-
 		bool mWindowMinimized;
 		VkDebugUtilsMessengerEXT mDebugMessenger;
 		VkDevice mDevice;

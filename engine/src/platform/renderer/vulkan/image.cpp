@@ -285,10 +285,10 @@ namespace engine
 					);
 				}
 			},
-			[=]() 
-				{
-					vulkanBuffer::destroyBuffer(mAllocator, uploadbuffer.value());
-				}
+			[=]()
+			{
+				vulkanBuffer::destroyBuffer(mAllocator, uploadbuffer.value());
+			}
 		);
 		if (err)
 			return err;
@@ -314,7 +314,7 @@ namespace engine
 	{
 		vkDestroyImageView(mDevice, image.view, nullptr);
 		vmaDestroyImage(mAllocator, image.image, image.allocation);
-	
+
 		image.view = VK_NULL_HANDLE;
 		image.image = VK_NULL_HANDLE;
 		image.allocation = VK_NULL_HANDLE;
