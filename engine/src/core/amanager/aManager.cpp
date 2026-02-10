@@ -7,10 +7,11 @@
 
 #define CGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#define STB_RECT_PACK_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include <cgltf.h>
 #include <stb_image.h>
+#include <stb_image_resize2.h>
+#include <basisu_transcoder.h>
 
 namespace engine
 {
@@ -75,25 +76,49 @@ namespace engine
 		return shader.value();
 	}
 
-	withError<std::shared_ptr<texture>> aManager::loadTexture(uint8_t* data, int width, int heigth, imageChannel channel)
+	withError<std::shared_ptr<texture>> aManager::loadTexture(const image& img)
 	{
 		if (!makeTexture)
 			return error{ "makeTexture wasn't set" };
 
 		{
 			std::lock_guard l{ mShaderMu };
-			auto loadRes = mLoadedTextures.get(crc32(data, width * heigth * channelToInt(channel)));
+			auto loadRes = mLoadedTextures.get(img.hash());
 			if (loadRes)
 				return loadRes.value();
 		}
 
-		auto texture = makeTexture(data, width, heigth, channel);
+		auto texture = makeTexture(img);
 		if (!texture)
 			return texture.err();
 
 		{
 			std::lock_guard l{ mShaderMu };
-			mLoadedTextures.put(crc32(data, width * heigth * channelToInt(channel)), texture.value());
+			mLoadedTextures.put(img.hash(), texture.value());
+		}
+
+		return texture.value();
+	}
+
+	withError<std::shared_ptr<texture>> aManager::loadTexture(const imageWithMipLevels& img)
+	{
+		if (!makeTextureWithMips)
+			return error{ "makeTextureWithMips wasn't set" };
+
+		{
+			std::lock_guard l{ mShaderMu };
+			auto loadRes = mLoadedTextures.get(img.main.hash());
+			if (loadRes)
+				return loadRes.value();
+		}
+
+		auto texture = makeTextureWithMips(img);
+		if (!texture)
+			return texture.err();
+
+		{
+			std::lock_guard l{ mShaderMu };
+			mLoadedTextures.put(img.main.hash(), texture.value());
 		}
 
 		return texture.value();
@@ -111,6 +136,7 @@ namespace engine
 	aManager::aManager()
 		: mLoadedModels(50), mLoadedShaders(100), mLoadedTextures(100)
 	{
+		basist::basisu_transcoder_init();
 	}
 
 	void aManager::setMakeShaderFunc(std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)>&& func)
@@ -118,9 +144,14 @@ namespace engine
 		makeShader = std::move(func);
 	}
 
-	void aManager::setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)>&& func)
+	void aManager::setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(const image& img)>&& func)
 	{
 		makeTexture = std::move(func);
+	}
+
+	void aManager::setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<texture>>(const imageWithMipLevels& img)>&& func)
+	{
+		makeTextureWithMips = std::move(func);
 	}
 
 	withError<std::shared_ptr<shader>> aManager::getDefaultTaskShader()
@@ -233,23 +264,47 @@ namespace engine
 		if (!materials)
 			return materials.err();
 
-		for (auto& t : materials.value())
+		// Generate mip levels.
+		auto mippedImages = generateMipLevels(materials.value());
+		if (!mippedImages)
+			return mippedImages.err();
+
+		// Compress textures to BC7.
+		for (auto& t : mippedImages.value())
+		{
+			t.albedo.main = compressTextureBC7(t.albedo.main);
+
+			for (int i = 0; i < t.albedo.mipLevels.size(); i++)
+				t.albedo.mipLevels[i] = compressTextureBC7(t.albedo.mipLevels[i]);
+
+			t.normal.main = compressTextureBC7(t.normal.main);
+
+			for (int i = 0; i < t.normal.mipLevels.size(); i++)
+				t.normal.mipLevels[i] = compressTextureBC7(t.normal.mipLevels[i]);
+
+			t.metallicRoughness.main = compressTextureBC7(t.metallicRoughness.main);
+
+			for (int i = 0; i < t.metallicRoughness.mipLevels.size(); i++)
+				t.metallicRoughness.mipLevels[i] = compressTextureBC7(t.metallicRoughness.mipLevels[i]);
+		}
+
+		for (auto& t : mippedImages.value())
 		{
 			materialTextures tx{};
 
-			auto albedo = loadTexture(t.albedo.data.data(), t.albedo.w, t.albedo.h, intToChannel(t.albedo.channels));
+			auto albedo = loadTexture(t.albedo);
 			if (!albedo)
 				return albedo.err();
 
 			tx.albedo = albedo.value();
 
-			auto normal = loadTexture(t.normal.data.data(), t.normal.w, t.normal.h, intToChannel(t.normal.channels));
+			auto normal = loadTexture(t.normal);
 			if (!normal)
 				return normal.err();
 
 			tx.normal = normal.value();
 
-			auto metallicRoughness = loadTexture(t.metallicRoughness.data.data(), t.metallicRoughness.w, t.metallicRoughness.h, intToChannel(t.metallicRoughness.channels));
+			auto metallicRoughness = loadTexture(t.metallicRoughness);
 			if (!metallicRoughness)
 				return metallicRoughness.err();
 

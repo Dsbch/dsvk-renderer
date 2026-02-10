@@ -47,7 +47,7 @@ namespace engine
 		virtual error render(renderCallIn in) = 0;
 
 		virtual withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src) = 0;
-		virtual withError<std::shared_ptr<texture>> makeTexture(uint8_t* data, int width, int heigth, imageChannel channel) = 0;
+		virtual withError<std::shared_ptr<texture>> makeTexture(const image& img) = 0;
 	protected:
 		error mErr;
 		graphicsPreset mPreset;

@@ -5,6 +5,7 @@ project "engine"
    cppdialect "C++20"
    conformancemode "On"
    usestandardpreprocessor "On"
+   externalwarnings "Off"
 
    filter { "options:gfxapi=vulkan" }
       defines { "VULKAN" }
@@ -28,9 +29,10 @@ project "engine"
    pchheader ("pch.h")
    pchsource ("src/pch.cpp")
     
-   includedirs
+   externalwarnings "Off"
+   
+   externalincludedirs
    {
-      "src",
       "../vendor/json",
       "../vendor/json/single_include",
       "../vendor/spdlog/include",
@@ -41,9 +43,13 @@ project "engine"
       "../vendor/cgltf",
       "../vendor/glfw/include",
       "../vendor/imgui",
+      "../vendor/basis_universal/transcoder",
    }
 
-   defines("_CRT_SECURE_NO_WARNINGS")
+   includedirs
+   {
+      "src",
+   }
 
    files
    {
@@ -57,6 +63,7 @@ project "engine"
       "meshoptimizer",
       "imgui",
       "glfw",
+      "basis_universal",
    }
 
    fatalwarnings 
@@ -69,7 +76,7 @@ project "engine"
          defines 
          { 
             "_GLM_WIN32",
-            "_CRT_SECURE_NO_WARNINGS"
+            "_CRT_SECURE_NO_WARNINGS",
          }
 
    filter { "files:assets/shaders/**" }

@@ -126,7 +126,7 @@ bool isInFrustum(transform modelTransform, float3 bsCenter, float bsRadius)
 {
     float3 worldCenter = transformPoint(modelTransform, bsCenter);
     
-    float scale = max(1.0f, modelTransform.scale.x);
+    float scale = max(0.001f, modelTransform.scale.x);
     scale = max(scale, modelTransform.scale.y);
     scale = max(scale, modelTransform.scale.z);
 
@@ -216,6 +216,7 @@ struct meshOutput
 {
     float3 tangentWorldPos : TANGENT0;
     float3 tangentCameraPos : TANGENT1;
+    nointerpolation float3 tangentCameraFront : TANGENT2;
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
     nointerpolation uint albedoIndex : TEXCOORD1;
@@ -302,6 +303,7 @@ void msmain(
         vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
+        vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));
         vertices[gtid].albedoIndex = instanceAttr.albedoStart + v.localTextureOffset;
         vertices[gtid].normalIndex = instanceAttr.normalStart + v.localTextureOffset;
         vertices[gtid].metallicRoughnessIndex = instanceAttr.metallicRoughnessStart + v.localTextureOffset;
@@ -393,9 +395,11 @@ float4 psmain(meshOutput input) : SV_TARGET
     float4 metalicRoughnes = materials[input.metallicRoughnessIndex].Sample(materialsSampler[input.metallicRoughnessIndex], input.uv);
 
     float4 albedo = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
-    float3 normal = normalize(materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv).rgb * 2.0f - 1.0f);
+    float3 normal = materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv).rgb * 2.0f - 1.0f;
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;
+   
+    normal = normalize(normal);
     
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
@@ -421,7 +425,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
     for (int i = 0; i < 1; ++i)
     {
-        float3 lightPos = input.tangentCameraPos;
+        float3 lightPos = input.tangentCameraPos + input.tangentCameraFront / 4.0f;
         
         float3 lightColor = lightColors[i];
 
@@ -429,7 +433,7 @@ float4 psmain(meshOutput input) : SV_TARGET
         float3 halfway = normalize(fromFragmentToLight + fromFragmentToCamera);
 
         // radiance per per light source.
-        float3 radiance = lightRadiance(lightColor, length(lightPos - input.tangentWorldPos));
+        float3 radiance = lightRadiance(lightColor, length(fromFragmentToLight));
 
         // Cook-Torrance BRDF
         float d = distributionGGX(normal, halfway, roughnes);
@@ -454,7 +458,7 @@ float4 psmain(meshOutput input) : SV_TARGET
         kD *= 1.0 - metalic;
 
         // scale light by nDotL
-        float nDotL = max(dot(normal, fromFragmentToLight), 0.0);
+        float nDotL = max(dot(normal, fromFragmentToLight), 0.0f);
 
         // add to outgoing radiance Lo
         l0 += (kD * albedo.rgb / PI + specular) * radiance * nDotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again

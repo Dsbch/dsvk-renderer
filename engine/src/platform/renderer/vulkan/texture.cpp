@@ -3,31 +3,30 @@
 
 namespace engine
 {
-	vulkanTexture::vulkanTexture(VkDevice device, VmaAllocator allocator, submit& is, uint8_t* data, int width, int heigth, imageChannel channel)
+	vulkanTexture::vulkanTexture(VkDevice device, VmaAllocator allocator, submit& is, const image& img)
 		:
-		texture(data, width, heigth, channel), mHash(0), mImage{}
+		texture(img), mHash(0), mImage{}
 	{
 		mImage.init(device, allocator);
 
-		VkImageUsageFlags usage = 0;
-		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;       // Needed to copy/upload from a staging buffer
-		usage |= VK_IMAGE_USAGE_SAMPLED_BIT;            // Needed to read in a shader
-		usage |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;	// GPU only memmory.
-		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;       // To generate mipmaps
-
-		VkFormat format = VK_FORMAT_R8G8B8_UNORM;
-
-		if (channel == rgba)
-			format = VK_FORMAT_R8G8B8A8_UNORM;
-
-		if (channel == grayscale)
-			format = VK_FORMAT_R8_UNORM;
-
-		mErr = mImage.build(is, data, VkExtent3D{ .width = uint32_t(width), .height = uint32_t(heigth), .depth = 1 }, format, usage, true);
+		mErr = mImage.build(is, img);
 		if (mErr)
 			return;
 
-		mHash = crc32(data, width * heigth * channelToInt(channel));
+		mHash = img.hash();
+	}
+
+	vulkanTexture::vulkanTexture(VkDevice device, VmaAllocator allocator, submit& is, const imageWithMipLevels& img)
+		:
+		texture(img), mHash(0), mImage{}
+	{
+		mImage.init(device, allocator);
+
+		mErr = mImage.build(is, img);
+		if (mErr)
+			return;
+
+		mHash = img.main.hash();
 	}
 
 	vulkanTexture::~vulkanTexture()

@@ -5,7 +5,8 @@ project "editor"
    cppdialect "C++20"
    conformancemode "On"
    usestandardpreprocessor "On"
-   
+   externalwarnings "Off"
+
    filter { "options:gfxapi=vulkan" }
       defines { "VULKAN" }
    
@@ -19,14 +20,19 @@ project "editor"
       "src/**.h",
    }
 
-   includedirs {
-      "src",
+   externalincludedirs
+   {
       "../engine/src",
       "../vendor/spdlog/include",
       "../vendor/json",
       "../vendor/json/single_include",
       "../vendor/entt/src",
       "../vendor/glm",
+   }
+
+   includedirs 
+   {
+      "src",
     }
 
    links 
@@ -34,7 +40,9 @@ project "editor"
       "engine",
       "spdlog",
       "meshoptimizer",
+      "imgui",
       "glfw",
+      "basis_universal",
    }
 
    fatalwarnings
@@ -44,8 +52,13 @@ project "editor"
 
    filter "system:windows"
        buildoptions { "/utf-8" }
+       defines 
+       { 
+         "WINDOWS",
+         "_GLM_WIN32",
+         "_CRT_SECURE_NO_WARNINGS",
+       }
        systemversion "latest"
-       defines { "WINDOWS" }
 
    filter "configurations:Debug"
        defines { "DEBUG" }

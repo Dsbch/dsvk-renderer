@@ -181,6 +181,9 @@ namespace engine
 
 	void vulkanBuffer::destroyBuffer(VmaAllocator allocator, allocatedBuffer buf)
 	{
+		if (buf.buffer == VK_NULL_HANDLE)
+			return;
+
 		vmaDestroyBuffer(allocator, buf.buffer, buf.allocation);
 	}
 

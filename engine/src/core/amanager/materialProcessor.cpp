@@ -3,6 +3,8 @@
 
 #include <cgltf.h>
 #include <stb_image.h>
+#include <stb_image_resize2.h>
+#include <basisu_transcoder.h>
 
 namespace engine
 {
@@ -14,6 +16,142 @@ namespace engine
 	static float toSRGB(float color)
 	{
 		return pow(color, 1.0f / 2.2f);
+	}
+
+	withError<imageWithMipLevels> generateMipLevels(const image& img)
+	{
+		imageWithMipLevels result{
+			.main = img,
+		};
+
+		if (img.w <= 1 && img.h <= 1)
+			return result;
+
+		if (img.compressed)
+			return result;
+
+		uint32_t numMips = img.mipLevels();
+		result.mipLevels.reserve(numMips - 1);
+
+		const uint8_t* srcData = img.data.data();
+		int srcWidth = img.w;
+		int srcHeight = img.h;
+
+		int mipWidth = img.w;
+		int mipHeight = img.h;
+		for (uint32_t i = 1; i < numMips; i++)
+		{
+			mipWidth = std::max(1, mipWidth / 2);
+			mipHeight = std::max(1, mipHeight / 2);
+
+			image mip{};
+			mip.w = mipWidth;
+			mip.h = mipHeight;
+			mip.channels = img.channels;
+			mip.compressed = false;
+			mip.data.resize(mip.w * mip.h * mip.channels);
+
+			uint8_t* resizeRes = stbir_resize_uint8_linear(
+				srcData, srcWidth, srcHeight, 0,
+				mip.data.data(), mipWidth, mipHeight, 0,
+				(stbir_pixel_layout)img.channels
+			);
+			if (!resizeRes)
+				return error{ "generateMipLevels stbir_resize_uint8_linear err" };
+
+			result.mipLevels.push_back(std::move(mip));
+		}
+
+		return result;
+	}
+
+	withError<std::vector<mippedImages>> generateMipLevels(const std::vector<images>& images)
+	{
+		std::vector<mippedImages> result{};
+
+		for (auto& imgs : images)
+		{
+			mippedImages crnt{};
+			
+			auto albedo = generateMipLevels(imgs.albedo);
+			if (!albedo)
+				return albedo.err();
+
+			auto normal = generateMipLevels(imgs.normal);
+			if (!normal)
+				return normal.err();
+
+			auto metallicRoughness = generateMipLevels(imgs.metallicRoughness);
+			if (!metallicRoughness)
+				return metallicRoughness.err();
+		
+			crnt.albedo = albedo.value();
+			crnt.normal = normal.value();
+			crnt.metallicRoughness = metallicRoughness.value();
+
+			result.push_back(std::move(crnt));
+		}
+	
+		return result;
+	}
+
+	image compressTextureBC7(const image& img)
+	{
+		image result{
+			.channels = img.channels,
+			.compressed = true,
+		};
+
+		result.w = img.w;
+		result.h = img.h;
+
+		int blocksX = (img.w + 3) / 4;
+		int blocksY = (img.h + 3) / 4;
+		int totalBlocks = blocksX * blocksY;
+
+		result.data.resize(totalBlocks * 16);
+
+		unsigned int srcStride = img.w * img.channels;
+		basist::color_rgba pixels[16];
+
+		int blockIndex = 0;
+		for (int by = 0; by < img.h; by += 4)
+		{
+			for (int bx = 0; bx < img.w; bx += 4)
+			{
+				for (int py = 0; py < 4; py++)
+				{
+					for (int px = 0; px < 4; px++)
+					{
+						int srcX = bx + px;
+						int srcY = by + py;
+
+						int pixelIndex = py * 4 + px;
+
+						if (srcX < img.w && srcY < img.h)
+						{
+							const uint8_t* srcPixel = img.data.data() + (srcY * srcStride) + (srcX * 4);
+							pixels[pixelIndex].r = srcPixel[0];
+							pixels[pixelIndex].g = srcPixel[1];
+							pixels[pixelIndex].b = srcPixel[2];
+							pixels[pixelIndex].a = srcPixel[3];
+						}
+						else
+						{
+							pixels[pixelIndex].set(0, 0, 0, 255);
+						}
+					}
+				}
+
+				uint8_t* cmpBlock = &result.data[blockIndex * 16];
+
+				basist::bc7f::fast_pack_bc7_auto_rgba(cmpBlock, pixels, basist::bc7f::cPackBC7FlagDefault);
+
+				blockIndex++;
+			}
+		}
+
+		return result;
 	}
 
 	withError<imageInfo> getImageInfo(const cgltf_texture* texture, const std::filesystem::path& baseDir)
@@ -119,9 +257,9 @@ namespace engine
 		}
 	}
 
-	withError<std::vector<textures>> processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount)
+	withError<std::vector<images>> processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount)
 	{
-		std::vector<textures> result;
+		std::vector<images> result;
 
 		for (int i = 0; i < materialCount; i++)
 		{
@@ -169,7 +307,7 @@ namespace engine
 				image albedo{};
 				image normal{};
 				image metallicRoughness{};
-				textures tex{};
+				images tex{};
 
 				// albedo.
 				if (auto albedoTexture = material->pbr_metallic_roughness.base_color_texture.texture; albedoTexture && albedoTexture->image)

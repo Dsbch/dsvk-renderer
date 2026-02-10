@@ -26,57 +26,57 @@ namespace engine
 
 	VkFormat swapChain::getDrawImageFormat()
 	{
-		return mDrawImage.image.format;
+		return mDrawImage.img.format;
 	}
 
 	VkFormat swapChain::getDepthImageFormat()
 	{
-		return mDepthImage.image.format;
+		return mDepthImage.img.format;
 	}
 
 	VkExtent3D swapChain::getDrawImageExtent()
 	{
-		return mDrawImage.image.extent;
+		return mDrawImage.img.extent;
 	}
 
 	VkExtent3D swapChain::getResolveImageExtent()
 	{
-		return mResolveImage.image.extent;
+		return mResolveImage.img.extent;
 	}
 
 	VkExtent3D swapChain::getDepthImageExtent()
 	{
-		return mDepthImage.image.extent;
+		return mDepthImage.img.extent;
 	}
 
 	VkImage swapChain::getDrawImage()
 	{
-		return mDrawImage.image.image;
+		return mDrawImage.img.image;
 	}
 
 	VkImage swapChain::getDepthImage()
 	{
-		return mDepthImage.image.image;
+		return mDepthImage.img.image;
 	}
 
 	VkImage swapChain::getResolveImage()
 	{
-		return mResolveImage.image.image;
+		return mResolveImage.img.image;
 	}
 
 	VkImageView swapChain::getDrawImageView()
 	{
-		return mDrawImage.image.view;
+		return mDrawImage.img.view;
 	}
 
 	VkImageView swapChain::getDepthImageView()
 	{
-		return mDepthImage.image.view;
+		return mDepthImage.img.view;
 	}
 
 	VkImageView swapChain::getResolveImageView()
 	{
-		return mResolveImage.image.view;
+		return mResolveImage.img.view;
 	}
 
 	void swapChain::increment()
@@ -87,8 +87,8 @@ namespace engine
 	void swapChain::pickImageExtent()
 	{
 		// here we pick needed height and width of our images.
-		mDrawImage.image.extent.height = std::min(mSwapchainExtent.height, mDrawImage.image.extent.height);
-		mDrawImage.image.extent.width = std::min(mSwapchainExtent.width, mDrawImage.image.extent.width);
+		mDrawImage.img.extent.height = std::min(mSwapchainExtent.height, mDrawImage.img.extent.height);
+		mDrawImage.img.extent.width = std::min(mSwapchainExtent.width, mDrawImage.img.extent.width);
 	}
 
 	VkSwapchainKHR& swapChain::getSwapChain()
@@ -225,8 +225,8 @@ namespace engine
 			1
 		};
 
-		mDrawImage.image.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-		mDrawImage.image.extent = drawImageExtent;
+		mDrawImage.img.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		mDrawImage.img.extent = drawImageExtent;
 
 		VkImageUsageFlags drawImageUsages{};
 		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;

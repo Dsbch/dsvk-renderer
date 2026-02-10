@@ -18,6 +18,8 @@ namespace engine
 		case VK_FORMAT_R32G32_SFLOAT:             return 8;
 		case VK_FORMAT_R32G32B32_SFLOAT:          return 12;
 		case VK_FORMAT_R32G32B32A32_SFLOAT:       return 16;
+		case VK_FORMAT_BC3_UNORM_BLOCK:			  return 1;
+		case VK_FORMAT_BC7_UNORM_BLOCK:			  return 1;
 		default:                                  return 0;
 		}
 	}
@@ -171,16 +173,37 @@ namespace engine
 		mAllocator = allocator;
 	}
 
-	engine::error vulkanImage::build(submit& is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+	engine::error vulkanImage::build(submit& is, const image& rawImage)
 	{
-		size_t dataSize = size.depth * size.width * size.height * bytesPerTexel(format);
+		size_t dataSize = rawImage.getSize();
+
+		// Main buffer.
 		auto uploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
 		if (!uploadbuffer)
 			return uploadbuffer.err();
 
-		std::memcpy(uploadbuffer.value().info.pMappedData, data, dataSize);
+		std::memcpy(uploadbuffer.value().info.pMappedData, rawImage.data.data(), dataSize);
 
-		auto newImage = createImage(size, format, usage, mipmapped);
+		VkImageUsageFlags usage = 0;
+		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;       // Needed to copy/upload from a staging buffer
+		usage |= VK_IMAGE_USAGE_SAMPLED_BIT;            // Needed to read in a shader
+		usage |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;	// GPU only memmory.
+		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;       // To generate mipmaps
+
+		VkExtent3D size = VkExtent3D{ .width = uint32_t(rawImage.w), .height = uint32_t(rawImage.h), .depth = 1 };
+
+		VkFormat format = VK_FORMAT_R8G8B8_UNORM;
+
+		if (intToChannel(rawImage.channels) == rgba)
+			format = VK_FORMAT_R8G8B8A8_UNORM;
+
+		if (intToChannel(rawImage.channels) == grayscale)
+			format = VK_FORMAT_R8_UNORM;
+
+		if (rawImage.compressed)
+			format = VK_FORMAT_BC7_UNORM_BLOCK;
+
+		auto newImage = createImage(size, format, usage, false);
 		if (!newImage)
 			return newImage.err();
 
@@ -201,89 +224,6 @@ namespace engine
 				copyRegion.imageExtent = size;
 
 				vkCmdCopyBufferToImage(cmd, uploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-
-				if (mipmapped)
-				{
-					VkImageMemoryBarrier barrier{};
-					barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-					barrier.image = newImage.value().image;
-					barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-					barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-					barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-					barrier.subresourceRange.baseArrayLayer = 0;
-					barrier.subresourceRange.layerCount = 1;
-					barrier.subresourceRange.levelCount = 1;
-
-					int32_t mipWidth = size.width;
-					int32_t mipHeight = size.height;
-					uint32_t mips = mipLevels(size);
-					for (uint32_t i = 1; i < mips; i++)
-					{
-						barrier.subresourceRange.baseMipLevel = i - 1;
-						barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-						barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-						barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-						barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-						vkCmdPipelineBarrier(
-							cmd,
-							VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-							0, nullptr,
-							0, nullptr,
-							1, &barrier
-						);
-
-						VkImageBlit blit{};
-						blit.srcOffsets[0] = { 0, 0, 0 };
-						blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
-						blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-						blit.srcSubresource.mipLevel = i - 1;
-						blit.srcSubresource.baseArrayLayer = 0;
-						blit.srcSubresource.layerCount = 1;
-						blit.dstOffsets[0] = { 0, 0, 0 };
-						blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
-						blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-						blit.dstSubresource.mipLevel = i;
-						blit.dstSubresource.baseArrayLayer = 0;
-						blit.dstSubresource.layerCount = 1;
-
-						vkCmdBlitImage(
-							cmd,
-							newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-							newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-							1, &blit,
-							VK_FILTER_LINEAR
-						);
-
-						barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-						barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-						barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-						barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-						vkCmdPipelineBarrier(cmd,
-							VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-							0, nullptr,
-							0, nullptr,
-							1, &barrier);
-
-						if (mipWidth > 1) mipWidth /= 2;
-						if (mipHeight > 1) mipHeight /= 2;
-					}
-
-					barrier.subresourceRange.baseMipLevel = mips - 1;
-					barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-					barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-					barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-					vkCmdPipelineBarrier(
-						cmd,
-						VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-						0, nullptr,
-						0, nullptr,
-						1, &barrier
-					);
-				}
 			},
 			[=]()
 			{
@@ -293,10 +233,102 @@ namespace engine
 		if (err)
 			return err;
 
+		img = newImage.value();
 
-		image = newImage.value();
+		return {};
+	}
 
-		return { };
+	engine::error vulkanImage::build(submit& is, const imageWithMipLevels& rawImage)
+	{
+		size_t dataSize = rawImage.main.getSize();
+
+		// Main buffer.
+		auto uploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+		if (!uploadbuffer)
+			return uploadbuffer.err();
+
+		std::memcpy(uploadbuffer.value().info.pMappedData, rawImage.main.data.data(), dataSize);
+
+		VkImageUsageFlags usage = 0;
+		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;       // Needed to copy/upload from a staging buffer
+		usage |= VK_IMAGE_USAGE_SAMPLED_BIT;            // Needed to read in a shader
+		usage |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;	// GPU only memmory.
+		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;       // To generate mipmaps
+
+		VkExtent3D size = VkExtent3D{ .width = uint32_t(rawImage.main.w), .height = uint32_t(rawImage.main.h), .depth = 1 };
+
+		VkFormat format = VK_FORMAT_R8G8B8_UNORM;
+
+		if (intToChannel(rawImage.main.channels) == rgba)
+			format = VK_FORMAT_R8G8B8A8_UNORM;
+
+		if (intToChannel(rawImage.main.channels) == grayscale)
+			format = VK_FORMAT_R8_UNORM;
+
+		if (rawImage.main.compressed)
+			format = VK_FORMAT_BC7_UNORM_BLOCK;
+
+		auto newImage = createImage(size, format, usage, true);
+		if (!newImage)
+			return newImage.err();
+
+		size_t mipUploadBufSize = 0;
+		for (auto& m : rawImage.mipLevels)
+			mipUploadBufSize += m.getSize();
+
+		auto mipUploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, mipUploadBufSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+		if (!mipUploadbuffer)
+			return mipUploadbuffer.err();
+
+		size_t offset = 0;
+		std::vector<VkBufferImageCopy> mipsCopyRegions = {};
+		for (int i = 0; i < rawImage.mipLevels.size(); i++)
+		{
+			VkBufferImageCopy copyRegion{};
+			copyRegion.bufferOffset = offset;
+			copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			copyRegion.imageSubresource.layerCount = 1;
+			copyRegion.imageSubresource.mipLevel = i + 1;
+			copyRegion.imageExtent = VkExtent3D{ .width = uint32_t(rawImage.mipLevels[i].w), .height = uint32_t(rawImage.mipLevels[i].h), .depth = 1, };
+
+			std::memcpy(
+				reinterpret_cast<uint8_t*>(mipUploadbuffer.value().info.pMappedData) + offset,
+				rawImage.mipLevels[i].data.data(),
+				rawImage.mipLevels[i].getSize()
+			);
+
+			mipsCopyRegions.push_back(copyRegion);
+
+			offset += rawImage.mipLevels[i].getSize();
+		}
+
+		error err = is.queue(
+			[=](VkCommandBuffer cmd)
+			{
+				transitionImage(cmd, newImage.value().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+				VkBufferImageCopy copyRegion{};
+				copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				copyRegion.imageSubresource.layerCount = 1;
+				copyRegion.imageExtent = size;
+
+				vkCmdCopyBufferToImage(cmd, uploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+				// Upload mip levels to GPU.
+				vkCmdCopyBufferToImage(cmd, mipUploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, uint32_t(mipsCopyRegions.size()), mipsCopyRegions.data());
+			},
+			[=]()
+			{
+				vulkanBuffer::destroyBuffer(mAllocator, uploadbuffer.value());
+				vulkanBuffer::destroyBuffer(mAllocator, mipUploadbuffer.value());
+			}
+		);
+		if (err)
+			return err;
+
+		img = newImage.value();
+
+		return {};
 	}
 
 	engine::error vulkanImage::build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples)
@@ -305,19 +337,19 @@ namespace engine
 		if (!newImage)
 			return newImage.err();
 
-		image = newImage.value();
+		img = newImage.value();
 
 		return {};
 	}
 
 	void vulkanImage::destroy()
 	{
-		vkDestroyImageView(mDevice, image.view, nullptr);
-		vmaDestroyImage(mAllocator, image.image, image.allocation);
+		vkDestroyImageView(mDevice, img.view, nullptr);
+		vmaDestroyImage(mAllocator, img.image, img.allocation);
 
-		image.view = VK_NULL_HANDLE;
-		image.image = VK_NULL_HANDLE;
-		image.allocation = VK_NULL_HANDLE;
+		img.view = VK_NULL_HANDLE;
+		img.image = VK_NULL_HANDLE;
+		img.allocation = VK_NULL_HANDLE;
 	}
 
 	engine::withError<allocatedImage> vulkanImage::createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples)
@@ -329,7 +361,7 @@ namespace engine
 
 		uint32_t mips = 1;
 		if (mipmapped)
-			mips = mipLevels(size);
+			mips = image::mipLevels(int(size.width), int(size.height));
 
 		VkImageCreateInfo img_info = imageCreateInfo(format, usage, size, mips, samples);
 
@@ -358,11 +390,6 @@ namespace engine
 			return { vkResultToStr(vkRes) };
 
 		return newImage;
-	}
-
-	uint32_t vulkanImage::mipLevels(VkExtent3D size) const
-	{
-		return static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
 	}
 }
 

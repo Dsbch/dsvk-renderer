@@ -4,6 +4,7 @@
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
 
+#include "platform/renderer/texture.h"
 #include "submit.h"
 #include "buffer.h"
 #include "helper.h"
@@ -30,16 +31,16 @@ namespace engine
 	struct vulkanImage
 	{
 	public:
-		allocatedImage image;
+		allocatedImage img;
 
 		void init(VkDevice device, VmaAllocator allocator);
-		engine::error build(submit& is, void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped);
+		engine::error build(submit& is, const image& img);
+		engine::error build(submit& is, const imageWithMipLevels& img);
 		engine::error build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 		void destroy();
 	private:
 		engine::withError<allocatedImage> createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
-		uint32_t mipLevels(VkExtent3D size) const;
-
+		
 		VmaAllocator mAllocator;
 
 		VkDevice mDevice;

@@ -15,7 +15,8 @@ namespace engine
 		aManager();
 
 		void setMakeShaderFunc(std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)>&& func);
-		void setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)>&& func);
+		void setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(const image& img)>&& func);
+		void setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<texture>>(const imageWithMipLevels& img)>&& func);
 
 		withError<std::shared_ptr<shader>> getDefaultTaskShader();
 		withError<std::shared_ptr<shader>> getDefaultMeshShader();
@@ -24,7 +25,8 @@ namespace engine
 		withError<std::shared_ptr<shader>> getDefaultLineVertexShader();
 		withError<std::shared_ptr<shader>> getDefaultLinePixelShader();
 		withError<std::shared_ptr<shader>> loadShader(const std::string& path);
-		withError<std::shared_ptr<texture>> loadTexture(uint8_t* data, int width, int heigth, imageChannel channel);
+		withError<std::shared_ptr<texture>> loadTexture(const image& img);
+		withError<std::shared_ptr<texture>> loadTexture(const imageWithMipLevels& img);
 
 		void clearCache();
 
@@ -37,7 +39,8 @@ namespace engine
 		);
 	private:
 		std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)> makeShader;
-		std::function<withError<std::shared_ptr<texture>>(uint8_t* data, int width, int heigth, imageChannel channel)> makeTexture;
+		std::function<withError<std::shared_ptr<texture>>(const image& img)> makeTexture;
+		std::function<withError<std::shared_ptr<texture>>(const imageWithMipLevels& img)> makeTextureWithMips;
 
 		std::mutex mModelMu;
 		std::mutex mShaderMu;

@@ -88,7 +88,7 @@ namespace sandbox
 			if (event->getKey() == engine::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/sponza.glb",
+					"../assets/procedural_asian_architecture.glb",
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.coneWieght,
@@ -122,7 +122,7 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				auto pixel = mCtx->mAmanager->loadShader("../assets/shaders/vkCompiled/vkMeshPsAlbedo.spv");
+				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
 				if (!pixel)
 					return pixel.err();
 
@@ -136,7 +136,7 @@ namespace sandbox
 
 				auto tr = generateTransform();
 
-				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{0.01f}, tr.rotation);
 
 				e.addComponent<engine::newEntityComponent>();
 			}

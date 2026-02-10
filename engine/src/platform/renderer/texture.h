@@ -1,8 +1,47 @@
 #pragma once
+
 #include "pch.h"
 
 namespace engine
 {
+	struct image
+	{
+		std::vector<uint8_t> data;
+		int w, h;
+		int padding;
+		int channels;
+		bool compressed;
+
+		uint32_t hash() const
+		{
+			if (compressed)
+				return crc32(data.data(), w * h * channels / 4);
+
+			return crc32(data.data(), w * h * channels);
+		}
+
+		size_t getSize() const
+		{
+			return data.size() * sizeof(uint8_t);
+		}
+
+		uint32_t mipLevels() const
+		{
+			return static_cast<uint32_t>(std::floor(std::log2(std::max(w, h)))) + 1;
+		}
+
+		static uint32_t mipLevels(int w, int h)
+		{
+			return static_cast<uint32_t>(std::floor(std::log2(std::max(w, h)))) + 1;
+		}
+	};
+
+	struct imageWithMipLevels
+	{
+		image main;
+		std::vector<image> mipLevels;
+	};
+
 	enum imageChannel
 	{
 		grayscale = 1,
@@ -44,8 +83,9 @@ namespace engine
 	{
 	public:
 		texture(const texture&) = delete;
-		
-		texture(uint8_t* data, int width, int heigth, imageChannel channel) : mWidth(width), mHeight(heigth), mChannel(channel) {};
+
+		texture(const image& img) : mWidth(img.w), mHeight(img.h), mChannel(intToChannel(img.channels)) {};
+		texture(const imageWithMipLevels& img) : mWidth(img.main.w), mHeight(img.main.h), mChannel(intToChannel(img.main.channels)) {};
 		virtual ~texture() = default;
 		virtual uint32_t hash() const = 0;
 		error checkError() const { return mErr; };

@@ -5,6 +5,7 @@ project "sandbox"
    cppdialect "C++20"
    conformancemode "On"
    usestandardpreprocessor "On"
+   externalwarnings "Off"
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")
@@ -23,8 +24,8 @@ project "sandbox"
     "All",
    }
 
-   includedirs {
-      "src",
+   externalincludedirs
+   {
       "../engine/src",
       "../vendor/spdlog/include",
       "../vendor/json",
@@ -33,12 +34,19 @@ project "sandbox"
       "../vendor/glm",
    }
 
+   includedirs 
+   {
+      "src",
+   }
+
    links
    {
       "engine",
       "spdlog",
       "meshoptimizer",
+      "imgui",
       "glfw",
+      "basis_universal",
    }
 
    filter "system:windows"
@@ -46,7 +54,7 @@ project "sandbox"
         defines 
         { 
            "_GLM_WIN32",
-           "_CRT_SECURE_NO_WARNINGS"
+           "_CRT_SECURE_NO_WARNINGS",
         }
 
    filter "system:windows"

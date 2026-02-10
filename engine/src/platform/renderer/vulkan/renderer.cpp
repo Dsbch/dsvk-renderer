@@ -18,15 +18,14 @@ namespace engine
 		{
 			LOGERROR("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
 		}
+		else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+		{
+			LOGWARN("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
+		}
 		else
-			if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-			{
-				LOGWARN("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
-			}
-			else
-			{
-				LOGINFO("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
-			}
+		{
+			LOGINFO("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
+		}
 
 		return VK_FALSE;
 	}
@@ -56,7 +55,8 @@ namespace engine
 			return;
 
 		mCtx->mAmanager->setMakeShaderFunc([&](const std::vector<uint32_t>& src) { return makeShader(src); });
-		mCtx->mAmanager->setMakeTextureFunc([&](uint8_t* data, int width, int heigth, imageChannel channel) { return makeTexture(data, width, heigth, channel); });
+		mCtx->mAmanager->setMakeTextureFunc([&](const image& img) { return makeTexture(img); });
+		mCtx->mAmanager->setMakeTextureWithMipsFunc([&](const imageWithMipLevels& img) { return makeTextureWithMips(img); });
 
 		mErr = mUi.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain.getDrawImageFormat());
 		if (mErr)
@@ -641,9 +641,18 @@ namespace engine
 		return vkShader;
 	}
 
-	withError<std::shared_ptr<texture>> vulkanRenderer::makeTexture(uint8_t* data, int width, int heigth, imageChannel channel)
+	withError<std::shared_ptr<texture>> vulkanRenderer::makeTexture(const image& img)
 	{
-		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, data, width, heigth, channel);
+		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, img);
+		if (vkTexture->checkError())
+			return vkTexture->checkError();
+
+		return vkTexture;
+	}
+
+	withError<std::shared_ptr<texture>> vulkanRenderer::makeTextureWithMips(const imageWithMipLevels& img)
+	{
+		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, img);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
 

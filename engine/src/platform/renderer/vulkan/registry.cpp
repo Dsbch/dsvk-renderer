@@ -489,7 +489,7 @@ namespace engine
 
 			for (auto& t : materials.textures)
 			{
-				info.imageView = static_cast<const vulkanTexture*>(t.albedo.get())->mImage.image.view;
+				info.imageView = static_cast<const vulkanTexture*>(t.albedo.get())->mImage.img.view;
 				mImagesInfo[offset] = info;
 				offset++;
 			}
@@ -528,7 +528,7 @@ namespace engine
 
 			for (auto& t : materials.textures)
 			{
-				info.imageView = static_cast<const vulkanTexture*>(t.normal.get())->mImage.image.view;
+				info.imageView = static_cast<const vulkanTexture*>(t.normal.get())->mImage.img.view;
 				mImagesInfo[offset] = info;
 				offset++;
 			}
@@ -567,7 +567,7 @@ namespace engine
 
 			for (auto& t : materials.textures)
 			{
-				info.imageView = static_cast<const vulkanTexture*>(t.metallicRoughness.get())->mImage.image.view;
+				info.imageView = static_cast<const vulkanTexture*>(t.metallicRoughness.get())->mImage.img.view;
 				mImagesInfo[offset] = info;
 				offset++;
 			}
