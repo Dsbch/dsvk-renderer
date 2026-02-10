@@ -26,9 +26,18 @@ project "spdlog"
         buildoptions { "/utf-8" }
 
    filter "configurations:Debug"
-      defines { "DEBUG" }
-      symbols "On"
+       defines { "DEBUG" }
+       runtime "Debug"
+       symbols "On"
 
    filter "configurations:Release"
-      defines { "NDEBUG" }
-      optimize "On"
+       defines { "RELEASE", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
+       runtime "Release"
+       optimize "On"
+       symbols "On"
+
+   filter "configurations:Dist"
+       defines { "DIST", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
+       runtime "Release"
+       optimize "On"
+       symbols "Off"

@@ -67,7 +67,7 @@ namespace engine
 
 		VkDescriptorPoolCreateInfo poolInfo = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 		poolInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
-		poolInfo.maxSets = mConstraints.getMaxSetsPerPool();
+		poolInfo.maxSets = 10; // Only 10 descriptorSets per pool, should be enough.
 		poolInfo.poolSizeCount = (uint32_t)mPoolSizes.size();
 		poolInfo.pPoolSizes = mPoolSizes.data();
 
@@ -163,7 +163,7 @@ namespace engine
 
 		VkDescriptorSetLayoutBindingFlagsCreateInfoEXT binding_flags{};
 		binding_flags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
-		binding_flags.bindingCount = totalDescriptorsCount;
+		binding_flags.bindingCount = uint32_t(pFlagsV.size());
 		binding_flags.pBindingFlags = pFlagsV.data();
 
 		auto buildLayoutRes = buildLayout(shaderStages, &binding_flags, VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT);
@@ -304,10 +304,5 @@ namespace engine
 			return { vkResultToStr(result) };
 
 		return set;
-	}
-
-	uint32_t poolConstraints::getMaxSetsPerPool()
-	{
-		return maxBuffersDescriptors + maxUniformBuffersDescriptors + maxImageDescriptors + maxCombinedImageDescriptors;
 	}
 }

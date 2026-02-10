@@ -17,9 +17,6 @@ namespace engine
 		uint32_t maxBuffersDescriptors;
 		// Max number of descriptors of type VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER per pool.
 		uint32_t maxUniformBuffersDescriptors;
-
-		// Combines all sets that used in pool.
-		uint32_t getMaxSetsPerPool();
 	};
 
 	struct descriptorPool

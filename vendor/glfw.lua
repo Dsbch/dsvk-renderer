@@ -99,21 +99,25 @@ project "glfw"
 			"_CRT_SECURE_NO_WARNINGS"
 		}
 
-	filter "configurations:Debug"
-		runtime "Debug"
-		symbols "on"
-
 	filter { "system:windows", "configurations:Debug-AS" }	
 		runtime "Debug"
 		symbols "on"
 		sanitize { "Address" }
 		flags { "NoRuntimeChecks", "NoIncrementalLink" }
 
-	filter "configurations:Release"
-		runtime "Release"
-		optimize "speed"
+   filter "configurations:Debug"
+       defines { "DEBUG" }
+       runtime "Debug"
+       symbols "On"
 
-    filter "configurations:Dist"
-		runtime "Release"
-		optimize "speed"
-        symbols "off"
+   filter "configurations:Release"
+       defines { "RELEASE", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
+       runtime "Release"
+       optimize "On"
+       symbols "On"
+
+   filter "configurations:Dist"
+       defines { "DIST", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
+       runtime "Release"
+       optimize "On"
+       symbols "Off"

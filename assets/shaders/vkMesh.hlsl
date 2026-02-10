@@ -415,7 +415,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     
     float3 lightColors[4] =
     {
-        float3(32.0f, 32.0f, 32.0f),
+        float3(20.0f, 20.0f, 20.0f),
         float3(42.0f, 12.0f, 12.0f),
         float3(12.0f, 12.0f, 42.0f),
         float3(12.0f, 45.0f, 12.0f),
@@ -433,7 +433,7 @@ float4 psmain(meshOutput input) : SV_TARGET
         float3 halfway = normalize(fromFragmentToLight + fromFragmentToCamera);
 
         // radiance per per light source.
-        float3 radiance = lightRadiance(lightColor, length(fromFragmentToLight));
+        float3 radiance = lightRadiance(lightColor, length(lightPos - input.tangentWorldPos));
 
         // Cook-Torrance BRDF
         float d = distributionGGX(normal, halfway, roughnes);

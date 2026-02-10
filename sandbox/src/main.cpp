@@ -30,11 +30,6 @@ int main(int argc, char* argv[])
 			return 0;
 		}
 	}
-	catch (std::exception& e)
-	{
-		LOGERROR("exception was caught in run std::exception: {}", e.what());
-		return 0;
-	}
 	catch (...)
 	{
 		LOGERROR("exception was caught in run");

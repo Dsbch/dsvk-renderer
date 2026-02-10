@@ -33,9 +33,9 @@ namespace engine {
 #define LOGWARN(...) engine::logger::log()->warn(__VA_ARGS__)
 #define LOGERROR(...) engine::logger::log()->error(__VA_ARGS__)
 #else
-#define LOGTRACE(...)
-#define LOGDEBUG(...)
-#define LOGINFO(...) 
-#define LOGWARN(...) 
-#define LOGERROR(...)
+#define LOGTRACE(...) (void)0
+#define LOGDEBUG(...) (void)0
+#define LOGINFO(...) (void)0
+#define LOGWARN(...) (void)0
+#define LOGERROR(...) (void)0
 #endif

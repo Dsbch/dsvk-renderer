@@ -120,10 +120,6 @@ namespace engine
 				{
 					func();
 				}
-				catch (std::exception& e)
-				{
-					LOGERROR("exception was caught in threadQueue::run std::exception: {}", e.what());
-				}
 				catch (...)
 				{
 					LOGERROR("exception was caught in threadQueue::run");

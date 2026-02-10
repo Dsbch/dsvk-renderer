@@ -48,19 +48,19 @@ project "imgui"
 		"imgui/imgui_demo.cpp"
 	}
 
-  filter "configurations:Debug"
-    defines { "DEBUG" }
-    runtime "Debug"
-    symbols "On"
+   filter "configurations:Debug"
+       defines { "DEBUG" }
+       runtime "Debug"
+       symbols "On"
 
    filter "configurations:Release"
-       defines { "RELEASE" }
+       defines { "RELEASE", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
        runtime "Release"
        optimize "On"
        symbols "On"
 
    filter "configurations:Dist"
-       defines { "DIST" }
+       defines { "DIST", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
        runtime "Release"
        optimize "On"
        symbols "Off"

@@ -28,11 +28,18 @@ project "vk-bootstrap"
       systemversion "latest"
 
    filter "configurations:Debug"
-      defines { "DEBUG" }
-      runtime "Debug"
-      symbols "on"
+       defines { "DEBUG" }
+       runtime "Debug"
+       symbols "On"
 
    filter "configurations:Release"
-      defines { "NDEBUG" }
-      runtime "Release"
-      optimize "on"
+       defines { "RELEASE", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
+       runtime "Release"
+       optimize "On"
+       symbols "On"
+
+   filter "configurations:Dist"
+       defines { "DIST", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR" }
+       runtime "Release"
+       optimize "On"
+       symbols "Off"
