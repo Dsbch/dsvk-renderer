@@ -180,7 +180,7 @@ namespace engine
 
 	error renderSystem::handleUpdatedEntities(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, mesh, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, applyTransformComponent>().each())
+		for (auto [e, uid, mesh, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>().each())
 		{
 			float scale = std::max(1.0f, tr.scale.x);
 			scale = std::max(scale, tr.scale.y);
@@ -205,7 +205,7 @@ namespace engine
 			if (err)
 				return err;
 
-			registry->erase<applyTransformComponent>(e);
+			registry->erase<updateInstanceComponent>(e);
 		}
 
 		return {};

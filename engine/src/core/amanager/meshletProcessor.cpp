@@ -176,27 +176,13 @@ namespace engine
 
 		std::vector<unsigned int> remap(indicies.size());
 
-		size_t vertex_count = meshopt_generateVertexRemapCustom(
+		size_t vertex_count = meshopt_generateVertexRemap(
 			remap.data(),
 			indicies.data(),
 			indicies.size(),
 			&vertecies.front().position.x,
 			vertecies.size(),
-			sizeof(vertex),
-			[&](unsigned int lhs, unsigned int rhs) -> bool
-			{
-				const vertex& lv = vertecies[lhs];
-				const vertex& rv = vertecies[rhs];
-
-				return fabsf(lv.textureCoords.x - rv.textureCoords.x) < 1e-3f &&
-					fabsf(lv.textureCoords.y - rv.textureCoords.y) < 1e-3f &&
-					fabsf(lv.normal.x - rv.normal.x) < 1e-3f &&
-					fabsf(lv.normal.y - rv.normal.y) < 1e-3f &&
-					fabsf(lv.normal.z - rv.normal.z) < 1e-3f &&
-					fabsf(lv.position.x - rv.position.x) < 1e-3f &&
-					fabsf(lv.position.y - rv.position.y) < 1e-3f &&
-					fabsf(lv.position.z - rv.position.z) < 1e-3f;
-			}
+			sizeof(vertex)
 		);
 		if (vertex_count == 0)
 			return error{ "vertex count is zero" };
@@ -399,6 +385,8 @@ namespace engine
 				if (crntPrimitive.indicies.size() == 0 || crntPrimitive.vertecies.size() == 0)
 					continue;
 
+				calculateTangents(crntPrimitive.vertecies, crntPrimitive.indicies);
+
 				std::vector<vertex> remappedVertex;
 				std::vector<uint32_t> remappedIndex;
 
@@ -455,7 +443,6 @@ namespace engine
 			}
 		}
 
-		calculateTangents(*result.vertex.get(), remappedIndexBuffer);
 		auto sphere = calculateBoundingSphere(*result.vertex.get());
 
 		result.bsCenter = sphere.first;

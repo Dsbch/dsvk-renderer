@@ -32,6 +32,7 @@ namespace engine
 		static std::vector<std::unique_ptr<system>> mUserSystems;
 		
 		void addSystem(std::unique_ptr<system>&&);
+		// TODO: add mutex or smth, race condition on registry write/read.
 		std::shared_ptr<entt::registry> mSceneRegistry;
 		std::vector<std::unique_ptr<system>> mSystems;
 

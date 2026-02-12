@@ -19,7 +19,7 @@ namespace engine
 	struct vertex
 	{
 		glm::vec3 position;
-		uint32_t localTextureOffset;
+		uint32_t localMaterialOffset;
 		glm::vec2 textureCoords;
 		glm::vec3 normal;
 		glm::vec4 tangent;
@@ -52,9 +52,7 @@ namespace engine
 
 		transform modelTransform;
 
-		uint32_t albedoStart;
-		uint32_t normalStart;
-		uint32_t metallicRoughnessStart;
+		uint32_t globalMaterialOffset;
 	};
 
 	struct meshletBounds
@@ -127,29 +125,22 @@ namespace engine
 		std::shared_ptr<shader> pixelShader;
 		std::vector<materialTextures> textures;
 
-		uint32_t albedoHash = 0;
-		uint32_t normalHash = 0;
-		uint32_t metallicRoughnessHash = 0;
+		uint32_t hash = 0;
+		
+		void generateHash()
+		{
+			if (hash != 0)
+				return;
 
-		void generateHashes()
-		{ 
 			std::vector<uint32_t> crcVals;
 			for (const auto& t : textures)
+			{
 				crcVals.push_back(t.albedo->hash());
-
-			albedoHash = mergeCrc32(crcVals);
-
-			crcVals.clear();
-			for (const auto& t : textures)
 				crcVals.push_back(t.normal->hash());
-
-			normalHash = mergeCrc32(crcVals);
-
-			crcVals.clear();
-			for (const auto& t : textures)
 				crcVals.push_back(t.metallicRoughness->hash());
+			}
 
-			metallicRoughnessHash = mergeCrc32(crcVals);
+			hash = mergeCrc32(crcVals);
 		}
 	};
 

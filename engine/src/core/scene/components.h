@@ -27,7 +27,7 @@ namespace engine
 	};
 
 	struct deleteComponent {};
-	struct applyTransformComponent {};
+	struct updateInstanceComponent {};
 
 	struct transformComponent
 	{

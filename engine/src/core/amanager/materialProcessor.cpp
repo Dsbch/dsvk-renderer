@@ -72,7 +72,7 @@ namespace engine
 		for (auto& imgs : images)
 		{
 			mippedImages crnt{};
-			
+
 			auto albedo = generateMipLevels(imgs.albedo);
 			if (!albedo)
 				return albedo.err();
@@ -84,14 +84,14 @@ namespace engine
 			auto metallicRoughness = generateMipLevels(imgs.metallicRoughness);
 			if (!metallicRoughness)
 				return metallicRoughness.err();
-		
+
 			crnt.albedo = albedo.value();
 			crnt.normal = normal.value();
 			crnt.metallicRoughness = metallicRoughness.value();
 
 			result.push_back(std::move(crnt));
 		}
-	
+
 		return result;
 	}
 
@@ -413,9 +413,30 @@ namespace engine
 							ptr[0] = 128;
 							ptr[1] = 128;
 							ptr[2] = 255;
-							ptr[3] = 0;
+							ptr[3] = 255;
 
 							ptr += 4;
+						}
+					}
+				}
+
+				// oclussion, put in normal aplha channel.
+				if (auto oclussionTexture = material->occlusion_texture.texture; oclussionTexture && oclussionTexture->image)
+				{
+					auto rawTexture = processTexture(oclussionTexture, baseDir);
+					if (!rawTexture)
+						return rawTexture.err();
+
+					auto normalPtr = normal.data.begin();
+					auto oclussionPtr = rawTexture.value().data.begin();
+					for (int y = 0; y < normal.h; y++)
+					{
+						for (int w = 0; w < normal.w; w++)
+						{
+							normalPtr[3] = oclussionPtr[0];
+
+							normalPtr += 4;
+							oclussionPtr += 4;
 						}
 					}
 				}

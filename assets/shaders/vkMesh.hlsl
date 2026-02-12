@@ -1,5 +1,5 @@
 //  dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkMeshMs.spv vkMesh.hlsl
-//  dxc -T ps_6_9 -E psmain -spirv -Fo -fvk-use-scalar-layout vkMeshPs.spv vkMesh.hlsl
+//  dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkMeshPs.spv vkMesh.hlsl
 //  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
 //  add -fspv-reflect flag only for debug.
 #ifdef __spirv__
@@ -304,9 +304,9 @@ void msmain(
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
         vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));
-        vertices[gtid].albedoIndex = instanceAttr.albedoStart + v.localTextureOffset;
-        vertices[gtid].normalIndex = instanceAttr.normalStart + v.localTextureOffset;
-        vertices[gtid].metallicRoughnessIndex = instanceAttr.metallicRoughnessStart + v.localTextureOffset;
+        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + v.localMaterialOffset * 3;
+        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + v.localMaterialOffset * 3 + 1;
+        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + v.localMaterialOffset * 3 + 2;
     }
 }
 
@@ -395,7 +395,8 @@ float4 psmain(meshOutput input) : SV_TARGET
     float4 metalicRoughnes = materials[input.metallicRoughnessIndex].Sample(materialsSampler[input.metallicRoughnessIndex], input.uv);
 
     float4 albedo = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
-    float3 normal = materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv).rgb * 2.0f - 1.0f;
+    float4 normalTexture = materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv);
+    float3 normal = normalTexture.rgb * 2.0f - 1.0f;
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;
    
@@ -403,7 +404,6 @@ float4 psmain(meshOutput input) : SV_TARGET
     
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
-    float3 fromFragmentToCamera = normalize(input.tangentCameraPos - input.tangentWorldPos);
     
     float3 lightPositions[4] =
     {
@@ -422,26 +422,26 @@ float4 psmain(meshOutput input) : SV_TARGET
     };
     
     // render equation.
+    float3 V = normalize(input.tangentCameraPos - input.tangentWorldPos);
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
     for (int i = 0; i < 1; ++i)
     {
         float3 lightPos = input.tangentCameraPos + input.tangentCameraFront / 4.0f;
-        
         float3 lightColor = lightColors[i];
 
-        float3 fromFragmentToLight = normalize(lightPos - input.tangentWorldPos);
-        float3 halfway = normalize(fromFragmentToLight + fromFragmentToCamera);
+        float3 L = normalize(lightPos - input.tangentWorldPos);
+        float3 H = normalize(L + V);
 
         // radiance per per light source.
         float3 radiance = lightRadiance(lightColor, length(lightPos - input.tangentWorldPos));
 
         // Cook-Torrance BRDF
-        float d = distributionGGX(normal, halfway, roughnes);
-        float g = geometrySmith(normal, fromFragmentToCamera, fromFragmentToLight, roughnes);
-        float3 f = fresnelSchlick(max(dot(halfway, fromFragmentToCamera), 0.0), baseReflectivity(albedo.rgb, metalic));
+        float d = distributionGGX(normal, H, roughnes);
+        float g = geometrySmith(normal, V, L, roughnes);
+        float3 f = fresnelSchlick(max(dot(H, V), 0.0), baseReflectivity(albedo.rgb, metalic));
 
         float3 numerator = d * f * g;
-        float denominator = 4.0 * max(dot(normal, fromFragmentToCamera), 0.0) * max(dot(normal, fromFragmentToLight), 0.0) + 0.0001;
+        float denominator = 4.0 * max(dot(normal, V), 0.0) * max(dot(normal, L), 0.0) + 0.0001;
         // + 0.0001 to prevent divide by zero
         float3 specular = numerator / denominator;
 
@@ -458,18 +458,16 @@ float4 psmain(meshOutput input) : SV_TARGET
         kD *= 1.0 - metalic;
 
         // scale light by nDotL
-        float nDotL = max(dot(normal, fromFragmentToLight), 0.0f);
+        float nDotL = max(dot(normal, L), 0.0f);
 
         // add to outgoing radiance Lo
         l0 += (kD * albedo.rgb / PI + specular) * radiance * nDotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
     }
 
-    // ambient lighting part, removed for now.
-    // note that in future you need to replace that ambient light with some Voxel Cone Tracing for reflections.
-    // for now we just use AO texture.
-    float3 ambient = mul(float3(0.03f, 0.03f, 0.03f), albedo.rgb);
+     // Add simple ambient lighting (constant 0.03 should be replaced with IBL or VCT)
+    float3 ambient = float3(0.03, 0.03, 0.03) * albedo.rgb * normalTexture.w;
     
-    float3 color = l0;
+    float3 color = ambient + l0;
 
     // HDR tonemapping
     color = color / (color + float3(1.0f, 1.0f, 1.0f));

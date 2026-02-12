@@ -68,7 +68,7 @@ namespace engine
 		for (size_t i = 0; i < positionAccessor->count; ++i)
 		{
 			vertex v {
-				.localTextureOffset = uint32_t(prim.material - materials),
+				.localMaterialOffset = uint32_t(prim.material - materials),
 			};
 
 			float pos[3]{};

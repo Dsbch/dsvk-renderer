@@ -313,7 +313,7 @@ namespace engine
 			result.mat.textures.push_back(tx);
 		}
 
-		result.mat.generateHashes();
+		result.mat.generateHash();
 
 		cgltf_free(data);
 

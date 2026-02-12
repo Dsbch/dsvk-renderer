@@ -72,7 +72,7 @@ namespace sandbox
 
 					entity.addOrReplaceComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
 
-					entity.addOrReplaceComponent<engine::applyTransformComponent>();
+					entity.addOrReplaceComponent<engine::updateInstanceComponent>();
 
 					angle += 0.5f;
 
@@ -88,7 +88,7 @@ namespace sandbox
 			if (event->getKey() == engine::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/procedural_asian_architecture.glb",
+					"../assets/sponza.glb",
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.coneWieght,
@@ -147,7 +147,7 @@ namespace sandbox
 				{
 					engine::entity entity{ mCtx, e, registry };
 
-					entity.addComponent<engine::deleteComponent>();
+					entity.addOrReplaceComponent<engine::deleteComponent>();
 
 					return {};
 				}

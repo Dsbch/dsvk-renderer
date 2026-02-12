@@ -246,9 +246,7 @@ namespace engine
 		auto materialOffsets = mMaterialRegistry.addMaterials(m.mat);
 
 		perInstanceAttr attr = m.instanceAttributes;
-		attr.albedoStart = materialOffsets.value().albedoStart;
-		attr.normalStart = materialOffsets.value().normalStart;
-		attr.metallicRoughnessStart = materialOffsets.value().metallicRoughnessStart;
+		attr.globalMaterialOffset = materialOffsets.value();
 
 		auto handle = mVertexRegistry.addBlock(
 			m.meshData.hash,
@@ -332,16 +330,18 @@ namespace engine
 
 	error meshletRenderer::updateInstance(const model& m, submit& is)
 	{
-		// Upload/get material.
-		auto materialOffsets = mMaterialRegistry.addMaterials(m.mat);
+		// Get material offsets or upload as new.
+		auto materialOffsets = mMaterialRegistry.getMaterialsOffset(m.mat);
 		if (!materialOffsets)
-			return materialOffsets.err();
+		{
+			materialOffsets = mMaterialRegistry.addMaterials(m.mat);
+			if (!materialOffsets)
+				return materialOffsets.err();
+		}
 
 		// Form new instance attrs.
 		perInstanceAttr attr = m.instanceAttributes;
-		attr.albedoStart = materialOffsets.value().albedoStart;
-		attr.normalStart = materialOffsets.value().normalStart;
-		attr.metallicRoughnessStart = materialOffsets.value().metallicRoughnessStart;
+		attr.globalMaterialOffset = materialOffsets.value();
 
 		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), is);
 	}
@@ -363,9 +363,9 @@ namespace engine
 			mPrimitiveRegistry.deleteBlock(m.meshData.hash);
 
 			mMeshletRegistry.deleteBlock(m.meshData.hash);
+		
+			mMaterialRegistry.deleteMaterials(m.mat);
 		}
-
-		mMaterialRegistry.deleteMaterials(m.mat);
 	}
 
 	error meshletRenderer::updateDescriptors(renderer::renderCallIn in, submit& is)
