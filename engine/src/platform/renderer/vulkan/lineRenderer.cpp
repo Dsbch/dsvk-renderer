@@ -142,7 +142,7 @@ namespace engine
 		mPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 		//connect the image format we will draw into, from draw image
-		mPipeline.setColorAttachmentFormat(drawFormat);
+		mPipeline.setColorAttachmentFormats({ drawFormat });
 		mPipeline.setDepthFormat(depthFormat);
 
 		error buildErr = mPipeline.build(VK_NULL_HANDLE, { mDescriptorSet.getDescriptorSet().second });

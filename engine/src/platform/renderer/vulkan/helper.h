@@ -221,7 +221,7 @@ namespace engine
 	}
 
 	inline VkRenderingAttachmentInfo depthAttachmentInfo(
-		VkImageView view, VkImageLayout layout)
+		VkImageView view, VkImageLayout layout, bool needClear = true)
 	{
 		VkRenderingAttachmentInfo depthAttachment{};
 		depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -229,7 +229,7 @@ namespace engine
 
 		depthAttachment.imageView = view;
 		depthAttachment.imageLayout = layout;
-		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.loadOp = needClear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthAttachment.clearValue.depthStencil.depth = 0.f;
 
@@ -262,7 +262,7 @@ namespace engine
 		return colorAttachment;
 	}
 
-	inline VkRenderingInfo renderingInfo(VkExtent3D renderExtent, VkRenderingAttachmentInfo* colorAttachment, VkRenderingAttachmentInfo* depthAttachment)
+	inline VkRenderingInfo renderingInfo(VkExtent3D renderExtent, std::vector<VkRenderingAttachmentInfo>& colorAttachments, VkRenderingAttachmentInfo* depthAttachment)
 	{
 		VkRenderingInfo renderInfo{};
 		renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -270,8 +270,8 @@ namespace engine
 
 		renderInfo.renderArea = VkRect2D{ VkOffset2D { 0, 0 }, VkExtent2D{.width = renderExtent.width, .height = renderExtent.height} };
 		renderInfo.layerCount = 1;
-		renderInfo.colorAttachmentCount = 1;
-		renderInfo.pColorAttachments = colorAttachment;
+		renderInfo.colorAttachmentCount = uint32_t(colorAttachments.size());
+		renderInfo.pColorAttachments = colorAttachments.data();
 		renderInfo.pDepthAttachment = depthAttachment;
 		renderInfo.pStencilAttachment = nullptr;
 

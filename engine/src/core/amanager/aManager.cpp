@@ -154,6 +154,72 @@ namespace engine
 		makeTextureWithMips = std::move(func);
 	}
 
+	withError<std::shared_ptr<shader>> aManager::getDefaultCompositeTaskShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshCompositeAs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultCompositeMeshShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshCompositeMs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultCompositePixelShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshCompositePs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultAccumilateTaskShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshAccumilationAs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultAccumilateMeshShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshAccumilationMs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<shader>> aManager::getDefaultAccumilatePixelShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshAccumilationPs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
 	withError<std::shared_ptr<shader>> aManager::getDefaultTaskShader()
 	{
 #ifdef VULKAN
@@ -180,17 +246,6 @@ namespace engine
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshPs.spv";
-
-		return loadShader(path);
-#endif // VULKAN
-
-		return error{ "not implemented" };
-	}
-
-	withError<std::shared_ptr<shader>> aManager::getDefaultComputeShader()
-	{
-#ifdef VULKAN
-		const std::string path = "../assets/shaders/vkCompiled/vkCompute.spv";
 
 		return loadShader(path);
 #endif // VULKAN

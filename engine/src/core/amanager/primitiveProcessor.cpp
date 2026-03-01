@@ -39,7 +39,7 @@ namespace engine
 
 	primitive processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials)
 	{
-		primitive result;
+		primitive result{};
 
 		if (prim.type != cgltf_primitive_type_triangles)
 			return result;
@@ -47,16 +47,26 @@ namespace engine
 		const cgltf_accessor* positionAccessor = nullptr;
 		const cgltf_accessor* normalAccessor = nullptr;
 		const cgltf_accessor* texcoordAccessor = nullptr;
+		int texcoordIndex = 0;
+
+		if (prim.material && prim.material->has_pbr_metallic_roughness)
+			texcoordIndex = prim.material->pbr_metallic_roughness.base_color_texture.texcoord;
 
 		for (size_t ai = 0; ai < prim.attributes_count; ++ai)
 		{
 			const cgltf_attribute& attr = prim.attributes[ai];
 			switch (attr.type)
 			{
-				case cgltf_attribute_type_position: positionAccessor = attr.data; break;
-				case cgltf_attribute_type_normal: normalAccessor = attr.data; break;
-				case cgltf_attribute_type_texcoord: texcoordAccessor = attr.data; break;
-				default: break;
+			case cgltf_attribute_type_position: positionAccessor = attr.data; break;
+			case cgltf_attribute_type_normal: normalAccessor = attr.data; break;
+			case cgltf_attribute_type_texcoord:
+			{
+				if (attr.index == texcoordIndex)
+					texcoordAccessor = attr.data;
+				
+				break;
+			}
+			default: break;
 			}
 		}
 
@@ -67,7 +77,7 @@ namespace engine
 
 		for (size_t i = 0; i < positionAccessor->count; ++i)
 		{
-			vertex v {
+			vertex v{
 				.localMaterialOffset = uint32_t(prim.material - materials),
 			};
 

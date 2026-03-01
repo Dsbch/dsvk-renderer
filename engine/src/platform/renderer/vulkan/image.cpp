@@ -276,9 +276,14 @@ namespace engine
 		for (auto& m : rawImage.mipLevels)
 			mipUploadBufSize += m.getSize();
 
-		auto mipUploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, mipUploadBufSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
-		if (!mipUploadbuffer)
-			return mipUploadbuffer.err();
+		withError<allocatedBuffer> mipUploadbuffer{ allocatedBuffer{} };
+
+		if (mipUploadBufSize != 0)
+		{
+			mipUploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, mipUploadBufSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+			if (!mipUploadbuffer)
+				return mipUploadbuffer.err();
+		}
 
 		size_t offset = 0;
 		std::vector<VkBufferImageCopy> mipsCopyRegions = {};

@@ -59,30 +59,41 @@ namespace engine
 		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily, graphicsPreset preset);
 		void destroy();
 
-		VkFormat getDrawImageFormat();
-		VkFormat getDepthImageFormat();
+		VkFormat getDrawImageFormat() const;
+		VkFormat getDepthImageFormat() const;
+		VkFormat getAccumImageFormat() const;
+		VkFormat getRevealImageFormat() const;
 
-		VkExtent3D getDrawImageExtent();
-		VkExtent3D getResolveImageExtent();
-		VkExtent3D getDepthImageExtent();
+		VkExtent3D getDrawImageExtent() const;
+		VkExtent3D getResolveImageExtent() const;
+		VkExtent3D getDepthImageExtent() const;
+		VkExtent3D getAccumImageExtent() const;
+		VkExtent3D getRevealImageExtent() const;
 
-		VkImage getDrawImage();
-		VkImage getDepthImage();
-		VkImage getResolveImage();
+		VkImage getDrawImage() const;
+		VkImage getDepthImage() const;
+		VkImage getResolveImage() const;
+		VkImage getAccumResolveImage() const;
+		VkImage getRevealResolveImage() const;
+		VkImage getAccumImage() const;
+		VkImage getRevealImage() const;
 
-		VkImageView getDrawImageView();
-		VkImageView getDepthImageView();
-		VkImageView getResolveImageView();
+		VkImageView getDrawImageView() const;
+		VkImageView getDepthImageView() const;
+		VkImageView getResolveImageView() const;
+		VkImageView getAccumResolveImageView() const;
+		VkImageView getRevealResolveImageView() const;
+		VkImageView getAccumImageView() const;
+		VkImageView getRevealImageView() const;
 
 		void pickImageExtent();
 
+		VkFormat getSwapChainImageFormat() const;
 		VkExtent2D& getSwapChainExtent();
 		VkSwapchainKHR& getSwapChain();
-		VkFormat getSwapChainImageFormat();
 
-		VkImage getCurrentSwapChainImage();
-		VkImageView getCurrentSwapChainImageView();
-
+		VkImage getCurrentSwapChainImage() const;
+		VkImageView getCurrentSwapChainImageView() const;
 
 		error acquireImageIndex();
 		error waitOnRenderFence();
@@ -115,6 +126,13 @@ namespace engine
 		std::vector<VkImageView> mSwapchainImageViews;
 		VkExtent2D mSwapchainExtent;
 
+		// For OIT blending.
+		vulkanImage mAccumImage;
+		vulkanImage mRevealImage;
+		vulkanImage mAccumResolveImage;
+		vulkanImage mRevealResolveImage;
+
+		// For opaque geometry.
 		vulkanImage mDrawImage;
 		vulkanImage mDepthImage;
 		vulkanImage mResolveImage;

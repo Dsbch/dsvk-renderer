@@ -88,7 +88,38 @@ namespace sandbox
 			if (event->getKey() == engine::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/sponza.glb",
+					"../assets/bottles.glb",
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
+				if (!loadedModel)
+					return loadedModel.err();
+
+				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
+				if (!pixel)
+					return pixel.err();
+
+				engine::entity e{ mCtx, registry };
+
+				loadedModel.value().mat.pixelShader = pixel.value();
+
+				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
+
+				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
+
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{0.1f}, tr.rotation);
+
+				e.addComponent<engine::newEntityComponent>();
+			}
+
+			if (event->getKey() == engine::f)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/magnifying_glass.glb",
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.coneWieght,
@@ -136,7 +167,7 @@ namespace sandbox
 
 				auto tr = generateTransform();
 
-				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{0.01f}, tr.rotation);
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.01f }, tr.rotation);
 
 				e.addComponent<engine::newEntityComponent>();
 			}

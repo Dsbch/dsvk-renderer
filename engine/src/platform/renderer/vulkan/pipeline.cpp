@@ -11,11 +11,11 @@ namespace engine
 		mPipelineLayout(VK_NULL_HANDLE),
 		mInputAssembly(),
 		mRasterizer(),
-		mColorBlendAttachment(),
+		mColorBlendAttachments(),
 		mMultisampling(),
 		mDepthStencil(),
 		mRenderInfo(),
-		mColorAttachmentformat(),
+		mColorAttachmentformats(),
 		mID(genUID())
 	{
 		mInputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
@@ -44,7 +44,7 @@ namespace engine
 		vkDestroyPipeline(mDevice, mPipeline, nullptr);
 	}
 
-	std::pair<VkPipeline, VkPipelineLayout> classicGraphicPipeline::getPipeline()
+	std::pair<VkPipeline, VkPipelineLayout> classicGraphicPipeline::getPipeline() const
 	{
 		return { mPipeline, mPipelineLayout };
 	}
@@ -86,8 +86,8 @@ namespace engine
 
 		colorBlending.logicOpEnable = VK_FALSE;
 		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = 1;
-		colorBlending.pAttachments = &mColorBlendAttachment;
+		colorBlending.attachmentCount = uint32_t(mColorBlendAttachments.size());
+		colorBlending.pAttachments = mColorBlendAttachments.data();
 
 		// completely clear VertexInputStateCreateInfo, as we have no need for it
 		VkPipelineVertexInputStateCreateInfo _vertexInputInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -185,42 +185,65 @@ namespace engine
 
 	void classicGraphicPipeline::disableBlending()
 	{
+		VkPipelineColorBlendAttachmentState blendingState{};
+
 		// default write mask
-		mColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		blendingState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		// no blending
-		mColorBlendAttachment.blendEnable = VK_FALSE;
+		blendingState.blendEnable = VK_FALSE;
+
+		mColorBlendAttachments = { blendingState };
 	}
 
-	void classicGraphicPipeline::enableBlendingAdditive()
+	void classicGraphicPipeline::enableBlendingOITAccumulation()
 	{
-		mColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		mColorBlendAttachment.blendEnable = VK_TRUE;
-		mColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		mColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-		mColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		mColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		mColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		VkPipelineColorBlendAttachmentState accumBlend{};
+		accumBlend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+			VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		accumBlend.blendEnable = VK_TRUE;
+		accumBlend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		accumBlend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		accumBlend.colorBlendOp = VK_BLEND_OP_ADD;
+		accumBlend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		accumBlend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		accumBlend.alphaBlendOp = VK_BLEND_OP_ADD;
+
+		VkPipelineColorBlendAttachmentState revealBlend{};
+		revealBlend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT;
+		revealBlend.blendEnable = VK_TRUE;
+		revealBlend.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+		revealBlend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+		revealBlend.colorBlendOp = VK_BLEND_OP_ADD;
+		revealBlend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		revealBlend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		revealBlend.alphaBlendOp = VK_BLEND_OP_ADD;
+
+		mColorBlendAttachments = { accumBlend, revealBlend };
 	}
 
-	void classicGraphicPipeline::enableBlendingAlphablend()
+	void classicGraphicPipeline::enableBlendingOITComposite()
 	{
-		mColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		mColorBlendAttachment.blendEnable = VK_TRUE;
-		mColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		mColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		mColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		mColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		mColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		VkPipelineColorBlendAttachmentState blendingState{};
+
+		blendingState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+			VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		blendingState.blendEnable = VK_TRUE;
+		blendingState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		blendingState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		blendingState.colorBlendOp = VK_BLEND_OP_ADD;
+		blendingState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		blendingState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		blendingState.alphaBlendOp = VK_BLEND_OP_ADD;
+
+		mColorBlendAttachments = { blendingState };
 	}
 
-	void classicGraphicPipeline::setColorAttachmentFormat(VkFormat format)
+	void classicGraphicPipeline::setColorAttachmentFormats(const std::vector<VkFormat>& formats)
 	{
-		mColorAttachmentformat = format;
+		mColorAttachmentformats = formats;
 		// connect the format to the renderInfo  structure
-		mRenderInfo.colorAttachmentCount = 1;
-		mRenderInfo.pColorAttachmentFormats = &mColorAttachmentformat;
+		mRenderInfo.colorAttachmentCount = uint32_t(mColorAttachmentformats.size());
+		mRenderInfo.pColorAttachmentFormats = mColorAttachmentformats.data();
 	}
 
 	void classicGraphicPipeline::setDepthFormat(VkFormat format)

@@ -6,6 +6,7 @@
 #include "submit.h"
 #include "deletionQueue.h"
 #include "helper.h"
+#include "swapChain.h"
 #include "platform/renderer/renderer.h"
 
 namespace engine
@@ -15,6 +16,8 @@ namespace engine
 		uint32_t descriptorSet;
 		uint32_t totalDescriptorsCount;
 
+		uint32_t accumBinding;
+		uint32_t revealBinding;
 		uint32_t vertexBinding;
 		uint32_t perInstanceBinding;
 		uint32_t meshletCmdBinding;
@@ -39,17 +42,20 @@ namespace engine
 			submit& is, 
 			deviceLimits limits, 
 			graphicsPreset preset,
-			VkBuffer UBObuffer
+			VkBuffer UBObuffer,
+			const swapChain& sChain
 		);
 		error destroy();
 
-		error addToRender(VkDevice device, submit& is, VkFormat depthFormat, VkFormat drawFormat, const model& m);
+		error addToRender(VkDevice device, submit& is, const swapChain& sChain, const model& m);
 		error updateInstance(const model& m, submit& is);
 		void removeFromRender(const model& m);
 		
 		error updateDescriptors(renderer::renderCallIn in, submit& is);
-		error geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in);
-		error updateGraphicsPreset();
+		error drawOpaqueGeometry(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error drawTransperentGeometry(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error updateSwapchainDependentDescriptors(const swapChain& sChain);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
@@ -70,5 +76,6 @@ namespace engine
 
 		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
 		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits, VkBuffer UBObuffer);
+		error initBlendingPipelines(VkDevice device, const swapChain& sChain);
 	};
 }

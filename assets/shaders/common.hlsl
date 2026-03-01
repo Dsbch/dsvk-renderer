@@ -1,6 +1,16 @@
+#ifdef __spirv__
+#define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
+#else
+#define DEFINE_AS_PUSH_CONSTANT
+#endif
+
+#define THREADS_COUNT 32
+
 #define PI 3.14159265359f
 
 #define GAMMA 2.2f
+
+#define EPSILON 0.00001f
 
 // INPUT START.
 
@@ -135,4 +145,223 @@ float3 scale(float3 scale, float3 v)
 float3 transformPoint(transform pointTransform, float3 p)
 {
     return translate(pointTransform.translation, rotate(pointTransform.rotation, scale(pointTransform.scale, p)));
+}
+
+struct meshOutput
+{
+    float3 tangentWorldPos : TANGENT0;
+    float3 tangentCameraPos : TANGENT1;
+    nointerpolation float3 tangentCameraFront : TANGENT2;
+    float4 position : SV_POSITION;
+    float2 uv : TEXCOORD0;
+    nointerpolation uint albedoIndex : TEXCOORD1;
+    nointerpolation uint normalIndex : TEXCOORD2;
+    nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
+};
+
+uint selectLodLevel(perDrawData drawData, float3 bsWorldCenter, float bsWorldRadius)
+{
+    // Get viewSpace of the center.
+    float4 vsCenter = mul(drawData.view, float4(bsWorldCenter, 1.0f));
+    
+    // Calculate view space for second point that is at the sphere border on y axis.
+    float4 vsBorder = float4(vsCenter.x, vsCenter.y + bsWorldRadius, vsCenter.zw);
+
+    // To NDC for both.
+    float4 clipCenter = mul(drawData.projection, vsCenter);
+    float4 clipBorder = mul(drawData.projection, vsBorder);
+
+    float2 ndcCenter = clipCenter.xy / clipCenter.w;
+    float2 ndcBorder = clipBorder.xy / clipBorder.w;
+    
+    float ndcRadius = length(ndcCenter - ndcBorder);
+    
+    if (ndcRadius * 2 >= 0.2f)   // ~10% of screen.
+        return 1;
+    
+    if (ndcRadius * 2 >= 0.1f)   // ~5% of screen.
+        return 2;
+    
+    if (ndcRadius * 2 >= 0.05f)  // ~2.5% of screen.
+        return 3;
+    
+    return 4; // < 2.5% of screen.
+}
+
+// Back face cone culling.
+bool isFrontfaceMeshlet(perDrawData drawData, transform modelTransform, float3 coneAxis, float3 coneApex, float coneCutoff)
+{
+    if (coneAxis.x == 0 && coneAxis.y == 0 && coneAxis.z == 0)
+        return true;
+    
+    if (coneCutoff == 1.0f)
+        return true;
+    
+    float3 worldConeApex = transformPoint(modelTransform, coneApex);
+    float3 worldConeAxis = normalize(rotate(modelTransform.rotation, coneAxis));
+    float3 viewDir = normalize(worldConeApex - drawData.cameraPos);
+    
+    return dot(viewDir, worldConeAxis) < coneCutoff;
+}
+
+bool isInFrustum(perDrawData drawData, transform modelTransform, float3 bsCenter, float bsRadius)
+{
+    float3 worldCenter = transformPoint(modelTransform, bsCenter);
+    
+    float scale = max(0.001f, modelTransform.scale.x);
+    scale = max(scale, modelTransform.scale.y);
+    scale = max(scale, modelTransform.scale.z);
+
+    float worldRadius = scale * bsRadius;
+    
+    bool front = dot(worldRadius * drawData.cameraFrustum.worldFrontN + worldCenter, drawData.cameraFrustum.worldFrontN) - drawData.cameraFrustum.frontDistance > 0;
+    bool back = dot(worldRadius * drawData.cameraFrustum.worldBackN + worldCenter, drawData.cameraFrustum.worldBackN) - drawData.cameraFrustum.backDistance > 0;
+    bool right = dot(worldRadius * drawData.cameraFrustum.worldRightN + worldCenter, drawData.cameraFrustum.worldRightN) - drawData.cameraFrustum.rightDistance > 0;
+    bool left = dot(worldRadius * drawData.cameraFrustum.worldLeftN + worldCenter, drawData.cameraFrustum.worldLeftN) - drawData.cameraFrustum.leftDistance > 0;
+    bool top = dot(worldRadius * drawData.cameraFrustum.worldTopN + worldCenter, drawData.cameraFrustum.worldTopN) - drawData.cameraFrustum.topDistance > 0;
+    bool bottom = dot(worldRadius * drawData.cameraFrustum.worldBottomN + worldCenter, drawData.cameraFrustum.worldBottomN) - drawData.cameraFrustum.bottomDistance > 0;
+    
+    return front && back && right && left && top && bottom;
+}
+
+
+// meshopt stores the triangle offset in bytes since it stores the
+// triangle indices as 3 consecutive bytes. 
+//
+// Since we repacked those 3 bytes to a 32-bit uint, our offset is now
+// aligned to 4 and we can easily grab it as a uint without any 
+// additional offset math.
+uint3 unpackUint(uint packed)
+{
+    uint3 result;
+    
+    result.x = (packed >> 0) & 0xFF;
+    result.y = (packed >> 8) & 0xFF;
+    result.z = (packed >> 16) & 0xFF;
+    
+    return result;
+}
+
+bool isBackface(perDrawData drawData, transform modelTransform, float3 v1, float3 v2, float3 v3)
+{
+    v1 = transformPoint(modelTransform, v1);
+    v2 = transformPoint(modelTransform, v2);
+    v3 = transformPoint(modelTransform, v3);
+    
+    float3 normal = cross(v2 - v1, v3 - v1);
+    
+    float3 center = (v1 + v2 + v3) / 3;
+    
+    return dot(normal, drawData.cameraPos - center) < 0;
+}
+
+float3x3 calculateTBN(float4 quat, vertex v)
+{
+    float3 T = normalize(rotate(quat, float3(v.tangent.xyz)));
+    float3 N = normalize(rotate(quat, v.normal));
+    
+    T = normalize(T - dot(T, N) * N);
+    
+    float3 B = v.tangent.w * cross(N, T);
+    
+    return transpose(float3x3(T, B, N));
+}
+
+
+// it's just approxiamtion the formula itself quite complex and using radiant flux that we do not have.
+float3 lightRadiance(float3 lightColor, float distance)
+{
+    float attenuation = 1.0 / max(distance * distance, 1.0f);
+    float3 radiance = mul(lightColor, attenuation);
+
+    return radiance;
+}
+
+// baseReflectivity F0 really hard to calculate, so we use trick like that.
+// for dielectrics we return approximation 0.04, for mettalic we return mix.
+float3 baseReflectivity(float3 albedo, float metalic)
+{
+    float3 f0 = float3(0.04f, 0.04f, 0.04f); // base reflectivity of dielectrics.
+    f0 = lerp(f0, albedo, metalic);
+
+    return f0;
+}
+
+// The Fresnel equation describes the ratio of surface reflection at different surface angles.
+float3 fresnelSchlick(float cosTheta, float3 f0)
+{
+    return f0 + (1.0 - f0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// distributionGGX - approximates the amount the surface's microfacets are aligned to the halfway vector, influenced by the roughness of the surface; this is the primary function approximating the microfacets.
+float distributionGGX(float3 n, float3 h, float roughness)
+{
+    // not sure why we use roughness^4.
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float nDotH = max(dot(n, h), 0.0);
+    float nDotH2 = nDotH * nDotH;
+    
+    float num = a2;
+    float denom = (nDotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    
+    return num / max(denom, 0.001);
+}
+
+// geometrySchlickGGX - describes the self-shadowing property of the microfacets. When a surface is relatively rough, the surface's microfacets can overshadow other microfacets reducing the light the surface reflects.
+float geometrySchlickGGX(float nDotV, float roughness)
+{
+    // remap roughness.
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+
+    float num = nDotV;
+    float denom = nDotV * (1.0 - k) + k;
+    
+    return num / max(denom, 0.001);
+}
+
+// geometrySmith - is used for approximation of geometrySchlickGGX.
+float geometrySmith(float3 n, float3 v, float3 l, float roughness)
+{
+    float nDotV = max(dot(n, v), 0.0);
+    float nDotL = max(dot(n, l), 0.0);
+    float ggx2 = geometrySchlickGGX(nDotV, roughness);
+    float ggx1 = geometrySchlickGGX(nDotL, roughness);
+    
+    return ggx1 * ggx2;
+}
+
+float3 toRGB(float3 color)
+{
+    return pow(color, GAMMA);
+}
+
+float3 toSRGB(float3 color)
+{
+    return pow(color, 1.0f / GAMMA);
+}
+
+uint getMeshletOffset(uint lodLevel, uint idx)
+{
+    uint result;
+    
+    switch (lodLevel)
+    {
+        case 2:
+            result = commandBuffer[idx].meshletOffset2;
+            break;
+        case 3:
+            result = commandBuffer[idx].meshletOffset3;
+            break;
+        case 4:
+            result = commandBuffer[idx].meshletOffset4;
+            break;
+        default:
+            result = commandBuffer[idx].meshletOffset1;
+            break;
+    }
+    
+    return result;
 }

@@ -168,6 +168,7 @@ namespace engine
 		deviceFeatures.fillModeNonSolid = VK_TRUE;
 		deviceFeatures.sampleRateShading = VK_TRUE;
 		deviceFeatures.shaderStorageImageMultisample = VK_TRUE;
+		deviceFeatures.independentBlend = VK_TRUE;
 
 		//use vkbootstrap to select a gpu. 
 		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features
@@ -298,7 +299,7 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer });
 
-		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer.getBuffer().buffer);
+		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain);
 		if (err)
 			return err;
 
@@ -354,6 +355,119 @@ namespace engine
 		renderer::setGraphicsPreset(preset);
 	}
 
+	void vulkanRenderer::setViewportAndSciccors(VkCommandBuffer cmd) const
+	{
+		VkViewport viewport = {};
+		viewport.x = 0;
+		viewport.y = 0;
+		viewport.width = float(mSwapChain.getDrawImageExtent().width);
+		viewport.height = float(mSwapChain.getDrawImageExtent().height);
+		viewport.minDepth = 0.f;
+		viewport.maxDepth = 1.f;
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+		VkRect2D scissor = {};
+		scissor.offset.x = 0;
+		scissor.offset.y = 0;
+		scissor.extent.width = (mSwapChain.getDrawImageExtent().width);
+		scissor.extent.height = (mSwapChain.getDrawImageExtent().height);
+
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+	}
+
+	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in)
+	{
+		// Draw opaque geometry first.
+		VkClearValue clear{
+			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
+		};
+
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), mPreset.msaa <= 1 ? nullptr : mSwapChain.getResolveImageView(), getResolveMode(mPreset.msaa), &clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		setViewportAndSciccors(cmd);
+
+		error err = mLineRenderer.drawLines(cmd);
+		if (err)
+			return err;
+
+		err = mMeshletRenderer.drawOpaqueGeometry(cmd, in);
+		if (err)
+			return err;
+
+		vkCmdEndRendering(cmd);
+
+		return {};
+	}
+
+	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
+	{
+		// Draw transperent geometry.
+		transitionImage(cmd, mSwapChain.getAccumImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getRevealImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		VkClearValue clear{
+			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
+		};
+
+		VkRenderingAttachmentInfo accumAttachment = attachmentInfo(
+			mSwapChain.getAccumImageView(),
+			mPreset.msaa <= 1 ? nullptr : mSwapChain.getAccumResolveImageView(),
+			getResolveMode(mPreset.msaa),
+			&clear,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		);
+
+		clear.color = VkClearColorValue{ 1.0f, 0.0f, 0.0f, 0.0f };
+
+		VkRenderingAttachmentInfo revealAttachment = attachmentInfo(
+			mSwapChain.getRevealImageView(),
+			mPreset.msaa <= 1 ? nullptr : mSwapChain.getRevealResolveImageView(),
+			getResolveMode(mPreset.msaa),
+			&clear,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { accumAttachment, revealAttachment };
+
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
+
+		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		mMeshletRenderer.drawTransperentGeometry(cmd, in);
+
+		vkCmdEndRendering(cmd);
+
+		return {};
+	}
+
+	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
+	{
+		// Composite opaque and transperent.
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), mPreset.msaa <= 1 ? nullptr : mSwapChain.getResolveImageView(), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, nullptr);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		mMeshletRenderer.compositeOpaqueAndTransperent(cmd, in);
+
+		vkCmdEndRendering(cmd);
+
+		return {};
+	}
+
 	std::string vulkanRenderer::getVersion() const
 	{
 		VkPhysicalDeviceProperties props{};
@@ -397,6 +511,10 @@ namespace engine
 		if (swapChainErr)
 			return swapChainErr;
 
+		error err = mMeshletRenderer.updateSwapchainDependentDescriptors(mSwapChain);
+		if (err)
+			return err;
+
 		return {};
 	}
 
@@ -422,7 +540,7 @@ namespace engine
 			mLineRenderer.addLine(pos, pos + v.normal/10.0f);
 		}*/
 
-		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), m);
+		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain, m);
 	}
 
 	error vulkanRenderer::updateInstance(const model& m)
@@ -504,67 +622,26 @@ namespace engine
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
 		//transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-		// Geometry pass START.
 		// Begin a render pass connected to our draw image and depth buffer.
-
-		VkClearValue clear{
-			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
-		};
-
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), mPreset.msaa <= 1 ? nullptr : mSwapChain.getResolveImageView(), getResolveMode(mPreset.msaa), &clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), &colorAttachment, &depthAttachment);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
-		//set dynamic viewport and scissor
-		VkViewport viewport = {};
-		viewport.x = 0;
-		viewport.y = 0;
-		viewport.width = float(mSwapChain.getDrawImageExtent().width);
-		viewport.height = float(mSwapChain.getDrawImageExtent().height);
-		viewport.minDepth = 0.f;
-		viewport.maxDepth = 1.f;
-
-		vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-		VkRect2D scissor = {};
-		scissor.offset.x = 0;
-		scissor.offset.y = 0;
-		scissor.extent.width = (mSwapChain.getDrawImageExtent().width);
-		scissor.extent.height = (mSwapChain.getDrawImageExtent().height);
-
-		vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-		err = mLineRenderer.drawLines(cmd);
+		err = drawOpaque(cmd, in);
 		if (err)
 			return err;
 
-		err = mMeshletRenderer.geometryPass(cmd, in);
+		err = drawTransperent(cmd, in);
 		if (err)
 			return err;
 
-		vkCmdEndRendering(cmd);
-		// Geometry pass END.
+		err = compositeOpaqueAndTransperent(cmd, in);
+		if (err)
+			return err;
 
-		// UI pass START.
-		// Imgui can't work with msaa color attachments.
-		colorAttachment = attachmentInfo(mPreset.msaa <= 1 ? mSwapChain.getDrawImageView() : mSwapChain.getResolveImageView(), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-		renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), &colorAttachment, nullptr);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
-		// Render UI.
-		mUi.onRender(cmd);
-
-		vkCmdEndRendering(cmd);
-		// UI pass end.
+		err = drawUI(cmd);
+		if (err)
+			return err;
 
 		//transition the resolve image and the swapchain image into their correct transfer layouts
 		transitionImage(cmd, mPreset.msaa <= 1 ? mSwapChain.getDrawImage() : mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);

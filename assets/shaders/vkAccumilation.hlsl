@@ -1,6 +1,6 @@
-//  dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshMs.spv vkMesh.hlsl
-//  dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
-//  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
+//  dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAccumilationMs.spv vkAccumilation.hlsl
+//  dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshAccumilationPs.spv vkAccumilation.hlsl
+//  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAccumilationAs.spv vkAccumilation.hlsl
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
@@ -65,32 +65,31 @@ void asmain(
     
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
         uint selectedLod = selectLodLevel(drawData, instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
-            uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
-            uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
+        uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
+        uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
     
         // Still have meshlets for that lodLevel.
-            if (meshletOffset != maxUint)
-            {
-                meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
+        if (meshletOffset != maxUint)
+        {
+            meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
             
-                visible =
-                isFrontfaceMeshlet(drawData, instanceAttr.modelTransform, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
+            visible =
                 isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
             
-                if (visible)
-                {
-                    uint index = WavePrefixCountBits(visible);
+            if (visible)
+            {
+                uint index = WavePrefixCountBits(visible);
         
-                    payload.perInstanceIndex[index] = perInstanceIndex;
-                    payload.perInstanceOffset[index] = perInstanceOffset;
+                payload.perInstanceIndex[index] = perInstanceIndex;
+                payload.perInstanceOffset[index] = perInstanceOffset;
      
-                    payload.lodLevel[index] = selectedLod;
+                payload.lodLevel[index] = selectedLod;
         
-                    payload.meshletIndex[index] = meshletIdx;
-                    payload.meshletOffset[index] = meshletOffset;
-                }
+                payload.meshletIndex[index] = meshletIdx;
+                payload.meshletOffset[index] = meshletOffset;
             }
         }
+    }
     
     uint visibleCount = WaveActiveCountBits(visible);
     DispatchMesh(visibleCount, 1, 1, payload);
@@ -99,11 +98,6 @@ void asmain(
 
 // MS START.
 
-struct meshletPrimitiveOut
-{
-    bool cullPrimitive : SV_CULLPRIMITIVE;
-};
-
 [outputtopology("triangle")]
 [numthreads(THREADS_COUNT, 1, 1)]
 void msmain(
@@ -111,8 +105,7 @@ void msmain(
                  uint gid : SV_GroupID,
     in payload MeshShaderPayload payload,
     out indices uint3 triangles[THREADS_COUNT],
-    out vertices meshOutput vertices[THREADS_COUNT],
-    out primitives meshletPrimitiveOut primitives[THREADS_COUNT])
+    out vertices meshOutput vertices[THREADS_COUNT])
 {
     meshlet mesh = meshletBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
     perInstanceAttr instanceAttr = perInstanceBuffer[payload.perInstanceIndex[gid]][payload.perInstanceOffset[gid]];
@@ -130,14 +123,6 @@ void msmain(
         uint idx1 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.x] + mesh.vertexBufferOffset;
         uint idx2 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.y] + mesh.vertexBufferOffset;
         uint idx3 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.vertexBufferOffset;
-        
-        primitives[gtid].cullPrimitive = isBackface(
-                drawData,
-                instanceAttr.modelTransform,
-                vertexBuffer[mesh.vertexBufferIndex][idx1].position,
-                vertexBuffer[mesh.vertexBufferIndex][idx2].position,
-                vertexBuffer[mesh.vertexBufferIndex][idx3].position
-            );
     }
 
     if (gtid < mesh.vertexCount)
@@ -163,10 +148,16 @@ void msmain(
 
 // MESH SHADER END.
 
-// PIXEL SHADER START.
+// PIXEL SHADER END.
+
+struct PSOutput
+{
+    float4 accum : SV_TARGET0;
+    float4 reveal : SV_TARGET1;
+};
 
 // All calculations are made in tangent space.
-float4 psmain(meshOutput input) : SV_TARGET
+PSOutput psmain(meshOutput input)
 {
     float4 metalicRoughnes = materials[input.metallicRoughnessIndex].Sample(materialsSampler[input.metallicRoughnessIndex], input.uv);
 
@@ -176,8 +167,8 @@ float4 psmain(meshOutput input) : SV_TARGET
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;
     
-    // Discard non solid geometry, value is just a guess works for my cases for now.
-    if (albedo.a < 0.5f)
+    // Discard solid geometry, value is just a guess works for my cases for now.
+    if (albedo.a >= 0.5f)
         discard;
    
     normal = normalize(normal);
@@ -237,7 +228,16 @@ float4 psmain(meshOutput input) : SV_TARGET
     
     color = toSRGB(color);
     
-    return float4(color, albedo.a);
+    float alpha = albedo.a;
+    
+    float weight = clamp(pow(min(1.0f, alpha * 10.0f) + 0.01f, 3.0f) * 1e8f *
+                   pow(1.0f - input.position.z * 0.9f, 3.0f), 1e-2f, 3e3f);
+    
+    PSOutput output;
+    output.accum = float4(color.rgb * alpha, alpha) * weight;
+    output.reveal = float4(alpha, 0.0f, 0.0f, 0.0f);
+    
+    return output;
 }
 
 // PIXEL SHADER END.

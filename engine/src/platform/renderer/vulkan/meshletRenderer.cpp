@@ -1,5 +1,6 @@
 #include <pch.h>
 #include "meshletRenderer.h"
+#include "renderer.h"
 
 namespace engine
 {
@@ -12,7 +13,8 @@ namespace engine
 		submit& is,
 		deviceLimits limits,
 		graphicsPreset preset,
-		VkBuffer UBObuffer
+		VkBuffer UBObuffer,
+		const swapChain& sChain
 	)
 	{
 		if (!vkCmdDrawMeshTasksEXT)
@@ -24,8 +26,10 @@ namespace engine
 
 		mBindings = meshletBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 8,
+			.totalDescriptorsCount = 10,
 
+			.accumBinding = 8,
+			.revealBinding = 9,
 			.vertexBinding = 0,
 			.perInstanceBinding = 1,
 			.meshletCmdBinding = 2,
@@ -47,6 +51,14 @@ namespace engine
 			return err;
 
 		err = initDescriptors(device, physicalDevice, limits, UBObuffer);
+		if (err)
+			return err;
+
+		err = initBlendingPipelines(device, sChain);
+		if (err)
+			return err;
+
+		err = updateSwapchainDependentDescriptors(sChain);
 		if (err)
 			return err;
 
@@ -120,9 +132,29 @@ namespace engine
 		if (err)
 			return err;
 
-		const uint32_t combinedImageSamplers = 1;
+		const uint32_t combinedImageSamplers = 3;
 		const uint32_t bufferObjects = 6;
 		const uint32_t uniformObjects = 1;
+
+		// add bindings for blending stage.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.accumBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.revealBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		// add bindings for materials.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.materialArrayBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
 
 		// add bindings for buffers.
 		mDescriptorSet.addBinding(
@@ -167,18 +199,11 @@ namespace engine
 			)
 		);
 
-		// add bindings for materials.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.materialArrayBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
 		err = mDescriptorSet.build(VK_SHADER_STAGE_ALL, mBindings.totalDescriptorsCount);
 		if (err)
 			return err;
 
-		// Set ubo buffer write right away.
+		// Set descriptor for ubo buffer write right away.
 		std::vector<VkDescriptorBufferInfo> bufferInfo{
 			VkDescriptorBufferInfo{.buffer = UBObuffer, .offset = 0, .range = VK_WHOLE_SIZE }
 		};
@@ -191,9 +216,89 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::geometryPass(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error meshletRenderer::updateSwapchainDependentDescriptors(const swapChain& sChain)
 	{
-		auto pipelines = mPipelineRegistry.getPipelines();
+		std::vector<VkDescriptorImageInfo> info{ VkDescriptorImageInfo{} };
+		info.front().sampler = mSampler;
+		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		info.front().imageView = mPreset.msaa <= 1 ? sChain.getAccumImageView() : sChain.getAccumResolveImageView();
+
+		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.accumBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
+
+		mDescriptorSet.updateWrite(wSet);
+
+		info.front().sampler = mSampler;
+		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		info.front().imageView = mPreset.msaa <= 1 ? sChain.getRevealImageView() : sChain.getRevealResolveImageView();
+
+		wSet = descriptorSet::getWriteInfo(mBindings.revealBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
+
+		mDescriptorSet.updateWrite(wSet);
+
+		return {};
+	}
+
+	error meshletRenderer::initBlendingPipelines(VkDevice device, const swapChain& sChain)
+	{
+		auto mesh = mCtx->mAmanager->getDefaultAccumilateMeshShader();
+		if (!mesh)
+			return mesh.err();
+		
+		auto task = mCtx->mAmanager->getDefaultAccumilateTaskShader();
+		if (!task)
+			return task.err();
+
+		auto pixel = mCtx->mAmanager->getDefaultAccumilatePixelShader();
+		if (!pixel)
+			return pixel.err();
+
+		error err = mPipelineRegistry.createPipeline(
+			device,
+			pixel.value(),
+			mesh.value(),
+			task.value(),
+			{ mDescriptorSet.getDescriptorSet().second },
+			sChain.getDepthImageFormat(),
+			{ sChain.getAccumImageFormat(), sChain.getRevealImageFormat() },
+			mPreset,
+			true
+		);
+		if (err)
+			return err;
+
+		mesh = mCtx->mAmanager->getDefaultCompositeMeshShader();
+		if (!mesh)
+			return mesh.err();
+
+		task = mCtx->mAmanager->getDefaultCompositeTaskShader();
+		if (!task)
+			return task.err();
+
+		pixel = mCtx->mAmanager->getDefaultCompositePixelShader();
+		if (!pixel)
+			return pixel.err();
+
+		err = mPipelineRegistry.createPipeline(
+			device,
+			pixel.value(),
+			mesh.value(),
+			task.value(),
+			{ mDescriptorSet.getDescriptorSet().second },
+			sChain.getDepthImageFormat(),
+			{ sChain.getDrawImageFormat() },
+			mPreset,
+			false,
+			true
+		);
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	error meshletRenderer::drawOpaqueGeometry(VkCommandBuffer cmd, renderer::renderCallIn in)
+	{
+		auto pipelines = mPipelineRegistry.getOpaquePipelines();
 
 		for (auto& [_, v] : pipelines)
 		{
@@ -216,7 +321,63 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::addToRender(VkDevice device, submit& is, VkFormat depthFormat, VkFormat drawFormat, const model& m)
+	error meshletRenderer::drawTransperentGeometry(VkCommandBuffer cmd, renderer::renderCallIn in)
+	{
+		auto blendingPipelines = mPipelineRegistry.getBlendPipelines();
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.first.pipeline);
+
+		pushConstants pc{
+			.commandBufferOffset = blendingPipelines.first.cmdPipelineStartOffset,
+			.meshletCount = blendingPipelines.first.cmdPipelineEndOffset - blendingPipelines.first.cmdPipelineStartOffset,
+		};
+
+		vkCmdPushConstants(cmd, blendingPipelines.first.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+
+		// bind the descriptor set.
+		auto set = mDescriptorSet.getDescriptorSet().first;
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.first.layout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+		mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+
+		return {};
+	}
+
+	error meshletRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
+	{
+		auto blendingPipelines = mPipelineRegistry.getBlendPipelines();
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.pipeline.getPipeline().first);
+
+		// bind the descriptor set.
+		auto set = mDescriptorSet.getDescriptorSet().first;
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.pipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
+
+		return {};
+	}
+
+	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
+	{
+		// Imgui can't work with msaa color attachments.
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mPreset.msaa <= 1 ? mSwapChain.getDrawImageView() : mSwapChain.getResolveImageView(), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, nullptr);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		// Draw UI.
+		mUi.onRender(cmd);
+
+		vkCmdEndRendering(cmd);
+
+		return {};
+	}
+
+	error meshletRenderer::addToRender(VkDevice device, submit& is, const swapChain& sChain, const model& m)
 	{
 		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
 		if (!meshShader)
@@ -232,8 +393,8 @@ namespace engine
 			meshShader.value(),
 			taskShader.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
-			depthFormat,
-			drawFormat,
+			sChain.getDepthImageFormat(),
+			{ sChain.getDrawImageFormat() },
 			mPreset
 		);
 		if (err)
@@ -363,7 +524,7 @@ namespace engine
 			mPrimitiveRegistry.deleteBlock(m.meshData.hash);
 
 			mMeshletRegistry.deleteBlock(m.meshData.hash);
-		
+
 			mMaterialRegistry.deleteMaterials(m.mat);
 		}
 	}
@@ -426,11 +587,6 @@ namespace engine
 			mMaterialRegistry.setUpdated();
 		}
 
-		return {};
-	}
-
-	error meshletRenderer::updateGraphicsPreset()
-	{
 		return {};
 	}
 }

@@ -10,6 +10,8 @@
 *.userosscache
 *.sln.docstates
 *.fbx
+*.gltf
+*.glb
 assets/models
 assets/skybox
 assets/textures

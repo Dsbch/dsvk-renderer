@@ -68,8 +68,10 @@ namespace engine
 			std::shared_ptr<shader> taskShader,
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
-			VkFormat colorAttachmentFormat,
-			VkSampleCountFlagBits sampleCount
+			const std::vector<VkFormat>& colorAttachmentFormats,
+			VkSampleCountFlagBits sampleCount,
+			bool accumilatePipeline = false,
+			bool compositePipeline = false
 		);
 		void destroy();
 		
@@ -93,8 +95,10 @@ namespace engine
 			std::shared_ptr<shader> taskShader,
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
-			VkFormat colorAttachmentFormat,
-			graphicsPreset preset
+			const std::initializer_list<VkFormat>& colorAttachmentFormats,
+			graphicsPreset preset,
+			bool accumilatePipeline = false,
+			bool compositePipeline = false
 		);
 		error addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& mesh);
 		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID);
@@ -110,7 +114,8 @@ namespace engine
 			uint32_t cmdPipelineStartOffset;
 			uint32_t cmdPipelineEndOffset;
 		};
-		const std::map<pixelShaderHash, taskShaderRender> getPipelines() const;
+		const std::map<pixelShaderHash, taskShaderRender> getOpaquePipelines() const;
+		const std::pair<taskShaderRender, pipelineData> getBlendPipelines() const;
 
 		error updateCommandBuffer(submit& is);
 
@@ -125,6 +130,8 @@ namespace engine
 		
 		std::map<pixelShaderHash, taskShaderRender> mCmdMappings;
 		std::map<pixelShaderHash, pipelineData> mPipelines;
+		pipelineData mAccumilatePipeline;
+		pipelineData mCompositePipeline;
 	};
 	
 	struct materialRegistry

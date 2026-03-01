@@ -174,8 +174,10 @@ namespace engine
 		std::shared_ptr<shader> taskShader,
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
-		VkFormat colorAttachmentFormat,
-		VkSampleCountFlagBits sampleCount
+		const std::vector<VkFormat>& colorAttachmentFormats,
+		VkSampleCountFlagBits sampleCount,
+		bool accumilatePipeline,
+		bool compositePipeline
 	)
 	{
 		needUpdate = false;
@@ -203,12 +205,24 @@ namespace engine
 
 		pipeline.setMultisampling(sampleCount);
 
-		pipeline.disableBlending();
-
-		pipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		if (accumilatePipeline)
+		{
+			pipeline.enableBlendingOITAccumulation();
+			pipeline.enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
+		else if (compositePipeline)
+		{
+			pipeline.enableBlendingOITComposite();
+			pipeline.disableDepthtest();
+		}
+		else
+		{
+			pipeline.disableBlending();
+			pipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
 
 		//connect the image format we will draw into, from draw image
-		pipeline.setColorAttachmentFormat(colorAttachmentFormat);
+		pipeline.setColorAttachmentFormats(colorAttachmentFormats);
 		pipeline.setDepthFormat(depthFormat);
 
 		error err = pipeline.build(&pc, descriptorSets, true);
@@ -234,6 +248,9 @@ namespace engine
 		if (err)
 			return err;
 
+		mCompositePipeline = {};
+		mAccumilatePipeline = {};
+
 		return {};
 	}
 
@@ -254,8 +271,10 @@ namespace engine
 		std::shared_ptr<shader> taskShader,
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
-		VkFormat colorAttachmentFormat,
-		graphicsPreset preset
+		const std::initializer_list<VkFormat>& colorAttachmentFormats,
+		graphicsPreset preset,
+		bool accumilatePipeline,
+		bool compositePipeline
 	)
 	{
 		if (mPipelines.find(pixelShader->hash()) != mPipelines.end())
@@ -263,11 +282,27 @@ namespace engine
 
 		pipelineData pipeline{};
 
-		error err = pipeline.init(device, pixelShader, meshShader, taskShader, descriptorSets, depthFormat, colorAttachmentFormat, sampleCounts(preset.msaa));
+		error err = pipeline.init(
+			device, 
+			pixelShader, 
+			meshShader, 
+			taskShader, 
+			descriptorSets, 
+			depthFormat, 
+			colorAttachmentFormats, 
+			sampleCounts(preset.msaa),
+			accumilatePipeline,
+			compositePipeline
+		);
 		if (err)
 			return err;
 
-		mPipelines.insert({ pixelShader->hash(), pipeline });
+		if (accumilatePipeline)
+			mAccumilatePipeline = pipeline;
+		else if (compositePipeline)
+			mCompositePipeline = pipeline;
+		else
+			mPipelines.insert({ pixelShader->hash(), pipeline });
 
 		return {};
 	}
@@ -357,9 +392,21 @@ namespace engine
 		return false;
 	}
 
-	const std::map<pixelShaderHash, pipelineRegistry::taskShaderRender> pipelineRegistry::getPipelines() const
+	const std::map<pixelShaderHash, pipelineRegistry::taskShaderRender> pipelineRegistry::getOpaquePipelines() const
 	{
 		return mCmdMappings;
+	}
+
+	const std::pair<pipelineRegistry::taskShaderRender, pipelineData> pipelineRegistry::getBlendPipelines() const
+	{
+		pipelineRegistry::taskShaderRender fullOpaqueRender = {
+			.pipeline = mAccumilatePipeline.pipeline.getPipeline().first,
+			.layout = mAccumilatePipeline.pipeline.getPipeline().second,
+			.cmdPipelineStartOffset = 0,
+			.cmdPipelineEndOffset = uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD)),
+		};
+
+		return { fullOpaqueRender, mCompositePipeline };
 	}
 
 	error pipelineRegistry::updateCommandBuffer(submit& is)

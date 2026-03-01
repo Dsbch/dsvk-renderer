@@ -18,10 +18,15 @@ namespace engine
 		void setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(const image& img)>&& func);
 		void setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<texture>>(const imageWithMipLevels& img)>&& func);
 
+		withError<std::shared_ptr<shader>> getDefaultCompositeTaskShader();
+		withError<std::shared_ptr<shader>> getDefaultCompositeMeshShader();
+		withError<std::shared_ptr<shader>> getDefaultCompositePixelShader();
+		withError<std::shared_ptr<shader>> getDefaultAccumilateTaskShader();
+		withError<std::shared_ptr<shader>> getDefaultAccumilateMeshShader();
+		withError<std::shared_ptr<shader>> getDefaultAccumilatePixelShader();
 		withError<std::shared_ptr<shader>> getDefaultTaskShader();
 		withError<std::shared_ptr<shader>> getDefaultMeshShader();
 		withError<std::shared_ptr<shader>> getDefaultPixelShader();
-		withError<std::shared_ptr<shader>> getDefaultComputeShader();
 		withError<std::shared_ptr<shader>> getDefaultLineVertexShader();
 		withError<std::shared_ptr<shader>> getDefaultLinePixelShader();
 		withError<std::shared_ptr<shader>> loadShader(const std::string& path);

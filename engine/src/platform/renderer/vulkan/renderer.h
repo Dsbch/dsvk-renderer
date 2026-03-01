@@ -28,11 +28,11 @@ namespace engine
 		std::string getGpuName() const;
 		error checkError() const;
 		error changeViewPort(uint32_t width, uint32_t height);
-		
+
 		error addToRender(const model& m);
 		error updateInstance(const model& m);
 		void removeFromRender(const model& m);
-		
+
 		error render(renderer::renderCallIn in);
 
 		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
@@ -46,10 +46,10 @@ namespace engine
 		VkInstance mInstance;
 		VkPhysicalDevice mPhysicalDevice;
 		deviceLimits mDeviceLimits;
-		
+
 		VkSurfaceKHR mSurface;
 		swapChain mSwapChain;
-		
+
 		VkQueue mGraphicsQueue;
 		uint32_t mGraphicsQueueFamily;
 		submit mSubmit;
@@ -79,5 +79,10 @@ namespace engine
 
 		error updatePerDrawBuffer(renderer::renderCallIn in);
 		void chooseGraphicsPreset();
+		void setViewportAndSciccors(VkCommandBuffer cmd) const;
+		error drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error drawUI(VkCommandBuffer cmd);
 	};
 }

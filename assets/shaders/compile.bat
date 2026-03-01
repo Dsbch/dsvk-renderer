@@ -12,7 +12,7 @@ echo =====================================================
 echo.
 
 echo Compiling Mesh Shader...
-dxc -T ms_6_9 -E msmain -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshMs.spv vkMesh.hlsl
+dxc -T ms_6_9 -E msmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshMs.spv vkMesh.hlsl
 if %errorlevel% neq 0 (
     echo Mesh shader compilation failed!
     pause
@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Pixel Shader...
-dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
+dxc -T ps_6_9 -E psmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
 if %errorlevel% neq 0 (
     echo Pixel shader compilation failed!
     pause
@@ -34,7 +34,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Task Shader...
-dxc -T as_6_9 -E asmain -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
+dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
 if %errorlevel% neq 0 (
     echo Task shader compilation failed!
     pause
@@ -45,7 +45,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Vertex line Shader...
-dxc -T vs_6_9 -E vsmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkLineVs.spv vkLine.hlsl
+dxc -T vs_6_9 -E vsmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkLineVs.spv vkLine.hlsl
 if %errorlevel% neq 0 (
     echo Vertex line Shader compilation failed!
     pause
@@ -58,7 +58,7 @@ echo.
 echo.
 
 echo Compiling Pixel Line Shader...
-dxc -T ps_6_9 -E psmain -spirv -Fo -fvk-use-scalar-layout -Fo vkCompiled/vkLinePs.spv vkLine.hlsl
+dxc -T ps_6_9 -E psmain -fspv-debug=vulkan-with-source -spirv -Fo -fvk-use-scalar-layout -Fo vkCompiled/vkLinePs.spv vkLine.hlsl
 if %errorlevel% neq 0 (
     echo Pixel Line Shader compilation failed!
     pause
@@ -67,5 +67,66 @@ if %errorlevel% neq 0 (
 )
 
 echo.
+echo Compiling Accumulation Mesh Shader...
+dxc -T ms_6_9 -E msmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAccumilationMs.spv vkAccumilation.hlsl
+if %errorlevel% neq 0 (
+    echo Mesh shader compilation failed!
+    pause
+) else (
+    echo Mesh shader compiled successfully.
+)
 
+echo.
+
+echo Compiling Accumulation Pixel Shader...
+dxc -T ps_6_9 -E psmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshAccumilationPs.spv vkAccumilation.hlsl
+if %errorlevel% neq 0 (
+    echo Pixel shader compilation failed!
+    pause
+) else (
+    echo Pixel shader compiled successfully.
+)
+
+echo.
+
+echo Compiling Accumulation Task Shader...
+dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAccumilationAs.spv vkAccumilation.hlsl
+if %errorlevel% neq 0 (
+    echo Task shader compilation failed!
+    pause
+) else (
+    echo Task shader compiled successfully.
+)
+
+echo.
+echo Compiling Composite Mesh Shader...
+dxc -T ms_6_9 -E msmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshCompositeMs.spv vkComposite.hlsl
+if %errorlevel% neq 0 (
+    echo Mesh shader compilation failed!
+    pause
+) else (
+    echo Mesh shader compiled successfully.
+)
+
+echo.
+
+echo Compiling Composite Pixel Shader...
+dxc -T ps_6_9 -E psmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshCompositePs.spv vkComposite.hlsl
+if %errorlevel% neq 0 (
+    echo Pixel shader compilation failed!
+    pause
+) else (
+    echo Pixel shader compiled successfully.
+)
+
+echo.
+
+echo Compiling Composite Task Shader...
+dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshCompositeAs.spv vkComposite.hlsl
+if %errorlevel% neq 0 (
+    echo Task shader compilation failed!
+    pause
+) else (
+    echo Task shader compiled successfully.
+)
 pause
