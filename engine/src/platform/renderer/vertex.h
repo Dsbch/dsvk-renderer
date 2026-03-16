@@ -92,10 +92,10 @@ namespace engine
 
 	struct mesh
 	{
-		std::shared_ptr<std::vector<vertex>> vertex;
-		dataWithLodLevels<uint32_t> index;
-		dataWithLodLevels<uint32_t> primitive;
-		dataWithLodLevels<meshlet> mesh;
+		std::shared_ptr<std::vector<vertex>> vertices;
+		dataWithLodLevels<uint32_t> indices;
+		dataWithLodLevels<uint32_t> primitives;
+		dataWithLodLevels<meshlet> meshlets;
 
 		glm::vec3 bsCenter;
 		float bsRadius;
@@ -107,7 +107,7 @@ namespace engine
 			if (hash != 0)
 				return hash;
 
-			hash = crc32(reinterpret_cast<const uint8_t*>(vertex->data()), vertex->size() * sizeof(vertex) / sizeof(uint8_t));
+			hash = crc32(reinterpret_cast<const uint8_t*>(vertices->data()), vertices->size() * sizeof(vertices) / sizeof(uint8_t));
 
 			return hash;
 		}

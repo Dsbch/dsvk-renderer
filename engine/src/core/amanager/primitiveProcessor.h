@@ -9,7 +9,7 @@ struct cgltf_node;
 
 namespace engine
 {
-	struct primitive
+	struct primitives
 	{
 		std::vector<vertex> vertecies;
 		std::vector<uint32_t> indicies;
@@ -17,5 +17,5 @@ namespace engine
 
 	glm::mat4 getNodeWorldTransform(const cgltf_node* node);
 
-	primitive processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials);
+	primitives processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials);
 }

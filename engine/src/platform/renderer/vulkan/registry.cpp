@@ -307,7 +307,7 @@ namespace engine
 		return {};
 	}
 
-	error pipelineRegistry::addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& mesh)
+	error pipelineRegistry::addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& meshlets)
 	{
 		if (mPipelines.find(pixelShaderID) == mPipelines.end())
 			return { "pipeline doesn't exist" };
@@ -325,7 +325,7 @@ namespace engine
 
 		uint32_t baseOffset = meshletHandle.offset / uint32_t(sizeof(meshlet));
 
-		for (uint32_t i = 0; i < mesh.second; i++)
+		for (uint32_t i = 0; i < meshlets.second; i++)
 		{
 			meshCMD.push_back(
 				meshletShaderCMD{
@@ -333,9 +333,9 @@ namespace engine
 					.instanceOffset = perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
 					.meshletIndex = meshletHandle.bufferIndex,
 					.meshletOffset1 = baseOffset + i,
-					.meshletOffset2 = i < mesh.third - mesh.second ? baseOffset + i + mesh.second : std::numeric_limits<uint32_t>::max(),
-					.meshletOffset3 = i < mesh.fourth - mesh.third ? baseOffset + i + mesh.third : std::numeric_limits<uint32_t>::max(),
-					.meshletOffset4 = i < mesh.data->size() - mesh.fourth ? baseOffset + i + mesh.fourth : std::numeric_limits<uint32_t>::max()
+					.meshletOffset2 = i < meshlets.third - meshlets.second ? baseOffset + i + meshlets.second : std::numeric_limits<uint32_t>::max(),
+					.meshletOffset3 = i < meshlets.fourth - meshlets.third ? baseOffset + i + meshlets.third : std::numeric_limits<uint32_t>::max(),
+					.meshletOffset4 = i < meshlets.data->size() - meshlets.fourth ? baseOffset + i + meshlets.fourth : std::numeric_limits<uint32_t>::max()
 				}
 			);
 		}

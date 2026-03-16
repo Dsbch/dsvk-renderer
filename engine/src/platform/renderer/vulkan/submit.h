@@ -26,9 +26,9 @@ namespace engine
 		engine::error queue(const std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp);
 
 		std::vector<VkSubmitInfo2> getSumbitedCommands();
-		void deleteSubmitedCommands(size_t index);
+		void deleteSubmitedCommands(size_t indices);
 		std::vector<VkSemaphore> getCurrentSemaInUse();
-		void deleteSemaInUse(size_t index);
+		void deleteSemaInUse(size_t indices);
 	private:
 		VkDevice mDevice;
 		VkQueue mQueue;

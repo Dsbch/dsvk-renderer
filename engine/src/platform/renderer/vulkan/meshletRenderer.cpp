@@ -240,9 +240,9 @@ namespace engine
 
 	error meshletRenderer::initBlendingPipelines(VkDevice device, const swapChain& sChain)
 	{
-		auto mesh = mCtx->mAmanager->getDefaultAccumilateMeshShader();
-		if (!mesh)
-			return mesh.err();
+		auto meshlets = mCtx->mAmanager->getDefaultAccumilateMeshShader();
+		if (!meshlets)
+			return meshlets.err();
 		
 		auto task = mCtx->mAmanager->getDefaultAccumilateTaskShader();
 		if (!task)
@@ -255,7 +255,7 @@ namespace engine
 		error err = mPipelineRegistry.createPipeline(
 			device,
 			pixel.value(),
-			mesh.value(),
+			meshlets.value(),
 			task.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
@@ -266,9 +266,9 @@ namespace engine
 		if (err)
 			return err;
 
-		mesh = mCtx->mAmanager->getDefaultCompositeMeshShader();
-		if (!mesh)
-			return mesh.err();
+		meshlets = mCtx->mAmanager->getDefaultCompositeMeshShader();
+		if (!meshlets)
+			return meshlets.err();
 
 		task = mCtx->mAmanager->getDefaultCompositeTaskShader();
 		if (!task)
@@ -281,7 +281,7 @@ namespace engine
 		err = mPipelineRegistry.createPipeline(
 			device,
 			pixel.value(),
-			mesh.value(),
+			meshlets.value(),
 			task.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
@@ -411,15 +411,15 @@ namespace engine
 
 		auto handle = mVertexRegistry.addBlock(
 			m.meshData.hash,
-			m.meshData.vertex->data(),
-			m.meshData.vertex->size() * sizeof(vertex),
+			m.meshData.vertices->data(),
+			m.meshData.vertices->size() * sizeof(vertex),
 			is
 		);
 		if (!handle)
 			return handle.err();
 
 		// Upload geometry.
-		std::vector<meshlet> meshlets = *m.meshData.mesh.data.get();
+		std::vector<meshlet> meshlets = *m.meshData.meshlets.data.get();
 
 		for (auto& m : meshlets)
 		{
@@ -429,8 +429,8 @@ namespace engine
 
 		handle = mIndexRegistry.addBlock(
 			m.meshData.hash,
-			m.meshData.index.data->data(),
-			m.meshData.index.data->size() * sizeof(uint32_t),
+			m.meshData.indices.data->data(),
+			m.meshData.indices.data->size() * sizeof(uint32_t),
 			is
 		);
 		if (!handle)
@@ -444,8 +444,8 @@ namespace engine
 
 		handle = mPrimitiveRegistry.addBlock(
 			m.meshData.hash,
-			m.meshData.primitive.data->data(),
-			m.meshData.primitive.data->size() * sizeof(uint32_t),
+			m.meshData.primitives.data->data(),
+			m.meshData.primitives.data->size() * sizeof(uint32_t),
 			is
 		);
 		if (!handle)
@@ -481,7 +481,7 @@ namespace engine
 			m.meshData.hash,
 			handle.value(),
 			perInstanceHandle.value(),
-			m.meshData.mesh
+			m.meshData.meshlets
 		);
 		if (err)
 			return err;

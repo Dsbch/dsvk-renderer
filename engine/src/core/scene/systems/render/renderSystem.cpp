@@ -129,7 +129,7 @@ namespace engine
 
 	error renderSystem::handleNewEntities(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, mesh, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
+		for (auto [e, uid, meshlets, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
 		{
 			float scale = std::max(1.0f, tr.scale.x);
 			scale = std::max(scale, tr.scale.y);
@@ -138,15 +138,15 @@ namespace engine
 			model m{
 				.id = uid.uid,
 				.instanceAttributes = perInstanceAttr{
-					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * mesh.meshData.bsCenter),
-					.bsWorldRadius = mesh.meshData.bsRadius * scale,
+					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * meshlets.meshData.bsCenter),
+					.bsWorldRadius = meshlets.meshData.bsRadius * scale,
 					.modelTransform = transform{
 						.translation = tr.translation,
 						.scale = tr.scale,
 						.rotation = tr.rotation,
 					},
 				},
-				.meshData = mesh.meshData,
+				.meshData = meshlets.meshData,
 				.mat = material.mat,
 			};
 
@@ -162,11 +162,11 @@ namespace engine
 
 	error renderSystem::handleDeletedEntities(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, mesh, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, deleteComponent>().each())
+		for (auto [e, uid, meshlets, material, transform] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, deleteComponent>().each())
 		{
 			model m{
 				.id = uid.uid,
-				.meshData = mesh.meshData,
+				.meshData = meshlets.meshData,
 				.mat = material.mat,
 			};
 
@@ -180,7 +180,7 @@ namespace engine
 
 	error renderSystem::handleUpdatedEntities(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, mesh, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>().each())
+		for (auto [e, uid, meshlets, material, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>().each())
 		{
 			float scale = std::max(1.0f, tr.scale.x);
 			scale = std::max(scale, tr.scale.y);
@@ -189,15 +189,15 @@ namespace engine
 			model m{
 				.id = uid.uid,
 				.instanceAttributes = perInstanceAttr{
-					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * mesh.meshData.bsCenter),
-					.bsWorldRadius = mesh.meshData.bsRadius * scale,
+					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * meshlets.meshData.bsCenter),
+					.bsWorldRadius = meshlets.meshData.bsRadius * scale,
 					.modelTransform = transform{
 						.translation = tr.translation,
 						.scale = tr.scale,
 						.rotation = tr.rotation,
 					},
 				},
-				.meshData = mesh.meshData,
+				.meshData = meshlets.meshData,
 				.mat = material.mat,
 			};
 

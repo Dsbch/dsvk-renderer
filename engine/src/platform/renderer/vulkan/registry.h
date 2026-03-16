@@ -100,7 +100,7 @@ namespace engine
 			bool accumilatePipeline = false,
 			bool compositePipeline = false
 		);
-		error addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& mesh);
+		error addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& meshlets);
 		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID);
 		
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);

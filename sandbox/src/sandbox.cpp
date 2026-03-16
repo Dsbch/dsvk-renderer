@@ -62,7 +62,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::t)
 			{
-				for (auto [e, uid, mesh, material, tr] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
+				for (auto [e, uid, meshlets, material, tr] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{
 					engine::entity entity{ mCtx, e, registry };
 
@@ -88,7 +88,7 @@ namespace sandbox
 			if (event->getKey() == engine::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/bottles.glb",
+					"../assets/catapult.glb",
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.coneWieght,
@@ -174,7 +174,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::q)
 			{
-				for (auto [e, uid, mesh, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
+				for (auto [e, uid, meshlets, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{
 					engine::entity entity{ mCtx, e, registry };
 

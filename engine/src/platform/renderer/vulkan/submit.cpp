@@ -214,11 +214,11 @@ namespace engine
 		return result;
 	}
 
-	void submit::deleteSubmitedCommands(size_t index)
+	void submit::deleteSubmitedCommands(size_t indices)
 	{
 		std::lock_guard l{ mSubmitedCommandsMu };
 
-		mSubmitedCommands.erase(mSubmitedCommands.begin(), mSubmitedCommands.begin() + index);
+		mSubmitedCommands.erase(mSubmitedCommands.begin(), mSubmitedCommands.begin() + indices);
 	}
 
 	std::vector<VkSemaphore> submit::getCurrentSemaInUse()
@@ -233,12 +233,12 @@ namespace engine
 		return result;
 	}
 
-	void submit::deleteSemaInUse(size_t index)
+	void submit::deleteSemaInUse(size_t indices)
 	{
 		std::lock_guard m{ mu };
 
-		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.begin() + index));
+		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.begin() + indices));
 
-		semaInUse.erase(semaInUse.begin(), semaInUse.begin() + index);
+		semaInUse.erase(semaInUse.begin(), semaInUse.begin() + indices);
 	}
 }

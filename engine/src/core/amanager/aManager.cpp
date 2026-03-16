@@ -309,11 +309,11 @@ namespace engine
 			.id = genUID(),
 		};
 
-		auto mesh = processMesh(data, maxVert, maxTriangles, coneWieght, errorLevel);
-		if (!mesh)
-			return mesh.err();
+		auto meshlets = processMesh(data, maxVert, maxTriangles, coneWieght, errorLevel);
+		if (!meshlets)
+			return meshlets.err();
 
-		result.meshData = mesh.value();
+		result.meshData = meshlets.value();
 
 		auto materials = processMaterials(baseDir, data->materials, int(data->materials_count));
 		if (!materials)

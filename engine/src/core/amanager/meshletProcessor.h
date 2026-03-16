@@ -9,7 +9,7 @@ namespace engine
 {
 	void calculateTangents(
 		std::vector<vertex>& v,
-		const std::vector<uint32_t>& index
+		const std::vector<uint32_t>& indices
 	);
 
 	std::vector<uint32_t> repackPrimitives(
