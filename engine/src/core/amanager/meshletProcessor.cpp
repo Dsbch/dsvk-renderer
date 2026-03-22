@@ -301,22 +301,20 @@ namespace engine
 		return {};
 	}
 
-	withError<mesh> processMesh(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
+	withError<std::vector<mesh>> processMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
 	{
-		mesh result{
-			.vertices = std::make_shared<std::vector<vertex>>(),
-			.indices = dataWithLodLevels<uint32_t>{
-				.data = std::make_shared<std::vector<uint32_t>>()
-			},
-			.primitives = dataWithLodLevels<uint32_t>{
-				.data = std::make_shared<std::vector<uint32_t>>()
-			},
-			.meshlets = dataWithLodLevels<meshlet>{
-				.data = std::make_shared<std::vector<meshlet>>()
-			},
-		};
+		std::vector<mesh> result{};
 
-		auto generateLodLevel = [&](const std::vector<vertex>& v, const std::vector<uint32_t> i, size_t targetIndexCount) -> error
+		auto generateLodLevel = [](
+				const std::vector<vertex>& v, 
+				const std::vector<uint32_t> i,
+				mesh &crntMesh,
+				size_t targetIndexCount,
+				size_t maxVert,
+				size_t maxTriangles,
+				float coneWeight,
+				float errorLevel
+			) -> error
 			{
 				std::vector<meshlet> meshlets;
 				std::vector<uint32_t> indices;
@@ -331,7 +329,7 @@ namespace engine
 					maxVert,
 					maxTriangles,
 					coneWeight,
-					0.01f,
+					errorLevel,
 					targetIndexCount
 				);
 				if (err)
@@ -341,24 +339,24 @@ namespace engine
 
 				for (auto& m : meshlets)
 				{
-					m.indexBufferOffset += uint32_t(result.indices.data->size());
-					m.triangleBufferOffset += uint32_t(result.primitives.data->size());
+					m.indexBufferOffset += uint32_t(crntMesh.indices.data->size());
+					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data->size());
 				}
 
-				result.indices.data->insert(
-					result.indices.data->end(),
+				crntMesh.indices.data->insert(
+					crntMesh.indices.data->end(),
 					std::move_iterator(indices.begin()),
 					std::move_iterator(indices.end())
 				);
 
-				result.primitives.data->insert(
-					result.primitives.data->end(),
+				crntMesh.primitives.data->insert(
+					crntMesh.primitives.data->end(),
 					std::move_iterator(repackedPrimitives.begin()),
 					std::move_iterator(repackedPrimitives.end())
 				);
 
-				result.meshlets.data->insert(
-					result.meshlets.data->end(),
+				crntMesh.meshlets.data->insert(
+					crntMesh.meshlets.data->end(),
 					std::move_iterator(meshlets.begin()),
 					std::move_iterator(meshlets.end())
 				);
@@ -366,8 +364,7 @@ namespace engine
 				return {};
 			};
 
-		// For tangent calculation and lod calculation.
-		std::vector<uint32_t> remappedIndexBuffer;
+		LOGDEBUG("mesh count: {}", data->meshes_count);
 
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
 		{
@@ -376,11 +373,27 @@ namespace engine
 				continue;
 
 			glm::mat4 transform = getNodeWorldTransform(node);
-			const cgltf_mesh& mesh = *node->mesh;
+			const cgltf_mesh& gtlfMesh = *node->mesh;
 
-			for (size_t pri = 0; pri < mesh.primitives_count; ++pri)
+			mesh crntMesh = {
+				.vertices = std::make_shared<std::vector<vertex>>(),
+				.indices = dataWithLodLevels<uint32_t>{
+					.data = std::make_shared<std::vector<uint32_t>>()
+				},
+				.primitives = dataWithLodLevels<uint32_t>{
+					.data = std::make_shared<std::vector<uint32_t>>()
+				},
+				.meshlets = dataWithLodLevels<meshlet>{
+					.data = std::make_shared<std::vector<meshlet>>()
+				},
+			};
+
+			// For tangent calculation and lod calculation.
+			std::vector<uint32_t> remappedIndexBuffer;
+
+			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
 			{
-				primitives crntPrimitive = processPrimitive(mesh.primitives[pri], transform, data->materials);
+				primitives crntPrimitive = processPrimitive(gtlfMesh.primitives[pri], transform, data->materials);
 
 				if (crntPrimitive.indicies.size() == 0 || crntPrimitive.vertecies.size() == 0)
 					continue;
@@ -406,74 +419,76 @@ namespace engine
 
 				// Write indices for later lod level generation.
 				for (auto& i : remappedIndex)
-					remappedIndexBuffer.push_back(i + uint32_t(result.vertices->size()));
+					remappedIndexBuffer.push_back(i + uint32_t(crntMesh.vertices->size()));
 
 				for (auto& m : meshlets)
 				{
-					m.indexBufferOffset += uint32_t(result.indices.data->size());
-					m.triangleBufferOffset += uint32_t(result.primitives.data->size());
+					m.indexBufferOffset += uint32_t(crntMesh.indices.data->size());
+					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data->size());
 				}
 
 				for (auto& i : indices)
-					i += uint32_t(result.vertices->size());
+					i += uint32_t(crntMesh.vertices->size());
 
-				result.indices.data->insert(
-					result.indices.data->end(),
+				crntMesh.indices.data->insert(
+					crntMesh.indices.data->end(),
 					std::move_iterator(indices.begin()),
 					std::move_iterator(indices.end())
 				);
 
-				result.primitives.data->insert(
-					result.primitives.data->end(),
+				crntMesh.primitives.data->insert(
+					crntMesh.primitives.data->end(),
 					std::move_iterator(repackedPrimitives.begin()),
 					std::move_iterator(repackedPrimitives.end())
 				);
 
-				result.meshlets.data->insert(
-					result.meshlets.data->end(),
+				crntMesh.meshlets.data->insert(
+					crntMesh.meshlets.data->end(),
 					std::move_iterator(meshlets.begin()),
 					std::move_iterator(meshlets.end())
 				);
 
-				result.vertices->insert(
-					result.vertices->end(),
+				crntMesh.vertices->insert(
+					crntMesh.vertices->end(),
 					std::move_iterator(remappedVertex.begin()),
 					std::move_iterator(remappedVertex.end())
 				);
 			}
+
+			auto sphere = calculateBoundingSphere(*crntMesh.vertices.get());
+
+			crntMesh.bsCenter = sphere.first;
+			crntMesh.bsRadius = sphere.second;
+
+			// Generate lod levels.
+			crntMesh.indices.second = uint32_t(crntMesh.indices.data->size());
+			crntMesh.primitives.second = uint32_t(crntMesh.primitives.data->size());
+			crntMesh.meshlets.second = uint32_t(crntMesh.meshlets.data->size());
+
+			error err = generateLodLevel(*crntMesh.vertices.get(), remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel);
+			if (err)
+				return err;
+
+			crntMesh.indices.third = uint32_t(crntMesh.indices.data->size());
+			crntMesh.primitives.third = uint32_t(crntMesh.primitives.data->size());
+			crntMesh.meshlets.third = uint32_t(crntMesh.meshlets.data->size());
+
+			err = generateLodLevel(*crntMesh.vertices.get(), remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel);
+			if (err)
+				return err;
+
+			crntMesh.indices.fourth = uint32_t(crntMesh.indices.data->size());
+			crntMesh.primitives.fourth = uint32_t(crntMesh.primitives.data->size());
+			crntMesh.meshlets.fourth = uint32_t(crntMesh.meshlets.data->size());
+
+			err = generateLodLevel(*crntMesh.vertices.get(), remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel);
+			if (err)
+				return err;
+
+			crntMesh.generateHash();
+
+			result.push_back(std::move(crntMesh));
 		}
-
-		auto sphere = calculateBoundingSphere(*result.vertices.get());
-
-		result.bsCenter = sphere.first;
-		result.bsRadius = sphere.second;
-
-		// Generate lod levels.
-		result.indices.second = uint32_t(result.indices.data->size());
-		result.primitives.second = uint32_t(result.primitives.data->size());
-		result.meshlets.second = uint32_t(result.meshlets.data->size());
-
-		error err = generateLodLevel(*result.vertices.get(), remappedIndexBuffer, remappedIndexBuffer.size() / 2);
-		if (err)
-			return err;
-
-		result.indices.third = uint32_t(result.indices.data->size());
-		result.primitives.third = uint32_t(result.primitives.data->size());
-		result.meshlets.third = uint32_t(result.meshlets.data->size());
-
-		err = generateLodLevel(*result.vertices.get(), remappedIndexBuffer, remappedIndexBuffer.size() / 3);
-		if (err)
-			return err;
-
-		result.indices.fourth = uint32_t(result.indices.data->size());
-		result.primitives.fourth = uint32_t(result.primitives.data->size());
-		result.meshlets.fourth = uint32_t(result.meshlets.data->size());
-
-		err = generateLodLevel(*result.vertices.get(), remappedIndexBuffer, remappedIndexBuffer.size() / 4);
-		if (err)
-			return err;
-
-		result.generateHash();
 
 		return result;
 	}

@@ -25,6 +25,17 @@ namespace engine
 		glm::vec4 tangent;
 	};
 
+	struct animVertex
+	{
+		glm::vec3 position;
+		uint32_t localMaterialOffset;
+		glm::vec2 textureCoords;
+		glm::vec3 normal;
+		glm::vec4 tangent;
+		uint32_t bones[4];
+		float weights[4];
+	};
+
 	struct transform
 	{
 		glm::vec3 translation;
@@ -87,12 +98,13 @@ namespace engine
 		uint32_t second;
 		uint32_t third;
 		uint32_t fourth;
-		std::shared_ptr<std::vector<T>> data;
+		std::shared_ptr<std::vector<T>> data = nullptr;
 	};
 
 	struct mesh
 	{
-		std::shared_ptr<std::vector<vertex>> vertices;
+		std::shared_ptr<std::vector<vertex>> vertices = nullptr;
+		std::shared_ptr<std::vector<animVertex>> animVertices = nullptr;
 		dataWithLodLevels<uint32_t> indices;
 		dataWithLodLevels<uint32_t> primitives;
 		dataWithLodLevels<meshlet> meshlets;
@@ -148,7 +160,7 @@ namespace engine
 	{
 		uint32_t id;
 		perInstanceAttr instanceAttributes;
-		mesh meshData;
+		std::vector<mesh> meshData;
 		materials mat;
 	};
 

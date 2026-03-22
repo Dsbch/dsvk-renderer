@@ -257,9 +257,115 @@ namespace engine
 		}
 	}
 
-	withError<std::vector<images>> processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount)
+	image generateNormalImage(int w, int h, int ch)
+	{
+		image result = {
+			.data = {},
+			.w = w,
+			.h = h,
+			.channels = ch,
+		};
+
+		result.data.resize(result.w * result.h * result.channels);
+
+		auto ptr = result.data.begin();
+		for (int y = 0; y < result.h; y++)
+		{
+			for (int w = 0; w < result.w; w++)
+			{
+				ptr[0] = 128;
+				ptr[1] = 128;
+				ptr[2] = 255;
+				ptr[3] = 255;
+
+				ptr += 4;
+			}
+		}
+
+		return result;
+	}
+
+	image generateAlbedoImage(int w, int h, int ch, const float albedoFactor[4])
+	{
+		image result = {
+			.data = {},
+			.w = w,
+			.h = h,
+			.channels = ch,
+		};
+		result.data.resize(result.w * result.h * result.channels);
+
+		auto ptr = result.data.begin();
+		for (int y = 0; y < result.h; y++)
+		{
+			for (int w = 0; w < result.w; w++)
+			{
+				ptr[0] = uint8_t(toSRGB(albedoFactor[0]) * 255.0f);
+				ptr[1] = uint8_t(toSRGB(albedoFactor[1]) * 255.0f);
+				ptr[2] = uint8_t(toSRGB(albedoFactor[2]) * 255.0f);
+				ptr[3] = uint8_t(albedoFactor[3] * 255.0f);
+
+				ptr += 4;
+			}
+		}
+
+		return result;
+	}
+
+	image generateMetallicRoughnessImage(int w, int h, int ch, float metallicFactor, float roughnessFactor)
+	{
+		image result = {
+			.data = {},
+			.w = w,
+			.h = h,
+			.channels = ch,
+		};
+		result.data.resize(result.w * result.h * result.channels);
+
+		auto ptr = result.data.begin();
+		for (int y = 0; y < result.h; y++)
+		{
+			for (int w = 0; w < result.w; w++)
+			{
+				ptr[0] = 0;
+				ptr[1] = uint8_t(toSRGB(roughnessFactor) * 255.0f);
+				ptr[2] = uint8_t(toSRGB(metallicFactor) * 255.0f);
+				ptr[3] = 0;
+
+				ptr += 4;
+			}
+		}
+
+		return result;
+	}
+
+	images genDefaultMaterial(int w, int h, int ch)
+	{
+		constexpr float albedoFactor[4] = {0.7f, 0.5f, 0.45f, 1.0f};
+
+		images result{
+			.albedo = generateAlbedoImage(w, h, ch, albedoFactor),
+			.normal = generateNormalImage(w, h, ch),
+			.metallicRoughness = generateMetallicRoughnessImage(w, h, ch, 0.5f, 0.5f),
+		};
+
+		return result;
+	};
+
+	withError<std::vector<images>> processMaterials(
+		const std::filesystem::path& baseDir,
+		const cgltf_material* materialsPtr,
+		int materialCount
+	)
 	{
 		std::vector<images> result;
+
+		if (materialsPtr == nullptr || materialCount <= 0)
+		{
+			result.push_back(genDefaultMaterial(1024, 1024, 4));
+
+			return result;
+		}
 
 		for (int i = 0; i < materialCount; i++)
 		{
@@ -324,28 +430,7 @@ namespace engine
 				}
 				else
 				{
-					albedo = image{
-						.data = {},
-						.w = w,
-						.h = h,
-						.padding = padding,
-						.channels = 4,
-					};
-					albedo.data.resize(albedo.w * albedo.h * albedo.channels);
-
-					auto ptr = albedo.data.begin();
-					for (int y = 0; y < albedo.h; y++)
-					{
-						for (int w = 0; w < albedo.w; w++)
-						{
-							ptr[0] = uint8_t(toSRGB(albedoFactor[0]) * 255.0f);
-							ptr[1] = uint8_t(toSRGB(albedoFactor[1]) * 255.0f);
-							ptr[2] = uint8_t(toSRGB(albedoFactor[2]) * 255.0f);
-							ptr[3] = uint8_t(albedoFactor[3] * 255.0f);
-
-							ptr += 4;
-						}
-					}
+					albedo = generateAlbedoImage(w, h, 4, albedoFactor);
 				}
 
 				// metallic-roughness.
@@ -361,28 +446,7 @@ namespace engine
 				}
 				else
 				{
-					metallicRoughness = image{
-						.data = {},
-						.w = w,
-						.h = h,
-						.padding = padding,
-						.channels = 4,
-					};
-					metallicRoughness.data.resize(metallicRoughness.w * metallicRoughness.h * metallicRoughness.channels);
-
-					auto ptr = metallicRoughness.data.begin();
-					for (int y = 0; y < metallicRoughness.h; y++)
-					{
-						for (int w = 0; w < metallicRoughness.w; w++)
-						{
-							ptr[0] = 0;
-							ptr[1] = uint8_t(toSRGB(material->pbr_metallic_roughness.roughness_factor) * 255.0f);
-							ptr[2] = uint8_t(toSRGB(material->pbr_metallic_roughness.metallic_factor) * 255.0f);
-							ptr[3] = 0;
-
-							ptr += 4;
-						}
-					}
+					metallicRoughness = generateMetallicRoughnessImage(w, h, 4, material->pbr_metallic_roughness.metallic_factor, material->pbr_metallic_roughness.roughness_factor);
 				}
 
 				// normal.
@@ -396,28 +460,7 @@ namespace engine
 				}
 				else
 				{
-					normal = image{
-						.data = {},
-						.w = w,
-						.h = h,
-						.padding = padding,
-						.channels = 4,
-					};
-					normal.data.resize(normal.w * normal.h * normal.channels);
-
-					auto ptr = normal.data.begin();
-					for (int y = 0; y < normal.h; y++)
-					{
-						for (int w = 0; w < normal.w; w++)
-						{
-							ptr[0] = 128;
-							ptr[1] = 128;
-							ptr[2] = 255;
-							ptr[3] = 255;
-
-							ptr += 4;
-						}
-					}
+					normal = generateNormalImage(w, h, 4);
 				}
 
 				// oclussion, put in normal aplha channel.

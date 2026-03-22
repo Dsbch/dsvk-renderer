@@ -307,40 +307,40 @@ namespace engine
 		return {};
 	}
 
-	error pipelineRegistry::addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& meshlets)
+	error pipelineRegistry::addInstance(const pipelineRegistry::addInstanceParams& params)
 	{
-		if (mPipelines.find(pixelShaderID) == mPipelines.end())
+		if (mPipelines.find(params.pixelShaderID) == mPipelines.end())
 			return { "pipeline doesn't exist" };
 
-		pipelineData& pipeline = mPipelines[pixelShaderID];
+		pipelineData& pipeline = mPipelines[params.pixelShaderID];
 
-		if (pipeline.entityCmd.find(instanceID) != pipeline.entityCmd.end())
+		if (pipeline.entityCmd.find(params.instanceID) != pipeline.entityCmd.end())
 			return {};
 
 		pipeline.needUpdate = true;
 
-		pipeline.instanceMeshCount[meshID]++;
-
-		std::vector<meshletShaderCMD> meshCMD;
-
-		uint32_t baseOffset = meshletHandle.offset / uint32_t(sizeof(meshlet));
-
-		for (uint32_t i = 0; i < meshlets.second; i++)
+		for (auto& m : params.meshesData)
 		{
-			meshCMD.push_back(
-				meshletShaderCMD{
-					.instanceIndex = perInstanceHandle.bufferIndex,
-					.instanceOffset = perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
-					.meshletIndex = meshletHandle.bufferIndex,
-					.meshletOffset1 = baseOffset + i,
-					.meshletOffset2 = i < meshlets.third - meshlets.second ? baseOffset + i + meshlets.second : std::numeric_limits<uint32_t>::max(),
-					.meshletOffset3 = i < meshlets.fourth - meshlets.third ? baseOffset + i + meshlets.third : std::numeric_limits<uint32_t>::max(),
-					.meshletOffset4 = i < meshlets.data->size() - meshlets.fourth ? baseOffset + i + meshlets.fourth : std::numeric_limits<uint32_t>::max()
-				}
-			);
+			pipeline.instanceMeshCount[m.meshID]++;
+			
+			uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
+
+			for (uint32_t i = 0; i < m.meshlets.second; i++)
+			{
+				pipeline.entityCmd[params.instanceID].push_back(
+					meshletShaderCMD{
+						.instanceIndex = params.perInstanceHandle.bufferIndex,
+						.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
+						.meshletIndex = m.meshletHandle.bufferIndex,
+						.meshletOffset1 = baseOffset + i,
+						.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
+						.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
+						.meshletOffset4 = i < m.meshlets.data->size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max()
+					}
+				);
+			}
 		}
 
-		pipeline.entityCmd[instanceID] = meshCMD;
 
 		return {};
 	}

@@ -167,7 +167,32 @@ namespace sandbox
 
 				auto tr = generateTransform();
 
-				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.01f }, tr.rotation);
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
+
+				e.addComponent<engine::newEntityComponent>();
+			}
+
+			if (event->getKey() == engine::y)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/bistro_outside.glb");
+				if (!loadedModel)
+					return loadedModel.err();
+
+				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
+				if (!pixel)
+					return pixel.err();
+
+				engine::entity e{ mCtx, registry };
+
+				loadedModel.value().mat.pixelShader = pixel.value();
+
+				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
+
+				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
+
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 1.0f }, tr.rotation);
 
 				e.addComponent<engine::newEntityComponent>();
 			}

@@ -409,63 +409,6 @@ namespace engine
 		perInstanceAttr attr = m.instanceAttributes;
 		attr.globalMaterialOffset = materialOffsets.value();
 
-		auto handle = mVertexRegistry.addBlock(
-			m.meshData.hash,
-			m.meshData.vertices->data(),
-			m.meshData.vertices->size() * sizeof(vertex),
-			is
-		);
-		if (!handle)
-			return handle.err();
-
-		// Upload geometry.
-		std::vector<meshlet> meshlets = *m.meshData.meshlets.data.get();
-
-		for (auto& m : meshlets)
-		{
-			m.vertexBufferOffset += handle.value().offset / uint32_t(sizeof(vertex));
-			m.vertexBufferIndex = handle.value().bufferIndex;
-		}
-
-		handle = mIndexRegistry.addBlock(
-			m.meshData.hash,
-			m.meshData.indices.data->data(),
-			m.meshData.indices.data->size() * sizeof(uint32_t),
-			is
-		);
-		if (!handle)
-			return handle.err();
-
-		for (auto& m : meshlets)
-		{
-			m.indexBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-			m.indexBufferIndex = handle.value().bufferIndex;
-		}
-
-		handle = mPrimitiveRegistry.addBlock(
-			m.meshData.hash,
-			m.meshData.primitives.data->data(),
-			m.meshData.primitives.data->size() * sizeof(uint32_t),
-			is
-		);
-		if (!handle)
-			return handle.err();
-
-		for (auto& m : meshlets)
-		{
-			m.triangleBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-			m.triangleBufferIndex = handle.value().bufferIndex;
-		}
-
-		handle = mMeshletRegistry.addBlock(
-			m.meshData.hash,
-			meshlets.data(),
-			meshlets.size() * sizeof(meshlet),
-			is
-		);
-		if (!handle)
-			return handle.err();
-
 		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
 			m.id,
 			&attr,
@@ -475,14 +418,81 @@ namespace engine
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();
 
-		err = mPipelineRegistry.addInstance(
-			m.mat.pixelShader->hash(),
-			m.id,
-			m.meshData.hash,
-			handle.value(),
-			perInstanceHandle.value(),
-			m.meshData.meshlets
-		);
+		pipelineRegistry::addInstanceParams addParams{
+			.pixelShaderID = m.mat.pixelShader->hash(),
+			.instanceID = m.id,
+			.perInstanceHandle = perInstanceHandle.value(),
+			.meshesData = {},
+		};
+
+		for (auto& crntMesh : m.meshData)
+		{
+			// Upload geometry.
+			auto handle = mVertexRegistry.addBlock(
+				crntMesh.hash,
+				crntMesh.vertices->data(),
+				crntMesh.vertices->size() * sizeof(vertex),
+				is
+			);
+			if (!handle)
+				return handle.err();
+
+			std::vector<meshlet> meshlets = *crntMesh.meshlets.data.get();
+
+			for (auto& m : meshlets)
+			{
+				m.vertexBufferOffset += handle.value().offset / uint32_t(sizeof(vertex));
+				m.vertexBufferIndex = handle.value().bufferIndex;
+			}
+
+			handle = mIndexRegistry.addBlock(
+				crntMesh.hash,
+				crntMesh.indices.data->data(),
+				crntMesh.indices.data->size() * sizeof(uint32_t),
+				is
+			);
+			if (!handle)
+				return handle.err();
+
+			for (auto& m : meshlets)
+			{
+				m.indexBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
+				m.indexBufferIndex = handle.value().bufferIndex;
+			}
+
+			handle = mPrimitiveRegistry.addBlock(
+				crntMesh.hash,
+				crntMesh.primitives.data->data(),
+				crntMesh.primitives.data->size() * sizeof(uint32_t),
+				is
+			);
+			if (!handle)
+				return handle.err();
+
+			for (auto& m : meshlets)
+			{
+				m.triangleBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
+				m.triangleBufferIndex = handle.value().bufferIndex;
+			}
+
+			handle = mMeshletRegistry.addBlock(
+				crntMesh.hash,
+				meshlets.data(),
+				meshlets.size() * sizeof(meshlet),
+				is
+			);
+			if (!handle)
+				return handle.err();
+
+			addParams.meshesData.push_back(pipelineRegistry::meshes{
+					.meshID = crntMesh.hash,
+					.meshletHandle = handle.value(),
+					.meshlets = crntMesh.meshlets,
+				}
+			);
+		}
+
+		err = mPipelineRegistry.addInstance(addParams);
 		if (err)
 			return err;
 
@@ -511,21 +521,24 @@ namespace engine
 	{
 		mPerInstanceRegistry.deleteBlock(m.id);
 
-		// Remove instance.
-		mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, m.meshData.hash);
+		for (auto& crntMesh : m.meshData) 
+{
+			// Remove instance.
+			mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, crntMesh.hash);
 
-		// Mesh isn't used.
-		if (!mPipelineRegistry.meshIsUsed(m.meshData.hash))
-		{
-			mVertexRegistry.deleteBlock(m.meshData.hash);
+			// Mesh isn't used.
+			if (!mPipelineRegistry.meshIsUsed(crntMesh.hash))
+			{
+				mVertexRegistry.deleteBlock(crntMesh.hash);
 
-			mIndexRegistry.deleteBlock(m.meshData.hash);
+				mIndexRegistry.deleteBlock(crntMesh.hash);
 
-			mPrimitiveRegistry.deleteBlock(m.meshData.hash);
+				mPrimitiveRegistry.deleteBlock(crntMesh.hash);
 
-			mMeshletRegistry.deleteBlock(m.meshData.hash);
+				mMeshletRegistry.deleteBlock(crntMesh.hash);
 
-			mMaterialRegistry.deleteMaterials(m.mat);
+				mMaterialRegistry.deleteMaterials(m.mat);
+			}
 		}
 	}
 

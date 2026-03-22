@@ -112,10 +112,10 @@ namespace engine
 						float weights[4]{};
 						cgltf_accessor_read_float(weightsAccessor, i, weights, 4);
 
-						printf("Vertex %zu:\n", i);
+						//printf("Vertex %zu:\n", i);
 						for (int j = 0; j < 4; j++)
 						{
-							printf("joint[%d] = %u, weight = %.4f\n", j, joints[j], weights[j]);
+							//printf("joint[%d] = %u, weight = %.4f\n", j, joints[j], weights[j]);
 						}
 					}
 

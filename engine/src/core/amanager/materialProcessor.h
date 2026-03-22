@@ -40,5 +40,11 @@ namespace engine
 
 	void applyMetallicRoughnessFactor(image& img, float metallic, float roughness);
 
+
+	image generateNormalImage(int w, int h, int ch);
+	image generateAlbedoImage(int w, int h, int ch, const float albedoFactor[4]);
+	image generateMetallicRoughnessImage(int w, int h, int ch, float metallicFactor, float roughnessFactor);
+	images genDefaultMaterial(int w, int h, int ch);
+
 	withError<std::vector<images>> processMaterials(const std::filesystem::path& baseDir, const cgltf_material* materialsPtr, int materialCount);
 }

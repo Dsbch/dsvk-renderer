@@ -65,8 +65,8 @@ void asmain(
     
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
         uint selectedLod = selectLodLevel(drawData, instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
-            uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
-            uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
+        uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
+        uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
     
         // Still have meshlets for that lodLevel.
             if (meshletOffset != maxUint)

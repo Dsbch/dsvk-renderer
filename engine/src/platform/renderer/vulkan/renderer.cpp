@@ -92,7 +92,8 @@ namespace engine
 	{
 		vkb::InstanceBuilder builder;
 
-		auto inst_ret = builder.set_app_name(mCtx->config.inner.app.name.c_str())
+		auto inst_ret = builder
+			.set_app_name(mCtx->config.inner.app.name.c_str())
 #ifdef DEBUG
 			.request_validation_layers(true)
 			// enable printf in shaders.

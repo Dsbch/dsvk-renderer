@@ -61,10 +61,10 @@ namespace engine
 	struct meshComponent
 	{
 		uint32_t uid;
-		mesh meshData;
+		std::vector<mesh> meshData;
 
-		meshComponent(mesh meshData)
-			: meshData(meshData), uid(meshData.hash) {
+		meshComponent(std::vector<mesh> meshData)
+			: meshData(meshData), uid(genUID()) {
 		}
 	};
 

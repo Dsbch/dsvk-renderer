@@ -12,6 +12,7 @@ namespace engine
 	struct primitives
 	{
 		std::vector<vertex> vertecies;
+		std::vector<animVertex> animVertecies;
 		std::vector<uint32_t> indicies;
 	};
 

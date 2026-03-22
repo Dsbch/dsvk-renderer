@@ -122,12 +122,6 @@ namespace engine {
 			return mStorage.value;
 		}
 
-		std::string& errorString() const
-		{
-			if (mHasValue) throw std::logic_error("Accessing error when value is present");
-			return mStorage.err.err();
-		}
-
 		error& err()
 		{
 			if (mHasValue) throw std::logic_error("Accessing error when value is present");

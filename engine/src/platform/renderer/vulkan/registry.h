@@ -22,7 +22,7 @@ namespace engine
 		size_t size;
 		VmaVirtualAllocation vAllocation;
 
-		bool operator<(const bufferHandle& other) const 
+		bool operator<(const bufferHandle& other) const
 		{
 			return id < other.id;
 		}
@@ -74,7 +74,7 @@ namespace engine
 			bool compositePipeline = false
 		);
 		void destroy();
-		
+
 		classicGraphicPipeline pipeline;
 		// Command buffer to render enity.
 		std::map<entityHash, std::vector<meshletShaderCMD>> entityCmd;
@@ -100,9 +100,25 @@ namespace engine
 			bool accumilatePipeline = false,
 			bool compositePipeline = false
 		);
-		error addInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID, bufferHandle meshletHandle, bufferHandle perInstanceHandle, const dataWithLodLevels<meshlet>& meshlets);
-		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID);
-		
+
+		struct meshes
+		{
+			uint32_t meshID;
+			bufferHandle meshletHandle;
+			const dataWithLodLevels<meshlet>& meshlets;
+		};
+
+		struct addInstanceParams
+		{
+			uint32_t pixelShaderID;
+			uint32_t instanceID;
+			bufferHandle perInstanceHandle;
+			std::vector<meshes> meshesData;
+		};
+
+		error addInstance(const addInstanceParams& params);
+		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshesID);
+
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 
 		bool instanceExists(uint32_t id) const;
@@ -127,13 +143,13 @@ namespace engine
 
 		uint32_t mCmdBufferNewSize;
 		vulkanBuffer mCmdBuffer;
-		
+
 		std::map<pixelShaderHash, taskShaderRender> mCmdMappings;
 		std::map<pixelShaderHash, pipelineData> mPipelines;
 		pipelineData mAccumilatePipeline;
 		pipelineData mCompositePipeline;
 	};
-	
+
 	struct materialRegistry
 	{
 	public:

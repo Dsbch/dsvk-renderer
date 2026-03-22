@@ -305,15 +305,17 @@ namespace engine
 			return error{ "cgltf_load_buffers: {}", path };
 		}
 
+		LOGDEBUG("Loading model: {}", path.c_str());
+
 		model result{
 			.id = genUID(),
 		};
 
-		auto meshlets = processMesh(data, maxVert, maxTriangles, coneWieght, errorLevel);
-		if (!meshlets)
-			return meshlets.err();
+		auto meshes = processMeshes(data, maxVert, maxTriangles, coneWieght, errorLevel);
+		if (!meshes)
+			return meshes.err();
 
-		result.meshData = meshlets.value();
+		result.meshData = meshes.value();
 
 		auto materials = processMaterials(baseDir, data->materials, int(data->materials_count));
 		if (!materials)
