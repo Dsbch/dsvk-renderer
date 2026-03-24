@@ -6,14 +6,14 @@
 
 // UBO START.
 
-ConstantBuffer<perDrawData> drawData : register(b6, space0);
+ConstantBuffer<perDrawData> drawData : register(b7, space0);
 
 // UBO END.
 
 // TEXTURES START.
 
-Texture2D materials[] : register(t7, space0);
-SamplerState materialsSampler[] : register(s7, space0);
+Texture2D materials[] : register(t8, space0);
+SamplerState materialsSampler[] : register(s8, space0);
 
 // TEXTURES END.
 
@@ -145,9 +145,34 @@ void msmain(
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
         
         vertex v = vertexBuffer[mesh.vertexBufferIndex][vertexIndex];
-        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, v.position), 1.0f);
+        
+        float4 bindPos = float4(v.position, 1.0f);
+        float4 skinnedPos = float4(0, 0, 0, 0);
+        
+        skinnedPos += v.weights[0] * mul(jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[0]], bindPos);
+        skinnedPos += v.weights[1] * mul(jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[1]], bindPos);
+        skinnedPos += v.weights[2] * mul(jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[2]], bindPos);
+        skinnedPos += v.weights[3] * mul(jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[3]], bindPos);
+
+        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skinnedPos.xyz), 1.0f);
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
+        
+        v.normal = normalize(
+            v.weights[0] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[0]], v.normal) +
+            v.weights[1] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[1]], v.normal) +
+            v.weights[2] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[2]], v.normal) +
+            v.weights[3] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[3]], v.normal)
+        );
+
+        float3 skinnedTangent = normalize(
+            v.weights[0] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[0]], v.tangent.xyz) +
+            v.weights[1] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[1]], v.tangent.xyz) +
+            v.weights[2] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[2]], v.tangent.xyz) +
+            v.weights[3] * mul((float3x3) jointBuffer[instanceAttr.jointIndex][instanceAttr.jointOffset + v.joints[3]], v.tangent.xyz)
+        );
+        
+        v.tangent = float4(skinnedTangent, v.tangent.w);
         
         float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, v);
         

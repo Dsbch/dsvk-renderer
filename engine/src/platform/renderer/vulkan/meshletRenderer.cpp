@@ -26,20 +26,21 @@ namespace engine
 
 		mBindings = meshletBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 10,
+			.totalDescriptorsCount = 11,
 
-			.accumBinding = 8,
-			.revealBinding = 9,
+			.accumBinding = 9,
+			.revealBinding = 10,
 			.vertexBinding = 0,
 			.perInstanceBinding = 1,
 			.meshletCmdBinding = 2,
 			.indexBinding = 3,
 			.primitiveBinding = 4,
 			.meshletBinding = 5,
+			.jointsBinding = 6,
 
-			.perDrawBufferUboBinding = 6,
+			.perDrawBufferUboBinding = 7,
 
-			.materialArrayBinding = 7,
+			.materialArrayBinding = 8,
 		};
 
 		mDeletionQueue.init(device);
@@ -84,6 +85,8 @@ namespace engine
 
 		mPerInstanceRegistry.init(device, allocator);
 
+		mJointRegistry.init(device, allocator);
+
 		error err = mPipelineRegistry.init(device, allocator, is);
 		if (err)
 			return err;
@@ -97,6 +100,8 @@ namespace engine
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerInstanceRegistry });
+		
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mJointRegistry });
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipelineReg, .pipelineReg = &mPipelineRegistry });
 
@@ -133,7 +138,7 @@ namespace engine
 			return err;
 
 		const uint32_t combinedImageSamplers = 3;
-		const uint32_t bufferObjects = 6;
+		const uint32_t bufferObjects = 7;
 		const uint32_t uniformObjects = 1;
 
 		// add bindings for blending stage.
@@ -190,6 +195,12 @@ namespace engine
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mBindings.meshletBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.jointsBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
@@ -405,8 +416,33 @@ namespace engine
 
 		// Upload material.
 		auto materialOffsets = mMaterialRegistry.addMaterials(m.mat);
+		if (!materialOffsets)
+			return materialOffsets.err();
 
 		perInstanceAttr attr = m.instanceAttributes;
+		attr.jointIndex = std::numeric_limits<uint32_t>::max();
+		attr.jointOffset = std::numeric_limits<uint32_t>::max();
+
+		// Upload animation data.
+		if (m.skins && m.animations && m.skins->size() != 0 && m.animations->size() != 0)
+		{
+			std::vector<glm::mat4> joints{};
+
+			for (auto& sn : *m.skins.get())
+			{
+				auto j = sn.getJointMatrices();
+
+				joints.insert(joints.begin(), std::move_iterator(j.begin()), std::move_iterator(j.end()));
+			}
+
+			auto jointHandle = mJointRegistry.addBlock(m.id, joints.data(), joints.size() * sizeof(glm::mat4), is);
+			if (!jointHandle)
+				return jointHandle.err();
+		
+			attr.jointIndex = jointHandle.value().bufferIndex;
+			attr.jointOffset = jointHandle.value().offset / uint32_t(sizeof(glm::mat4));
+		}
+
 		attr.globalMaterialOffset = materialOffsets.value();
 
 		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
@@ -425,7 +461,7 @@ namespace engine
 			.meshesData = {},
 		};
 
-		for (auto& crntMesh : m.meshData)
+		for (auto& crntMesh : *m.meshData.get())
 		{
 			// Upload geometry.
 			auto handle = mVertexRegistry.addBlock(
@@ -521,10 +557,13 @@ namespace engine
 	{
 		mPerInstanceRegistry.deleteBlock(m.id);
 
-		for (auto& crntMesh : m.meshData) 
+		for (auto& crntMesh : *m.meshData.get()) 
 {
 			// Remove instance.
 			mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, crntMesh.hash);
+
+			// Remove animation data.
+			mJointRegistry.deleteBlock(m.id);
 
 			// Mesh isn't used.
 			if (!mPipelineRegistry.meshIsUsed(crntMesh.hash))
@@ -590,6 +629,13 @@ namespace engine
 			auto writeInfo = mPerInstanceRegistry.getWriteInfo(mBindings.perInstanceBinding);
 			mDescriptorSet.updateWrite(writeInfo);
 			mPerInstanceRegistry.setUpdated();
+		}
+
+		if (mJointRegistry.needDescriptorUpdate())
+		{
+			auto writeInfo = mJointRegistry.getWriteInfo(mBindings.jointsBinding);
+			mDescriptorSet.updateWrite(writeInfo);
+			mJointRegistry.setUpdated();
 		}
 
 		// Update materials.

@@ -51,10 +51,10 @@ void msmain(
 // MESH SHADER END.
 
 // PIXEL SHADER START.
-Texture2D accum : register(t8, space0);
-SamplerState accumSampler : register(s8, space0);
-Texture2D reveal : register(t9, space0);
-SamplerState revealSampler : register(s9, space0);
+Texture2D accum : register(t9, space0);
+SamplerState accumSampler : register(s9, space0);
+Texture2D reveal : register(t10, space0);
+SamplerState revealSampler : register(s10, space0);
 
 bool isApproximatelyEqual(float a, float b)
 {

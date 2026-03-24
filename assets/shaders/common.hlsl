@@ -23,6 +23,8 @@ struct vertex
     float2 textureCoords;
     float3 normal;
     float4 tangent;
+    uint joints[4];
+    float weights[4];
 };
 
 struct meshletBounds
@@ -67,6 +69,8 @@ struct perInstanceAttr
     transform modelTransform;
 
     uint globalMaterialOffset;
+    uint jointIndex;
+    uint jointOffset;
 };
 
 struct command
@@ -89,6 +93,7 @@ StructuredBuffer<command> commandBuffer : register(t2, space0);
 StructuredBuffer<uint> vertexIndexBuffer[] : register(t3, space0);
 StructuredBuffer<uint> primitiveBuffer[] : register(t4, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t6, space0);
 
 // SSBO END.
 

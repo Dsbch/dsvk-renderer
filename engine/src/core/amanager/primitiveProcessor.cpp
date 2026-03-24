@@ -1,43 +1,60 @@
 #include <pch.h>
 #include <cgltf.h>
+#include <glm/gtc/type_ptr.hpp>
 #include "primitiveProcessor.h"
 
 namespace engine
 {
-	glm::mat4 getNodeWorldTransform(const cgltf_node* node)
+	glm::mat4 getNodeLocalTransformMat4(const cgltf_node* node)
 	{
-		auto getNodeLocalTransform = [](const cgltf_node* node)
-			{
-				if (node->has_matrix)
-				{
-					glm::mat4 m;
-					memcpy(&m[0][0], node->matrix, sizeof(float) * 16);
-					return m;
-				}
-				else
-				{
-					glm::vec3 translation(0.0f);
-					translation = glm::vec3(node->translation[0], node->translation[1], node->translation[2]);
+		if (node->has_matrix)
+			return glm::make_mat4(node->matrix);
 
-					glm::quat rotation(1, 0, 0, 0);
-					rotation = glm::quat(node->rotation[3], node->rotation[0], node->rotation[1], node->rotation[2]);
+		glm::vec3 translation(0.0f);
+		glm::quat rotation(1, 0, 0, 0);
+		glm::vec3 scale(1.0f);
 
-					glm::vec3 scale(1.0f);
-					scale = glm::vec3(node->scale[0], node->scale[1], node->scale[2]);
+		if (node->has_translation)
+			translation = glm::vec3(node->translation[0], node->translation[1], node->translation[2]);
+		if (node->has_rotation)
+			rotation = glm::quat(node->rotation[3], node->rotation[0], node->rotation[1], node->rotation[2]);
+		if (node->has_scale)
+			scale = glm::vec3(node->scale[0], node->scale[1], node->scale[2]);
 
-					return glm::translate(glm::mat4(1.0f), translation)
-						* glm::mat4_cast(rotation)
-						* glm::scale(glm::mat4(1.0f), scale);
-				}
-			};
-
-		if (!node->parent)
-			return getNodeLocalTransform(node);
-
-		return getNodeWorldTransform(node->parent) * getNodeLocalTransform(node);
+		return glm::translate(glm::mat4(1.0f), translation)
+			* glm::mat4_cast(rotation)
+			* glm::scale(glm::mat4(1.0f), scale);
 	}
 
-	primitives processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials)
+	transform getNodeLocalTransform(const cgltf_node* node)
+	{
+		glm::vec3 translation(0.0f);
+		glm::quat rotation(1, 0, 0, 0);
+		glm::vec3 scale(1.0f);
+
+		if (node->has_translation)
+			translation = glm::vec3(node->translation[0], node->translation[1], node->translation[2]);
+		if (node->has_rotation)
+			rotation = glm::quat(node->rotation[3], node->rotation[0], node->rotation[1], node->rotation[2]);
+		if (node->has_scale)
+			scale = glm::vec3(node->scale[0], node->scale[1], node->scale[2]);
+
+		return transform{
+			.translation = translation,
+			.scale = scale, 
+			.rotation = rotation, 
+		};
+	}
+
+	glm::mat4 getNodeWorldTransformMat4(const cgltf_node* node)
+	{
+		if (!node->parent)
+			return getNodeLocalTransformMat4(node);
+
+		return getNodeWorldTransformMat4(node->parent) * getNodeLocalTransformMat4(node);
+	}
+
+	primitives processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials, uint32_t jointOffset)
 	{
 		primitives result{};
 
@@ -46,11 +63,11 @@ namespace engine
 		const cgltf_accessor* texcoordAccessor = nullptr;
 		const cgltf_accessor* jointsAccessor = nullptr;
 		const cgltf_accessor* weightsAccessor = nullptr;
-		
+
 		int texcoordIndex = 0;
 		if (prim.material && prim.material->has_pbr_metallic_roughness)
 			texcoordIndex = prim.material->pbr_metallic_roughness.base_color_texture.texcoord;
-		
+
 		auto processAccessors = [&]()
 			{
 				for (size_t ai = 0; ai < prim.attributes_count; ++ai)
@@ -60,8 +77,20 @@ namespace engine
 					{
 					case cgltf_attribute_type_position: positionAccessor = attr.data; break;
 					case cgltf_attribute_type_normal: normalAccessor = attr.data; break;
-					case cgltf_attribute_type_joints: jointsAccessor = attr.data; break;
-					case cgltf_attribute_type_weights: weightsAccessor = attr.data; break;
+					case cgltf_attribute_type_joints:
+					{
+						if (!jointsAccessor)
+							jointsAccessor = attr.data;
+
+						break;
+					}
+					case cgltf_attribute_type_weights:
+					{
+						if (!weightsAccessor)
+							weightsAccessor = attr.data;
+
+						break;
+					}
 					case cgltf_attribute_type_texcoord:
 					{
 						if (attr.index == texcoordIndex)
@@ -106,17 +135,26 @@ namespace engine
 
 					if (jointsAccessor && weightsAccessor)
 					{
-						unsigned int joints[4]{};
+						uint32_t joints[4]{};
 						cgltf_accessor_read_uint(jointsAccessor, i, joints, 4);
 
 						float weights[4]{};
 						cgltf_accessor_read_float(weightsAccessor, i, weights, 4);
 
-						//printf("Vertex %zu:\n", i);
-						for (int j = 0; j < 4; j++)
-						{
-							//printf("joint[%d] = %u, weight = %.4f\n", j, joints[j], weights[j]);
-						}
+						joints[0] += jointOffset;
+						joints[1] += jointOffset;
+						joints[2] += jointOffset;
+						joints[3] += jointOffset;
+
+						v.joints[0] = joints[0];
+						v.joints[1] = joints[1];
+						v.joints[2] = joints[2];
+						v.joints[3] = joints[3];
+
+						v.weights[0] = weights[0];
+						v.weights[1] = weights[1];
+						v.weights[2] = weights[2];
+						v.weights[3] = weights[3];
 					}
 
 					result.vertecies.push_back(v);
@@ -126,6 +164,10 @@ namespace engine
 		auto processIndecies = [&]()
 			{
 				const cgltf_accessor* indexAccessor = prim.indices;
+
+				if (!indexAccessor)
+					return;
+
 				const uint8_t* bufferStart = reinterpret_cast<const uint8_t*>(
 					indexAccessor->buffer_view->buffer->data) +
 					indexAccessor->buffer_view->offset + indexAccessor->offset;
@@ -144,8 +186,7 @@ namespace engine
 					stride = 4;
 				}
 
-				if (prim.indices)
-					result.indicies.reserve(indexAccessor->count);
+				result.indicies.reserve(indexAccessor->count);
 
 				for (size_t i = 0; i < indexAccessor->count; ++i)
 				{

@@ -152,12 +152,12 @@ namespace engine
 
 	error renderSystem::handleNewEntities(std::shared_ptr<entt::registry> registry)
 	{
-		for (auto [e, uid, meshes, materials, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>().each())
+		for (auto [e, uid, meshes, materials, tr, anim] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>().each())
 		{
 			float scale = std::max({ tr.scale.x, tr.scale.y, tr.scale.z });
 
 			std::vector<std::pair<glm::vec3, float>> spheres{};
-			for (auto& crntMesh : meshes.meshData)
+			for (auto& crntMesh : *meshes.meshData.get())
 			{
 				spheres.emplace_back(crntMesh.bsCenter, crntMesh.bsRadius);
 			}
@@ -177,6 +177,8 @@ namespace engine
 				},
 				.meshData = meshes.meshData,
 				.mat = materials.mat,
+				.skins = anim.skins,
+				.animations = anim.animations,
 			};
 
 			error err = mRenderer->addToRender(m);
@@ -214,7 +216,7 @@ namespace engine
 			float scale = std::max({ tr.scale.x, tr.scale.y, tr.scale.z });
 
 			std::vector<std::pair<glm::vec3, float>> spheres{};
-			for (auto& crntMesh : meshes.meshData)
+			for (auto& crntMesh : *meshes.meshData.get())
 			{
 				spheres.emplace_back(crntMesh.bsCenter, crntMesh.bsRadius);
 			}

@@ -61,9 +61,9 @@ namespace engine
 	struct meshComponent
 	{
 		uint32_t uid;
-		std::vector<mesh> meshData;
+		std::shared_ptr<std::vector<mesh>> meshData;
 
-		meshComponent(std::vector<mesh> meshData)
+		meshComponent(std::shared_ptr<std::vector<mesh>> meshData)
 			: meshData(meshData), uid(genUID()) {
 		}
 	};
@@ -75,6 +75,18 @@ namespace engine
 		materialComponent(materials mat)
 			:
 			mat(mat)
+		{
+		}
+	};
+
+	struct animationComponent
+	{
+		uint32_t uid;
+		std::shared_ptr<std::vector<animation>> animations;
+		std::shared_ptr<std::vector<skin>> skins;
+
+		animationComponent(std::shared_ptr<std::vector<animation>> animations, std::shared_ptr<std::vector<skin>> skins)
+			: animations(animations), skins(skins), uid(genUID())
 		{
 		}
 	};

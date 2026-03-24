@@ -6,14 +6,14 @@
 
 // UBO START.
 
-ConstantBuffer<perDrawData> drawData : register(b6, space0);
+ConstantBuffer<perDrawData> drawData : register(b7, space0);
 
 // UBO END.
 
 // TEXTURES START.
 
-Texture2D materials[] : register(t7, space0);
-SamplerState materialsSampler[] : register(s7, space0);
+Texture2D materials[] : register(t8, space0);
+SamplerState materialsSampler[] : register(s8, space0);
 
 // TEXTURES END.
 

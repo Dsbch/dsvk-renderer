@@ -311,17 +311,21 @@ namespace engine
 			.id = genUID(),
 		};
 
-		auto meshes = processMeshes(data, maxVert, maxTriangles, coneWieght, errorLevel);
+		auto meshes = proccessMeshes(data, maxVert, maxTriangles, coneWieght, errorLevel);
 		if (!meshes)
 			return meshes.err();
 
-		result.meshData = meshes.value();
+		result.meshData = std::make_shared<std::vector<mesh>>(std::move(meshes.value()));
+		
+		auto animations = proccessAnimations(data);
+
+		result.animations = std::make_shared<std::vector<animation>>(std::move(animations.first));
+		result.skins = std::make_shared<std::vector<skin>>(std::move(animations.second));
 
 		auto materials = processMaterials(baseDir, data->materials, int(data->materials_count));
 		if (!materials)
 			return materials.err();
 
-		// Generate mip levels.
 		auto mippedImages = generateMipLevels(materials.value());
 		if (!mippedImages)
 			return mippedImages.err();

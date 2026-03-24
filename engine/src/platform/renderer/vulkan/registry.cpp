@@ -101,6 +101,17 @@ namespace engine
 		return handle;
 	}
 
+	withError<bufferHandle> bufferRegistry::findBlock(uint32_t id)
+	{
+		for (uint32_t i = 0; i < mBuffers.size(); i++)
+		{
+			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end())
+				return *handle;
+		}
+
+		return error{"block not found"};
+	}
+
 	error bufferRegistry::updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
@@ -340,7 +351,6 @@ namespace engine
 				);
 			}
 		}
-
 
 		return {};
 	}

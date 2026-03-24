@@ -37,5 +37,6 @@ namespace engine
 		size_t targetIndexCount
 	);
 
-	withError<std::vector<mesh>> processMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel);
+	withError<std::vector<mesh>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel);
+	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data);
 }

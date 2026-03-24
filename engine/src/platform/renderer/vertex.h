@@ -5,6 +5,7 @@
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include "shader.h"
 #include "texture.h"
@@ -23,6 +24,9 @@ namespace engine
 		glm::vec2 textureCoords;
 		glm::vec3 normal;
 		glm::vec4 tangent;
+		// TODO: rmv and separate based on present animations. 
+		uint32_t joints[4];
+		float weights[4];
 	};
 
 	struct animVertex
@@ -32,7 +36,7 @@ namespace engine
 		glm::vec2 textureCoords;
 		glm::vec3 normal;
 		glm::vec4 tangent;
-		uint32_t bones[4];
+		uint32_t joints[4];
 		float weights[4];
 	};
 
@@ -42,6 +46,8 @@ namespace engine
 		glm::vec3 scale;
 		glm::quat rotation;
 	};
+
+	glm::mat4 toMat4(const transform& trs);
 
 	// Task/Amplification shader buffer.
 	struct meshletShaderCMD
@@ -64,6 +70,8 @@ namespace engine
 		transform modelTransform;
 
 		uint32_t globalMaterialOffset;
+		uint32_t jointIndex;
+		uint32_t jointOffset;
 	};
 
 	struct meshletBounds
@@ -138,7 +146,7 @@ namespace engine
 		std::vector<materialTextures> textures;
 
 		uint32_t hash = 0;
-		
+
 		void generateHash()
 		{
 			if (hash != 0)
@@ -156,12 +164,67 @@ namespace engine
 		}
 	};
 
+	struct joint
+	{
+		glm::mat4 inverseBind;
+		transform localTransform;
+	};
+
+	struct skeletonNode
+	{
+		std::shared_ptr<joint> j;
+		std::vector<skeletonNode> children;
+
+		std::vector<std::pair<glm::mat4, std::shared_ptr<joint>>> getSkeletonMatrices(glm::mat4 accumilation = glm::mat4{ 1.0f }) const;
+	};
+
+	struct skin
+	{
+		skeletonNode root;
+		std::set<std::shared_ptr<joint>> skinJoints;
+
+		std::vector<glm::mat4> getJointMatrices() const;
+	};
+
+	enum animationType
+	{
+		tr,
+		rt,
+		sc,
+	};
+
+	enum interpolationType
+	{
+		linear,
+		cubicspline,
+		step,
+	};
+
+	struct channel
+	{
+		animationType aType;
+		interpolationType iType;
+		std::vector<float> timestamps;
+		std::vector<transform> keyframes;
+		std::shared_ptr<joint> j;
+	};
+
+	struct animation
+	{
+		std::string name;
+		std::vector<channel> channels;
+
+		void update(float currentTime);
+	};
+
 	struct model
 	{
 		uint32_t id;
 		perInstanceAttr instanceAttributes;
-		std::vector<mesh> meshData;
+		std::shared_ptr<std::vector<mesh>> meshData;
 		materials mat;
+		std::shared_ptr<std::vector<skin>> skins;
+		std::shared_ptr<std::vector<animation>> animations;
 	};
 
 	struct frustum
@@ -185,12 +248,12 @@ namespace engine
 		glm::mat4 debugViewProjection;
 
 		uint32_t useDebugCamera;
-		
+
 		glm::vec3 cameraFront;
 		glm::vec3 cameraPos;
 		glm::vec3 cameraUp;
 		glm::mat4 view;
-		
+
 		glm::mat4 projection;
 		glm::mat4 viewProjection;
 
@@ -203,7 +266,7 @@ namespace engine
 		uint32_t commandBufferOffset;
 		uint32_t meshletCount;
 	};
-	
+
 	struct lineVertex
 	{
 		glm::vec3 position;

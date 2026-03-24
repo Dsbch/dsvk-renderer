@@ -1,6 +1,7 @@
 #include <pch.h>
 #include <cgltf.h>
 #include <meshoptimizer.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "meshletProcessor.h"
 #include "primitiveProcessor.h"
@@ -301,19 +302,19 @@ namespace engine
 		return {};
 	}
 
-	withError<std::vector<mesh>> processMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
+	withError<std::vector<mesh>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
 	{
 		std::vector<mesh> result{};
 
 		auto generateLodLevel = [](
-				const std::vector<vertex>& v, 
-				const std::vector<uint32_t> i,
-				mesh &crntMesh,
-				size_t targetIndexCount,
-				size_t maxVert,
-				size_t maxTriangles,
-				float coneWeight,
-				float errorLevel
+			const std::vector<vertex>& v,
+			const std::vector<uint32_t> i,
+			mesh& crntMesh,
+			size_t targetIndexCount,
+			size_t maxVert,
+			size_t maxTriangles,
+			float coneWeight,
+			float errorLevel
 			) -> error
 			{
 				std::vector<meshlet> meshlets;
@@ -366,13 +367,20 @@ namespace engine
 
 		LOGDEBUG("mesh count: {}", data->meshes_count);
 
+		uint32_t jointOffset = 0;
+
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
 		{
 			const cgltf_node* node = &data->nodes[ni];
 			if (!node->mesh)
 				continue;
 
-			glm::mat4 transform = getNodeWorldTransform(node);
+			glm::mat4 transform = getNodeWorldTransformMat4(node);
+
+			// Do not apply transform for skinned meshes, for them joint matrix will handle it in mesh shader during skinning.
+			if (node->skin)
+				transform = glm::mat4{ 1.0f };
+			
 			const cgltf_mesh& gtlfMesh = *node->mesh;
 
 			mesh crntMesh = {
@@ -393,7 +401,7 @@ namespace engine
 
 			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
 			{
-				primitives crntPrimitive = processPrimitive(gtlfMesh.primitives[pri], transform, data->materials);
+				primitives crntPrimitive = processPrimitive(gtlfMesh.primitives[pri], transform, data->materials, jointOffset);
 
 				if (crntPrimitive.indicies.size() == 0 || crntPrimitive.vertecies.size() == 0)
 					continue;
@@ -455,6 +463,9 @@ namespace engine
 				);
 			}
 
+			if (node->skin)
+				jointOffset += uint32_t(node->skin->joints_count);
+
 			auto sphere = calculateBoundingSphere(*crntMesh.vertices.get());
 
 			crntMesh.bsCenter = sphere.first;
@@ -488,6 +499,190 @@ namespace engine
 			crntMesh.generateHash();
 
 			result.push_back(std::move(crntMesh));
+		}
+
+		return result;
+	}
+
+	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data)
+	{
+		auto animType = [](cgltf_animation_path_type type) -> animationType
+			{
+				switch (type)
+				{
+				case cgltf_animation_path_type_translation:
+					return tr;
+				case cgltf_animation_path_type_rotation:
+					return rt;
+				case cgltf_animation_path_type_scale:
+					return sc;
+				default:
+					return sc;
+				}
+			};
+
+		auto interType = [](cgltf_interpolation_type type) -> interpolationType
+			{
+				switch (type)
+				{
+				case cgltf_interpolation_type_linear:
+					return linear;
+				case cgltf_interpolation_type_cubic_spline:
+					return cubicspline;
+				case cgltf_interpolation_type_step:
+					return step;
+				default:
+					return linear;
+				}
+			};
+
+		auto getInverseBindForNode = [](const cgltf_skin* skin, const cgltf_node* node) -> glm::mat4
+			{
+				glm::mat4 inverseMat{1.0f};
+
+				for (int i = 0; i < skin->joints_count; i++)
+				{
+					if (skin->joints[i] == node)
+					{
+						cgltf_accessor_read_float(skin->inverse_bind_matrices, i, glm::value_ptr(inverseMat), 16);
+						break;
+					}
+				}
+
+				return inverseMat;
+			};
+
+		std::function<skeletonNode(const cgltf_node* root, const cgltf_skin* s, std::map<const cgltf_node*, std::shared_ptr<joint>>& nodeToJoint)>
+			proccessSkinNode = [&](const cgltf_node* root, const cgltf_skin* s, std::map<const cgltf_node*, std::shared_ptr<joint>>& nodeToJoint) -> skeletonNode
+			{
+				skeletonNode result = {
+				};
+
+				auto j = std::make_shared<joint>();
+
+				j->localTransform = getNodeLocalTransform(root);
+				j->inverseBind = getInverseBindForNode(s, root);
+
+				result.j = j;
+
+				nodeToJoint[root] = j;
+
+				for (int i = 0; i < root->children_count; i++)
+				{
+					result.children.push_back(proccessSkinNode(root->children[i], s, nodeToJoint));
+				}
+
+				return result;
+			};
+
+		std::pair<std::vector<animation>, std::vector<skin>> result{};
+
+		std::map<const cgltf_node*, std::shared_ptr<joint>> nodeToJoint{};
+
+		for (int i = 0; i < data->nodes_count; i++)
+		{
+			auto sk = data->nodes[i].skin;
+
+			if (sk)
+			{
+				std::map<const cgltf_node*, const cgltf_node*> childToParent{};
+				for (int i = 0; i < sk->joints_count; i++)
+				{
+					for (int c = 0; c < sk->joints[i]->children_count; c++)
+					{
+						childToParent[sk->joints[i]->children[c]] = sk->joints[i];
+					}
+				}
+
+				cgltf_node* root = nullptr;
+
+				for (auto& [k, v] : childToParent)
+				{
+					if (childToParent.find(v) == childToParent.end())
+					{
+						root = const_cast<cgltf_node*>(v);
+						break;
+					}
+				}
+
+				if (root)
+				{
+					skin s{
+						.root = proccessSkinNode(root, sk, nodeToJoint),
+					};
+
+					for (int i = 0; i < sk->joints_count; i++)
+					{
+						s.skinJoints.insert(nodeToJoint[sk->joints[i]]);
+					}
+
+					result.second.push_back(s);
+				}
+			}
+		}
+
+		for (int i = 0; i < data->animations_count; i++)
+		{
+			animation crntAnim{
+				.name = std::string(data->animations[i].name),
+			};
+
+			for (int c = 0; c < data->animations[i].channels_count; c++)
+			{
+				cgltf_animation_sampler* sampler = data->animations[i].channels[c].sampler;
+				cgltf_animation_channel ch = data->animations[i].channels[c];
+
+				if (!sampler)
+					continue;
+
+				channel ac{
+					.aType = animType(ch.target_path),
+					.iType = interpolationType(sampler->interpolation),
+				};
+
+				ac.j = nodeToJoint[ch.target_node];
+
+				if (!ac.j)
+					continue;
+
+				size_t frameCount = sampler->input->count;
+				ac.timestamps.resize(frameCount);
+
+				for (size_t k = 0; k < frameCount; k++)
+					cgltf_accessor_read_float(sampler->input, k, &ac.timestamps[k], 1);
+
+				ac.keyframes.resize(frameCount);
+
+				for (size_t k = 0; k < frameCount; k++)
+				{
+					transform keyframe{
+						.scale = glm::vec3{1.0f},
+					};
+
+					float val[4];
+					if (ac.aType == rt)
+					{
+						cgltf_accessor_read_float(sampler->output, k, val, 4);
+						keyframe.rotation = glm::quat(val[3], val[0], val[1], val[2]);
+					}
+					else if (ac.aType == tr)
+					{
+						cgltf_accessor_read_float(sampler->output, k, val, 3);
+						keyframe.translation = glm::make_vec3(val);
+					}
+					else if (ac.aType == sc)
+					{
+						cgltf_accessor_read_float(sampler->output, k, val, 3);
+						keyframe.scale = glm::make_vec3(val);
+					}
+
+					ac.keyframes[k] = std::move(keyframe);
+				}
+
+				crntAnim.channels.push_back(std::move(ac));
+			}
+
+			result.first.push_back(std::move(crntAnim));
 		}
 
 		return result;

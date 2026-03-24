@@ -24,6 +24,7 @@ namespace engine
 		uint32_t indexBinding;
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
+		uint32_t jointsBinding;
 
 		uint32_t perDrawBufferUboBinding;
 
@@ -71,6 +72,7 @@ namespace engine
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
 		bufferRegistry mPerInstanceRegistry;
+		bufferRegistry mJointRegistry;
 		pipelineRegistry mPipelineRegistry;
 		materialRegistry mMaterialRegistry;
 

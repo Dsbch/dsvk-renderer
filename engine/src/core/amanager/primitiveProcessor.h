@@ -16,7 +16,9 @@ namespace engine
 		std::vector<uint32_t> indicies;
 	};
 
-	glm::mat4 getNodeWorldTransform(const cgltf_node* node);
+	glm::mat4 getNodeWorldTransformMat4(const cgltf_node* node);
+	glm::mat4 getNodeLocalTransformMat4(const cgltf_node* node);
+	transform getNodeLocalTransform(const cgltf_node* node);
 
-	primitives processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials);
+	primitives processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials, uint32_t jointOffset = 0);
 }

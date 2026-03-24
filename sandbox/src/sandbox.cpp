@@ -49,7 +49,7 @@ namespace sandbox
 		result.scale = glm::vec3{ 1.0f };
 		result.translation = glm::vec3{ 0.0f, 0.0f, zPos };
 
-		zPos -= 0.2f;
+		zPos -= 0.5f;
 
 		return result;
 	}
@@ -109,9 +109,18 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
+				static float tick = 0.0f;
+
+				for (auto& a : *loadedModel.value().animations.get())
+					a.update(tick);
+
+				tick += 0.1f;
+
+				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
+
 				auto tr = generateTransform();
 
-				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{0.1f}, tr.rotation);
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{0.001f}, tr.rotation);
 
 				e.addComponent<engine::newEntityComponent>();
 			}
@@ -140,6 +149,8 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
+				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
+
 				auto tr = generateTransform();
 
 				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
@@ -165,6 +176,8 @@ namespace sandbox
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
 
+				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
+
 				auto tr = generateTransform();
 
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
@@ -189,6 +202,8 @@ namespace sandbox
 				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
 
 				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
+
+				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
 
 				auto tr = generateTransform();
 
