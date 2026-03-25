@@ -64,9 +64,9 @@ namespace engine
 	public:
 		error init(
 			VkDevice device,
-			std::shared_ptr<shader> pixelShader,
-			std::shared_ptr<shader> meshShader,
-			std::shared_ptr<shader> taskShader,
+			std::shared_ptr<const shader> pixelShader,
+			std::shared_ptr<const shader> meshShader,
+			std::shared_ptr<const shader> taskShader,
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
 			const std::vector<VkFormat>& colorAttachmentFormats,
@@ -91,9 +91,9 @@ namespace engine
 
 		error createPipeline(
 			VkDevice device,
-			std::shared_ptr<shader> pixelShader,
-			std::shared_ptr<shader> meshShader,
-			std::shared_ptr<shader> taskShader,
+			std::shared_ptr<const shader> pixelShader,
+			std::shared_ptr<const shader> meshShader,
+			std::shared_ptr<const shader> taskShader,
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
 			const std::initializer_list<VkFormat>& colorAttachmentFormats,

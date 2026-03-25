@@ -35,9 +35,9 @@ namespace engine
 
 		error render(renderer::renderCallIn in);
 
-		withError<std::shared_ptr<shader>> makeShader(const std::vector<uint32_t>& src);
-		withError<std::shared_ptr<texture>> makeTexture(const image& img);
-		withError<std::shared_ptr<texture>> makeTextureWithMips(const imageWithMipLevels& img);
+		withError<std::shared_ptr<const texture>> makeTexture(const image& img);
+		withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src);
+		withError<std::shared_ptr<const texture>> makeTextureWithMips(const imageWithMipLevels& img);
 	private:
 		bool mWindowMinimized;
 		VkDebugUtilsMessengerEXT mDebugMessenger;

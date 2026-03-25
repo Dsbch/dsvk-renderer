@@ -41,7 +41,7 @@ namespace engine
 		return crc32(reinterpret_cast<const uint8_t*>(std::filesystem::canonical(path).string().data()), std::filesystem::canonical(path).string().size());
 	}
 
-	withError<std::shared_ptr<shader>> aManager::loadShader(const std::string& path)
+	withError<std::shared_ptr<const shader>> aManager::loadShader(const std::string& path)
 	{
 		if (!makeShader)
 			return error{ "makeShader wasn't set" };
@@ -76,7 +76,7 @@ namespace engine
 		return shader.value();
 	}
 
-	withError<std::shared_ptr<texture>> aManager::loadTexture(const image& img)
+	withError<std::shared_ptr<const texture>> aManager::loadTexture(const image& img)
 	{
 		if (!makeTexture)
 			return error{ "makeTexture wasn't set" };
@@ -100,7 +100,7 @@ namespace engine
 		return texture.value();
 	}
 
-	withError<std::shared_ptr<texture>> aManager::loadTexture(const imageWithMipLevels& img)
+	withError<std::shared_ptr<const texture>> aManager::loadTexture(const imageWithMipLevels& img)
 	{
 		if (!makeTextureWithMips)
 			return error{ "makeTextureWithMips wasn't set" };
@@ -139,22 +139,22 @@ namespace engine
 		basist::basisu_transcoder_init();
 	}
 
-	void aManager::setMakeShaderFunc(std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)>&& func)
+	void aManager::setMakeShaderFunc(std::function<withError<std::shared_ptr<const shader>>(const std::vector<uint32_t>& src)>&& func)
 	{
 		makeShader = std::move(func);
 	}
 
-	void aManager::setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(const image& img)>&& func)
+	void aManager::setMakeTextureFunc(std::function<withError<std::shared_ptr<const texture>>(const image& img)>&& func)
 	{
 		makeTexture = std::move(func);
 	}
 
-	void aManager::setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<texture>>(const imageWithMipLevels& img)>&& func)
+	void aManager::setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<const texture>>(const imageWithMipLevels& img)>&& func)
 	{
 		makeTextureWithMips = std::move(func);
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultCompositeTaskShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultCompositeTaskShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshCompositeAs.spv";
@@ -165,7 +165,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultCompositeMeshShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultCompositeMeshShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshCompositeMs.spv";
@@ -176,7 +176,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultCompositePixelShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultCompositePixelShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshCompositePs.spv";
@@ -187,7 +187,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultAccumilateTaskShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultAccumilateTaskShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshAccumilationAs.spv";
@@ -198,7 +198,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultAccumilateMeshShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultAccumilateMeshShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshAccumilationMs.spv";
@@ -209,7 +209,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultAccumilatePixelShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultAccumilatePixelShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshAccumilationPs.spv";
@@ -220,7 +220,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultTaskShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultTaskShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshAs.spv";
@@ -231,7 +231,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultMeshShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultMeshShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshMs.spv";
@@ -242,7 +242,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultPixelShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultPixelShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkMeshPs.spv";
@@ -253,7 +253,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultLineVertexShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultLineVertexShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkLineVs.spv";
@@ -264,7 +264,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<shader>> aManager::getDefaultLinePixelShader()
+	withError<std::shared_ptr<const shader>> aManager::getDefaultLinePixelShader()
 	{
 #ifdef VULKAN
 		const std::string path = "../assets/shaders/vkCompiled/vkLinePs.spv";
@@ -275,7 +275,7 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<model> aManager::loadModelGLTF(
+	withError<std::shared_ptr<const model>> aManager::loadModelGLTF(
 		const std::string& path,
 		size_t maxVert,
 		size_t maxTriangles,
@@ -307,20 +307,19 @@ namespace engine
 
 		LOGDEBUG("Loading model: {}", path.c_str());
 
-		model result{
-			.id = genUID(),
-		};
+		std::shared_ptr<model> result = std::make_shared<model>(model{ .id = genUID() });
 
 		auto meshes = proccessMeshes(data, maxVert, maxTriangles, coneWieght, errorLevel);
 		if (!meshes)
 			return meshes.err();
 
-		result.meshData = std::make_shared<std::vector<mesh>>(std::move(meshes.value()));
-		
+		result->meshData = std::make_shared<const std::vector<mesh>>(std::move(meshes.value().first));
+		result->perMeshData = std::make_shared<const std::vector<perMeshAttributes>>(std::move(meshes.value().second));
+
 		auto animations = proccessAnimations(data);
 
-		result.animations = std::make_shared<std::vector<animation>>(std::move(animations.first));
-		result.skins = std::make_shared<std::vector<skin>>(std::move(animations.second));
+		result->animations = std::make_shared<const std::vector<animation>>(std::move(animations.first));
+		result->skins = std::make_shared<const std::vector<skin>>(std::move(animations.second));
 
 		auto materials = processMaterials(baseDir, data->materials, int(data->materials_count));
 		if (!materials)
@@ -351,39 +350,45 @@ namespace engine
 
 		for (auto& t : mippedImages.value())
 		{
-			materialTextures tx{};
+			materialTextures mt{};
 
 			auto albedo = loadTexture(t.albedo);
 			if (!albedo)
 				return albedo.err();
 
-			tx.albedo = albedo.value();
+			mt.albedo = albedo.value();
 
 			auto normal = loadTexture(t.normal);
 			if (!normal)
 				return normal.err();
 
-			tx.normal = normal.value();
+			mt.normal = normal.value();
 
 			auto metallicRoughness = loadTexture(t.metallicRoughness);
 			if (!metallicRoughness)
 				return metallicRoughness.err();
 
-			tx.metallicRoughness = metallicRoughness.value();
+			mt.metallicRoughness = metallicRoughness.value();
 
-			result.mat.textures.push_back(tx);
+			result->mat.textures.push_back(mt);
 		}
 
-		result.mat.generateHash();
+		auto pixel = getDefaultPixelShader();
+		if (!pixel)
+			return pixel.err();
+
+		result->mat.pixelShader = pixel.value();
+
+		result->mat.generateHash();
 
 		cgltf_free(data);
 
 		{
 			std::lock_guard l{ mModelMu };
 
-			mLoadedModels.put(key(path), result);
+			mLoadedModels.put(key(path), static_cast<std::shared_ptr<const model>>(result));
 		}
 
-		return result;
+		return static_cast<std::shared_ptr<const model>>(result);
 	}
 }

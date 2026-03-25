@@ -61,10 +61,11 @@ namespace engine
 	struct meshComponent
 	{
 		uint32_t uid;
-		std::shared_ptr<std::vector<mesh>> meshData;
+		std::shared_ptr<const std::vector<mesh>> meshData;
+		std::shared_ptr<const std::vector<perMeshAttributes>> meshAttributes;
 
-		meshComponent(std::shared_ptr<std::vector<mesh>> meshData)
-			: meshData(meshData), uid(genUID()) {
+		meshComponent(std::shared_ptr<const std::vector<mesh>> meshData, std::shared_ptr<const std::vector<perMeshAttributes>> meshAttributes)
+			: meshData(meshData), meshAttributes(meshAttributes), uid(genUID()) {
 		}
 	};
 
@@ -85,9 +86,51 @@ namespace engine
 		std::shared_ptr<std::vector<animation>> animations;
 		std::shared_ptr<std::vector<skin>> skins;
 
-		animationComponent(std::shared_ptr<std::vector<animation>> animations, std::shared_ptr<std::vector<skin>> skins)
-			: animations(animations), skins(skins), uid(genUID())
+		// Copy all animations as it changes every frame.
+		animationComponent(std::shared_ptr<const std::vector<animation>> aPtr, std::shared_ptr<const std::vector<skin>> sPtr)
+			: uid(genUID())
 		{
+			std::function<void(skeletonNode& s, std::map<std::shared_ptr<joint>, std::shared_ptr<joint>>& jointOldNew)> copyNode;
+			
+			copyNode = [&copyNode](skeletonNode& s, std::map<std::shared_ptr<joint>, std::shared_ptr<joint>>& jointOldNew)
+				{
+					auto newJ = std::make_shared<joint>(*s.j.get());
+					jointOldNew[s.j] = newJ;
+					s.j = newJ;
+
+					for (auto& c : s.children)
+					{
+						copyNode(c, jointOldNew);
+					}
+				};
+
+			std::vector<animation> cpyAnims = *aPtr.get();
+			std::vector<skin> cpySkins = *sPtr.get();
+
+			std::map<std::shared_ptr<joint>, std::shared_ptr<joint>> jointOldNew{};
+
+			for (auto& s : cpySkins)
+			{
+				copyNode(s.root, jointOldNew);
+
+				std::set<std::shared_ptr<joint>> newJoints{};
+				for (auto& j : s.skinJoints)
+					newJoints.insert(jointOldNew[j]);
+
+				s.skinJoints = newJoints;
+
+			}
+
+			for (auto& a : cpyAnims)
+			{
+				for (auto& c : a.channels)
+				{
+					c.j = jointOldNew[c.j];
+				}
+			}
+
+			this->skins = std::make_shared<std::vector<skin>>(std::move(cpySkins));
+			this->animations = std::make_shared<std::vector<animation>>(std::move(cpyAnims));
 		}
 	};
 

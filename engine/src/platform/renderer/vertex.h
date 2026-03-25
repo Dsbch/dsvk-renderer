@@ -24,18 +24,11 @@ namespace engine
 		glm::vec2 textureCoords;
 		glm::vec3 normal;
 		glm::vec4 tangent;
-		// TODO: rmv and separate based on present animations. 
-		uint32_t joints[4];
-		float weights[4];
 	};
 
 	struct animVertex
 	{
-		glm::vec3 position;
-		uint32_t localMaterialOffset;
-		glm::vec2 textureCoords;
-		glm::vec3 normal;
-		glm::vec4 tangent;
+		vertex vert;
 		uint32_t joints[4];
 		float weights[4];
 	};
@@ -97,6 +90,9 @@ namespace engine
 		uint32_t triangleBufferOffset;
 		uint32_t triangleCount;
 
+		uint32_t perMeshBufferIndex;
+		uint32_t perMeshBufferOffset;
+
 		meshletBounds bounds;
 	};
 
@@ -106,13 +102,13 @@ namespace engine
 		uint32_t second;
 		uint32_t third;
 		uint32_t fourth;
-		std::shared_ptr<std::vector<T>> data = nullptr;
+		std::vector<T> data;
 	};
 
 	struct mesh
 	{
-		std::shared_ptr<std::vector<vertex>> vertices = nullptr;
-		std::shared_ptr<std::vector<animVertex>> animVertices = nullptr;
+		std::vector<vertex> vertices;
+		std::vector<animVertex> animVertices;
 		dataWithLodLevels<uint32_t> indices;
 		dataWithLodLevels<uint32_t> primitives;
 		dataWithLodLevels<meshlet> meshlets;
@@ -127,7 +123,7 @@ namespace engine
 			if (hash != 0)
 				return hash;
 
-			hash = crc32(reinterpret_cast<const uint8_t*>(vertices->data()), vertices->size() * sizeof(vertices) / sizeof(uint8_t));
+			hash = crc32(reinterpret_cast<const uint8_t*>(vertices.data()), vertices.size() * sizeof(vertices) / sizeof(uint8_t));
 
 			return hash;
 		}
@@ -135,14 +131,14 @@ namespace engine
 
 	struct materialTextures
 	{
-		std::shared_ptr<texture> albedo;
-		std::shared_ptr<texture> normal;
-		std::shared_ptr<texture> metallicRoughness;
+		std::shared_ptr<const texture> albedo;
+		std::shared_ptr<const texture> normal;
+		std::shared_ptr<const texture> metallicRoughness;
 	};
 
 	struct materials
 	{
-		std::shared_ptr<shader> pixelShader;
+		std::shared_ptr<const shader> pixelShader;
 		std::vector<materialTextures> textures;
 
 		uint32_t hash = 0;
@@ -204,8 +200,8 @@ namespace engine
 	{
 		animationType aType;
 		interpolationType iType;
-		std::vector<float> timestamps;
-		std::vector<transform> keyframes;
+		std::shared_ptr<const std::vector<float>> timestamps;
+		std::shared_ptr<const std::vector<transform>> keyframes;
 		std::shared_ptr<joint> j;
 	};
 
@@ -217,14 +213,22 @@ namespace engine
 		void update(float currentTime);
 	};
 
+	struct perMeshAttributes
+	{
+		uint32_t isSkinned;
+		glm::mat4 meshLocalTransform;
+		glm::mat4 meshGlobalTransform;
+	};
+
 	struct model
 	{
 		uint32_t id;
 		perInstanceAttr instanceAttributes;
-		std::shared_ptr<std::vector<mesh>> meshData;
+		std::shared_ptr<const std::vector<mesh>> meshData;
+		std::shared_ptr<const std::vector<perMeshAttributes>> perMeshData;
 		materials mat;
-		std::shared_ptr<std::vector<skin>> skins;
-		std::shared_ptr<std::vector<animation>> animations;
+		std::shared_ptr<const std::vector<skin>> skins;
+		std::shared_ptr<const std::vector<animation>> animations;
 	};
 
 	struct frustum
@@ -275,3 +279,8 @@ namespace engine
 
 static_assert(std::is_trivially_constructible_v<engine::vertex>&& std::is_standard_layout_v<engine::vertex>);
 static_assert(std::is_trivially_constructible_v<engine::perInstanceAttr>&& std::is_standard_layout_v<engine::perInstanceAttr>);
+static_assert(std::is_trivially_constructible_v<engine::transform>&& std::is_standard_layout_v<engine::transform>);
+static_assert(std::is_trivially_constructible_v<engine::meshletShaderCMD>&& std::is_standard_layout_v<engine::meshletShaderCMD>);
+static_assert(std::is_trivially_constructible_v<engine::meshlet>&& std::is_standard_layout_v<engine::meshlet>);
+static_assert(std::is_trivially_constructible_v<engine::meshletBounds>&& std::is_standard_layout_v<engine::meshletBounds>);
+static_assert(std::is_trivially_constructible_v<engine::perMeshAttributes>&& std::is_standard_layout_v<engine::perMeshAttributes>);

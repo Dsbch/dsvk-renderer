@@ -491,7 +491,7 @@ namespace engine
 				result.push_back(tex);
 			}
 			else
-				return error{ "metalicRoughnes texture isn't defined for model: {}", baseDir.string() };
+				result.push_back(genDefaultMaterial(1024, 1024, 4));
 		}
 
 		return result;

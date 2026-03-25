@@ -124,8 +124,8 @@ namespace engine
 		if (!pixelShader)
 			return pixelShader.err();
 
-		vertexShaderModule = static_cast<vulkanShader*>(vertexShader.value().get())->mShaderModule;
-		pixelShaderModule = static_cast<vulkanShader*>(pixelShader.value().get())->mShaderModule;
+		vertexShaderModule = static_cast<vulkanShader*>(const_cast<shader*>(vertexShader.value().get()))->mShaderModule;
+		pixelShaderModule = static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.value().get()))->mShaderModule;
 
 		mPipeline.init(device);
 		mPipeline.setShaders(vertexShaderModule, pixelShaderModule);

@@ -180,9 +180,9 @@ namespace engine
 
 	error pipelineData::init(
 		VkDevice device,
-		std::shared_ptr<shader> pixelShader,
-		std::shared_ptr<shader> meshShader,
-		std::shared_ptr<shader> taskShader,
+		std::shared_ptr<const shader> pixelShader,
+		std::shared_ptr<const shader> meshShader,
+		std::shared_ptr<const shader> taskShader,
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
 		const std::vector<VkFormat>& colorAttachmentFormats,
@@ -203,9 +203,9 @@ namespace engine
 
 		//connecting the vertex and pixel shaders to the pipeline
 		pipeline.setShaders(
-			static_cast<vulkanShader*>(taskShader.get())->mShaderModule,
-			static_cast<vulkanShader*>(meshShader.get())->mShaderModule,
-			static_cast<vulkanShader*>(pixelShader.get())->mShaderModule
+			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
 		);
 
 		pipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -277,9 +277,9 @@ namespace engine
 
 	error pipelineRegistry::createPipeline(
 		VkDevice device,
-		std::shared_ptr<shader> pixelShader,
-		std::shared_ptr<shader> meshShader,
-		std::shared_ptr<shader> taskShader,
+		std::shared_ptr<const shader> pixelShader,
+		std::shared_ptr<const shader> meshShader,
+		std::shared_ptr<const shader> taskShader,
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
 		const std::initializer_list<VkFormat>& colorAttachmentFormats,
@@ -346,7 +346,7 @@ namespace engine
 						.meshletOffset1 = baseOffset + i,
 						.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
 						.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
-						.meshletOffset4 = i < m.meshlets.data->size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max()
+						.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max()
 					}
 				);
 			}

@@ -14,28 +14,28 @@ namespace engine
 	public:
 		aManager();
 
-		void setMakeShaderFunc(std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)>&& func);
-		void setMakeTextureFunc(std::function<withError<std::shared_ptr<texture>>(const image& img)>&& func);
-		void setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<texture>>(const imageWithMipLevels& img)>&& func);
+		void setMakeShaderFunc(std::function<withError<std::shared_ptr<const shader>>(const std::vector<uint32_t>& src)>&& func);
+		void setMakeTextureFunc(std::function<withError<std::shared_ptr<const texture>>(const image& img)>&& func);
+		void setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<const texture>>(const imageWithMipLevels& img)>&& func);
 
-		withError<std::shared_ptr<shader>> getDefaultCompositeTaskShader();
-		withError<std::shared_ptr<shader>> getDefaultCompositeMeshShader();
-		withError<std::shared_ptr<shader>> getDefaultCompositePixelShader();
-		withError<std::shared_ptr<shader>> getDefaultAccumilateTaskShader();
-		withError<std::shared_ptr<shader>> getDefaultAccumilateMeshShader();
-		withError<std::shared_ptr<shader>> getDefaultAccumilatePixelShader();
-		withError<std::shared_ptr<shader>> getDefaultTaskShader();
-		withError<std::shared_ptr<shader>> getDefaultMeshShader();
-		withError<std::shared_ptr<shader>> getDefaultPixelShader();
-		withError<std::shared_ptr<shader>> getDefaultLineVertexShader();
-		withError<std::shared_ptr<shader>> getDefaultLinePixelShader();
-		withError<std::shared_ptr<shader>> loadShader(const std::string& path);
-		withError<std::shared_ptr<texture>> loadTexture(const image& img);
-		withError<std::shared_ptr<texture>> loadTexture(const imageWithMipLevels& img);
+		withError<std::shared_ptr<const shader>> getDefaultCompositeTaskShader();
+		withError<std::shared_ptr<const shader>> getDefaultCompositeMeshShader();
+		withError<std::shared_ptr<const shader>> getDefaultCompositePixelShader();
+		withError<std::shared_ptr<const shader>> getDefaultAccumilateTaskShader();
+		withError<std::shared_ptr<const shader>> getDefaultAccumilateMeshShader();
+		withError<std::shared_ptr<const shader>> getDefaultAccumilatePixelShader();
+		withError<std::shared_ptr<const shader>> getDefaultTaskShader();
+		withError<std::shared_ptr<const shader>> getDefaultMeshShader();
+		withError<std::shared_ptr<const shader>> getDefaultPixelShader();
+		withError<std::shared_ptr<const shader>> getDefaultLineVertexShader();
+		withError<std::shared_ptr<const shader>> getDefaultLinePixelShader();
+		withError<std::shared_ptr<const shader>> loadShader(const std::string& path);
+		withError<std::shared_ptr<const texture>> loadTexture(const image& img);
+		withError<std::shared_ptr<const texture>> loadTexture(const imageWithMipLevels& img);
 
 		void clearCache();
 
-		withError<model> loadModelGLTF(
+		withError<std::shared_ptr<const model>> loadModelGLTF(
 			const std::string& path,
 			size_t maxVert = 32,
 			size_t maxTriangles = 32,
@@ -43,15 +43,15 @@ namespace engine
 			float errorLevel = 0.01f
 		);
 	private:
-		std::function<withError<std::shared_ptr<shader>>(const std::vector<uint32_t>& src)> makeShader;
-		std::function<withError<std::shared_ptr<texture>>(const image& img)> makeTexture;
-		std::function<withError<std::shared_ptr<texture>>(const imageWithMipLevels& img)> makeTextureWithMips;
+		std::function<withError<std::shared_ptr<const shader>>(const std::vector<uint32_t>& src)> makeShader;
+		std::function<withError<std::shared_ptr<const texture>>(const image& img)> makeTexture;
+		std::function<withError<std::shared_ptr<const texture>>(const imageWithMipLevels& img)> makeTextureWithMips;
 
 		std::mutex mModelMu;
 		std::mutex mShaderMu;
 		std::mutex mTexturesMu;
-		lruCache<uint32_t, model> mLoadedModels;
-		lruCache<uint32_t, std::shared_ptr<shader>> mLoadedShaders;
-		lruCache<uint32_t, std::shared_ptr<texture>> mLoadedTextures;
+		lruCache<uint32_t, std::shared_ptr<const model>> mLoadedModels;
+		lruCache<uint32_t, std::shared_ptr<const shader>> mLoadedShaders;
+		lruCache<uint32_t, std::shared_ptr<const texture>> mLoadedTextures;
 	};
 }

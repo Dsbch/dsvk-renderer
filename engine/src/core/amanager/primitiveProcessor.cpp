@@ -41,8 +41,8 @@ namespace engine
 
 		return transform{
 			.translation = translation,
-			.scale = scale, 
-			.rotation = rotation, 
+			.scale = scale,
+			.rotation = rotation,
 		};
 	}
 
@@ -54,7 +54,7 @@ namespace engine
 		return getNodeWorldTransformMat4(node->parent) * getNodeLocalTransformMat4(node);
 	}
 
-	primitives processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials, uint32_t jointOffset)
+	primitives processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t localMaterialOffset, uint32_t jointOffset)
 	{
 		primitives result{};
 
@@ -109,21 +109,23 @@ namespace engine
 
 				for (size_t i = 0; i < positionAccessor->count; ++i)
 				{
+					animVertex animV{};
+
 					vertex v{
-						.localMaterialOffset = uint32_t(prim.material - materials),
+						.localMaterialOffset = localMaterialOffset,
 					};
 
 					float pos[3]{};
 					cgltf_accessor_read_float(positionAccessor, i, pos, 3);
 					glm::vec4 localPos(pos[0], pos[1], pos[2], 1.0f);
-					v.position = glm::vec3(transform * localPos);
+					v.position = localPos;
 
 					if (normalAccessor)
 					{
 						float norm[3]{};
 						cgltf_accessor_read_float(normalAccessor, i, norm, 3);
 						glm::vec3 n(norm[0], norm[1], norm[2]);
-						v.normal = glm::normalize(glm::transpose(glm::inverse(glm::mat3(transform))) * n);
+						v.normal = n;
 					}
 
 					if (texcoordAccessor)
@@ -146,18 +148,25 @@ namespace engine
 						joints[2] += jointOffset;
 						joints[3] += jointOffset;
 
-						v.joints[0] = joints[0];
-						v.joints[1] = joints[1];
-						v.joints[2] = joints[2];
-						v.joints[3] = joints[3];
+						animV.joints[0] = joints[0];
+						animV.joints[1] = joints[1];
+						animV.joints[2] = joints[2];
+						animV.joints[3] = joints[3];
 
-						v.weights[0] = weights[0];
-						v.weights[1] = weights[1];
-						v.weights[2] = weights[2];
-						v.weights[3] = weights[3];
+						animV.weights[0] = weights[0];
+						animV.weights[1] = weights[1];
+						animV.weights[2] = weights[2];
+						animV.weights[3] = weights[3];
 					}
 
-					result.vertecies.push_back(v);
+					if (skinned)
+					{
+						animV.vert = v;
+
+						result.animVertecies.push_back(animV);
+					}
+					else
+						result.vertecies.push_back(v);
 				}
 			};
 

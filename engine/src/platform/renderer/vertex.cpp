@@ -46,14 +46,14 @@ namespace engine
 	{
 		for (auto& c : channels)
 		{
-			if (c.timestamps.empty())
+			if (c.timestamps->empty())
 				return;
 
 			size_t frame0 = 0;
 			size_t frame1 = 0;
-			for (size_t k = 1; k < c.timestamps.size(); k++)
+			for (size_t k = 1; k < c.timestamps->size(); k++)
 			{
-				if (c.timestamps[k] > currentTime)
+				if (c.timestamps->operator[](k) > currentTime)
 				{
 					frame1 = k;
 					frame0 = k - 1;
@@ -64,32 +64,32 @@ namespace engine
 			if (frame0 == frame1)
 				return;
 
-			float t0 = c.timestamps[frame0];
-			float t1 = c.timestamps[frame1];
+			float t0 = c.timestamps->operator[](frame0);
+			float t1 = c.timestamps->operator[](frame1);
 			float alpha = (currentTime - t0) / (t1 - t0);
 			alpha = glm::clamp(alpha, 0.0f, 1.0f);
 
 			if (c.aType == tr)
 			{
 				glm::vec3 result = (c.iType == step)
-					? c.keyframes[frame0].translation
-					: glm::mix(c.keyframes[frame0].translation, c.keyframes[frame1].translation, alpha);
+					? c.keyframes->operator[](frame0).translation
+					: glm::mix(c.keyframes->operator[](frame0).translation, c.keyframes->operator[](frame1).translation, alpha);
 
 				c.j->localTransform.translation = result;
 			}
 			else if (c.aType == rt)
 			{
 				glm::quat result = (c.iType == step)
-					? c.keyframes[frame0].rotation
-					: glm::slerp(c.keyframes[frame0].rotation, c.keyframes[frame1].rotation, alpha);
+					? c.keyframes->operator[](frame0).rotation
+					: glm::slerp(c.keyframes->operator[](frame0).rotation, c.keyframes->operator[](frame1).rotation, alpha);
 
 				c.j->localTransform.rotation = result;
 			}
 			else if (c.aType == sc)
 			{
 				glm::vec3 result = (c.iType == step)
-					? c.keyframes[frame0].scale
-					: glm::mix(c.keyframes[frame0].scale, c.keyframes[frame1].scale, alpha);
+					? c.keyframes->operator[](frame0).scale
+					: glm::mix(c.keyframes->operator[](frame0).scale, c.keyframes->operator[](frame1).scale, alpha);
 
 				c.j->localTransform.scale = result;
 			}

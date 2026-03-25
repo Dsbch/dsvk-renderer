@@ -710,27 +710,27 @@ namespace engine
 		return {};
 	}
 
-	withError<std::shared_ptr<shader>> vulkanRenderer::makeShader(const std::vector<uint32_t>& src)
+	withError<std::shared_ptr<const shader>> vulkanRenderer::makeShader(const std::vector<uint32_t>& src)
 	{
-		std::shared_ptr<shader> vkShader = std::make_shared<vulkanShader>(mDevice, src);
+		std::shared_ptr<const shader> vkShader = std::make_shared<const vulkanShader>(mDevice, src);
 		if (vkShader->checkError())
 			return vkShader->checkError();
 
 		return vkShader;
 	}
 
-	withError<std::shared_ptr<texture>> vulkanRenderer::makeTexture(const image& img)
+	withError<std::shared_ptr<const texture>> vulkanRenderer::makeTexture(const image& img)
 	{
-		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, img);
+		std::shared_ptr<const texture> vkTexture = std::make_shared<const vulkanTexture>(mDevice, mAllocator, mSubmit, img);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
 
 		return vkTexture;
 	}
 
-	withError<std::shared_ptr<texture>> vulkanRenderer::makeTextureWithMips(const imageWithMipLevels& img)
+	withError<std::shared_ptr<const texture>> vulkanRenderer::makeTextureWithMips(const imageWithMipLevels& img)
 	{
-		std::shared_ptr<texture> vkTexture = std::make_shared<vulkanTexture>(mDevice, mAllocator, mSubmit, img);
+		std::shared_ptr<const texture> vkTexture = std::make_shared<const vulkanTexture>(mDevice, mAllocator, mSubmit, img);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
 

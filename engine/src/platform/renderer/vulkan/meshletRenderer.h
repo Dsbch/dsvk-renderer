@@ -19,12 +19,14 @@ namespace engine
 		uint32_t accumBinding;
 		uint32_t revealBinding;
 		uint32_t vertexBinding;
+		uint32_t animVertexBinding;
 		uint32_t perInstanceBinding;
 		uint32_t meshletCmdBinding;
 		uint32_t indexBinding;
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
 		uint32_t jointsBinding;
+		uint32_t perMeshBinding;
 
 		uint32_t perDrawBufferUboBinding;
 
@@ -68,11 +70,13 @@ namespace engine
 		VkSampler mSampler;
 		descriptorSet mDescriptorSet;
 		bufferRegistry mVertexRegistry;
+		bufferRegistry mAnimVertexRegistry;
 		bufferRegistry mIndexRegistry;
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
 		bufferRegistry mPerInstanceRegistry;
 		bufferRegistry mJointRegistry;
+		bufferRegistry mPerMeshRegistry;
 		pipelineRegistry mPipelineRegistry;
 		materialRegistry mMaterialRegistry;
 

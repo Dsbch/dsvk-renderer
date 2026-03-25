@@ -20,5 +20,5 @@ namespace engine
 	glm::mat4 getNodeLocalTransformMat4(const cgltf_node* node);
 	transform getNodeLocalTransform(const cgltf_node* node);
 
-	primitives processPrimitive(const cgltf_primitive& prim, const glm::mat4& transform, cgltf_material* materials, uint32_t jointOffset = 0);
+	primitives processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t localMaterialOffset = 0, uint32_t jointOffset = 0);
 }

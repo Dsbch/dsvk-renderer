@@ -97,32 +97,23 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
-				if (!pixel)
-					return pixel.err();
-
 				engine::entity e{ mCtx, registry };
-
-				loadedModel.value().mat.pixelShader = pixel.value();
-
-				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
-
-				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
-
-				static float tick = 0.0f;
-
-				for (auto& a : *loadedModel.value().animations.get())
-					a.update(tick);
-
-				tick += 0.1f;
-
-				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
 
 				auto tr = generateTransform();
 
-				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{0.001f}, tr.rotation);
-
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
 				e.addComponent<engine::newEntityComponent>();
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
+
+				// Only for test porpuses.
+				float tick = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 20.0f;
+
+				for (auto& a : *loadedModel.value()->animations.get())
+				{
+					const_cast<engine::animation&>(a).update(tick);
+				}
 			}
 
 			if (event->getKey() == engine::f)
@@ -137,25 +128,14 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
-				if (!pixel)
-					return pixel.err();
-
+				auto tr = generateTransform();
 				engine::entity e{ mCtx, registry };
 
-				loadedModel.value().mat.pixelShader = pixel.value();
-
-				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
-
-				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
-
-				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
-
-				auto tr = generateTransform();
-
 				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
-
 				e.addComponent<engine::newEntityComponent>();
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 			}
 
 			if (event->getKey() == engine::r)
@@ -164,25 +144,14 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
-				if (!pixel)
-					return pixel.err();
-
+				auto tr = generateTransform();
 				engine::entity e{ mCtx, registry };
 
-				loadedModel.value().mat.pixelShader = pixel.value();
-
-				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
-
-				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
-
-				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
-
-				auto tr = generateTransform();
-
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
-
 				e.addComponent<engine::newEntityComponent>();
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 			}
 
 			if (event->getKey() == engine::y)
@@ -191,24 +160,13 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				auto pixel = mCtx->mAmanager->getDefaultPixelShader();
-				if (!pixel)
-					return pixel.err();
-
+				auto tr = generateTransform();
 				engine::entity e{ mCtx, registry };
 
-				loadedModel.value().mat.pixelShader = pixel.value();
-
-				e.addComponent<engine::materialComponent>(loadedModel.value().mat);
-
-				e.addComponent<engine::meshComponent>(loadedModel.value().meshData);
-
-				e.addComponent<engine::animationComponent>(loadedModel.value().animations, loadedModel.value().skins);
-
-				auto tr = generateTransform();
-
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 1.0f }, tr.rotation);
-
 				e.addComponent<engine::newEntityComponent>();
 			}
 

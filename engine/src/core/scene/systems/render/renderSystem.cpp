@@ -176,6 +176,7 @@ namespace engine
 					},
 				},
 				.meshData = meshes.meshData,
+				.perMeshData = meshes.meshAttributes,
 				.mat = materials.mat,
 				.skins = anim.skins,
 				.animations = anim.animations,

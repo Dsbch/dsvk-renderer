@@ -6,14 +6,14 @@
 
 // UBO START.
 
-ConstantBuffer<perDrawData> drawData : register(b7, space0);
+ConstantBuffer<perDrawData> drawData : register(b9, space0);
 
 // UBO END.
 
 // TEXTURES START.
 
-Texture2D materials[] : register(t8, space0);
-SamplerState materialsSampler[] : register(s8, space0);
+Texture2D materials[] : register(t10, space0);
+SamplerState materialsSampler[] : register(s10, space0);
 
 // TEXTURES END.
 
@@ -109,6 +109,7 @@ void msmain(
 {
     meshlet mesh = meshletBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
     perInstanceAttr instanceAttr = perInstanceBuffer[payload.perInstanceIndex[gid]][payload.perInstanceOffset[gid]];
+    perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
         
@@ -129,20 +130,21 @@ void msmain(
     {
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
         
-        vertex v = vertexBuffer[mesh.vertexBufferIndex][vertexIndex];
-        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, v.position), 1.0f);
+        vertex skinnedVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexIndex);
+        
+        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skinnedVertex.position), 1.0f);
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
-        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, v);
+        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skinnedVertex);
         
-        vertices[gtid].uv = vertexBuffer[mesh.vertexBufferIndex][vertexIndex].textureCoords;
+        vertices[gtid].uv = skinnedVertex.textureCoords;
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
         vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));
-        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + v.localMaterialOffset * 3;
-        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + v.localMaterialOffset * 3 + 1;
-        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + v.localMaterialOffset * 3 + 2;
+        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + skinnedVertex.localMaterialOffset * 3;
+        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + skinnedVertex.localMaterialOffset * 3 + 1;
+        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + skinnedVertex.localMaterialOffset * 3 + 2;
     }
 }
 

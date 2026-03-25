@@ -23,9 +23,15 @@ struct vertex
     float2 textureCoords;
     float3 normal;
     float4 tangent;
+};
+
+struct animVertex
+{
+    vertex vert;
     uint joints[4];
     float weights[4];
 };
+
 
 struct meshletBounds
 {
@@ -50,6 +56,9 @@ struct meshlet
     uint triangleBufferIndex;
     uint triangleBufferOffset;
     uint triangleCount;
+    
+    uint perMeshBufferIndex;
+    uint perMeshBufferOffset;
     
     meshletBounds bounds;
 };
@@ -85,15 +94,24 @@ struct command
     uint meshletOffset4;
 };
 
+struct perMeshAttributes
+{
+    uint isSkinned;
+    float4x4 meshLocalTransform;
+    float4x4 meshGlobalTransform;
+};
+
 // SSBO START.
 
 StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t1, space0);
-StructuredBuffer<command> commandBuffer : register(t2, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t3, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t4, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t6, space0);
+StructuredBuffer<animVertex> animVertexBuffer[] : register(t1, space0);
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t2, space0);
+StructuredBuffer<command> commandBuffer : register(t3, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t4, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t5, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t6, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t7, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t8, space0);
 
 // SSBO END.
 
@@ -369,4 +387,41 @@ uint getMeshletOffset(uint lodLevel, uint idx)
     }
     
     return result;
+}
+
+// Skins all vertex attributes if needed.
+vertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uint index, uint offset)
+{
+    if (!perMesh.isSkinned)
+        return vertexBuffer[index][offset];
+    
+    animVertex aVertex = animVertexBuffer[index][offset];
+    
+    float4 bindPos = float4(aVertex.vert.position, 1.0f);
+    float4 skinnedPos = float4(0, 0, 0, 0);
+        
+    skinnedPos += aVertex.weights[0] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[0]], bindPos);
+    skinnedPos += aVertex.weights[1] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[1]], bindPos);
+    skinnedPos += aVertex.weights[2] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[2]], bindPos);
+    skinnedPos += aVertex.weights[3] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[3]], bindPos);
+    
+    aVertex.vert.position = skinnedPos.xyz;
+    
+    aVertex.vert.normal = normalize(
+            aVertex.weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[0]], aVertex.vert.normal) +
+            aVertex.weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[1]], aVertex.vert.normal) +
+            aVertex.weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[2]], aVertex.vert.normal) +
+            aVertex.weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[3]], aVertex.vert.normal)
+        );
+
+    float3 skinnedTangent = normalize(
+            aVertex.weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[0]], aVertex.vert.tangent.xyz) +
+            aVertex.weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[1]], aVertex.vert.tangent.xyz) +
+            aVertex.weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[2]], aVertex.vert.tangent.xyz) +
+            aVertex.weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[3]], aVertex.vert.tangent.xyz)
+        );
+    
+    aVertex.vert.tangent = float4(skinnedTangent, aVertex.vert.tangent.w);
+    
+    return aVertex.vert;
 }
