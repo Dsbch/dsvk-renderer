@@ -67,30 +67,51 @@ void asmain(
         uint selectedLod = selectLodLevel(drawData, instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
         uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
         uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
-    
+        meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
+        perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+        
         // Still have meshlets for that lodLevel.
-            if (meshletOffset != maxUint)
+        if (meshletOffset != maxUint)
+        {
+            // TODO: for now that isn't working for skinned meshes because animations brake it. FIX!
+            visible = true;
+            if (!meshAttr.isSkinned)
             {
-                meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
-            
+                mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
+                
+                float3 sx = meshAttr.meshGlobalTransform[0].xyz;
+                float3 sy = meshAttr.meshGlobalTransform[1].xyz;
+                float3 sz = meshAttr.meshGlobalTransform[2].xyz;
+
+                float scaleX = length(sx);
+                float scaleY = length(sy);
+                float scaleZ = length(sz);
+
+                float maxScale = max(scaleX, max(scaleY, scaleZ));
+
+                mesh.bounds.radius = mesh.bounds.radius * maxScale;
+                
+                mesh.bounds.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, mesh.bounds.coneAxis));
+                
                 visible =
-                isFrontfaceMeshlet(drawData, instanceAttr.modelTransform, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
-                isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
+                    isFrontfaceMeshlet(drawData, instanceAttr.modelTransform, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
+                    isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
+            }
             
-                if (visible)
-                {
-                    uint index = WavePrefixCountBits(visible);
+            if (visible)
+            {
+                uint index = WavePrefixCountBits(visible);
         
-                    payload.perInstanceIndex[index] = perInstanceIndex;
-                    payload.perInstanceOffset[index] = perInstanceOffset;
+                payload.perInstanceIndex[index] = perInstanceIndex;
+                payload.perInstanceOffset[index] = perInstanceOffset;
      
-                    payload.lodLevel[index] = selectedLod;
+                payload.lodLevel[index] = selectedLod;
         
-                    payload.meshletIndex[index] = meshletIdx;
-                    payload.meshletOffset[index] = meshletOffset;
-                }
+                payload.meshletIndex[index] = meshletIdx;
+                payload.meshletOffset[index] = meshletOffset;
             }
         }
+    }
     
     uint visibleCount = WaveActiveCountBits(visible);
     DispatchMesh(visibleCount, 1, 1, payload);

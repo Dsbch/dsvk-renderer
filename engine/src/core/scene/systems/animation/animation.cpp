@@ -4,6 +4,8 @@
 
 namespace engine
 {
+	// TODO: add simple animation system.
+	// TODO: figure out problem with meshlet culling for animated meshlets.
 	error animationSystem::onAttach(std::shared_ptr<entt::registry> registry)
 	{
 		return {};

@@ -580,7 +580,7 @@ namespace engine
 					.meshletHandle = handle.value(),
 					.meshlets = crntMesh.meshlets,
 				}
-				);
+			);
 		}
 
 		err = mPipelineRegistry.addInstance(addParams);

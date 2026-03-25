@@ -218,6 +218,8 @@ namespace engine
 		uint32_t isSkinned;
 		glm::mat4 meshLocalTransform;
 		glm::mat4 meshGlobalTransform;
+		glm::mat3 meshLocalNormal;
+		glm::mat3 meshGlobalNormal;
 	};
 
 	struct model

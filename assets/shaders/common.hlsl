@@ -99,6 +99,8 @@ struct perMeshAttributes
     uint isSkinned;
     float4x4 meshLocalTransform;
     float4x4 meshGlobalTransform;
+    float3x3 meshLocalNormal;
+    float3x3 meshGlobalNormal;
 };
 
 // SSBO START.
@@ -393,7 +395,13 @@ uint getMeshletOffset(uint lodLevel, uint idx)
 vertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uint index, uint offset)
 {
     if (!perMesh.isSkinned)
-        return vertexBuffer[index][offset];
+    {
+        vertex v = vertexBuffer[index][offset];
+        
+        v.position = mul(perMesh.meshGlobalTransform, float4(v.position, 1.0f)).xyz;
+
+        return v;
+    }
     
     animVertex aVertex = animVertexBuffer[index][offset];
     

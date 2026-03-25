@@ -270,8 +270,7 @@ namespace engine
 		std::vector<uint32_t>& iOut,
 		size_t maxVert, size_t maxTriangles, float coneWieght,
 		float errorLevel,
-		size_t targetIndexCount,
-		uint32_t perMeshOffset
+		size_t targetIndexCount
 	)
 	{
 		mOut.clear();
@@ -359,7 +358,7 @@ namespace engine
 					.triangleBufferIndex = 0,
 					.triangleBufferOffset = m.triangle_offset,
 					.triangleCount = m.triangle_count,
-					.perMeshBufferOffset = perMeshOffset,
+					.perMeshBufferOffset = 0,
 					.bounds = meshletBounds{
 						.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
 						.radius = bounds.radius,
@@ -373,7 +372,7 @@ namespace engine
 		return {};
 	}
 
-	error generateLodLevel(const std::vector<vertex>& v, const std::vector<animVertex>& animV, const std::vector<uint32_t> i, mesh& crntMesh, size_t targetIndexCount, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel, uint32_t perMeshOffset)
+	error generateLodLevel(const std::vector<vertex>& v, const std::vector<animVertex>& animV, const std::vector<uint32_t> i, mesh& crntMesh, size_t targetIndexCount, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
 	{
 		std::vector<meshlet> meshlets;
 		std::vector<uint32_t> indices;
@@ -390,8 +389,7 @@ namespace engine
 			maxTriangles,
 			coneWeight,
 			errorLevel,
-			targetIndexCount,
-			perMeshOffset
+			targetIndexCount
 		);
 		if (err)
 			return err;
@@ -444,16 +442,17 @@ namespace engine
 			mesh crntMesh = {};
 
 			perMeshAttributes crntMeshAttrs = {};
+			crntMeshAttrs.meshGlobalTransform = getNodeWorldTransformMat4(node);
+			crntMeshAttrs.meshLocalTransform = getNodeLocalTransformMat4(node);
+			crntMeshAttrs.meshGlobalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshGlobalTransform)));;
+			crntMeshAttrs.meshLocalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshLocalTransform)));;
+			crntMeshAttrs.isSkinned = uint32_t(node->skin != nullptr);
 
 			// For tangent calculation and lod calculation.
 			std::vector<uint32_t> remappedIndexBuffer;
 
 			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
 			{
-				crntMeshAttrs.meshGlobalTransform = getNodeWorldTransformMat4(node);
-				crntMeshAttrs.meshLocalTransform = getNodeLocalTransformMat4(node);
-				crntMeshAttrs.isSkinned = uint32_t(node->skin != nullptr);
-
 				primitives crntPrimitive = processPrimitive(gtlfMesh.primitives[pri], crntMeshAttrs.isSkinned, uint32_t(gtlfMesh.primitives[pri].material - data->materials));
 
 				if (crntPrimitive.indicies.size() == 0 || (crntPrimitive.vertecies.size() == 0 && crntPrimitive.animVertecies.size() == 0))
@@ -473,7 +472,7 @@ namespace engine
 				std::vector<uint32_t> indices;
 				std::vector<uint8_t> primitives;
 
-				err = generateMeshlets(remappedVertex, remappedAnimVertex, remappedIndex, meshlets, primitives, indices, maxVert, maxTriangles, coneWeight, 0, 0, uint32_t(result.second.size()));
+				err = generateMeshlets(remappedVertex, remappedAnimVertex, remappedIndex, meshlets, primitives, indices, maxVert, maxTriangles, coneWeight, 0, 0);
 				if (err)
 					return err;
 
@@ -536,7 +535,7 @@ namespace engine
 			crntMesh.primitives.second = uint32_t(crntMesh.primitives.data.size());
 			crntMesh.meshlets.second = uint32_t(crntMesh.meshlets.data.size());
 
-			error err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(result.second.size()));
+			error err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel);
 			if (err)
 				return err;
 
@@ -544,7 +543,7 @@ namespace engine
 			crntMesh.primitives.third = uint32_t(crntMesh.primitives.data.size());
 			crntMesh.meshlets.third = uint32_t(crntMesh.meshlets.data.size());
 
-			err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(result.second.size()));
+			err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel);
 			if (err)
 				return err;
 
@@ -552,7 +551,7 @@ namespace engine
 			crntMesh.primitives.fourth = uint32_t(crntMesh.primitives.data.size());
 			crntMesh.meshlets.fourth = uint32_t(crntMesh.meshlets.data.size());
 
-			err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(result.second.size()));
+			err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel);
 			if (err)
 				return err;
 

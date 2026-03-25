@@ -147,6 +147,11 @@ namespace sandbox
 				auto tr = generateTransform();
 				engine::entity e{ mCtx, registry };
 
+				for (auto& ma : *loadedModel.value()->perMeshData.get())
+				{
+					LOGINFO("{}", glm::to_string(ma.meshGlobalTransform));
+				}
+
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
 				e.addComponent<engine::newEntityComponent>();
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);

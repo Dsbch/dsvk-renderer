@@ -67,14 +67,35 @@ void asmain(
         uint selectedLod = selectLodLevel(drawData, instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
         uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
         uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
-    
+        meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
+        perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+        
         // Still have meshlets for that lodLevel.
         if (meshletOffset != maxUint)
         {
-            meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
-            
-            visible =
-                isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
+            // TODO: for now that isn't working for skinned meshes because animations brake it. FIX!
+            visible = true;
+            if (!meshAttr.isSkinned)
+            {
+                mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
+                
+                float3 sx = meshAttr.meshGlobalTransform[0].xyz;
+                float3 sy = meshAttr.meshGlobalTransform[1].xyz;
+                float3 sz = meshAttr.meshGlobalTransform[2].xyz;
+
+                float scaleX = length(sx);
+                float scaleY = length(sy);
+                float scaleZ = length(sz);
+
+                float maxScale = max(scaleX, max(scaleY, scaleZ));
+
+                mesh.bounds.radius = mesh.bounds.radius * maxScale;
+                
+                mesh.bounds.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, mesh.bounds.coneAxis));
+                
+                visible =
+                    isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
+            }
             
             if (visible)
             {

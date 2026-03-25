@@ -38,8 +38,7 @@ namespace engine
 		std::vector<uint32_t>& iOut,
 		size_t maxVert, size_t maxTriangles, float coneWieght,
 		float errorLevel,
-		size_t targetIndexCount,
-		uint32_t perMeshOffset
+		size_t targetIndexCount
 	);
 
 	error generateLodLevel(
@@ -51,9 +50,8 @@ namespace engine
 		size_t maxVert,
 		size_t maxTriangles,
 		float coneWeight,
-		float errorLevel,
-		uint32_t perMeshOffset
-		);
+		float errorLevel
+	);
 
 	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel);
 	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data);
