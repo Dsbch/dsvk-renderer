@@ -62,14 +62,15 @@ void asmain(
     {
         uint perInstanceIndex = commandBuffer[dtid + push.commandBufferOffset].instanceIndex;
         uint perInstanceOffset = commandBuffer[dtid + push.commandBufferOffset].instanceOffset;
-    
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
-        uint selectedLod = selectLodLevel(drawData, instanceAttr.bsWorldCenter, instanceAttr.bsWorldRadius);
+        
         uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
+        uint selectedLod = selectLodLevel(drawData, instanceAttr.modelTransform, dtid + push.commandBufferOffset, meshletIdx);
         uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
+    
         meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
         perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
-        
+
         // Still have meshlets for that lodLevel.
         if (meshletOffset != maxUint)
         {

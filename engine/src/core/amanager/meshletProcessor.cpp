@@ -8,19 +8,37 @@
 
 namespace engine
 {
+	template<typename T>
+	const T& getAttr(const void* base, size_t idx, size_t stride)
+	{
+		return *reinterpret_cast<const T*>(
+			reinterpret_cast<const char*>(base) + idx * stride
+			);
+	}
+
+	template<typename T>
+	void setAttr(void* base, size_t idx, size_t stride, const T& value)
+	{
+		*reinterpret_cast<T*>(
+			reinterpret_cast<char*>(base) + idx * stride
+			) = value;
+	}
+
 	void calculateTangents(
-		std::vector<vertex>& v,
-		std::vector<animVertex>& animV,
-		const std::vector<uint32_t>& indices
+		const glm::vec3* positions,
+		const glm::vec3* normals,
+		const glm::vec2* textCoords,
+		size_t verticesLen,
+		size_t stride,
+		const std::vector<uint32_t>& indices,
+		glm::vec4* outTangents
 	)
 	{
-		size_t vertexSize = v.size() == 0 ? animV.size() : v.size();
-
 		std::vector<glm::vec3> tan1{};
-		tan1.resize(vertexSize);
+		tan1.resize(verticesLen);
 
 		std::vector<glm::vec3> tan2{};
-		tan2.resize(vertexSize);
+		tan2.resize(verticesLen);
 
 		for (size_t i = 0; i < indices.size(); i += 3)
 		{
@@ -28,21 +46,24 @@ namespace engine
 			uint32_t i2 = indices[i + 1];
 			uint32_t i3 = indices[i + 2];
 
-			const vertex& v1 = v.size() == 0 ? animV[i1].vert : v[i1];
-			const vertex& v2 = v.size() == 0 ? animV[i2].vert : v[i2];
-			const vertex& v3 = v.size() == 0 ? animV[i3].vert : v[i3];
+			const glm::vec3& v1 = getAttr<glm::vec3>(positions, i1, stride);
+			const glm::vec3& v2 = getAttr<glm::vec3>(positions, i2, stride);
+			const glm::vec3& v3 = getAttr<glm::vec3>(positions, i3, stride);
+			const glm::vec2& tc1 = getAttr<glm::vec2>(textCoords, i1, stride);
+			const glm::vec2& tc2 = getAttr<glm::vec2>(textCoords, i2, stride);
+			const glm::vec2& tc3 = getAttr<glm::vec2>(textCoords, i3, stride);
 
-			float x1 = v2.position.x - v1.position.x;
-			float x2 = v3.position.x - v1.position.x;
-			float y1 = v2.position.y - v1.position.y;
-			float y2 = v3.position.y - v1.position.y;
-			float z1 = v2.position.z - v1.position.z;
-			float z2 = v3.position.z - v1.position.z;
+			float x1 = v2.x - v1.x;
+			float x2 = v3.x - v1.x;
+			float y1 = v2.y - v1.y;
+			float y2 = v3.y - v1.y;
+			float z1 = v2.z - v1.z;
+			float z2 = v3.z - v1.z;
 
-			float s1 = v2.textureCoords.x - v1.textureCoords.x;
-			float s2 = v3.textureCoords.x - v1.textureCoords.x;
-			float t1 = v2.textureCoords.y - v1.textureCoords.y;
-			float t2 = v3.textureCoords.y - v1.textureCoords.y;
+			float s1 = tc2.x - tc1.x;
+			float s2 = tc3.x - tc1.x;
+			float t1 = tc2.y - tc1.y;
+			float t2 = tc3.y - tc1.y;
 
 			float r = 1.0F / (s1 * t2 - s2 * t1);
 
@@ -67,24 +88,15 @@ namespace engine
 			tan2[i3] += tdir;
 		}
 
-		for (size_t i = 0; i < vertexSize; i++)
+		for (size_t i = 0; i < verticesLen; i++)
 		{
-			const auto& n = v.size() == 0 ? animV[i].vert.normal : v[i].normal;
+			const auto& n = getAttr<glm::vec3>(normals, i, stride);
 			const auto& t = tan1[i];
 
 			// Gram-Schmidt orthogonalize.
 			glm::vec3 tangent = glm::normalize(t - n * glm::dot(n, t));
 
-			if (v.size() == 0)
-				animV[i].vert.tangent = glm::vec4(tangent, 0.0f);
-			else
-				v[i].tangent = glm::vec4(tangent, 0.0f);
-
-			// Calculate handedness.
-			if (v.size() == 0)
-				animV[i].vert.tangent.w = (glm::dot(glm::cross(n, t), tan2[i]) < 0.0F) ? -1.0F : 1.0F;
-			else
-				v[i].tangent.w = (glm::dot(glm::cross(n, t), tan2[i]) < 0.0F) ? -1.0F : 1.0F;
+			setAttr<glm::vec4>(outTangents, i, stride, glm::vec4(tangent, (glm::dot(glm::cross(n, t), tan2[i]) < 0.0F) ? -1.0F : 1.0F));
 		}
 	}
 
@@ -125,37 +137,23 @@ namespace engine
 		return repacked;
 	}
 
-	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<vertex>& vertices, const std::vector<animVertex>& animVertices)
+	std::pair<glm::vec3, float> calculateBoundingSphere(const glm::vec3* positions, size_t verticesLen, size_t stride)
 	{
-		auto findFarthest = [&](glm::vec3 point)-> glm::vec3
+		auto findFarthest = [](glm::vec3 point, const glm::vec3* positions, size_t verticesLen, size_t stride)-> glm::vec3
 			{
 				glm::vec3 result{ 0.0f };
 				float maxLength = 0.0f;
 
-				if (vertices.size() == 0)
+				for (int i = 0; i < verticesLen; i++)
 				{
-					for (auto& v : animVertices)
-					{
-						auto length = glm::length(v.vert.position - point);
+					glm::vec3 pos = getAttr<glm::vec3>(positions, i, stride);
 
-						if (length > maxLength)
-						{
-							maxLength = length;
-							result = v.vert.position;
-						}
-					}
-				}
-				else
-				{
-					for (auto& v : vertices)
-					{
-						auto length = glm::length(v.position - point);
+					float length = glm::length(pos - point);
 
-						if (length > maxLength)
-						{
-							maxLength = length;
-							result = v.position;
-						}
+					if (length > maxLength)
+					{
+						maxLength = length;
+						result = pos;
 					}
 				}
 
@@ -164,49 +162,26 @@ namespace engine
 
 		std::pair<glm::vec3, float> result{ glm::vec3(1.0f), 0.0f };
 
-		size_t size = vertices.size() == 0 ? animVertices.size() : vertices.size();
+		glm::vec3 first = getAttr<glm::vec3>(positions, std::rand() % verticesLen, stride);
 
-		glm::vec3 first;
-
-		if (vertices.size() == 0)
-			first = animVertices[std::rand() % size].vert.position;
-		else
-			first = vertices[std::rand() % size].position;
-
-		glm::vec3 second = findFarthest(first);
-		glm::vec3 third = findFarthest(second);
+		glm::vec3 second = findFarthest(first, positions, verticesLen, stride);
+		glm::vec3 third = findFarthest(second, positions, verticesLen, stride);
 
 		glm::vec3 potentialCenter = (second + third) / 2.0f;
 		float potentialRadius = glm::length(third - potentialCenter);
 
-		if (vertices.size() == 0)
+		for (int i = 0; i < verticesLen; i++)
 		{
-			for (auto& v : animVertices)
-			{
-				glm::vec3 toCenter = v.vert.position - potentialCenter;
-				float crntRadius = glm::length(toCenter);
+			glm::vec3 pos = getAttr<glm::vec3>(positions, i, stride);
 
-				if (crntRadius > potentialRadius)
-				{
-					float newRadius = potentialRadius + (crntRadius - potentialRadius) / 2.0f;
-					potentialCenter += toCenter - (toCenter * (newRadius / crntRadius));
-					potentialRadius = newRadius;
-				}
-			}
-		}
-		else
-		{
-			for (auto& v : vertices)
-			{
-				glm::vec3 toCenter = v.position - potentialCenter;
-				float crntRadius = glm::length(toCenter);
+			glm::vec3 toCenter = pos - potentialCenter;
+			float crntRadius = glm::length(toCenter);
 
-				if (crntRadius > potentialRadius)
-				{
-					float newRadius = potentialRadius + (crntRadius - potentialRadius) / 2.0f;
-					potentialCenter += toCenter - (toCenter * (newRadius / crntRadius));
-					potentialRadius = newRadius;
-				}
+			if (crntRadius > potentialRadius)
+			{
+				float newRadius = potentialRadius + (crntRadius - potentialRadius) / 2.0f;
+				potentialCenter += toCenter - (toCenter * (newRadius / crntRadius));
+				potentialRadius = newRadius;
 			}
 		}
 
@@ -217,53 +192,38 @@ namespace engine
 	}
 
 	error remapMesh(
-		const std::vector<vertex>& vertecies,
-		const std::vector<animVertex>& animVertecies,
+		const glm::vec3* positions,
+		size_t vertexLen,
+		size_t sizeOfVertex,
 		const std::vector<uint32_t> indicies,
-		std::vector<vertex>& vOut,
-		std::vector<animVertex>& animVOut,
-		std::vector<uint32_t>& iOut)
+		const std::function<void* (size_t)>& resizeV,
+		const std::function<uint32_t* (size_t)>& resizeI
+	)
 	{
-		vOut.clear();
-		animVOut.clear();
-		iOut.clear();
-
 		std::vector<unsigned int> remap(indicies.size());
-
-		size_t size = vertecies.size() == 0 ? animVertecies.size() : vertecies.size();
-		float* inputPositionStart = vertecies.size() == 0 ? const_cast<float*>(&animVertecies.front().vert.position.x) : const_cast<float*>(&vertecies.front().position.x);
-		size_t sizeOfVertex = vertecies.size() == 0 ? sizeof(animVertex) : sizeof(vertex);
 
 		size_t vertex_count = meshopt_generateVertexRemap(
 			remap.data(),
 			indicies.data(),
 			indicies.size(),
-			inputPositionStart,
-			size,
+			&positions->x,
+			vertexLen,
 			sizeOfVertex
 		);
 		if (vertex_count == 0)
 			return error{ "vertex count is zero" };
 
-		iOut.resize(indicies.size());
-		meshopt_remapIndexBuffer(iOut.data(), indicies.data(), indicies.size(), remap.data());
+		meshopt_remapIndexBuffer(resizeI(indicies.size()), indicies.data(), indicies.size(), remap.data());
 
-		if (vertecies.size() == 0)
-			animVOut.resize(vertex_count);
-		else
-			vOut.resize(vertex_count);
-
-		const void* inputStart = vertecies.size() == 0 ? static_cast<const void*>(animVertecies.data()) : static_cast<const void*>(vertecies.data());
-		void* outputStart = vertecies.size() == 0 ? static_cast<void*>(animVOut.data()) : static_cast<void*>(vOut.data());
-
-		meshopt_remapVertexBuffer(outputStart, inputStart, size, sizeOfVertex, remap.data());
+		meshopt_remapVertexBuffer(resizeV(vertex_count), &positions->x, vertexLen, sizeOfVertex, remap.data());
 
 		return {};
 	}
 
 	error generateMeshlets(
-		const std::vector<vertex>& vertecies,
-		const std::vector<animVertex>& animVertecies,
+		const glm::vec3* positions,
+		size_t vertexLen,
+		size_t sizeOfVertex,
 		const std::vector<uint32_t>& indicies,
 		std::vector<meshlet>& mOut,
 		std::vector<uint8_t>& pOut,
@@ -279,10 +239,6 @@ namespace engine
 
 		iOut = indicies;
 
-		size_t size = vertecies.size() == 0 ? animVertecies.size() : vertecies.size();
-		float* inputPositionStart = vertecies.size() == 0 ? const_cast<float*>(&animVertecies.front().vert.position.x) : const_cast<float*>(&vertecies.front().position.x);
-		size_t sizeOfVertex = vertecies.size() == 0 ? sizeof(animVertex) : sizeof(vertex);
-
 		std::vector<uint32_t> simplyfiedIndexBuf;
 		simplyfiedIndexBuf.resize(indicies.size());
 
@@ -290,8 +246,8 @@ namespace engine
 			simplyfiedIndexBuf.data(),
 			indicies.data(),
 			indicies.size(),
-			inputPositionStart,
-			size,
+			&positions->x,
+			vertexLen,
 			sizeOfVertex,
 			targetIndexCount,
 			errorLevel
@@ -315,8 +271,8 @@ namespace engine
 			pOut.data(),												// Output: array of uint8_t - triangle indices
 			simplyfiedIndexBuf.data(),									// Input: pointer mesh vertex indices
 			simplyfiedIndexBuf.size(),									// Input: number of vertex indices
-			inputPositionStart,											// Input: pointer to vertex positions
-			size,														// Input: number of vertex positions	
+			&positions->x,												// Input: pointer to vertex positions
+			vertexLen,													// Input: number of vertex positions	
 			sizeOfVertex,												// Input: stride of vertex position elements
 			maxVert,													// Input: maximum number of vertices per meshlet
 			maxTriangles,												// Input: maximum number of triangles per meshlet
@@ -343,8 +299,8 @@ namespace engine
 				&iOut[m.vertex_offset],
 				&pOut[m.triangle_offset],
 				m.triangle_count,
-				inputPositionStart,
-				size,
+				&positions->x,
+				vertexLen,
 				sizeOfVertex
 			);
 
@@ -372,15 +328,27 @@ namespace engine
 		return {};
 	}
 
-	error generateLodLevel(const std::vector<vertex>& v, const std::vector<animVertex>& animV, const std::vector<uint32_t> i, mesh& crntMesh, size_t targetIndexCount, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
+	error generateLodLevel(
+		const glm::vec3* positions,
+		size_t vertexLen, 
+		size_t sizeOfVertex,
+		const std::vector<uint32_t> i,
+		mesh& crntMesh, 
+		size_t targetIndexCount, 
+		size_t maxVert, 
+		size_t maxTriangles, 
+		float coneWeight, 
+		float errorLevel
+	)
 	{
 		std::vector<meshlet> meshlets;
 		std::vector<uint32_t> indices;
 		std::vector<uint8_t> primitives;
 
 		error err = generateMeshlets(
-			v,
-			animV,
+			positions,
+			vertexLen,
+			sizeOfVertex,
 			i,
 			meshlets,
 			primitives,
@@ -453,18 +421,60 @@ namespace engine
 
 			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
 			{
-				primitives crntPrimitive = processPrimitive(gtlfMesh.primitives[pri], crntMeshAttrs.isSkinned, uint32_t(gtlfMesh.primitives[pri].material - data->materials));
+				primitives crntPrimitive = processPrimitive(
+					gtlfMesh.primitives[pri],
+					crntMeshAttrs.isSkinned,
+					uint32_t(gtlfMesh.primitives[pri].material - data->materials),
+					jointOffset
+				);
 
 				if (crntPrimitive.indicies.size() == 0 || (crntPrimitive.vertecies.size() == 0 && crntPrimitive.animVertecies.size() == 0))
 					continue;
 
-				calculateTangents(crntPrimitive.vertecies, crntPrimitive.animVertecies, crntPrimitive.indicies);
+				const glm::vec3* positions = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.position : &crntPrimitive.vertecies.front().position;
+				const glm::vec2* textCoords = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.textureCoords : &crntPrimitive.vertecies.front().textureCoords;
+				const glm::vec3* normals = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.normal : &crntPrimitive.vertecies.front().normal;
+				glm::vec4* tangents = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.tangent : &crntPrimitive.vertecies.front().tangent;
+				size_t sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
+				size_t vertexLen = crntMeshAttrs.isSkinned ? crntPrimitive.animVertecies.size() : crntPrimitive.vertecies.size();
+
+				calculateTangents(positions, normals, textCoords, vertexLen, sizeOfVertex, crntPrimitive.indicies, tangents);
 
 				std::vector<vertex> remappedVertex;
 				std::vector<animVertex> remappedAnimVertex;
 				std::vector<uint32_t> remappedIndex;
 
-				error err = remapMesh(crntPrimitive.vertecies, crntPrimitive.animVertecies, crntPrimitive.indicies, remappedVertex, remappedAnimVertex, remappedIndex);
+				void* vOut = crntMeshAttrs.isSkinned ? static_cast<void*>(remappedAnimVertex.data()) : static_cast<void*>(remappedVertex.data());
+				auto resizeV = [&remappedVertex, &remappedAnimVertex, crntMeshAttrs](size_t size) -> void*
+					{
+						if (crntMeshAttrs.isSkinned)
+						{
+							remappedAnimVertex.resize(size);
+
+							return static_cast<void*>(remappedAnimVertex.data());
+						}
+						else
+						{
+							remappedVertex.resize(size);
+
+							return static_cast<void*>(remappedVertex.data());
+						}
+					};
+				auto resizeI = [&remappedIndex](size_t size) -> uint32_t*
+					{
+						remappedIndex.resize(size);
+
+						return remappedIndex.data();
+					};
+
+				error err = remapMesh(
+					positions, 
+					vertexLen,
+					sizeOfVertex, 
+					crntPrimitive.indicies, 
+					resizeV,
+					resizeI
+				);
 				if (err)
 					return err;
 
@@ -472,7 +482,11 @@ namespace engine
 				std::vector<uint32_t> indices;
 				std::vector<uint8_t> primitives;
 
-				err = generateMeshlets(remappedVertex, remappedAnimVertex, remappedIndex, meshlets, primitives, indices, maxVert, maxTriangles, coneWeight, 0, 0);
+				positions = crntMeshAttrs.isSkinned ? &remappedAnimVertex.front().vert.position : &remappedVertex.front().position;
+				sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
+				vertexLen = crntMeshAttrs.isSkinned ? remappedAnimVertex.size() : remappedVertex.size();
+
+				err = generateMeshlets(positions, vertexLen, sizeOfVertex, remappedIndex, meshlets, primitives, indices, maxVert, maxTriangles, coneWeight, 0, 0);
 				if (err)
 					return err;
 
@@ -525,17 +539,21 @@ namespace engine
 			if (node->skin)
 				jointOffset += uint32_t(node->skin->joints_count);
 
-			auto sphere = calculateBoundingSphere(crntMesh.vertices, crntMesh.animVertices);
+			const glm::vec3* positions = crntMeshAttrs.isSkinned ? &crntMesh.animVertices.front().vert.position : &crntMesh.vertices.front().position;
+			size_t sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
+			size_t vertexLen = crntMeshAttrs.isSkinned ? crntMesh.animVertices.size() : crntMesh.vertices.size();
 
-			crntMesh.bsCenter = sphere.first;
-			crntMesh.bsRadius = sphere.second;
+			auto sphere = calculateBoundingSphere(positions, vertexLen, sizeOfVertex);
+
+			crntMeshAttrs.bsCenter = sphere.first;
+			crntMeshAttrs.bsRadius = sphere.second;
 
 			// Generate lod levels.
 			crntMesh.indices.second = uint32_t(crntMesh.indices.data.size());
 			crntMesh.primitives.second = uint32_t(crntMesh.primitives.data.size());
 			crntMesh.meshlets.second = uint32_t(crntMesh.meshlets.data.size());
 
-			error err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel);
+			error err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel);
 			if (err)
 				return err;
 
@@ -543,7 +561,7 @@ namespace engine
 			crntMesh.primitives.third = uint32_t(crntMesh.primitives.data.size());
 			crntMesh.meshlets.third = uint32_t(crntMesh.meshlets.data.size());
 
-			err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel);
+			err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel);
 			if (err)
 				return err;
 
@@ -551,7 +569,7 @@ namespace engine
 			crntMesh.primitives.fourth = uint32_t(crntMesh.primitives.data.size());
 			crntMesh.meshlets.fourth = uint32_t(crntMesh.meshlets.data.size());
 
-			err = generateLodLevel(crntMesh.vertices, crntMesh.animVertices, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel);
+			err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel);
 			if (err)
 				return err;
 

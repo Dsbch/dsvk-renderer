@@ -72,11 +72,7 @@ struct transform
 
 struct perInstanceAttr
 {
-    float3 bsWorldCenter;
-    float bsWorldRadius;
-    
     transform modelTransform;
-
     uint globalMaterialOffset;
     uint jointIndex;
     uint jointOffset;
@@ -96,6 +92,8 @@ struct command
 
 struct perMeshAttributes
 {
+    float bsRadius;
+    float3 bsCenter;
     uint isSkinned;
     float4x4 meshLocalTransform;
     float4x4 meshGlobalTransform;
@@ -184,13 +182,50 @@ struct meshOutput
     nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
 };
 
-uint selectLodLevel(perDrawData drawData, float3 bsWorldCenter, float bsWorldRadius)
+uint getMeshletOffset(uint lodLevel, uint idx)
 {
+    uint result;
+    
+    switch (lodLevel)
+    {
+        case 2:
+            result = commandBuffer[idx].meshletOffset2;
+            break;
+        case 3:
+            result = commandBuffer[idx].meshletOffset3;
+            break;
+        case 4:
+            result = commandBuffer[idx].meshletOffset4;
+            break;
+        default:
+            result = commandBuffer[idx].meshletOffset1;
+            break;
+    }
+    
+    return result;
+}
+
+uint selectLodLevel(perDrawData drawData, transform modelTransform, uint cmdBuffIdx, uint meshletIdx)
+{
+    // Get first lod level to reference a meshlet.
+    meshlet mesh = meshletBuffer[meshletIdx][getMeshletOffset(1, cmdBuffIdx)];
+    perMeshAttributes meshAttrs = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+    
+    float uniformScale = max(length(meshAttrs.meshGlobalTransform[0].xyz), max(length(meshAttrs.meshGlobalTransform[1].xyz), length(meshAttrs.meshGlobalTransform[2].xyz)));
+
+    meshAttrs.bsCenter = mul(meshAttrs.meshGlobalTransform, float4(meshAttrs.bsCenter, 1.0f)).xyz;
+    meshAttrs.bsRadius *= uniformScale;
+    
+    uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
+    
+    meshAttrs.bsCenter = transformPoint(modelTransform, meshAttrs.bsCenter);
+    meshAttrs.bsRadius *= uniformScale;
+    
     // Get viewSpace of the center.
-    float4 vsCenter = mul(drawData.view, float4(bsWorldCenter, 1.0f));
+    float4 vsCenter = mul(drawData.view, float4(meshAttrs.bsCenter, 1.0f));
     
     // Calculate view space for second point that is at the sphere border on y axis.
-    float4 vsBorder = float4(vsCenter.x, vsCenter.y + bsWorldRadius, vsCenter.zw);
+    float4 vsBorder = float4(vsCenter.x, vsCenter.y + meshAttrs.bsRadius, vsCenter.zw);
 
     // To NDC for both.
     float4 clipCenter = mul(drawData.projection, vsCenter);
@@ -368,29 +403,6 @@ float3 toSRGB(float3 color)
     return pow(color, 1.0f / GAMMA);
 }
 
-uint getMeshletOffset(uint lodLevel, uint idx)
-{
-    uint result;
-    
-    switch (lodLevel)
-    {
-        case 2:
-            result = commandBuffer[idx].meshletOffset2;
-            break;
-        case 3:
-            result = commandBuffer[idx].meshletOffset3;
-            break;
-        case 4:
-            result = commandBuffer[idx].meshletOffset4;
-            break;
-        default:
-            result = commandBuffer[idx].meshletOffset1;
-            break;
-    }
-    
-    return result;
-}
-
 // Skins all vertex attributes if needed.
 vertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uint index, uint offset)
 {
@@ -413,7 +425,7 @@ vertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uint index
     skinnedPos += aVertex.weights[2] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[2]], bindPos);
     skinnedPos += aVertex.weights[3] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[3]], bindPos);
     
-    aVertex.vert.position = skinnedPos.xyz;
+    aVertex.vert.position = mul(perMesh.meshGlobalTransform, float4(skinnedPos.xyz, 1.0f)).xyz;
     
     aVertex.vert.normal = normalize(
             aVertex.weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[0]], aVertex.vert.normal) +

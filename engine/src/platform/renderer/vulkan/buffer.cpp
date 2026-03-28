@@ -105,7 +105,7 @@ namespace engine
 			return {};
 
 		if (sizeInBytes + mLoadedBytes > mByteSize)
-			return error{ "buffer overflow" };
+			return error{ errCodeBufferOverFlow, "buffer overflow" };
 
 		auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
 		if (!stagingBuffer)

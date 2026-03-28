@@ -127,48 +127,13 @@ namespace engine
 		return {};
 	}
 
-	static std::pair<glm::vec3, float> avgBs(const std::vector<std::pair<glm::vec3, float>> spheres)
-	{
-		std::pair<glm::vec3, float> result{};
-
-		glm::vec3 minP(std::numeric_limits<float>::max()), maxP(std::numeric_limits<float>::min());
-
-		for (auto& bs : spheres)
-		{
-			minP = glm::min(minP, bs.first - glm::vec3(bs.second));
-			maxP = glm::max(maxP, bs.first + glm::vec3(bs.second));
-		}
-
-		result.first = (minP + maxP) * 0.5f;
-
-		for (auto& bs : spheres)
-		{
-			float d = glm::length(bs.first - result.first) + bs.second;
-			result.second = glm::max(result.second, d);
-		}
-
-		return result;
-	}
-
 	error renderSystem::handleNewEntities(std::shared_ptr<entt::registry> registry)
 	{
 		for (auto [e, uid, meshes, materials, tr, anim] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>().each())
 		{
-			float scale = std::max({ tr.scale.x, tr.scale.y, tr.scale.z });
-
-			std::vector<std::pair<glm::vec3, float>> spheres{};
-			for (auto& crntMesh : *meshes.meshData.get())
-			{
-				spheres.emplace_back(crntMesh.bsCenter, crntMesh.bsRadius);
-			}
-
-			auto bs = avgBs(spheres);
-
 			model m{
 				.id = uid.uid,
 				.instanceAttributes = perInstanceAttr{
-					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * bs.first),
-					.bsWorldRadius = bs.second * scale,
 					.modelTransform = transform{
 						.translation = tr.translation,
 						.scale = tr.scale,
@@ -214,21 +179,9 @@ namespace engine
 	{
 		for (auto [e, uid, meshes, materials, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>().each())
 		{
-			float scale = std::max({ tr.scale.x, tr.scale.y, tr.scale.z });
-
-			std::vector<std::pair<glm::vec3, float>> spheres{};
-			for (auto& crntMesh : *meshes.meshData.get())
-			{
-				spheres.emplace_back(crntMesh.bsCenter, crntMesh.bsRadius);
-			}
-
-			auto bs = avgBs(spheres);
-
 			model m{
 				.id = uid.uid,
 				.instanceAttributes = perInstanceAttr{
-					.bsWorldCenter = tr.translation + tr.rotation * (tr.scale * bs.first),
-					.bsWorldRadius = bs.second * scale,
 					.modelTransform = transform{
 						.translation = tr.translation,
 						.scale = tr.scale,

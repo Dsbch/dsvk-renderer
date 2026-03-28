@@ -5,6 +5,9 @@
 
 namespace engine
 {
+	const uint32_t errCodeBufferOverFlow = 0;
+	const uint32_t errCodeOutOfDateKHR = 1;
+
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT              messageType,
@@ -589,7 +592,7 @@ namespace engine
 		err = mSwapChain.acquireImageIndex();
 		if (err)
 		{
-			if (err.err() == "VK_ERROR_OUT_OF_DATE_KHR")
+			if (err.is(errCodeOutOfDateKHR))
 			{
 				mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(mWindow->getFbWidth(), mWindow->getFbHeight()));
 

@@ -4,7 +4,7 @@
 
 namespace engine
 {
-	enum eventType
+	enum class eventType
 	{
 		keyPressed,
 		keyUp,
@@ -14,7 +14,7 @@ namespace engine
 		close,
 	};
 
-	enum key
+	enum class key
 	{
 		mouse1,
 		mouse2,

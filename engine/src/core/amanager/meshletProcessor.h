@@ -8,9 +8,13 @@ struct cgltf_data;
 namespace engine
 {
 	void calculateTangents(
-		std::vector<vertex>& v,
-		std::vector<animVertex>& animV,
-		const std::vector<uint32_t>& indices
+		const glm::vec3* positions,
+		const glm::vec3* normals,
+		const glm::vec2* textCoords,
+		size_t verticesLen,
+		size_t stride,
+		const std::vector<uint32_t>& indices,
+		glm::vec4* outTangents
 	);
 
 	std::vector<uint32_t> repackPrimitives(
@@ -18,20 +22,21 @@ namespace engine
 		std::vector<meshlet>& meshlets
 	);
 
-	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<vertex>& vertices, const std::vector<animVertex>& animVertices);
+	std::pair<glm::vec3, float> calculateBoundingSphere(const glm::vec3* positions, size_t verticesLen, size_t stride);
 
 	error remapMesh(
-		const std::vector<vertex>& vertecies,
-		const std::vector<animVertex>& animVertecies,
+		const glm::vec3* positions,
+		size_t vertexLen,
+		size_t sizeOfVertex,
 		const std::vector<uint32_t> indicies,
-		std::vector<vertex>& vOut,
-		std::vector<animVertex>& animVOut,
-		std::vector<uint32_t>& iOut
+		const std::function<void* (size_t)>& resizeV,
+		const std::function<uint32_t*(size_t)>& resizeI
 	);
 
 	error generateMeshlets(
-		const std::vector<vertex>& vertecies,
-		const std::vector<animVertex>& animVertecies,
+		const glm::vec3* positions,
+		size_t vertexLen, 
+		size_t sizeOfVertex,
 		const std::vector<uint32_t>& indicies,
 		std::vector<meshlet>& mOut,
 		std::vector<uint8_t>& pOut,
@@ -42,8 +47,9 @@ namespace engine
 	);
 
 	error generateLodLevel(
-		const std::vector<vertex>& v,
-		const std::vector<animVertex>& animV,
+		const glm::vec3* positions,
+		size_t vertexLen,
+		size_t sizeOfVertex,
 		const std::vector<uint32_t> i,
 		mesh& crntMesh,
 		size_t targetIndexCount,

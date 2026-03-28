@@ -201,6 +201,9 @@ namespace engine
 		VkResult e = vkAcquireNextImageKHR(mDevice, mSwapchain, 1000000000, getCurrentFrameData().swapchainSemaphore, nullptr, &mSwapchainIndex);
 		if (e != VK_SUCCESS)
 		{
+			if (e == VK_ERROR_OUT_OF_DATE_KHR)
+				return { errCodeOutOfDateKHR, vkResultToStr(e) };
+
 			return { vkResultToStr(e) };
 		}
 

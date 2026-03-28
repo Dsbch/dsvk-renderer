@@ -489,13 +489,15 @@ namespace engine
 			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
 
 			// Upload geometry.
+			uint32_t vertexSize = crntMeshAttrs.isSkinned ? uint32_t(sizeof(animVertex)) : uint32_t(sizeof(vertex));
+
 			bufferHandle vertexHandle{};
 			if (crntMeshAttrs.isSkinned)
 			{
 				auto handle = mAnimVertexRegistry.addBlock(
 					crntMesh.hash,
 					crntMesh.animVertices.data(),
-					crntMesh.animVertices.size() * sizeof(animVertex),
+					crntMesh.animVertices.size() * vertexSize,
 					is
 				);
 				if (!handle)
@@ -508,7 +510,7 @@ namespace engine
 				auto handle = mVertexRegistry.addBlock(
 					crntMesh.hash,
 					crntMesh.vertices.data(),
-					crntMesh.vertices.size() * sizeof(vertex),
+					crntMesh.vertices.size() * vertexSize,
 					is
 				);
 				if (!handle)
@@ -530,9 +532,9 @@ namespace engine
 
 			for (auto& m : meshlets)
 			{
-				m.vertexBufferOffset += vertexHandle.offset / uint32_t(sizeof(vertex));
+				m.vertexBufferOffset += vertexHandle.offset / vertexSize;
 				m.vertexBufferIndex = vertexHandle.bufferIndex;
-				m.perMeshBufferOffset += perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
+				m.perMeshBufferOffset = perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
 				m.perMeshBufferIndex = perMeshHandle.value().bufferIndex;
 			}
 
@@ -601,9 +603,15 @@ namespace engine
 				return materialOffsets.err();
 		}
 
+		auto jointHandle = mJointRegistry.findBlock(m.id);
+		if (!jointHandle)
+			return jointHandle.err();
+
 		// Form new instance attrs.
 		perInstanceAttr attr = m.instanceAttributes;
 		attr.globalMaterialOffset = materialOffsets.value();
+		attr.jointIndex = jointHandle.value().bufferIndex;
+		attr.jointOffset = jointHandle.value().offset / uint32_t(sizeof(glm::mat4));
 
 		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), is);
 	}

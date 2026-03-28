@@ -33,9 +33,10 @@ namespace engine
 		glm::mat4 getView() const;
 		glm::mat4 getProjection() const;
 		glm::vec3 getPosition() const;
-		void changePosition(float x, float z, float y = 0.0f);
-		void changeYaw(float yaw);
-		void changePitch(float pitch);
+		void setPosition(glm::vec3 pos);
+		void offsetPosition(float x, float z, float y = 0.0f);
+		void offsetYaw(float yaw);
+		void offsetPitch(float pitch);
 		void changeViewPort(uint32_t width, uint32_t height);
 		float getFOV();
 		frustum calculateCameraFrustum();

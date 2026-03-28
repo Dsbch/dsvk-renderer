@@ -100,18 +100,25 @@ namespace engine
 		return mPos;
 	}
 
-	void fpsCamera::changePosition(float x, float z, float y)
+	void fpsCamera::setPosition(glm::vec3 pos)
+	{
+		mPos = pos;
+
+		updateView();
+	}
+
+	void fpsCamera::offsetPosition(float x, float z, float y)
 	{
 		mPos += mFront * z;
 
-		mPos += glm::cross(mFront, mUp) * x;
+		mPos += glm::normalize(glm::cross(mFront, mUp)) * x;
 
 		mPos += mUp * y;
 
 		updateView();
 	}
 
-	void fpsCamera::changeYaw(float shift)
+	void fpsCamera::offsetYaw(float shift)
 	{
 		mYaw += shift;
 
@@ -120,7 +127,7 @@ namespace engine
 		updateView();
 	}
 
-	void fpsCamera::changePitch(float shift)
+	void fpsCamera::offsetPitch(float shift)
 	{
 		mPitch += shift;
 

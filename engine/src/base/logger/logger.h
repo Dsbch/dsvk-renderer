@@ -9,7 +9,7 @@ namespace engine {
 	class logger
 	{
 	public:
-		enum level {
+		enum class level {
 			debug = spdlog::level::debug,
 			trace = spdlog::level::trace,
 			info = spdlog::level::info,

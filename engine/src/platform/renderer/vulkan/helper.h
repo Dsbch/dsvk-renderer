@@ -5,6 +5,9 @@
 
 namespace engine
 {
+	extern const uint32_t errCodeBufferOverFlow;
+	extern const uint32_t errCodeOutOfDateKHR;
+
 	struct deviceLimits
 	{
 		uint32_t maxUniformBuffers;

@@ -17,40 +17,40 @@ namespace engine
 	{
 		switch (glfwKey)
 		{
-		case GLFW_MOUSE_BUTTON_LEFT:   return mouse1;
-		case GLFW_MOUSE_BUTTON_RIGHT:  return mouse2;
-		case GLFW_MOUSE_BUTTON_MIDDLE: return mouse3;
+		case GLFW_MOUSE_BUTTON_LEFT:   return key::mouse1;
+		case GLFW_MOUSE_BUTTON_RIGHT:  return key::mouse2;
+		case GLFW_MOUSE_BUTTON_MIDDLE: return key::mouse3;
 
-		case GLFW_KEY_ESCAPE: return escape;
-		case GLFW_KEY_ENTER:  return enter;
-		case GLFW_KEY_SPACE:  return space;
+		case GLFW_KEY_ESCAPE: return key::escape;
+		case GLFW_KEY_ENTER:  return key::enter;
+		case GLFW_KEY_SPACE:  return key::space;
 
-		case GLFW_KEY_LEFT:  return left;
-		case GLFW_KEY_RIGHT: return right;
-		case GLFW_KEY_UP:    return up;
-		case GLFW_KEY_DOWN:  return down;
+		case GLFW_KEY_LEFT:  return key::left;
+		case GLFW_KEY_RIGHT: return key::right;
+		case GLFW_KEY_UP:    return key::up;
+		case GLFW_KEY_DOWN:  return key::down;
 
-		case GLFW_KEY_A: return a; case GLFW_KEY_B: return b;
-		case GLFW_KEY_C: return c; case GLFW_KEY_D: return d;
-		case GLFW_KEY_E: return e; case GLFW_KEY_F: return f;
-		case GLFW_KEY_G: return g; case GLFW_KEY_H: return h;
-		case GLFW_KEY_I: return i; case GLFW_KEY_J: return j;
-		case GLFW_KEY_K: return k; case GLFW_KEY_L: return l;
-		case GLFW_KEY_M: return m; case GLFW_KEY_N: return n;
-		case GLFW_KEY_O: return o; case GLFW_KEY_P: return p;
-		case GLFW_KEY_Q: return q; case GLFW_KEY_R: return r;
-		case GLFW_KEY_S: return s; case GLFW_KEY_T: return t;
-		case GLFW_KEY_U: return u; case GLFW_KEY_V: return v;
-		case GLFW_KEY_W: return w; case GLFW_KEY_X: return x;
-		case GLFW_KEY_Y: return y; case GLFW_KEY_Z: return z;
+		case GLFW_KEY_A: return key::a; case GLFW_KEY_B: return key::b;
+		case GLFW_KEY_C: return key::c; case GLFW_KEY_D: return key::d;
+		case GLFW_KEY_E: return key::e; case GLFW_KEY_F: return key::f;
+		case GLFW_KEY_G: return key::g; case GLFW_KEY_H: return key::h;
+		case GLFW_KEY_I: return key::i; case GLFW_KEY_J: return key::j;
+		case GLFW_KEY_K: return key::k; case GLFW_KEY_L: return key::l;
+		case GLFW_KEY_M: return key::m; case GLFW_KEY_N: return key::n;
+		case GLFW_KEY_O: return key::o; case GLFW_KEY_P: return key::p;
+		case GLFW_KEY_Q: return key::q; case GLFW_KEY_R: return key::r;
+		case GLFW_KEY_S: return key::s; case GLFW_KEY_T: return key::t;
+		case GLFW_KEY_U: return key::u; case GLFW_KEY_V: return key::v;
+		case GLFW_KEY_W: return key::w; case GLFW_KEY_X: return key::x;
+		case GLFW_KEY_Y: return key::y; case GLFW_KEY_Z: return key::z;
 
-		case GLFW_KEY_0: return zero; case GLFW_KEY_1: return one;
-		case GLFW_KEY_2: return two; case GLFW_KEY_3: return three;
-		case GLFW_KEY_4: return four; case GLFW_KEY_5: return five;
-		case GLFW_KEY_6: return six; case GLFW_KEY_7: return seven;
-		case GLFW_KEY_8: return eight; case GLFW_KEY_9: return nine;
+		case GLFW_KEY_0: return key::zero; case GLFW_KEY_1: return key::one;
+		case GLFW_KEY_2: return key::two; case GLFW_KEY_3: return key::three;
+		case GLFW_KEY_4: return key::four; case GLFW_KEY_5: return key::five;
+		case GLFW_KEY_6: return key::six; case GLFW_KEY_7: return key::seven;
+		case GLFW_KEY_8: return key::eight; case GLFW_KEY_9: return key::nine;
 
-		default: return unknown;
+		default: return key::unknown;
 		}
 	}
 
@@ -77,7 +77,8 @@ namespace engine
 					wndPtr->mKeyDown[keyCode] = std::make_shared<keyDownEvent>(keyCode);
 				}
 			}
-			else
+
+			if (action == GLFW_RELEASE)
 			{
 				if (wndPtr->mKeyDown.find(keyCode) != wndPtr->mKeyDown.end())
 				{
@@ -86,6 +87,7 @@ namespace engine
 
 				wndPtr->mEventQueue.push(std::make_shared<keyUpEvent>(keyCode));
 			}
+
 		}
 	}
 

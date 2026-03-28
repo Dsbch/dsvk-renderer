@@ -6,7 +6,7 @@
 namespace engine
 {
 	cameraSystem::cameraSystem(std::shared_ptr<context> ctx)
-		: system(ctx)
+		: system(ctx), mLastFramePosition(0.0f)
 	{
 	}
 
@@ -47,14 +47,34 @@ namespace engine
 
 	error cameraSystem::onRender(std::shared_ptr<entt::registry> registry, float deltaTime)
 	{
+		if (isDebugCameraPresent(registry))
+		{
+			auto newPos = getDebugCameraPos(registry);
+			if (!newPos)
+				return newPos.err();
+		
+			mLastFramePosition = newPos.value();
+		}
+		else
+		{
+			auto newPos = getCameraPos(registry);
+			if (!newPos)
+				return newPos.err();
+
+			mLastFramePosition = newPos.value();
+		}
+
 		return {};
 	}
 
-	// TODO: fix bug on W,D sqrt(2) speed.
 	error cameraSystem::applyInput(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
 	{
+		const float maxOffset = 0.1f;
+
 		if (e->getEventType() == eventType::keyDown)
 		{
+			glm::vec3 oldPos = camera.camera->getPosition();
+
 			for (auto key : input.keyDown)
 			{
 				if (key == static_cast<keyDownEvent*>(e.get())->getKey())
@@ -62,19 +82,24 @@ namespace engine
 					switch (key)
 					{
 					case key::w:
-						camera.camera->changePosition(0.0f, 0.1f);
+						camera.camera->offsetPosition(0.0f, maxOffset);
 						break;
 					case key::s:
-						camera.camera->changePosition(0.0f, -0.1f);
+						camera.camera->offsetPosition(0.0f, -maxOffset);
 						break;
 					case key::a:
-						camera.camera->changePosition(-0.1f, 0.0f);
+						camera.camera->offsetPosition(-maxOffset, 0.0f);
 						break;
 					case key::d:
-						camera.camera->changePosition(0.1f, 0.0f);
+						camera.camera->offsetPosition(maxOffset, 0.0f);
 						break;
 					}
 				}
+			}
+
+			if (glm::vec3 oldToNew = camera.camera->getPosition() - mLastFramePosition; glm::length(oldToNew) > maxOffset)
+			{
+				camera.camera->setPosition(mLastFramePosition + glm::normalize(oldToNew) * maxOffset);
 			}
 		}
 
@@ -82,8 +107,8 @@ namespace engine
 		{
 			auto offset = static_cast<mouseMoveEvent*>(e.get())->getMouseOffset();
 
-			camera.camera->changeYaw(float(offset.x) * 0.1f);
-			camera.camera->changePitch(float(-offset.y) * 0.1f);
+			camera.camera->offsetYaw(float(offset.x) * 0.1f);
+			camera.camera->offsetPitch(float(-offset.y) * 0.1f);
 		}
 
 		return {};
@@ -93,21 +118,20 @@ namespace engine
 	{
 		if (e->getEventType() == eventType::keyUp)
 		{
-			if (key k = static_cast<keyUpEvent*>(e.get())->getKey())
+			key k = static_cast<keyUpEvent*>(e.get())->getKey();
+
+			switch (k)
 			{
-				switch (k)
+			case key::b:
+				if (isDebugCameraPresent(registry))
 				{
-				case key::b:
-					if (isDebugCameraPresent(registry))
-					{
-						despawnDebugCamera(registry);
-					}
-					else
-					{
-						spawnDebugCamera(registry);
-					}
-					break;
+					despawnDebugCamera(registry);
 				}
+				else
+				{
+					spawnDebugCamera(registry);
+				}
+				break;
 			}
 		}
 
@@ -182,6 +206,16 @@ namespace engine
 		}
 
 		return error{ "scene doesn't hold an active camera" };
+	}
+
+	withError<glm::vec3> cameraSystem::getDebugCameraPos(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [entity, camera] : registry->view<fpsCameraComponent, debugCameraComponent>().each())
+		{
+			return camera.camera->getPosition();
+		}
+
+		return error{ "scene doesn't hold an active debug camera" };
 	}
 
 	withError<glm::vec3> cameraSystem::getCameraFront(std::shared_ptr<entt::registry> registry)

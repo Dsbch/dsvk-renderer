@@ -3,24 +3,36 @@
 #include <pch.h>
 
 namespace engine {
-	// TODO: add errors.Is functional like in go. Should compare only pointers or at least error codes.
 	class error
 	{
-	private:
-		std::string mValue;
 	public:
 		template <typename... T>
 		error(const std::string& fmtStr, T&&... args);
 
+		template <typename... T>
+		error(uint32_t errorCode, const std::string& fmtStr, T&&... args);
+
 		error();
+		error(uint32_t errCode);
+
+		bool is(uint32_t code);
 
 		std::string err() const;
 		operator bool() const;
+	private:
+		uint32_t mErrorCode;
+		std::string mValue;
 	};
 
 	template<typename ...T>
 	inline error::error(const std::string& fmtStr, T&&... args)
-		: mValue(fmt::format(fmt::runtime(fmtStr), std::forward<T>(args)...))
+		: mErrorCode(0), mValue(fmt::format(fmt::runtime(fmtStr), std::forward<T>(args)...))
+	{
+	}
+
+	template<typename ...T>
+	inline error::error(uint32_t errorCode, const std::string& fmtStr, T && ...args)
+		: mErrorCode(errorCode), mValue(fmt::format(fmt::runtime(fmtStr), std::forward<T>(args)...))
 	{
 	}
 

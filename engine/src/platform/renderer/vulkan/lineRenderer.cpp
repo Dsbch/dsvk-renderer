@@ -74,7 +74,7 @@ namespace engine
 			mVertexBuffer.markBytesAsDead(mVertexBuffer.getLoadedBytes());
 
 			error err = mVertexBuffer.updateBuffer(is, mVertexData.data(), sizeof(lineVertex) * mVertexData.size(), 0);
-			if (err.err() == "buffer overflow")
+			if (err.is(errCodeBufferOverFlow))
 			{
 				mVertexBuffer.destroy();
 

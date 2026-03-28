@@ -56,11 +56,11 @@ namespace sandbox
 
 	engine::error sandboxSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<engine::baseEvent> e)
 	{
-		if (e->getEventType() == engine::keyDown)
+		if (e->getEventType() == engine::eventType::keyDown)
 		{
 			auto event = static_cast<engine::keyPressedEvent*>(e.get());
 
-			if (event->getKey() == engine::t)
+			if (event->getKey() == engine::key::t)
 			{
 				for (auto [e, uid, meshlets, material, tr] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{
@@ -81,11 +81,11 @@ namespace sandbox
 			}
 		}
 
-		if (e->getEventType() == engine::keyPressed)
+		if (e->getEventType() == engine::eventType::keyPressed)
 		{
 			auto event = static_cast<engine::keyPressedEvent*>(e.get());
 
-			if (event->getKey() == engine::e)
+			if (event->getKey() == engine::key::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/catapult.glb",
@@ -101,7 +101,7 @@ namespace sandbox
 
 				auto tr = generateTransform();
 
-				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.1f }, tr.rotation);
 				e.addComponent<engine::newEntityComponent>();
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
@@ -116,7 +116,38 @@ namespace sandbox
 				}
 			}
 
-			if (event->getKey() == engine::f)
+			if (event->getKey() == engine::key::h)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/mira.glb",
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
+				if (!loadedModel)
+					return loadedModel.err();
+
+				engine::entity e{ mCtx, registry };
+
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.01f }, tr.rotation);
+				e.addComponent<engine::newEntityComponent>();
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
+
+				// Only for test porpuses.
+				float tick = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f;
+
+				for (auto& a : *loadedModel.value()->animations.get())
+				{
+					const_cast<engine::animation&>(a).update(tick);
+				}
+			}
+
+			if (event->getKey() == engine::key::f)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/magnifying_glass.glb",
@@ -138,7 +169,7 @@ namespace sandbox
 				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 			}
 
-			if (event->getKey() == engine::r)
+			if (event->getKey() == engine::key::r)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
 				if (!loadedModel)
@@ -147,11 +178,6 @@ namespace sandbox
 				auto tr = generateTransform();
 				engine::entity e{ mCtx, registry };
 
-				for (auto& ma : *loadedModel.value()->perMeshData.get())
-				{
-					LOGINFO("{}", glm::to_string(ma.meshGlobalTransform));
-				}
-
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
 				e.addComponent<engine::newEntityComponent>();
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
@@ -159,7 +185,7 @@ namespace sandbox
 				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 			}
 
-			if (event->getKey() == engine::y)
+			if (event->getKey() == engine::key::y)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/bistro_outside.glb");
 				if (!loadedModel)
@@ -175,7 +201,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::q)
+			if (event->getKey() == engine::key::q)
 			{
 				for (auto [e, uid, meshlets, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
 				{

@@ -57,11 +57,7 @@ namespace engine
 
 	struct perInstanceAttr
 	{
-		glm::vec3 bsWorldCenter;
-		float  bsWorldRadius;
-
 		transform modelTransform;
-
 		uint32_t globalMaterialOffset;
 		uint32_t jointIndex;
 		uint32_t jointOffset;
@@ -113,9 +109,6 @@ namespace engine
 		dataWithLodLevels<uint32_t> primitives;
 		dataWithLodLevels<meshlet> meshlets;
 
-		glm::vec3 bsCenter;
-		float bsRadius;
-
 		uint32_t hash = 0;
 
 		uint32_t generateHash()
@@ -123,7 +116,11 @@ namespace engine
 			if (hash != 0)
 				return hash;
 
-			hash = crc32(reinterpret_cast<const uint8_t*>(vertices.data()), vertices.size() * sizeof(vertices) / sizeof(uint8_t));
+			const uint8_t* ptr = vertices.size() == 0 ? reinterpret_cast<const uint8_t*>(animVertices.data()) : reinterpret_cast<const uint8_t*>(vertices.data());
+			size_t size = vertices.size() == 0 ? animVertices.size() : vertices.size();
+			size_t sizeOf = vertices.size() == 0 ? sizeof(animVertex) : sizeof(vertex);
+
+			hash = crc32(ptr, size * sizeOf / sizeof(uint8_t));
 
 			return hash;
 		}
@@ -215,6 +212,9 @@ namespace engine
 
 	struct perMeshAttributes
 	{
+		float  bsRadius;
+		glm::vec3 bsCenter;
+		
 		uint32_t isSkinned;
 		glm::mat4 meshLocalTransform;
 		glm::mat4 meshGlobalTransform;
