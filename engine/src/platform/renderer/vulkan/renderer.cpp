@@ -552,6 +552,11 @@ namespace engine
 		return mMeshletRenderer.updateInstance(m, mSubmit);
 	}
 
+	error vulkanRenderer::updateAnimations(const model& m)
+	{
+		return mMeshletRenderer.updateAnimations(m, mSubmit);
+	}
+
 	void vulkanRenderer::removeFromRender(const model& m)
 	{
 		mMeshletRenderer.removeFromRender(m);

@@ -134,6 +134,8 @@ namespace engine
 		}
 	};
 
+	struct updateAnimationComponent {};
+
 	struct newEntityComponent {};
 }
 

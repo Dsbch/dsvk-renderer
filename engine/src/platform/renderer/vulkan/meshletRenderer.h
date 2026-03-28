@@ -52,6 +52,7 @@ namespace engine
 
 		error addToRender(VkDevice device, submit& is, const swapChain& sChain, const model& m);
 		error updateInstance(const model& m, submit& is);
+		error updateAnimations(const model& m, submit& is);
 		void removeFromRender(const model& m);
 		
 		error updateDescriptors(renderer::renderCallIn in, submit& is);

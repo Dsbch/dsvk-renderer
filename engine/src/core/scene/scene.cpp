@@ -4,6 +4,7 @@
 #include "core/scene/components.h"
 #include "core/scene/systems/render/renderSystem.h"
 #include "core/scene/systems/camera/cameraSystem.h"
+#include "core/scene/systems/animation/animation.h"
 
 namespace engine
 {
@@ -17,6 +18,7 @@ namespace engine
 		// core engine systems.
 		addSystem(std::make_unique<renderSystem>(mCtx, wnd));
 		addSystem(std::make_unique<cameraSystem>(mCtx));
+		addSystem(std::make_unique<animationSystem>(mCtx));
 	}
 
 	scene::~scene()

@@ -515,7 +515,7 @@ namespace engine
 				);
 				if (!handle)
 					return handle.err();
-			
+
 				vertexHandle = handle.value();
 			}
 
@@ -582,7 +582,7 @@ namespace engine
 					.meshletHandle = handle.value(),
 					.meshlets = crntMesh.meshlets,
 				}
-			);
+				);
 		}
 
 		err = mPipelineRegistry.addInstance(addParams);
@@ -603,17 +603,33 @@ namespace engine
 				return materialOffsets.err();
 		}
 
-		auto jointHandle = mJointRegistry.findBlock(m.id);
-		if (!jointHandle)
-			return jointHandle.err();
-
 		// Form new instance attrs.
 		perInstanceAttr attr = m.instanceAttributes;
 		attr.globalMaterialOffset = materialOffsets.value();
-		attr.jointIndex = jointHandle.value().bufferIndex;
-		attr.jointOffset = jointHandle.value().offset / uint32_t(sizeof(glm::mat4));
+
+		auto jointHandle = mJointRegistry.findBlock(m.id);
+		if (jointHandle)
+		{
+			attr.jointIndex = jointHandle.value().bufferIndex;
+			attr.jointOffset = jointHandle.value().offset / uint32_t(sizeof(glm::mat4));
+		}
 
 		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), is);
+	}
+
+	error meshletRenderer::updateAnimations(const model& m, submit& is)
+	{
+		// Update animation data.
+		std::vector<glm::mat4> joints{};
+
+		for (auto& sn : *m.skins.get())
+		{
+			auto j = sn.getJointMatrices();
+
+			joints.insert(joints.begin(), std::move_iterator(j.begin()), std::move_iterator(j.end()));
+		}
+
+		return mJointRegistry.updateBlock(m.id, joints.data(), joints.size() * sizeof(glm::mat4), is);
 	}
 
 	void meshletRenderer::removeFromRender(const model& m)

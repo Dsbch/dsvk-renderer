@@ -1,6 +1,7 @@
 #include <pch.h>
 #include "renderSystem.h"
 #include "core/scene/systems/camera/cameraSystem.h"
+#include "core/scene/entity.h"
 #include "platform/renderer/renderer.h"
 
 #include <imgui.h>
@@ -46,6 +47,8 @@ namespace engine
 		handleUpdatedEntities(registry);
 
 		handleNewEntities(registry);
+
+		handleAnimatedEntities(registry);
 
 		return {};
 	}
@@ -129,6 +132,7 @@ namespace engine
 
 	error renderSystem::handleNewEntities(std::shared_ptr<entt::registry> registry)
 	{
+		// Animated.
 		for (auto [e, uid, meshes, materials, tr, anim] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>().each())
 		{
 			model m{
@@ -151,7 +155,35 @@ namespace engine
 			if (err)
 				return err;
 
-			registry->erase<newEntityComponent>(e);
+			entity ent{ mCtx, e, registry };
+
+			ent.removeComponent<newEntityComponent>();
+		}
+
+		// Not animated.
+		for (auto [e, uid, meshes, materials, tr] : registry->view<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>(entt::exclude<animationComponent>).each())
+		{
+			model m{
+				.id = uid.uid,
+				.instanceAttributes = perInstanceAttr{
+					.modelTransform = transform{
+						.translation = tr.translation,
+						.scale = tr.scale,
+						.rotation = tr.rotation,
+					},
+				},
+				.meshData = meshes.meshData,
+				.perMeshData = meshes.meshAttributes,
+				.mat = materials.mat,
+			};
+
+			error err = mRenderer->addToRender(m);
+			if (err)
+				return err;
+
+			entity ent{ mCtx, e, registry };
+
+			ent.removeComponent<newEntityComponent>();
 		}
 
 		return {};
@@ -196,7 +228,33 @@ namespace engine
 			if (err)
 				return err;
 
-			registry->erase<updateInstanceComponent>(e);
+			entity ent{ mCtx, e, registry };
+
+			ent.removeComponent<updateInstanceComponent>();
+		}
+
+		return {};
+	}
+
+	error renderSystem::handleAnimatedEntities(std::shared_ptr<entt::registry> registry)
+	{
+		for (auto [e, uid, meshes, materials, anim] : registry->view<uidComponent, meshComponent, materialComponent, animationComponent, updateAnimationComponent>().each())
+		{
+			model m{
+				.id = uid.uid,
+				.meshData = meshes.meshData,
+				.mat = materials.mat,
+				.skins = anim.skins,
+				.animations = anim.animations,
+			};
+
+			error err = mRenderer->updateAnimations(m);
+			if (err)
+				return err;
+
+			entity ent{ mCtx, e, registry };
+
+			ent.removeComponent<updateAnimationComponent>();
 		}
 
 		return {};

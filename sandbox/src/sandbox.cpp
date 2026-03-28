@@ -106,14 +106,6 @@ namespace sandbox
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
 				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
-
-				// Only for test porpuses.
-				float tick = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 20.0f;
-
-				for (auto& a : *loadedModel.value()->animations.get())
-				{
-					const_cast<engine::animation&>(a).update(tick);
-				}
 			}
 
 			if (event->getKey() == engine::key::h)
@@ -137,14 +129,6 @@ namespace sandbox
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
 				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
-
-				// Only for test porpuses.
-				float tick = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f;
-
-				for (auto& a : *loadedModel.value()->animations.get())
-				{
-					const_cast<engine::animation&>(a).update(tick);
-				}
 			}
 
 			if (event->getKey() == engine::key::f)
@@ -166,7 +150,6 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 			}
 
 			if (event->getKey() == engine::key::r)
@@ -182,7 +165,6 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 			}
 
 			if (event->getKey() == engine::key::y)
@@ -196,7 +178,6 @@ namespace sandbox
 
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 1.0f }, tr.rotation);
 				e.addComponent<engine::newEntityComponent>();
 			}

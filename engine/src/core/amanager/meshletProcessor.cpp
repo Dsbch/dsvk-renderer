@@ -716,6 +716,7 @@ namespace engine
 				channel ac{
 					.aType = animType(ch.target_path),
 					.iType = interpolationType(sampler->interpolation),
+					.currentTimeStamp = 0.0f,
 				};
 
 				ac.j = nodeToJoint[ch.target_node];

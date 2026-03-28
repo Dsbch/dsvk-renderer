@@ -24,6 +24,7 @@ namespace engine
 		error handleNewEntities(std::shared_ptr<entt::registry> registry);
 		error handleDeletedEntities(std::shared_ptr<entt::registry> registry);
 		error handleUpdatedEntities(std::shared_ptr<entt::registry> registry);
+		error handleAnimatedEntities(std::shared_ptr<entt::registry> registry);
 
 		std::shared_ptr<renderer> mRenderer;
 	};

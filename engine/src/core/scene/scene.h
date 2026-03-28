@@ -33,6 +33,11 @@ namespace engine
 		
 		void addSystem(std::unique_ptr<system>&&);
 		// TODO: add mutex or smth, race condition on registry write/read.
+		// For now all entities should be handled with engine::entity class.
+		// But read access can still cause data race.
+		// Need to create new class that will hold ptr to a registry and will have a mutex.
+		// Then creation of entities and read should be under one mutex.
+		// Also that new class should call asset manager and spawn new models himself.
 		std::shared_ptr<entt::registry> mSceneRegistry;
 		std::vector<std::unique_ptr<system>> mSystems;
 

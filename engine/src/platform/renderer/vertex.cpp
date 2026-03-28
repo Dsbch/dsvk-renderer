@@ -42,18 +42,25 @@ namespace engine
 		return result;
 	}
 
-	void animation::update(float currentTime)
+	void animation::update(float deltaTime)
 	{
 		for (auto& c : channels)
 		{
 			if (c.timestamps->empty())
-				return;
+				continue;
+
+			float time = c.currentTimeStamp + deltaTime;
+			
+			if (time >= c.timestamps->back())
+			{
+				time = 0.0f;
+			}
 
 			size_t frame0 = 0;
 			size_t frame1 = 0;
 			for (size_t k = 1; k < c.timestamps->size(); k++)
 			{
-				if (c.timestamps->operator[](k) > currentTime)
+				if (c.timestamps->operator[](k) > time)
 				{
 					frame1 = k;
 					frame0 = k - 1;
@@ -62,11 +69,11 @@ namespace engine
 			}
 
 			if (frame0 == frame1)
-				return;
+				continue;
 
 			float t0 = c.timestamps->operator[](frame0);
 			float t1 = c.timestamps->operator[](frame1);
-			float alpha = (currentTime - t0) / (t1 - t0);
+			float alpha = (time - t0) / (t1 - t0);
 			alpha = glm::clamp(alpha, 0.0f, 1.0f);
 
 			if (c.aType == tr)
@@ -93,6 +100,8 @@ namespace engine
 
 				c.j->localTransform.scale = result;
 			}
+
+			c.currentTimeStamp = time;
 		}
 	}
 

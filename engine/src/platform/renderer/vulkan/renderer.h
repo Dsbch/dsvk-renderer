@@ -31,6 +31,7 @@ namespace engine
 
 		error addToRender(const model& m);
 		error updateInstance(const model& m);
+		error updateAnimations(const model& m);
 		void removeFromRender(const model& m);
 
 		error render(renderer::renderCallIn in);

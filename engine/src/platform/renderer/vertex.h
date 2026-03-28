@@ -197,6 +197,7 @@ namespace engine
 	{
 		animationType aType;
 		interpolationType iType;
+		float currentTimeStamp;
 		std::shared_ptr<const std::vector<float>> timestamps;
 		std::shared_ptr<const std::vector<transform>> keyframes;
 		std::shared_ptr<joint> j;
@@ -207,7 +208,7 @@ namespace engine
 		std::string name;
 		std::vector<channel> channels;
 
-		void update(float currentTime);
+		void update(float deltaTime);
 	};
 
 	struct perMeshAttributes
