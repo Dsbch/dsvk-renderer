@@ -10,14 +10,14 @@ namespace engine
 	{
 	}
 
-	error cameraSystem::onAttach(std::shared_ptr<entt::registry> registry)
+	error cameraSystem::onAttach(std::shared_ptr<registryHandle> registry)
 	{
 		spawnCamera(registry);
 
 		return {};
 	}
 
-	void cameraSystem::onDetach(std::shared_ptr<entt::registry> registry)
+	void cameraSystem::onDetach(std::shared_ptr<registryHandle> registry)
 	{
 	}
 
@@ -26,10 +26,10 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
+	error cameraSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry)
 	{
-		size_t activeCount = registry->view<fpsCameraComponent, activeCameraComponent>().size_hint();
-		size_t debugCount = registry->view<fpsCameraComponent, debugCameraComponent>().size_hint();
+		size_t activeCount = registry->sizeHint<fpsCameraComponent, activeCameraComponent>();
+		size_t debugCount = registry->sizeHint<fpsCameraComponent, debugCameraComponent>();
 
 		if (activeCount > 1)
 			return error{ "more than one active camera is scene" };
@@ -40,19 +40,19 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime)
+	error cameraSystem::onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
 		return {};
 	}
 
-	error cameraSystem::onRender(std::shared_ptr<entt::registry> registry, float deltaTime)
+	error cameraSystem::onRender(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
 		if (isDebugCameraPresent(registry))
 		{
 			auto newPos = getDebugCameraPos(registry);
 			if (!newPos)
 				return newPos.err();
-		
+
 			mLastFramePosition = newPos.value();
 		}
 		else
@@ -67,7 +67,7 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::applyInput(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
+	error cameraSystem::applyInput(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
 	{
 		const float maxOffset = 0.1f;
 
@@ -114,7 +114,7 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e)
+	error cameraSystem::onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e)
 	{
 		if (e->getEventType() == eventType::keyUp)
 		{
@@ -139,9 +139,8 @@ namespace engine
 		{
 			auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
 
-			registry->view<fpsCameraComponent>().each(
-				[=]
-				(fpsCameraComponent& camera)
+			registry->forEach<fpsCameraComponent>(
+				[&](entt::entity ent, fpsCameraComponent& camera)
 				{
 					camera.camera->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
 				}
@@ -151,9 +150,8 @@ namespace engine
 
 		if (isDebugCameraPresent(registry))
 		{
-			registry->view<fpsCameraComponent, inputListenerComponent, debugCameraComponent>().each(
-				[=]
-				(fpsCameraComponent& camera, inputListenerComponent& input)
+			registry->forEach<fpsCameraComponent, inputListenerComponent, debugCameraComponent>(
+				[&](entt::entity ent, fpsCameraComponent& camera, inputListenerComponent& input)
 				{
 					applyInput(registry, e, camera, input);
 				}
@@ -161,9 +159,8 @@ namespace engine
 		}
 		else
 		{
-			registry->view<fpsCameraComponent, inputListenerComponent, activeCameraComponent>().each(
-				[=]
-				(fpsCameraComponent& camera, inputListenerComponent& input)
+			registry->forEach<fpsCameraComponent, inputListenerComponent, activeCameraComponent>(
+				[&](entt::entity ent, fpsCameraComponent& camera, inputListenerComponent& input)
 				{
 					applyInput(registry, e, camera, input);
 				}
@@ -173,102 +170,111 @@ namespace engine
 		return {};
 	}
 
-	withError<glm::mat4> cameraSystem::getView(std::shared_ptr<entt::registry> registry)
+	withError<glm::mat4> cameraSystem::getView(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, activeCameraComponent>().each())
-		{
-			return camera.camera->getView();
-		}
-
-		return error{ "scene doesn't hold an active camera" };
+		withError<glm::mat4> result = error{ "scene doesn't hold an active camera" };
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getView();
+			});
+		return result;
 	}
 
-	bool cameraSystem::isDebugCameraPresent(std::shared_ptr<entt::registry> registry)
+	bool cameraSystem::isDebugCameraPresent(std::shared_ptr<registryHandle> registry)
 	{
-		return registry->view<fpsCameraComponent, debugCameraComponent>().size_hint() != 0;
+		return registry->sizeHint<fpsCameraComponent, debugCameraComponent>() != 0;
 	}
 
-	withError<glm::mat4> cameraSystem::getProjection(std::shared_ptr<entt::registry> registry)
+	withError<glm::mat4> cameraSystem::getProjection(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, activeCameraComponent>().each())
-		{
-			return camera.camera->getProjection();
-		}
-
-		return error{ "scene doesn't hold an active camera" };
+		withError<glm::mat4> result = error{ "scene doesn't hold an active camera" };
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getProjection();
+			});
+		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getCameraPos(std::shared_ptr<entt::registry> registry)
+	withError<glm::vec3> cameraSystem::getCameraPos(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, activeCameraComponent>().each())
-		{
-			return camera.camera->getPosition();
-		}
-
-		return error{ "scene doesn't hold an active camera" };
+		withError<glm::vec3> result = error{ "scene doesn't hold an active camera" };
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getPosition();
+			});
+		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getDebugCameraPos(std::shared_ptr<entt::registry> registry)
+	withError<glm::vec3> cameraSystem::getDebugCameraPos(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, debugCameraComponent>().each())
-		{
-			return camera.camera->getPosition();
-		}
-
-		return error{ "scene doesn't hold an active debug camera" };
+		withError<glm::vec3> result = error{ "scene doesn't hold an active debug camera" };
+		registry->forEach<fpsCameraComponent, debugCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getPosition();
+			});
+		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getCameraFront(std::shared_ptr<entt::registry> registry)
+	withError<glm::vec3> cameraSystem::getCameraFront(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, activeCameraComponent>().each())
-		{
-			return camera.camera->getFront();
-		}
-
-		return error{ "scene doesn't hold an active camera" };
+		withError<glm::vec3> result = error{ "scene doesn't hold an active camera" };
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getFront();
+			});
+		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getCameraUp(std::shared_ptr<entt::registry> registry)
+	withError<glm::vec3> cameraSystem::getCameraUp(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, activeCameraComponent>().each())
-		{
-			return camera.camera->getUp();
-		}
-
-		return error{ "scene doesn't hold an active camera" };
+		withError<glm::vec3> result = error{ "scene doesn't hold an active camera" };
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getUp();
+			});
+		return result;
 	}
 
-	withError<frustum> cameraSystem::calculateCameraFrustum(std::shared_ptr<entt::registry> registry)
+	withError<frustum> cameraSystem::calculateCameraFrustum(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, activeCameraComponent>().each())
-		{
-			return camera.camera->calculateCameraFrustum();
-		}
-
-		return error{ "scene doesn't hold an active camera" };
+		withError<frustum> result = error{ "scene doesn't hold an active camera" };
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->calculateCameraFrustum();
+			});
+		return result;
 	}
 
-	withError<glm::mat4> cameraSystem::getDebugView(std::shared_ptr<entt::registry> registry)
+	withError<glm::mat4> cameraSystem::getDebugView(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, debugCameraComponent>().each())
-		{
-			return camera.camera->getView();
-		}
-
-		return error{ "scene doesn't hold an debug active camera" };
+		withError<glm::mat4> result = error{ "scene doesn't hold an debug active camera" };
+		registry->forEach<fpsCameraComponent, debugCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getView();
+			});
+		return result;
 	}
 
-	withError<glm::mat4> cameraSystem::getDebugProjection(std::shared_ptr<entt::registry> registry)
+	withError<glm::mat4> cameraSystem::getDebugProjection(std::shared_ptr<registryHandle> registry)
 	{
-		for (auto [entity, camera] : registry->view<fpsCameraComponent, debugCameraComponent>().each())
-		{
-			return camera.camera->getProjection();
-		}
-
-		return error{ "scene doesn't hold an debug active camera" };
+		withError<glm::mat4> result = error{ "scene doesn't hold an debug active camera" };
+		registry->forEach<fpsCameraComponent, debugCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getProjection();
+			});
+		return result;
 	}
 
-	void cameraSystem::spawnCamera(std::shared_ptr<entt::registry> registry) const
+	void cameraSystem::spawnCamera(std::shared_ptr<registryHandle> registry) const
 	{
 		entity e{ mCtx, registry };
 
@@ -287,7 +293,7 @@ namespace engine
 		e.addComponent<activeCameraComponent>();
 	}
 
-	void cameraSystem::spawnDebugCamera(std::shared_ptr<entt::registry> registry) const
+	void cameraSystem::spawnDebugCamera(std::shared_ptr<registryHandle> registry) const
 	{
 		entity e{ mCtx, registry };
 
@@ -306,8 +312,20 @@ namespace engine
 		e.addComponent<debugCameraComponent>();
 	}
 
-	void cameraSystem::despawnDebugCamera(std::shared_ptr<entt::registry> registry) const
+	void cameraSystem::despawnDebugCamera(std::shared_ptr<registryHandle> registry) const
 	{
-		registry->destroy(registry->view<fpsCameraComponent, debugCameraComponent>().front());
+		std::vector<entt::entity> toDestroy;
+		registry->forEach<fpsCameraComponent, debugCameraComponent>(
+			[&](entt::entity entity, fpsCameraComponent&)
+			{
+				toDestroy.push_back(entity);
+			});
+
+		for (auto e : toDestroy)
+		{
+			entity ent{ mCtx, e, registry };
+
+			ent.detroy();
+		}
 	}
 }

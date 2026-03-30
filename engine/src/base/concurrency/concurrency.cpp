@@ -20,18 +20,18 @@ namespace engine
 		while (mRunning)
 		{
 			std::list<std::function<void()>> tasksToReschedule;
-			std::vector<std::list<threadQueue>::iterator> goodThreads;
+			std::vector<std::list<threadQueue>::iterator> availableThreads;
 
 			for (auto e = mThreadList.begin(); e != mThreadList.end(); e++)
 			{
 				if (auto found = sizeMap.find(e->getThreadID()); found != sizeMap.end())
 				{
 					if (found->second == 0 || found->second > e->size())
-						goodThreads.push_back(e);
+						availableThreads.push_back(e);
 				}
 			}
 
-			if (!goodThreads.empty())
+			if (!availableThreads.empty())
 			{
 				for (auto& e : mThreadList)
 				{
@@ -41,16 +41,16 @@ namespace engine
 					}
 				}
 
-				size_t perThread = tasksToReschedule.size() / goodThreads.size();
+				size_t perThread = tasksToReschedule.size() / availableThreads.size();
 				size_t threadIndex = 0;
 				size_t count = 0;
 
 				for (const auto& task : tasksToReschedule)
 				{
-					goodThreads[threadIndex]->add(task);
+					availableThreads[threadIndex]->add(task);
 					count++;
 
-					if (count >= perThread && threadIndex + 1 < goodThreads.size())
+					if (count >= perThread && threadIndex + 1 < availableThreads.size())
 					{
 						threadIndex++;
 						count = 0;
@@ -59,11 +59,9 @@ namespace engine
 			}
 
 			for (auto& e : mThreadList)
-			{
 				sizeMap[e.getThreadID()] = e.size();
-			}
 
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		}
 	}
 
@@ -80,14 +78,20 @@ namespace engine
 		}
 
 		mWatchThread = std::make_unique<std::thread>(&threadPool::watchPool, this);
+
+		LOGDEBUG("thread pool started: threads launched: {}", mMaxThreads);
 	}
 
 	void threadPool::destroy()
 	{
+		LOGDEBUG("destroying thread pool");
+
 		mRunning = false;
 
 		if (mWatchThread.get() && mWatchThread->joinable())
 			mWatchThread->join();
+
+		LOGDEBUG("watch thread was joined");
 
 		mThreadList.clear();
 	}
@@ -137,18 +141,29 @@ namespace engine
 		mRunning = false;
 		mCond.notifyOne();
 
-		if (mThread.get() && mThread->joinable())
+		if (mThread.get() && mThread->joinable()) 
+		{
+			LOGDEBUG("thread {} is joining", getRedeableThreadID());
 			mThread->join();
+		}
 	}
 
 	void threadQueue::start()
 	{
 		mThread = std::make_unique<std::thread>(&threadQueue::run, this);
+		LOGDEBUG("threadQueue {} started", getRedeableThreadID());
 	}
 
 	std::thread::id threadQueue::getThreadID() const
 	{
 		return mThread->get_id();
+	}
+
+	size_t threadQueue::getRedeableThreadID() const
+	{
+		static std::hash<std::thread::id> hasher{};
+
+		return hasher(mThread->get_id());
 	}
 
 	void threadQueue::splice(std::list<std::function<void()>>& out)

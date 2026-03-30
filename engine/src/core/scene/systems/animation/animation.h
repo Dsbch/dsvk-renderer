@@ -10,13 +10,13 @@ namespace engine
 	public:
 		animationSystem(std::shared_ptr<context> ctx) : system(ctx) {};
 
-		error onAttach(std::shared_ptr<entt::registry> registry);
-		void onDetach(std::shared_ptr<entt::registry> registry);
+		error onAttach(std::shared_ptr<registryHandle> registry);
+		void onDetach(std::shared_ptr<registryHandle> registry);
 		error checkError();
-		error onFixedUpdate(std::shared_ptr<entt::registry> registry);
-		error onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime);
-		error onRender(std::shared_ptr<entt::registry> registry, float deltaTime);
-		error onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<baseEvent> e);
+		error onFixedUpdate(std::shared_ptr<registryHandle> registry);
+		error onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime);
+		error onRender(std::shared_ptr<registryHandle> registry, float deltaTime);
+		error onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e);
 	private:
 
 	};

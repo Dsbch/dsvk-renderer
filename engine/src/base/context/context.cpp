@@ -12,6 +12,5 @@ namespace engine
 
 	context::~context()
 	{
-		mThreadPool->destroy();
 	}
 }

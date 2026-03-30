@@ -11,14 +11,17 @@ namespace engine
 	// user systems.
 	std::vector<std::unique_ptr<system>> scene::mUserSystems;
 
+	// TODO: add another threadPool for userSystems. They should be called from fresh threadPool that is dedicated to that.
 	scene::scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
 		:
-		mSceneRegistry(std::make_shared<entt::registry>()), mCtx(ctx), mSystems()
+		mSceneRegistry(std::make_shared<registryHandle>()), mCtx(ctx), mSystems()
 	{
 		// core engine systems.
 		addSystem(std::make_unique<renderSystem>(mCtx, wnd));
-		addSystem(std::make_unique<cameraSystem>(mCtx));
-		addSystem(std::make_unique<animationSystem>(mCtx));
+		
+		// Add core systems that should be treated as user.
+		addUserSystem(std::make_unique<cameraSystem>(mCtx));
+		addUserSystem(std::make_unique<animationSystem>(mCtx));
 	}
 
 	scene::~scene()

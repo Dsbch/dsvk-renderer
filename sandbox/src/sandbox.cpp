@@ -16,26 +16,26 @@ namespace sandbox
 		return {};
 	}
 
-	engine::error sandboxSystem::onAttach(std::shared_ptr<entt::registry> registry)
+	engine::error sandboxSystem::onAttach(std::shared_ptr<engine::registryHandle> registry)
 	{
 		return {};
 	}
 
-	void sandboxSystem::onDetach(std::shared_ptr<entt::registry> registry)
+	void sandboxSystem::onDetach(std::shared_ptr<engine::registryHandle> registry)
 	{
 	}
 
-	engine::error sandboxSystem::onUpdate(std::shared_ptr<entt::registry> registry, float deltaTime)
-	{
-		return {};
-	}
-
-	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<entt::registry> registry)
+	engine::error sandboxSystem::onUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
 	{
 		return {};
 	}
 
-	engine::error sandboxSystem::onRender(std::shared_ptr<entt::registry> registry, float deltaTime)
+	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<engine::registryHandle> registry)
+	{
+		return {};
+	}
+
+	engine::error sandboxSystem::onRender(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
 	{
 		return {};
 	}
@@ -54,7 +54,7 @@ namespace sandbox
 		return result;
 	}
 
-	engine::error sandboxSystem::onEvent(std::shared_ptr<entt::registry> registry, std::shared_ptr<engine::baseEvent> e)
+	engine::error sandboxSystem::onEvent(std::shared_ptr<engine::registryHandle> registry, std::shared_ptr<engine::baseEvent> e)
 	{
 		if (e->getEventType() == engine::eventType::keyDown)
 		{
@@ -62,21 +62,26 @@ namespace sandbox
 
 			if (event->getKey() == engine::key::t)
 			{
-				for (auto [e, uid, meshlets, material, tr] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
+				entt::entity toRotate{};
+				engine::transformComponent oldTrs{ glm::vec3{}, glm::vec3{}, glm::quat{} };
+
+				registry->forEach<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>(
+					[&](entt::entity ent, engine::uidComponent&, engine::meshComponent&, engine::materialComponent&, engine::transformComponent& trs)
+					{
+						toRotate = ent;
+						oldTrs = trs;
+					}
+				);
+
+				static float angle = 0.5f;
+				
+				engine::entity ent{ mCtx, toRotate, registry };
+				if (ent)
 				{
-					engine::entity entity{ mCtx, e, registry };
-
-					static float angle = 0.5f;
-
-					tr.rotation = glm::quat{ cos(glm::radians(angle)), sin(glm::radians(angle)) * glm::vec3{0.0f, 1.0f, 0.0f} };
-
-					entity.addOrReplaceComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
-
-					entity.addOrReplaceComponent<engine::updateInstanceComponent>();
-
+					oldTrs.rotation = glm::quat{ cos(glm::radians(angle)), sin(glm::radians(angle)) * glm::vec3{0.0f, 1.0f, 0.0f} };
+					ent.addOrReplaceComponent<engine::transformComponent>(oldTrs.translation, oldTrs.scale, oldTrs.rotation);
+					ent.addOrReplaceComponent<engine::updateInstanceComponent>();
 					angle += 0.5f;
-
-					return {};
 				}
 			}
 		}
@@ -184,14 +189,18 @@ namespace sandbox
 
 			if (event->getKey() == engine::key::q)
 			{
-				for (auto [e, uid, meshlets, material, transform] : registry->view<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>().each())
-				{
-					engine::entity entity{ mCtx, e, registry };
+				entt::entity toDelete{};
 
+				registry->forEach<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>(
+					[&](entt::entity ent, engine::uidComponent& uid, engine::meshComponent& mesh, engine::materialComponent& material, engine::transformComponent& trs)
+					{
+						toDelete = ent;
+					}
+				);
+
+				engine::entity entity{ mCtx, toDelete, registry };
+				if (entity)
 					entity.addOrReplaceComponent<engine::deleteComponent>();
-
-					return {};
-				}
 			}
 		}
 
