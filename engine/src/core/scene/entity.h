@@ -13,58 +13,55 @@ namespace engine
 		entity(std::shared_ptr<context> ctx, entt::entity handle, std::shared_ptr<registryHandle> registry)
 			: mCtx(ctx), mHandle(handle), mRegistry(registry)
 		{
-
 		}
 		
 		entity(std::shared_ptr<context> ctx, std::shared_ptr<registryHandle> registry)
 			: mCtx(ctx), mRegistry(registry)
 		{
-			mHandle = registry->create();
+			mHandle = registry->createEntity();
 
 			addComponent<uidComponent>();
 		}
 
-		template<typename T, typename... Args>
-		T& addComponent(Args&&... args)
+		void detroy()
 		{
-			T& component = mRegistry->emplace<T>(mHandle, std::forward<Args>(args)...);
-			return component;
+			mRegistry->destroyEntity(mHandle);
+		}
+
+		template<typename T, typename... Args>
+		void addComponent(Args&&... args)
+		{
+			mRegistry->emplaceComponent<T>(mHandle, std::forward<Args>(args)...);
 		}
 
 		template<typename T>
 		void addComponent()
 		{
-			mRegistry->emplace<T>(mHandle);
+			mRegistry->emplaceComponent<T>(mHandle);
 		}
 
 		template<typename T, typename... Args>
-		T& addOrReplaceComponent(Args&&... args)
+		void addOrReplaceComponent(Args&&... args)
 		{
-			T& component = mRegistry->emplace_or_replace<T>(mHandle, std::forward<Args>(args)...);
-			return component;
+			mRegistry->emplaceOrReplaceComponent<T>(mHandle, std::forward<Args>(args)...);
 		}
 
 		template<typename T>
 		void addOrReplaceComponent()
 		{
-			mRegistry->emplace_or_replace<T>(mHandle);
+			mRegistry->emplaceOrReplaceComponent<T>(mHandle);
 		}
 
 		template<typename T>
 		T& getComponent()
 		{
-			return mRegistry->get<T>(mHandle);
+			return mRegistry->getComponent<T>(mHandle);
 		}
 
 		template<typename T>
 		void removeComponent()
 		{
-			mRegistry->remove<T>(mHandle);
-		}
-
-		void detroy()
-		{
-			mRegistry->destroy(mHandle);
+			mRegistry->removeComponent<T>(mHandle);
 		}
 
 		operator bool() const { return mHandle != entt::null; }

@@ -140,6 +140,8 @@ namespace engine
 	{
 		error err{};
 
+		std::vector<entity> newEntites{};
+
 		// Animated.
 		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>(
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs, animationComponent& anim)
@@ -164,10 +166,10 @@ namespace engine
 				};
 
 				err = mRenderer->addToRender(m);
+				if (err)
+					return;
 				
-				entity ent{ mCtx, e, registry };
-
-				ent.removeComponent<newEntityComponent>();
+				newEntites.push_back({ mCtx, e, registry });
 			}
 		);
 		if (err)
@@ -196,14 +198,19 @@ namespace engine
 				};
 
 				err = mRenderer->addToRender(m);
+				if (err)
+					return;
 				
 				entity ent{ mCtx, e, registry };
 
-				ent.removeComponent<newEntityComponent>();
+				newEntites.push_back({ mCtx, e, registry });
 			}
 		);
 		if (err)
 			return err;
+
+		for (auto& e : newEntites)
+			e.removeComponent<newEntityComponent>();
 
 		return {};
 	}
@@ -241,6 +248,8 @@ namespace engine
 	{
 		error err{};
 
+		std::vector<entity> updatedEntites{};
+
 		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>(
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
 			{
@@ -258,14 +267,17 @@ namespace engine
 				};
 
 				err = mRenderer->updateInstance(m);
+				if (err)
+					return;
 				
-				entity ent{ mCtx, e, registry };
-
-				ent.removeComponent<updateInstanceComponent>();
+				updatedEntites.push_back({ mCtx, e, registry });
 			}
 		);
 		if (err)
 			return err;
+
+		for (auto& e : updatedEntites)
+			e.removeComponent<updateInstanceComponent>();
 
 		return {};
 	}
@@ -273,6 +285,8 @@ namespace engine
 	error renderSystem::handleAnimatedEntities(std::shared_ptr<registryHandle> registry)
 	{
 		error err{};
+
+		std::vector<entity> animatedEntites{};
 
 		registry->forEach<uidComponent, meshComponent, materialComponent, animationComponent, updateAnimationComponent>(
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, animationComponent& anim)
@@ -289,14 +303,17 @@ namespace engine
 				};
 
 				err = mRenderer->updateAnimations(m);
+				if (err)
+					return;
 
-				entity ent{ mCtx, e, registry };
-
-				ent.removeComponent<updateAnimationComponent>();
+				animatedEntites.push_back({ mCtx, e, registry });
 			}
 		);
 		if (err)
 			return err;
+
+		for (auto& e : animatedEntites)
+			e.removeComponent<updateAnimationComponent>();
 
 		return {};
 	}

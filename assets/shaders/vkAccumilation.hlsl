@@ -74,7 +74,6 @@ void asmain(
         // Still have meshlets for that lodLevel.
         if (meshletOffset != maxUint)
         {
-            // TODO: for now that isn't working for skinned meshes because animations brake it. FIX!
             visible = true;
             if (!meshAttr.isSkinned)
             {

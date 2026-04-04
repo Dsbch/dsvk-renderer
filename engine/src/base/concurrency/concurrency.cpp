@@ -65,9 +65,15 @@ namespace engine
 		}
 	}
 
-	void threadPool::init()
+	void threadPool::init(const std::string& name, uint32_t maxThreads)
 	{
-		mMaxThreads = std::thread::hardware_concurrency() / 2;
+		mName = name;
+
+		if (maxThreads == 0)
+			mMaxThreads = std::thread::hardware_concurrency() / 2;
+		else
+			mMaxThreads = maxThreads;
+
 		mWatchThread = nullptr;
 		mRunning = true;
 
@@ -79,19 +85,19 @@ namespace engine
 
 		mWatchThread = std::make_unique<std::thread>(&threadPool::watchPool, this);
 
-		LOGDEBUG("thread pool started: threads launched: {}", mMaxThreads);
+		LOGDEBUG("thread pool {} started: threads launched: {}", mName, mMaxThreads);
 	}
 
 	void threadPool::destroy()
 	{
-		LOGDEBUG("destroying thread pool");
+		LOGDEBUG("destroying thread pool {}", mName);
 
 		mRunning = false;
 
 		if (mWatchThread.get() && mWatchThread->joinable())
 			mWatchThread->join();
 
-		LOGDEBUG("watch thread was joined");
+		LOGDEBUG("threadPool {} watch thread was joined", mName);
 
 		mThreadList.clear();
 	}

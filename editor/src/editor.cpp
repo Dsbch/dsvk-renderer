@@ -2,7 +2,6 @@
 
 namespace editor
 {
-	// TODO: implement me.
 	class editor : public engine::application
 	{
 	public:
@@ -25,10 +24,6 @@ int main(int argc, char* argv[])
 		}
 
 		e.run();
-	}
-	catch (const std::exception& exc)
-	{
-		LOGERROR("exception was caught in run std::exception: {}", exc.what());
 	}
 	catch (...)
 	{

@@ -9,7 +9,6 @@
 
 namespace engine
 {
-    class entity;
     class system;
     class window;
 
@@ -18,86 +17,109 @@ namespace engine
     public:
         registryHandle() : mRegistry(std::make_unique<entt::registry>()) {}
 
+        // Do not destroy or create entites inside function.
+        // Do not add/remove component inside function.
+        // Do it ouside of a loop.
         template<typename... Components, typename Func>
         void forEach(Func&& func)
         {
-            std::lock_guard lock(mMutex);
+            std::shared_lock lock(mMutex);
             mRegistry->view<Components...>().each(std::forward<Func>(func));
         }
 
+        // Do not destroy or create entites inside function.
+        // Do not add/remove component inside function.
+        // Do it ouside of a loop.
         template<typename... Components, typename... Exclude, typename Func>
         void forEach(entt::exclude_t<Exclude...> excl, Func&& func)
         {
-            std::lock_guard lock(mMutex);
+            std::shared_lock lock(mMutex);
             mRegistry->view<Components...>(excl).each(std::forward<Func>(func));
         }
 
         template<typename... Components>
         size_t sizeHint()
         {
-            std::lock_guard lock(mMutex);
+            std::shared_lock lock(mMutex);
             return mRegistry->view<Components...>().size_hint();
         }
-    private:
-        std::recursive_mutex mMutex;
-        std::unique_ptr<entt::registry> mRegistry;
-
-        entt::entity create()
-        {
-            std::lock_guard lock(mMutex);
-            return mRegistry->create();
-        }
-
-        void destroy(entt::entity entity)
-        {
-            std::lock_guard lock(mMutex);
-            mRegistry->destroy(entity);
-        }
-
-        template<typename T, typename... Args>
-        decltype(auto) emplace(entt::entity entity, Args&&... args)
-        {
-            std::lock_guard lock(mMutex);
-            return mRegistry->emplace<T>(entity, std::forward<Args>(args)...);
-        }
 
         template<typename T>
-        decltype(auto) emplace(entt::entity entity)
+        T& getComponent(entt::entity entity)
         {
-            std::lock_guard l{ mMutex };
+            std::shared_lock lock(mMutex);
 
-            return mRegistry->emplace<T>(entity);
-        }
-
-        template<typename T, typename... Args>
-        decltype(auto) emplace_or_replace(entt::entity entity, Args&&... args)
-        {
-            std::lock_guard lock(mMutex);
-            return mRegistry->emplace_or_replace<T>(entity, std::forward<Args>(args)...);
-        }
-
-        template<typename T, typename... Args>
-        decltype(auto) emplace_or_replace(entt::entity entity)
-        {
-            std::lock_guard lock(mMutex);
-            return mRegistry->emplace_or_replace<T>(entity);
-        }
-
-        template<typename T>
-        T& get(entt::entity entity)
-        {
-            std::lock_guard lock(mMutex);
             return mRegistry->get<T>(entity);
         }
 
-        template<typename T>
-        void remove(entt::entity entity)
+        entt::entity createEntity()
         {
-            std::lock_guard lock(mMutex);
-            mRegistry->remove<T>(entity);
+            std::unique_lock lock(mMutex);
+
+            return mRegistry->create();
         }
-    
-        friend class entity;
+
+        void destroyEntity(entt::entity ent)
+        {
+
+            std::unique_lock lock(mMutex);
+
+            if (mRegistry->valid(ent))
+                mRegistry->destroy(ent);
+        }
+
+        template<typename T, typename... Args>
+        void emplaceComponent(entt::entity ent, Args&&... args)
+        {
+
+            std::unique_lock lock(mMutex);
+
+            if (mRegistry->valid(ent))
+                mRegistry->emplace<T>(ent, std::forward<Args>(args)...);
+        }
+
+        template<typename T>
+        void emplaceComponent(entt::entity ent)
+        {
+
+            std::unique_lock lock(mMutex);
+
+            if (mRegistry->valid(ent))
+                mRegistry->emplace<T>(ent);
+        }
+
+        template<typename T, typename... Args>
+        void emplaceOrReplaceComponent(entt::entity ent, Args&&... args)
+        {
+
+            std::unique_lock lock(mMutex);
+
+            if (mRegistry->valid(ent))
+                mRegistry->emplace_or_replace<T>(ent, std::forward<Args>(args)...);
+        }
+
+        template<typename T, typename... Args>
+        void emplaceOrReplaceComponent(entt::entity ent)
+        {
+
+            std::unique_lock lock(mMutex);
+
+            if (mRegistry->valid(ent))
+                mRegistry->emplace_or_replace<T>(ent);
+        }
+
+        template<typename T>
+        void removeComponent(entt::entity ent)
+        {
+
+            std::unique_lock lock(mMutex);
+
+            if (mRegistry->valid(ent))
+                mRegistry->remove<T>(ent);
+        }
+    private:
+        std::unique_ptr<entt::registry> mRegistry;
+        std::shared_mutex mMutex;
     };
 
 	class scene
@@ -113,13 +135,15 @@ namespace engine
 		
 		error checkError() const;
 
-		void addUserSystem(std::unique_ptr<system>&&);
+		void addUserSystem(std::shared_ptr<system>);
 	protected:
 		std::shared_ptr<context> mCtx;
 	
 	private:
+        std::unique_ptr<threadPool> mThreadPool;
+
 		std::vector<std::unique_ptr<system>> mSystems;
-		static std::vector<std::unique_ptr<system>> mUserSystems;
+		static std::vector<std::shared_ptr<system>> mUserSystems;
 		std::shared_ptr<registryHandle> mSceneRegistry;
 		
 		void addSystem(std::unique_ptr<system>&&);

@@ -9,50 +9,55 @@
 namespace engine
 {
 	// user systems.
-	std::vector<std::unique_ptr<system>> scene::mUserSystems;
+	std::vector<std::shared_ptr<system>> scene::mUserSystems;
 
-	// TODO: add another threadPool for userSystems. They should be called from fresh threadPool that is dedicated to that.
 	scene::scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
 		:
-		mSceneRegistry(std::make_shared<registryHandle>()), mCtx(ctx), mSystems()
+		mSceneRegistry(std::make_shared<registryHandle>()),
+		mCtx(ctx),
+		mSystems(),
+		mThreadPool(std::make_unique<threadPool>())
 	{
-		// core engine systems.
+		mThreadPool->init("engine::scene");
+
+		// Core engine systems.
+		// Core systems are executed in the same render thread.
+		// It's important not to overload it.
+		// For now it's renderSystem itself + camera.
 		addSystem(std::make_unique<renderSystem>(mCtx, wnd));
-		
+		addSystem(std::make_unique<cameraSystem>(mCtx));
+
 		// Add core systems that should be treated as user.
-		addUserSystem(std::make_unique<cameraSystem>(mCtx));
-		addUserSystem(std::make_unique<animationSystem>(mCtx));
+		// User systems executed in async from renedr thread.
+		addUserSystem(std::make_shared<animationSystem>(mCtx));
 	}
 
 	scene::~scene()
 	{
+		mThreadPool->destroy();
+
 		for (auto& s : mUserSystems)
-		{
 			s->onDetach(mSceneRegistry);
-		}
 
 		for (auto& s : mSystems)
-		{
 			s->onDetach(mSceneRegistry);
-		}
 	}
 
 	error scene::onRender(float deltaTime)
 	{
 		error err;
 
-		mCtx->mThreadPool->start(
-			[registry = mSceneRegistry, deltaTime = deltaTime]()
-			{
-				for (auto& s : mUserSystems)
+		for (auto& s : mUserSystems)
+		{
+			mThreadPool->start(
+				[registry = mSceneRegistry, deltaTime = deltaTime, sys = s]()
 				{
-					error err;
-					err = s->onRender(registry, deltaTime);
+					error err = sys->onRender(registry, deltaTime);
 					if (err)
 						LOGERROR("User system err onRender: {}", err.err());
 				}
-			}
-		);
+			);
+		}
 
 		for (auto& s : mSystems)
 		{
@@ -66,17 +71,17 @@ namespace engine
 
 	error scene::onEvent(std::shared_ptr<baseEvent> e)
 	{
-		mCtx->mThreadPool->start([event = e, registry = mSceneRegistry]
-			{
-				for (auto& s : mUserSystems)
+		for (auto& s : mUserSystems)
+		{
+			mThreadPool->start(
+				[event = e, registry = mSceneRegistry, sys = s]
 				{
-					error err;
-					err = s->onEvent(registry, event);
+					error err = sys->onEvent(registry, event);
 					if (err)
 						LOGERROR("User system err onEvent: {}", err.err());
 				}
-			}
-		);
+			);
+		}
 
 		error err;
 		for (auto& s : mSystems)
@@ -93,17 +98,17 @@ namespace engine
 	{
 		error err;
 
-		mCtx->mThreadPool->start([registry = mSceneRegistry]
-			{
-				for (auto& s : mUserSystems)
+		for (auto& s : mUserSystems)
+		{
+			mThreadPool->start(
+				[registry = mSceneRegistry, sys = s]
 				{
-					error err;
-					err = s->onFixedUpdate(registry);
+					error err = sys->onFixedUpdate(registry);
 					if (err)
 						LOGERROR("User system err onFixedUpdate: {}", err.err());
 				}
-			}
-		);
+			);
+		}
 
 		for (auto& s : mSystems)
 		{
@@ -119,17 +124,17 @@ namespace engine
 	{
 		error err;
 
-		mCtx->mThreadPool->start([registry = mSceneRegistry, deltaTime = deltaTime]
-			{
-				for (auto& s : mUserSystems)
+		for (auto& s : mUserSystems)
+		{
+			mThreadPool->start(
+				[registry = mSceneRegistry, deltaTime = deltaTime, sys = s]
 				{
-					error err;
-					err = s->onUpdate(registry, deltaTime);
+					error err = sys->onUpdate(registry, deltaTime);
 					if (err)
 						LOGERROR("User system err onUpdate: {}", err.err());
 				}
-			}
-		);
+			);
+		}
 
 		for (auto& s : mSystems)
 		{
@@ -165,10 +170,10 @@ namespace engine
 		mSystems.push_back(std::move(s));
 	}
 
-	void scene::addUserSystem(std::unique_ptr<system>&& s)
+	void scene::addUserSystem(std::shared_ptr<system> s)
 	{
 		s->onAttach(mSceneRegistry);
 
-		mUserSystems.push_back(std::move(s));
+		mUserSystems.push_back(s);
 	}
 }

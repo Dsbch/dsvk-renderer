@@ -7,7 +7,7 @@ namespace engine
 		:
 		mEventDispatcher(std::make_unique<eventDispatcher>()), mAmanager(std::make_unique<aManager>()), mThreadPool(std::make_unique<threadPool>()), config(config)
 	{
-		mThreadPool->init();
+		mThreadPool->init("engine::context");
 	}
 
 	context::~context()

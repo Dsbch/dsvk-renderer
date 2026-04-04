@@ -6,9 +6,6 @@
 
 namespace engine
 {
-	// TODO: Fix bug with lags on animations (I think PCI is exhausted and semaphore wating stalls rendering).
-	// TODO: Fix bug with access vialtion, and sometimes models are not actually loaded when they are loaded. Could be ECS data race?
-	// TODO: figure out problem with meshlet culling for animated meshlets.
 	error animationSystem::onAttach(std::shared_ptr<registryHandle> registry)
 	{
 		return {};
@@ -30,19 +27,23 @@ namespace engine
 
 	error animationSystem::onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
+		std::vector<entity> needAnimUpd{};
+
 		registry->forEach<uidComponent, animationComponent>(
+			entt::exclude<updateAnimationComponent>,
 			[&](entt::entity e, uidComponent& uid, animationComponent& anim)
 			{
 				for (int i = 0; i < anim.animations->size(); i++)
 				{
 					anim.animations->operator[](i).update(deltaTime);
 				}
-
-				entity ent{ mCtx, e, registry };
-
-				ent.addOrReplaceComponent<updateAnimationComponent>();
+				
+				needAnimUpd.push_back({ mCtx, e, registry });
 			}
 		);
+
+		for (auto& e : needAnimUpd)
+			e.addOrReplaceComponent<updateAnimationComponent>();
 
 		return {};
 	}

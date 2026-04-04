@@ -123,9 +123,9 @@ namespace engine
 		app = this;
 	}
 
-	void application::addUserSystem(std::unique_ptr<system>&& s)
+	void application::addUserSystem(std::shared_ptr<system> s)
 	{
-		mScene->addUserSystem(std::move(s));
+		mScene->addUserSystem(s);
 	}
 
 	application::~application()
@@ -143,6 +143,9 @@ namespace engine
 
 		auto nextRender = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
 		auto renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
+		
+		auto maxGupsDept = updateShift * maxFrameSkip;
+		auto maxFpsDept = renderShift;
 
 		auto lastFrame = std::chrono::steady_clock::now();
 
@@ -162,7 +165,14 @@ namespace engine
 
 			err = onRender(nextRender, renderShift, deltaTime);
 			if (err)
-				return err;
+				return err; 
+			
+			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
+			if (now - nextGameUpdate > maxGupsDept)
+				nextGameUpdate = now - maxGupsDept;
+
+			if (now - nextRender > maxFpsDept)
+				nextRender = now - maxFpsDept;
 		}
 
 		return {};

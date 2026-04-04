@@ -2,8 +2,10 @@
 
 #include <pch.h>
 
-namespace engine {
-	class timer {
+namespace engine 
+{
+	class timer 
+	{
 	private:
 		std::chrono::steady_clock::time_point mStartTime;
 	public:
