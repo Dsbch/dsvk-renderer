@@ -26,7 +26,7 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry)
+	error cameraSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
 		size_t activeCount = registry->sizeHint<fpsCameraComponent, activeCameraComponent>();
 		size_t debugCount = registry->sizeHint<fpsCameraComponent, debugCameraComponent>();
@@ -41,6 +41,16 @@ namespace engine
 	}
 
 	error cameraSystem::onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
+	{
+		return {};
+	}
+
+	error cameraSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return {};
+	}
+
+	error cameraSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
 	{
 		return {};
 	}
@@ -67,7 +77,7 @@ namespace engine
 		return {};
 	}
 
-	error cameraSystem::applyInput(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
+	error cameraSystem::applyInput(std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
 	{
 		const float maxOffset = 0.1f;
 
@@ -153,7 +163,7 @@ namespace engine
 			registry->forEach<fpsCameraComponent, inputListenerComponent, debugCameraComponent>(
 				[&](entt::entity ent, fpsCameraComponent& camera, inputListenerComponent& input)
 				{
-					applyInput(registry, e, camera, input);
+					applyInput(e, camera, input);
 				}
 			);
 		}
@@ -162,7 +172,7 @@ namespace engine
 			registry->forEach<fpsCameraComponent, inputListenerComponent, activeCameraComponent>(
 				[&](entt::entity ent, fpsCameraComponent& camera, inputListenerComponent& input)
 				{
-					applyInput(registry, e, camera, input);
+					applyInput(e, camera, input);
 				}
 			);
 		}

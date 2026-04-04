@@ -94,16 +94,16 @@ namespace engine
 		return err;
 	}
 
-	error scene::onFixedUpdate()
+	error scene::onFixedUpdate(float deltaTime)
 	{
 		error err;
 
 		for (auto& s : mUserSystems)
 		{
 			mThreadPool->start(
-				[registry = mSceneRegistry, sys = s]
+				[registry = mSceneRegistry, sys = s, deltaTime = deltaTime]
 				{
-					error err = sys->onFixedUpdate(registry);
+					error err = sys->onFixedUpdate(registry, deltaTime);
 					if (err)
 						LOGERROR("User system err onFixedUpdate: {}", err.err());
 				}
@@ -112,7 +112,7 @@ namespace engine
 
 		for (auto& s : mSystems)
 		{
-			err = s->onFixedUpdate(mSceneRegistry);
+			err = s->onFixedUpdate(mSceneRegistry, deltaTime);
 			if (err)
 				return err;
 		}
@@ -144,6 +144,58 @@ namespace engine
 		}
 
 		return err;
+	}
+
+	error scene::onBeginUpdate()
+	{
+		error err;
+
+		for (auto& s : mUserSystems)
+		{
+			mThreadPool->start(
+				[registry = mSceneRegistry, sys = s]
+				{
+					error err = sys->onBeginUpdate(registry);
+					if (err)
+						LOGERROR("User system err onBeginUpdate: {}", err.err());
+				}
+			);
+		}
+
+		for (auto& s : mSystems)
+		{
+			s->onBeginUpdate(mSceneRegistry);
+			if (err)
+				return err;
+		}
+
+		return {};
+	}
+
+	error scene::onEndUpdate()
+	{
+		error err;
+
+		for (auto& s : mUserSystems)
+		{
+			mThreadPool->start(
+				[registry = mSceneRegistry, sys = s]
+				{
+					error err = sys->onEndUpdate(registry);
+					if (err)
+						LOGERROR("User system err onEndUpdate: {}", err.err());
+				}
+			);
+		}
+
+		for (auto& s : mSystems)
+		{
+			s->onEndUpdate(mSceneRegistry);
+			if (err)
+				return err;
+		}
+
+		return {};
 	}
 
 	error scene::checkError() const

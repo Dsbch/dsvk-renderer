@@ -33,6 +33,6 @@ namespace engine
 		error createWindow();
 		error fixedUpdate(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip);
 		error update(float deltaTime);
-		error onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift, float deltaTime);
+		withError<std::pair<float, bool>> onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift);
 	};
 }

@@ -46,15 +46,15 @@ namespace engine
 		return mRenderer->checkError();
 	}
 
-	error renderSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry)
+	error renderSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
-		handleDeletedEntities(registry);
+		error err = handleUpdatedEntities(registry);
+		if (err)
+			return err;
 
-		handleUpdatedEntities(registry);
-
-		handleNewEntities(registry);
-
-		handleAnimatedEntities(registry);
+		err = handleAnimatedEntities(registry);
+		if (err)
+			return err;
 
 		return {};
 	}
@@ -136,6 +136,16 @@ namespace engine
 		return {};
 	}
 
+	error renderSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return handleNewEntities(registry);;
+	}
+
+	error renderSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return handleDeletedEntities(registry);
+	}
+
 	error renderSystem::handleNewEntities(std::shared_ptr<registryHandle> registry)
 	{
 		error err{};
@@ -161,8 +171,9 @@ namespace engine
 					.meshData = mesh.meshData,
 					.perMeshData = mesh.meshAttributes,
 					.mat = material.mat,
-					.skins = anim.skins,
-					.animations = anim.animations,
+					.anims = animations{
+						.jointMatrices = anim.jointMatrices,
+					},
 				};
 
 				err = mRenderer->addToRender(m);
@@ -298,8 +309,9 @@ namespace engine
 					.id = uid.uid,
 					.meshData = mesh.meshData,
 					.mat = material.mat,
-					.skins = anim.skins,
-					.animations = anim.animations,
+					.anims = animations{
+						.jointMatrices = anim.jointMatrices,
+					}
 				};
 
 				err = mRenderer->updateAnimations(m);

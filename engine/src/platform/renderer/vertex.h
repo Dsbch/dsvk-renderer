@@ -223,6 +223,13 @@ namespace engine
 		glm::mat3 meshGlobalNormal;
 	};
 
+	struct animations
+	{
+		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
+		std::shared_ptr<const std::vector<skin>> skins;
+		std::shared_ptr<const std::vector<animation>> animations;
+	};
+
 	struct model
 	{
 		uint32_t id;
@@ -230,8 +237,7 @@ namespace engine
 		std::shared_ptr<const std::vector<mesh>> meshData;
 		std::shared_ptr<const std::vector<perMeshAttributes>> perMeshData;
 		materials mat;
-		std::shared_ptr<const std::vector<skin>> skins;
-		std::shared_ptr<const std::vector<animation>> animations;
+		animations anims;
 	};
 
 	struct frustum

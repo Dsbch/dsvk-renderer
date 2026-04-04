@@ -30,7 +30,17 @@ namespace sandbox
 		return {};
 	}
 
-	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<engine::registryHandle> registry)
+	engine::error sandboxSystem::onBeginUpdate(std::shared_ptr<engine::registryHandle> registry)
+	{
+		return {};
+	}
+
+	engine::error sandboxSystem::onEndUpdate(std::shared_ptr<engine::registryHandle> registry)
+	{
+		return {};
+	}
+
+	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
 	{
 		return {};
 	}
@@ -110,7 +120,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
 			}
 
 			if (event->getKey() == engine::key::h)
@@ -133,7 +143,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->animations, loadedModel.value()->skins);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
 			}
 
 			if (event->getKey() == engine::key::f)

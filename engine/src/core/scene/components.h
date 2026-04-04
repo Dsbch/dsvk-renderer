@@ -85,10 +85,11 @@ namespace engine
 		uint32_t uid;
 		std::shared_ptr<std::vector<animation>> animations;
 		std::shared_ptr<std::vector<skin>> skins;
+		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
 
 		// Copy all animations as it changes every frame.
 		animationComponent(std::shared_ptr<const std::vector<animation>> aPtr, std::shared_ptr<const std::vector<skin>> sPtr)
-			: uid(genUID())
+			: uid(genUID()), jointMatrices(std::make_shared<std::vector<glm::mat4>>())
 		{
 			std::function<void(skeletonNode& s, std::map<std::shared_ptr<joint>, std::shared_ptr<joint>>& jointOldNew)> copyNode;
 			
@@ -131,6 +132,14 @@ namespace engine
 
 			this->skins = std::make_shared<std::vector<skin>>(std::move(cpySkins));
 			this->animations = std::make_shared<std::vector<animation>>(std::move(cpyAnims));
+
+			// Load bind pose.
+			for (auto& sn : *this->skins.get())
+			{
+				auto j = sn.getJointMatrices();
+
+				this->jointMatrices->insert(this->jointMatrices->begin(), std::move_iterator(j.begin()), std::move_iterator(j.end()));
+			}
 		}
 	};
 

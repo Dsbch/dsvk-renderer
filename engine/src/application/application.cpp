@@ -52,6 +52,11 @@ namespace engine
 
 	error application::fixedUpdate(std::chrono::milliseconds& nextGameUpdate, std::chrono::milliseconds updateShift, uint32_t maxFrameSkip)
 	{
+		static auto last = std::chrono::steady_clock::now();
+
+		auto now = std::chrono::steady_clock::now();
+		auto deltaTime = std::chrono::duration<float>(now - last).count();
+
 		auto k = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
 		for (uint32_t i = 0; std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextGameUpdate && i < maxFrameSkip && mRunning; i++)
 		{
@@ -73,10 +78,14 @@ namespace engine
 					return err;
 			}
 
+			deltaTime = std::chrono::duration<float>(now - last).count();
+
 			// run updates.
-			error err = mScene->onFixedUpdate();
+			error err = mScene->onFixedUpdate(deltaTime);
 			if (err)
 				return err;
+
+			last = now;
 
 			nextGameUpdate += updateShift;
 		}
@@ -89,19 +98,28 @@ namespace engine
 		return mScene->onUpdate(deltaTime);
 	}
 
-	error application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift, float deltaTime)
+	withError<std::pair<float, bool>> application::onRender(std::chrono::milliseconds& nextRender, std::chrono::milliseconds renderShift)
 	{
+		static auto last = std::chrono::steady_clock::now();
+
+		auto now = std::chrono::steady_clock::now();
+		auto deltaTime = std::chrono::duration<float>(now - last).count();
+
 		if (std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
 		{
 			error err = mScene->onRender(deltaTime);
 			if (err)
 				return err;
+			
+			last = now;
 
 			mWindow->swapBuffers();
 			nextRender += renderShift;
+		
+			return std::pair<float, bool>{deltaTime, true};
 		}
 
-		return {};
+		return std::pair<float, bool>{deltaTime, false};
 	}
 
 	application::application()
@@ -147,26 +165,35 @@ namespace engine
 		auto maxGupsDept = updateShift * maxFrameSkip;
 		auto maxFpsDept = renderShift;
 
-		auto lastFrame = std::chrono::steady_clock::now();
+		std::pair<float, bool> prevRenderResult{};
 
 		while (mRunning)
 		{
-			auto currentFrame = std::chrono::steady_clock::now();
-			float deltaTime = std::chrono::duration<float>(currentFrame - lastFrame).count();
-			lastFrame = currentFrame;
-
-			error err = fixedUpdate(nextGameUpdate, updateShift, maxFrameSkip);
+			error err = mScene->onBeginUpdate();
 			if (err)
 				return err;
 
-			err = update(deltaTime);
+			err = fixedUpdate(nextGameUpdate, updateShift, maxFrameSkip);
 			if (err)
 				return err;
-
-			err = onRender(nextRender, renderShift, deltaTime);
-			if (err)
-				return err; 
 			
+			if (prevRenderResult.second)
+			{
+				err = update(prevRenderResult.first);
+				if (err)
+					return err;
+			}
+
+			err = mScene->onEndUpdate();
+			if (err)
+				return err;
+
+			auto renderResult = onRender(nextRender, renderShift);
+			if (!renderResult)
+				return renderResult.err();
+
+			prevRenderResult = renderResult.value();
+
 			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
 			if (now - nextGameUpdate > maxGupsDept)
 				nextGameUpdate = now - maxGupsDept;

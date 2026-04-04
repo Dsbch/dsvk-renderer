@@ -446,18 +446,9 @@ namespace engine
 		attr.jointOffset = std::numeric_limits<uint32_t>::max();
 
 		// Upload animation data.
-		if (m.skins && m.animations && m.skins->size() != 0 && m.animations->size() != 0)
+		if (m.anims.jointMatrices && m.anims.jointMatrices->size() != 0)
 		{
-			std::vector<glm::mat4> joints{};
-
-			for (auto& sn : *m.skins.get())
-			{
-				auto j = sn.getJointMatrices();
-
-				joints.insert(joints.begin(), std::move_iterator(j.begin()), std::move_iterator(j.end()));
-			}
-
-			auto jointHandle = mJointRegistry.addBlock(m.id, joints.data(), joints.size() * sizeof(glm::mat4), is);
+			auto jointHandle = mJointRegistry.addBlock(m.id, m.anims.jointMatrices->data(), m.anims.jointMatrices->size() * sizeof(glm::mat4), is);
 			if (!jointHandle)
 				return jointHandle.err();
 
@@ -620,16 +611,7 @@ namespace engine
 	error meshletRenderer::updateAnimations(const model& m, submit& is)
 	{
 		// Update animation data.
-		std::vector<glm::mat4> joints{};
-
-		for (auto& sn : *m.skins.get())
-		{
-			auto j = sn.getJointMatrices();
-
-			joints.insert(joints.begin(), std::move_iterator(j.begin()), std::move_iterator(j.end()));
-		}
-
-		return mJointRegistry.updateBlock(m.id, joints.data(), joints.size() * sizeof(glm::mat4), is);
+		return mJointRegistry.updateBlock(m.id, m.anims.jointMatrices->data(), m.anims.jointMatrices->size() * sizeof(glm::mat4), is);
 	}
 
 	void meshletRenderer::removeFromRender(const model& m)

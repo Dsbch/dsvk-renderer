@@ -59,6 +59,12 @@ namespace engine
 		}
 
 		template<typename T>
+		T* tryGetComponent()
+		{
+			return mRegistry->tryGetComponent<T>(mHandle);
+		}
+
+		template<typename T>
 		void removeComponent()
 		{
 			mRegistry->removeComponent<T>(mHandle);
