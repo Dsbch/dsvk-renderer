@@ -9,154 +9,194 @@
 
 namespace engine
 {
-    class system;
-    class window;
+	class timerr
+	{
+	private:
+		std::string name;
+		std::chrono::steady_clock::time_point start;
+	public:
+		timerr(std::string&& name)
+			:
+			start(std::chrono::high_resolution_clock::now()),
+			name(std::move(name))
+		{
+		}
+		~timerr()
+		{
+			auto end = std::chrono::high_resolution_clock::now();
 
-    class registryHandle
-    {
-    public:
-        registryHandle() : mRegistry() {}
+			auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-        // Do not destroy or create entites inside function.
-        // Do not add/remove component inside function.
-        // Do it ouside of a loop.
-        // Do not pass heavy lambda, lambda should only do one thing (usually push entity to a vector).
-        template<typename... Components, typename Func>
-        void forEach(Func&& func)
-        {
-            std::lock_guard lock(mMutex);
-            mRegistry.view<Components...>().each(std::forward<Func>(func));
-        }
+			if (count >= 1000)
+				LOGINFO("{} took: {}", name, count);
+		}
+	};
 
-        // Do not destroy or create entites inside function.
-        // Do not add/remove component inside function.
-        // Do it ouside of a loop.
-        // Do not pass heavy lambda, lambda should only do one thing (usually push entity to a vector).
-        template<typename... Components, typename... Exclude, typename Func>
-        void forEach(entt::exclude_t<Exclude...> excl, Func&& func)
-        {
-            std::lock_guard lock(mMutex);
-            mRegistry.view<Components...>(excl).each(std::forward<Func>(func));
-        }
+	class system;
+	class window;
 
-        template<typename... Components>
-        size_t sizeHint()
-        {
-            std::lock_guard lock(mMutex);
-            return mRegistry.view<Components...>().size_hint();
-        }
+	class registryHandle
+	{
+	public:
+		registryHandle() : mRegistry() {}
 
-        template<typename T>
-        T& getComponent(entt::entity entity)
-        {
-            std::lock_guard lock(mMutex);
+		// Do not destroy or create entites inside function.
+		// Do not add/remove component inside function.
+		// Do it ouside of a loop.
+		// Do not pass heavy lambda, lambda should only do one thing (usually push entity to a vector).
+		template<typename... Components, typename Func>
+		void forEach(Func&& func)
+		{
+			timerr t{ "forEach" };
 
-            return mRegistry.get<T>(entity);
-        }
+			co::mutex_guard lock(mMutex);
+			mRegistry.view<Components...>().each(std::forward<Func>(func));
+		}
 
-        template<typename T>
-        T* tryGetComponent(entt::entity entity)
-        {
-            std::lock_guard lock(mMutex);
+		// Do not destroy or create entites inside function.
+		// Do not add/remove component inside function.
+		// Do it ouside of a loop.
+		// Do not pass heavy lambda, lambda should only do one thing (usually push entity to a vector).
+		template<typename... Components, typename... Exclude, typename Func>
+		void forEach(entt::exclude_t<Exclude...> excl, Func&& func)
+		{
+			timerr t{ "forEach" };
 
-            return mRegistry.try_get<T>(entity);
-        }
+			co::mutex_guard lock(mMutex);
+			mRegistry.view<Components...>(excl).each(std::forward<Func>(func));
+		}
 
-        entt::entity createEntity()
-        {
-            std::lock_guard lock(mMutex);
+		template<typename... Components>
+		size_t sizeHint()
+		{
+			timerr t{ "sizeHint" };
 
-            return mRegistry.create();
-        }
+			co::mutex_guard lock(mMutex);
+			return mRegistry.view<Components...>().size_hint();
+		}
 
-        void destroyEntity(entt::entity ent)
-        {
-            std::lock_guard lock(mMutex);
+		template<typename T>
+		T& getComponent(entt::entity entity)
+		{
+			timerr t{ "getComp" };
 
-            if (mRegistry.valid(ent))
-                mRegistry.destroy(ent);
-        }
+			co::mutex_guard lock(mMutex);
 
-        template<typename T, typename... Args>
-        void emplaceComponent(entt::entity ent, Args&&... args)
-        {
+			return mRegistry.get<T>(entity);
+		}
 
-            std::lock_guard lock(mMutex);
+		template<typename T>
+		T* tryGetComponent(entt::entity entity)
+		{
+			timerr t{ "tryGetComp" };
 
-            if (mRegistry.valid(ent))
-                mRegistry.emplace<T>(ent, std::forward<Args>(args)...);
-        }
+			co::mutex_guard lock(mMutex);
 
-        template<typename T>
-        void emplaceComponent(entt::entity ent)
-        {
+			return mRegistry.try_get<T>(entity);
+		}
 
-            std::lock_guard lock(mMutex);
+		entt::entity createEntity()
+		{
+			timerr t{ "createEnt" };
 
-            if (mRegistry.valid(ent))
-                mRegistry.emplace<T>(ent);
-        }
+			co::mutex_guard lock(mMutex);
 
-        template<typename T, typename... Args>
-        void emplaceOrReplaceComponent(entt::entity ent, Args&&... args)
-        {
+			return mRegistry.create();
+		}
 
-            std::lock_guard lock(mMutex);
+		void destroyEntity(entt::entity ent)
+		{
+			timerr t{ "destroyEnt" };
 
-            if (mRegistry.valid(ent))
-                mRegistry.emplace_or_replace<T>(ent, std::forward<Args>(args)...);
-        }
+			co::mutex_guard lock(mMutex);
 
-        template<typename T, typename... Args>
-        void emplaceOrReplaceComponent(entt::entity ent)
-        {
+			if (mRegistry.valid(ent))
+				mRegistry.destroy(ent);
+		}
 
-            std::lock_guard lock(mMutex);
+		template<typename T, typename... Args>
+		void emplaceComponent(entt::entity ent, Args&&... args)
+		{
+			timerr t{ "emplaceComp" };
 
-            if (mRegistry.valid(ent))
-                mRegistry.emplace_or_replace<T>(ent);
-        }
+			co::mutex_guard lock(mMutex);
 
-        template<typename T>
-        void removeComponent(entt::entity ent)
-        {
+			if (mRegistry.valid(ent))
+				mRegistry.emplace<T>(ent, std::forward<Args>(args)...);
+		}
 
-            std::lock_guard lock(mMutex);
+		template<typename T>
+		void emplaceComponent(entt::entity ent)
+		{
+			timerr t{ "emplaceComponent" };
 
-            if (mRegistry.valid(ent))
-                mRegistry.remove<T>(ent);
-        }
-    private:
-        entt::registry mRegistry;
-        std::mutex mMutex;
-    };
+			co::mutex_guard lock(mMutex);
+
+			if (mRegistry.valid(ent))
+				mRegistry.emplace<T>(ent);
+		}
+
+		template<typename T, typename... Args>
+		void emplaceOrReplaceComponent(entt::entity ent, Args&&... args)
+		{
+			timerr t{ "emplaceOrReplaceComponent" };
+
+			co::mutex_guard lock(mMutex);
+
+			if (mRegistry.valid(ent))
+				mRegistry.emplace_or_replace<T>(ent, std::forward<Args>(args)...);
+		}
+
+		template<typename T, typename... Args>
+		void emplaceOrReplaceComponent(entt::entity ent)
+		{
+			timerr t{ "emplaceOrReplaceComponent" };
+
+			co::mutex_guard lock(mMutex);
+
+			if (mRegistry.valid(ent))
+				mRegistry.emplace_or_replace<T>(ent);
+		}
+
+		template<typename T>
+		void removeComponent(entt::entity ent)
+		{
+			timerr t{ "removeComponent" };
+
+			co::mutex_guard lock(mMutex);
+
+			if (mRegistry.valid(ent))
+				mRegistry.remove<T>(ent);
+		}
+	private:
+		entt::registry mRegistry;
+		co::mutex mMutex;
+	};
 
 	class scene
 	{
 	public:
 		scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
 		~scene();
-	
+
 		error onRender(float deltaTime);
 		error onEvent(std::shared_ptr<baseEvent> e);
 		error onFixedUpdate(float deltaTime);
-        error onUpdate(float deltaTime);
-        error onBeginUpdate();
-        error onEndUpdate();
-		
+		error onUpdate(float deltaTime);
+		error onBeginUpdate();
+		error onEndUpdate();
+
 		error checkError() const;
 
 		void addUserSystem(std::shared_ptr<system>);
 	protected:
 		std::shared_ptr<context> mCtx;
-	
-	private:
-        std::unique_ptr<threadPool> mThreadPool;
 
+	private:
 		std::vector<std::unique_ptr<system>> mSystems;
 		static std::vector<std::shared_ptr<system>> mUserSystems;
 		std::shared_ptr<registryHandle> mSceneRegistry;
-		
+
 		void addSystem(std::unique_ptr<system>&&);
 	};
 }

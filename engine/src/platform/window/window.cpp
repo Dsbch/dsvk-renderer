@@ -67,7 +67,7 @@ namespace engine
 			if (keyCode == key::unknown)
 				return;
 
-			std::lock_guard<std::mutex> m(wndPtr->mEvenetQueueMu);
+			co::mutex_guard m(wndPtr->mEvenetQueueMu);
 			if (action == GLFW_PRESS || action == GLFW_REPEAT)
 			{
 				if (wndPtr->mKeyDown.find(keyCode) == wndPtr->mKeyDown.end())
@@ -117,7 +117,7 @@ namespace engine
 
 		if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
 		{
-			std::lock_guard<std::mutex> m(wndPtr->mEvenetQueueMu);
+			co::mutex_guard m(wndPtr->mEvenetQueueMu);
 
 			wndPtr->mEventQueue.push(std::make_shared<mouseMoveEvent>(mouseOffset{ int(dx), int(dy) }));
 		}
@@ -248,7 +248,7 @@ namespace engine
 	{
 		glfwPollEvents();
 
-		std::lock_guard<std::mutex> l(mEvenetQueueMu);
+		co::mutex_guard l(mEvenetQueueMu);
 
 		// Queue keyDown events.
 		for (int i = 0; i < mEventQueue.size(); i++)

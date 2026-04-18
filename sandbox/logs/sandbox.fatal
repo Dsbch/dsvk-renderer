@@ -1,0 +1,1227 @@
+F0412 19:32:01.979] SIGABRT: aborted
+00007FFED8789E77 (ucrtbased): (filename not available): raise
+00007FFED87857DE (ucrtbased): (filename not available): setmbcp
+00007FFED87865B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFED8788006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFED8786499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFED87747F1 (ucrtbased): (filename not available): _threadid
+00007FFED87749A3 (ucrtbased): (filename not available): _threadid
+00007FFED878BA9D (ucrtbased): (filename not available): abort
+00007FFED8791715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED8791387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED878F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED8791C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF676578AC3 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF676578903 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF676578DD3 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF67651CFE6 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF67651F1C3 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF6764BF4C3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF676387BD3 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (78): _co_main
+C:\code\C++\engine\sandbox\src\main.cpp (49): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001F6FA425060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+00000004243FED20 ((module-name not available)): (filename not available): (function-name not available)
+000001F6F9C200B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0412 19:42:46.422] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFF725FCE46 (ntdll): (filename not available): _C_specific_handler
+00007FFF7261296F (ntdll): (filename not available): _chkstk
+00007FFF725C2554 (ntdll): (filename not available): RtlRaiseException
+00007FFF7261147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF611CFCE5F (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF611CFCB5F (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF611CFCB9F (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF611CFF7C3 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF61212E590 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF611CA9003 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF61256D87B (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFEDB3D2B99 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D25C5 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2717 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFEDB3D1F7A (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E0D (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E87 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2120 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2456 (ucrtbased): (filename not available): exit
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (295): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 19:43:15.266] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFF725FCE46 (ntdll): (filename not available): _C_specific_handler
+00007FFF7261296F (ntdll): (filename not available): _chkstk
+00007FFF725C2554 (ntdll): (filename not available): RtlRaiseException
+00007FFF7261147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF7BE0F74AF (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF7BE0F730F (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF7BE0F734F (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF7BE10AAF3 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF7BE52E920 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF7BE0A93A3 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF7BE96DC6B (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFEDB3D2B99 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D25C5 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2717 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFEDB3D1F7A (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E0D (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E87 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2120 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2456 (ucrtbased): (filename not available): exit
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (295): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 19:44:59.596] SIGABRT: aborted
+00007FFED8789E77 (ucrtbased): (filename not available): raise
+00007FFED87857DE (ucrtbased): (filename not available): setmbcp
+00007FFED87865B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFED8788006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFED8786499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFED87747F1 (ucrtbased): (filename not available): _threadid
+00007FFED87749A3 (ucrtbased): (filename not available): _threadid
+00007FFED878BA9D (ucrtbased): (filename not available): abort
+00007FFED8791715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED8791387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED878F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED8791C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF645C869B3 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF645C867F3 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF645C86CC3 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF645C2AED6 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF645C2D0B3 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF645BCD2A3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF645A95823 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (65): main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (79): invoke_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (288): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 19:45:53.921] SIGABRT: aborted
+00007FFED8789E77 (ucrtbased): (filename not available): raise
+00007FFED87857DE (ucrtbased): (filename not available): setmbcp
+00007FFED87865B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFED8788006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFED8786499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFED87747F1 (ucrtbased): (filename not available): _threadid
+00007FFED87749A3 (ucrtbased): (filename not available): _threadid
+00007FFED878BA9D (ucrtbased): (filename not available): abort
+00007FFED8791715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED8791387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED878F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFED8791C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF6FD3579E3 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF6FD357823 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF6FD357CF3 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF6FD2FBF06 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF6FD2FE0E3 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF6FD29E2D3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF6FD166853 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (65): main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (79): invoke_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (288): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 19:46:55.959] SIGABRT: aborted
+00007FFEDB3C9E77 (ucrtbased): (filename not available): raise
+00007FFEDB3C57DE (ucrtbased): (filename not available): setmbcp
+00007FFEDB3C65B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFEDB3C8006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFEDB3C6499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFEDB3B47F1 (ucrtbased): (filename not available): _threadid
+00007FFEDB3B49A3 (ucrtbased): (filename not available): _threadid
+00007FFEDB3CBA9D (ucrtbased): (filename not available): abort
+00007FFEDB3D1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFEDB3D1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFEDB3CF378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFEDB3D1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF6FD3579E3 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF6FD357823 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF6FD357CF3 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF6FD2FBF06 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF6FD2FE0E3 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF6FD29E2D3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF6FD166853 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (65): main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (79): invoke_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (288): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 19:51:55.890] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFF725FCE46 (ntdll): (filename not available): _C_specific_handler
+00007FFF7261296F (ntdll): (filename not available): _chkstk
+00007FFF725C2554 (ntdll): (filename not available): RtlRaiseException
+00007FFF7261147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF76CD4B7FF (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF76CD4B4FF (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF76CD4B53F (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF76CD4E163 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF76D17EA30 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF76CCF79A3 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF76D5BDD2B (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFED5392B99 (ucrtbased): (filename not available): initterm_e
+00007FFED53925C5 (ucrtbased): (filename not available): initterm_e
+00007FFED5392717 (ucrtbased): (filename not available): initterm_e
+00007FFED5392D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFED5391F7A (ucrtbased): (filename not available): wassert
+00007FFED5391E0D (ucrtbased): (filename not available): wassert
+00007FFED5391E87 (ucrtbased): (filename not available): wassert
+00007FFED5392120 (ucrtbased): (filename not available): wassert
+00007FFED5392456 (ucrtbased): (filename not available): exit
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (295): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 19:55:12.089] Error: EXCEPTION_ACCESS_VIOLATION
+F0412 19:55:27.971] Error: EXCEPTION_ACCESS_VIOLATION
+F0412 19:56:36.757] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFF725FCE46 (ntdll): (filename not available): _C_specific_handler
+00007FFF7261296F (ntdll): (filename not available): _chkstk
+00007FFF725C2554 (ntdll): (filename not available): RtlRaiseException
+00007FFF7261147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF7AC908D1F (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF7AC908B7F (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF7AC908BBF (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF7AC91C363 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF7ACD41170 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF7AC8BAC83 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF7AD1805EB (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFED8792B99 (ucrtbased): (filename not available): initterm_e
+00007FFED87925C5 (ucrtbased): (filename not available): initterm_e
+00007FFED8792717 (ucrtbased): (filename not available): initterm_e
+00007FFED8792D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFED8791F7A (ucrtbased): (filename not available): wassert
+00007FFED8791E0D (ucrtbased): (filename not available): wassert
+00007FFED8791E87 (ucrtbased): (filename not available): wassert
+00007FFED8792120 (ucrtbased): (filename not available): wassert
+00007FFED8792456 (ucrtbased): (filename not available): exit
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (295): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 19:56:58.733] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFF725FCE46 (ntdll): (filename not available): _C_specific_handler
+00007FFF7261296F (ntdll): (filename not available): _chkstk
+00007FFF725C2554 (ntdll): (filename not available): RtlRaiseException
+00007FFF7261147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF74C9A8D1F (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF74C9A8B7F (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF74C9A8BBF (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF74C9BC363 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF74CDE1170 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF74C95AC83 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF74D2205EB (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFEDB3D2B99 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D25C5 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2717 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFEDB3D1F7A (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E0D (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E87 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2120 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2456 (ucrtbased): (filename not available): exit
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (295): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 20:00:13.291] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFF725FCE46 (ntdll): (filename not available): _C_specific_handler
+00007FFF7261296F (ntdll): (filename not available): _chkstk
+00007FFF725C2554 (ntdll): (filename not available): RtlRaiseException
+00007FFF7261147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF69B7AD14F (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF69B7ACE4F (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF69B7ACE8F (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF69B7AFAB3 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF69BBDFB00 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF69B7592F3 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF69C01EE2B (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFEDB3D2B99 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D25C5 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2717 (ucrtbased): (filename not available): initterm_e
+00007FFEDB3D2D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFEDB3D1F7A (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E0D (ucrtbased): (filename not available): wassert
+00007FFEDB3D1E87 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2120 (ucrtbased): (filename not available): wassert
+00007FFEDB3D2456 (ucrtbased): (filename not available): exit
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (295): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0412 20:07:00.008] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFF725FCE46 (ntdll): (filename not available): _C_specific_handler
+00007FFF7261296F (ntdll): (filename not available): _chkstk
+00007FFF725C2554 (ntdll): (filename not available): RtlRaiseException
+00007FFF7261147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF6B8F6D1FF (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF6B8F6CEFF (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF6B8F6CF3F (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF6B8F6FB63 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF6B939F710 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF6B8F193A3 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF6B97DEC5B (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFED8792B99 (ucrtbased): (filename not available): initterm_e
+00007FFED87925C5 (ucrtbased): (filename not available): initterm_e
+00007FFED8792717 (ucrtbased): (filename not available): initterm_e
+00007FFED8792D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFED8791F7A (ucrtbased): (filename not available): wassert
+00007FFED8791E0D (ucrtbased): (filename not available): wassert
+00007FFED8791E87 (ucrtbased): (filename not available): wassert
+00007FFED8792120 (ucrtbased): (filename not available): wassert
+00007FFED8792456 (ucrtbased): (filename not available): exit
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (295): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFF714A7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFF725BCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 19:11:50.050] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 20:07:52.114] SIGABRT: aborted
+00007FFF50CA9E77 (ucrtbased): (filename not available): raise
+00007FFF50CA57DE (ucrtbased): (filename not available): setmbcp
+00007FFF50CA65B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFF50CA8006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFF50CA6499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFF50C947F1 (ucrtbased): (filename not available): _threadid
+00007FFF50C949A3 (ucrtbased): (filename not available): _threadid
+00007FFF50CABA9D (ucrtbased): (filename not available): abort
+00007FFF50CB1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF50CB1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF50CAF378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF50CB1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF76296B1B3 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF76296AFF3 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF76296B4C3 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF762910876 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF762912A53 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF7628B2C63 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF7627789B3 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001CAFEECF060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000835650EE20 ((module-name not available)): (filename not available): (function-name not available)
+000001CAFE6C80F0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 20:09:03.938] SIGABRT: aborted
+00007FFF50CA9E77 (ucrtbased): (filename not available): raise
+00007FFF50CA57DE (ucrtbased): (filename not available): setmbcp
+00007FFF50CA65B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFF50CA8006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFF50CA6499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFF50C947F1 (ucrtbased): (filename not available): _threadid
+00007FFF50C949A3 (ucrtbased): (filename not available): _threadid
+00007FFF50CABA9D (ucrtbased): (filename not available): abort
+00007FFF50CB1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF50CB1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF50CAF378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF50CB1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF7A954B163 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF7A954AFA3 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF7A954B473 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF7A94F0866 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF7A94F2A43 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF7A9492C53 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF7A93589A3 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000002E1FCCB3060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000EC3DEFEA20 ((module-name not available)): (filename not available): (function-name not available)
+000002E19C4B00B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 20:18:26.603] SIGABRT: aborted
+00007FFF4F399E77 (ucrtbased): (filename not available): raise
+00007FFF4F3957DE (ucrtbased): (filename not available): setmbcp
+00007FFF4F3965B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFF4F398006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFF4F396499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFF4F3847F1 (ucrtbased): (filename not available): _threadid
+00007FFF4F3849A3 (ucrtbased): (filename not available): _threadid
+00007FFF4F39BA9D (ucrtbased): (filename not available): abort
+00007FFF4F3A1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF4F3A1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF4F39F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF4F3A1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF6FA270053 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF6FA26FE93 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF6FA270363 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF6FA213956 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF6FA215A53 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF6FA1B4BB3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF6FA07AB33 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+00000234FFFFA060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000564DCFF020 ((module-name not available)): (filename not available): (function-name not available)
+00000234BF7F00B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 20:19:51.083] SIGABRT: aborted
+00007FFF4F399E77 (ucrtbased): (filename not available): raise
+00007FFF4F3957DE (ucrtbased): (filename not available): setmbcp
+00007FFF4F3965B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFF4F398006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFF4F396499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFF4F3847F1 (ucrtbased): (filename not available): _threadid
+00007FFF4F3849A3 (ucrtbased): (filename not available): _threadid
+00007FFF4F39BA9D (ucrtbased): (filename not available): abort
+00007FFF4F3A1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF4F3A1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF4F39F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF4F3A1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF69E800053 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF69E7FFE93 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF69E800363 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF69E7A3956 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF69E7A5A53 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF69E742903 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF69E60AB33 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+0000023FFF80A060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+00000071EC79EA70 ((module-name not available)): (filename not available): (function-name not available)
+0000023FC70000B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 20:23:03.334] SIGABRT: aborted
+00007FFFA6EA9E77 (ucrtbased): (filename not available): raise
+00007FFFA6EA57DE (ucrtbased): (filename not available): setmbcp
+00007FFFA6EA65B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFA6EA8006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFFA6EA6499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFFA6E947F1 (ucrtbased): (filename not available): _threadid
+00007FFFA6E949A3 (ucrtbased): (filename not available): _threadid
+00007FFFA6EABA9D (ucrtbased): (filename not available): abort
+00007FFFA6EB1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA6EB1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA6EAF378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA6EB1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF7F7D60053 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF7F7D5FE93 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF7F7D60363 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF7F7D03956 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF7F7D05A53 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF7F7A859F3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF7F7B6AB33 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000002627ED98060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000BCC1CFEB10 ((module-name not available)): (filename not available): (function-name not available)
+000002627E5900B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 20:23:55.308] SIGABRT: aborted
+00007FFFA6EA9E77 (ucrtbased): (filename not available): raise
+00007FFFA6EA57DE (ucrtbased): (filename not available): setmbcp
+00007FFFA6EA65B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFA6EA8006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFFA6EA6499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFFA6E947F1 (ucrtbased): (filename not available): _threadid
+00007FFFA6E949A3 (ucrtbased): (filename not available): _threadid
+00007FFFA6EABA9D (ucrtbased): (filename not available): abort
+00007FFFA6EB1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA6EB1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA6EAF378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA6EB1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF7F7D60053 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF7F7D5FE93 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF7F7D60363 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF7F7D03956 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF7F7D05A53 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF7F7A859F3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF7F7B6AB33 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001BB7A65B060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+00000047AFFBEB90 ((module-name not available)): (filename not available): (function-name not available)
+000001BB79E500B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 20:57:56.856] SIGABRT: aborted
+00007FFFA4059E77 (ucrtbased): (filename not available): raise
+00007FFFA40557DE (ucrtbased): (filename not available): setmbcp
+00007FFFA40565B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFA4058006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFFA4056499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFFA40447F1 (ucrtbased): (filename not available): _threadid
+00007FFFA40449A3 (ucrtbased): (filename not available): _threadid
+00007FFFA405BA9D (ucrtbased): (filename not available): abort
+00007FFFA4061715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA4061387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA405F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA4061C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF7B16E2353 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF7B16E2193 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF7B16E2663 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF7B1685A36 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF7B1687B33 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF7B16264F3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF7B14EB973 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`main'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001F3FD210060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000DF838FED80 ((module-name not available)): (filename not available): (function-name not available)
+000001F3ACA100B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 21:07:33.159] SIGABRT: aborted
+00007FFFA4059E77 (ucrtbased): (filename not available): raise
+00007FFFA40557DE (ucrtbased): (filename not available): setmbcp
+00007FFFA40565B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFA4058006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFFA4056499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFFA40447F1 (ucrtbased): (filename not available): _threadid
+00007FFFA40449A3 (ucrtbased): (filename not available): _threadid
+00007FFFA405BA9D (ucrtbased): (filename not available): abort
+00007FFFA4061715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA4061387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA405F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA4061C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF6BDC22523 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF6BDC22363 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF6BDC22833 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF6BDBC5C06 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF6BDBC7D03 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF6BDB666C3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF6BDA2BCE3 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\pch.h (48): `goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001F7E8802060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+0000002F07AFEC50 ((module-name not available)): (filename not available): (function-name not available)
+000001F7880000B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 21:17:58.401] SIGABRT: aborted
+00007FFFA4059E77 (ucrtbased): (filename not available): raise
+00007FFFA40557DE (ucrtbased): (filename not available): setmbcp
+00007FFFA40565B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFA4058006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFFA4056499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFFA40447F1 (ucrtbased): (filename not available): _threadid
+00007FFFA40449A3 (ucrtbased): (filename not available): _threadid
+00007FFFA405BA9D (ucrtbased): (filename not available): abort
+00007FFFA4061715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA4061387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA405F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFA4061C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10715): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11297): VmaBlockVector::~VmaBlockVector
+00007FF76C1F2293 (sandbox): (filename not available): VmaBlockVector::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10639): vma_delete<VmaBlockVector>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (13185): VmaAllocator_T::~VmaAllocator_T
+00007FF76C1F20D3 (sandbox): (filename not available): VmaAllocator_T::`scalar deleting destructor'
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15245): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (23): engine::deletionQueue::flushDeletonQueue
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (91): engine::vulkanRenderer::~vulkanRenderer
+00007FF76C1F25A3 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (324): std::_Destroy_in_place<engine::vulkanRenderer>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (2118): std::_Ref_count_obj2<engine::vulkanRenderer>::_Destroy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1160): std::_Ref_count_base::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1385): std::_Ptr_base<engine::renderer>::_Decref
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (1690): std::shared_ptr<engine::renderer>::~shared_ptr<engine::renderer>
+00007FF76C191186 (sandbox): (filename not available): engine::renderSystem::~renderSystem
+00007FF76C165223 (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::system>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::system,std::default_delete<engine::system> >::~unique_ptr<engine::system,std::default_delete<engine::system> >
+00007FF76C1366C3 (sandbox): (filename not available): std::unique_ptr<engine::system,std::default_delete<engine::system> >::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (337): std::destroy_at<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (739): std::_Default_allocator_traits<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::destroy<std::unique_ptr<engine::system,std::default_delete<engine::system> > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1103): std::_Destroy_range<std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (2091): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::_Tidy
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >::~vector<std::unique_ptr<engine::system,std::default_delete<engine::system> >,std::allocator<std::unique_ptr<engine::system,std::default_delete<engine::system> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+00007FF76BFFB963 (sandbox): (filename not available): engine::scene::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3309): std::default_delete<engine::scene>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\memory (3427): std::unique_ptr<engine::scene,std::default_delete<engine::scene> >::~unique_ptr<engine::scene,std::default_delete<engine::scene> >
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\pch.h (48): `goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000002CE786AA060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000F329AFEA20 ((module-name not available)): (filename not available): (function-name not available)
+000002CE67EA00B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (1915): std::vector<engine::animation,std::allocator<engine::animation> >::size
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (51): engine::animationSystem::onUpdate
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (127): `engine::scene::onUpdate'::`6'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\pch.h (78): `goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001FE00464060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000B15F0FEA70 ((module-name not available)): (filename not available): (function-name not available)
+000001FC9C641470 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+00007FF6CD9E1BD0 (sandbox): (filename not available): _xx::log::xx::StackTrace::dump_stack
+C:\code\C++\engine\vendor\coost\src\log\StackWalker.cpp (949): StackWalker::ShowCallstack
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger-inl.h (128): spdlog::logger::log_it_
+C:\code\C++\engine\vendor\coost\src\log\StackWalker.cpp (949): StackWalker::ShowCallstack
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1035): _xx::log::xx::ExceptHandler::handle_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (727): _xx::log::xx::StackTrace::dump_stack
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1035): _xx::log::xx::ExceptHandler::handle_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (727): _xx::log::xx::StackTratack
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (332): spdlog::logger::log_<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1035): _xx::log::xx::ExceptHandler::handle_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (858): _xx::log::xx::on_except
+C:\code\C++\engine\vendor\coost\src\log\log.cc (858): _xx::log::xx::on_except
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1035): _xx::log::xx::ExceptHandler::handle_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (727): _xx::log::xx::StackTrace::dump_stack
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (80): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1129): _co_on_exception
+00007FF6CD9E36A5 (sandbox): (filename not available): _xx::log::xx::on_except
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1035): _xx::log::xx::ExceptHandler::handle_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1129): _co_on_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (858): _xx::log::xx::on_except
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (85): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1129): _co_on_exception
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (67): `co::xx::Sched::main_func'::`1'::filt$0
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (67): `co::xx::Sched::main_func'::`1'::filt$0
+C:\code\C++\engine\vendor\coost\src\log\log.cc (858): _xx::log::xx::on_except
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1129): _co_on_exception
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1129): _co_on_exception
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (67): `co::xx::Sched::main_func'::`1'::filt$0
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (67): `co::xx::Sched::main_func'::`1'::filt$0
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (140): spdlog::logger::info<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger-inl.h (128): spdlog::logger::log_it_
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (67): `co::xx::Sched::main_func'::`1'::filt$0
+C:\code\C++\engine\engine\src\core\scene\scene.h (27): engine::timerr::~timerr
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger-inl.h (128): spdlog::logger::log_it_
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (332): spdlog::logger::log_<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\code\C++\engine\engine\src\core\scene\scene.h (50): engine::registryHandle::forEach<engine::uidComponent,engine::meshComponent,engine::materialComponent,engine::transformComponent,engine::animationComponent,engine::newEntityComponent,`engine::renderSystem::handleNewEntities'::`2'::<lambda_1> >
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger-inl.h (128): spdlog::logger::log_it_
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger-inl.h (128): spdlog::logger::log_it_
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (332): spdlog::logger::log_<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger-inl.h (128): spdlog::logger::log_it_
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (80): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (80): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\engine\src\core\scene\systems\render\renderSystem.cpp (168): engine::renderSystem::handleNewEntities
+00007FF6CD93B54E (sandbox): (filename not available): spdlog::logger::log_<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (332): spdlog::logger::log_<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (332): spdlog::logger::log_<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (85): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (85): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\engine\src\core\scene\systems\render\renderSystem.cpp (153): engine::renderSystem::onBeginUpdate
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (80): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (140): spdlog::logger::info<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (80): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (80): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (140): spdlog::logger::info<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (162): engine::scene::onBeginUpdate
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (85): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\engine\src\core\scene\scene.h (27): engine::timerr::~timerr
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (85): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (85): spdlog::logger::log<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\engine\src\core\scene\scene.h (27): engine::timerr::~timerr
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (140): spdlog::logger::info<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (140): spdlog::logger::info<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\engine\src\core\scene\scene.h (155): engine::registryHandle::emplaceOrReplaceComponent<engine::updateAnimationComponent>
+00007FF6CDCECE05 (sandbox): (filename not available): engine::registryHandle::emplaceOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\application\appli\logger.h (184): engine::application::run
+C:\code\C++\engine\vendor\spdlog\include\spdlog\logger.h (140): spdlog::logger::info<std::basic_string<char,std::char_traits<char>,std::allocator<char> > &,__int64>
+C:\code\C++\engine\engine\src\core\scene\scene.h (27): engine::timerr::~timerr
+C:\code\C++\engine\sandbox\src\main.cpp (78): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\core\scene\entity.h (52): engine::entity::addOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\core\scene\scene.h (27): engine::timerr::~timerr
+C:\code\C++\engine\engine\src\core\scene\scene.h (155): engine::registryHandle::emplaceOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\core\scene\scene.h (27): engine::timerr::~timerr
+C:\code\C++\engine\engine\src\core\scene\entity.h (52): engine::entity::addOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\pch.h (48): `goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\core\scene\entity.h (52): engine::entity::addOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (69): engine::animationSysle::emplaceOr
+C:\code\C++\engine\engine\src\core\scene\scene.h (155): engine::registryHandle::emplaceOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\core\scene\scene.h (155): engine::registryHandle::emplaceOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (69): engine::animationSystem::onUpdate
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (127): `engine::scene::onUpdate'::`6'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\core\scene\entity.h (52): engine::entity::addOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (127): `engine::scene::onUpdate'::`6'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (69): engine::animationSystem::onUpdate
+C:\code\C++\engine\engine\src\core\scene\entity.h (52): engine::entity::addOrReplaceComponent<engine::updateAnimationComponent>
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\engine\src\pch.h (78): `goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2>::operator()
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (69): engine::animationSystem::onUpdate
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (127): `engine::scene::onUpdate'::`6'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\pch.h (78): `goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2>::operator()
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2> >::run
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (127): `engine::scene::onUpdate'::`6'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (69): engine::animationSystem::onUpdate
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2> >::run
+C:\code\C++\engine\engine\src\pch.h (78): `goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2>::oper::<lam
+000001FCFCCAA060 ((module-name not available)): (filename not available): (function-name not available)
+C:\code\C++\engine\engine\src\pch.h (78): `goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2>::operator()
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (127): `engine::scene::onUpdate'::`6'::<lambda_1>::operator()
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2> >::run
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2> >::run
+000000B15E71EEB0 ((module-name not available)): (filename not available): (function-name not available)
+C:\code\C++\engine\engine\src\pch.h (78): `goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2>::operator()
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+000001FC9C4A00B0 ((module-name not available)): (filename not available): (function-name not available)
+000001FDFED00060 ((module-name not available)): (filename not available): (function-name not available)
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2> >::run
+000001FDFFDD8060 ((module-name not available)): (filename not available): (function-name not available)
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000001FDFEF26060 ((module-name not available)): (filename not available): (function-name not available)
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+000001FDFFEEF060 ((module-name not available)): (filename not available): (function-name not available)
+000000B15F1FEB70 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001FC9C6924C0 ((module-name not available)): (filename not available): (function-name not available)
+000000B15EDFEA10 ((module-name not available)): (filename not available): (function-name not available)
+000000B15F3FEF40 ((module-name not available)): (filename not available): (function-name not available)
+000000B15EFFEAB0 ((module-name not available)): (filename not available): (function-name not available)
+000001FE00797060 ((module-name not available)): (filename not available): (function-name not available)
+000001FC9C4F8130 ((module-name not available)): (filename not available): (function-name not available)
+000001FC9C735DA0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+000001FC9C5F00F0 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+000000B15F2FECF0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+000001FC9C6E3840 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 21:18:52.263] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF6CD9F14EF (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF6CD9F11EF (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF6CD9F122F (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF6CD9F3E53 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF6CDE29940 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF6CD99D693 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF6CE269C6B (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFFA4062B99 (ucrtbased): (filename not available): initterm_e
+00007FFFA40625C5 (ucrtbased): (filename not available): initterm_e
+00007FFFA4062717 (ucrtbased): (filename not available): initterm_e
+00007FFFA4062D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFFA4061F7A (ucrtbased): (filename not available): wassert
+00007FFFA4061E0D (ucrtbased): (filename not available): wassert
+00007FFFA4061E87 (ucrtbased): (filename not available): wassert
+00007FFFA4062120 (ucrtbased): (filename not available): wassert
+00007FFFA4062456 (ucrtbased): (filename not available): exit
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1037): _xx::log::xx::ExceptHandler::handle_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (858): _xx::log::xx::on_except
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1129): _co_on_exception
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (67): `co::xx::Sched::main_func'::`1'::filt$0
+00007FFFDAECE1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFFE617296F (ntdll): (filename not available): _chkstk
+00007FFFE6122554 (ntdll): (filename not available): RtlRaiseException
+00007FFFE617147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (1915): std::vector<engine::animation,std::allocator<engine::animation> >::size
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (51): engine::animationSystem::onUpdate
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (127): `engine::scene::onUpdate'::`6'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\pch.h (78): `goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goNotMain<`engine::scene::onUpdate'::`6'::<lambda_1> >'::`2'::<lambda_2> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001FE00464060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000B15F0FEA70 ((module-name not available)): (filename not available): (function-name not available)
+000001FC9C641470 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0418 21:40:30.142] SIGABRT: aborted
+00007FFFE3A0426E (ucrtbase): (filename not available): get_wpgmptr
+00007FFFE3A04165 (ucrtbase): (filename not available): get_wpgmptr
+00007FFFE3A044F1 (ucrtbase): (filename not available): wassert
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (10717): VmaDeviceMemoryBlock::Destroy
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (11298): VmaBlockVector::~VmaBlockVector
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (4209): vma_delete<VmaAllocator_T>
+C:\code\C++\engine\vendor\vkma\include\vk_mem_alloc.h (15247): vmaDestroyAllocator
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\deletionQueue.cpp (24): engine::deletionQueue::flushDeletonQueue
+00007FF7D7067A40 (sandbox): (filename not available): engine::vulkanRenderer::`scalar deleting destructor'
+00007FF7D7053C5B (sandbox): (filename not available): engine::renderSystem::`scalar deleting destructor'
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (830): std::vector<std::unique_ptr<spdlog::details::flag_formatter,std::default_delete<spdlog::details::flag_formatter> >,std::allocator<std::unique_ptr<spdlog::details::flag_formatter,std::default_delete<spdlog::details::flag_formatter> > > >::~vector<std::unique_ptr<spdlog::details::flag_formatter,std::default_delete<spdlog::details::flag_formatter> >,std::allocator<std::unique_ptr<spdlog::details::flag_formatter,std::default_delete<spdlog::details::flag_formatter> > > >
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (39): engine::scene::~scene
+C:\code\C++\engine\engine\src\application\application.cpp (162): engine::application::~application
+C:\code\C++\engine\sandbox\src\main.cpp (86): `main'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\pch.h (48): `goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (29): co::xx::Function0<`goMain<`main'::`2'::<lambda_1> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000000CC469AF820 ((module-name not available)): (filename not available): (function-name not available)

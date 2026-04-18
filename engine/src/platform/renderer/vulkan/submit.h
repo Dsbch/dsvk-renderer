@@ -34,14 +34,13 @@ namespace engine
 		VkQueue mQueue;
 		uint32_t mQueueFamily;
 		VkCommandPool mCommandPool;
-		std::shared_ptr<std::mutex> mCommandPoolMutex;
+		std::shared_ptr<co::mutex> mCommandPoolMutex;
 		VkCommandBuffer mCommandBufferImmediate;
-		std::mutex mSubmitedCommandsMu;
+		co::mutex mSubmitedCommandsMu;
 		std::vector<std::pair<VkCommandBufferSubmitInfo, std::vector<VkSemaphoreSubmitInfo>>> mSubmitedCommands;
 
-		static std::mutex mu;
-		static std::vector<std::pair<VkSemaphore, std::function<void()>>> semaInUse;
-		static std::vector<std::pair<VkSemaphore, std::function<void()>>> semaToDelete;
-		static std::once_flag onceFlag;
+		co::mutex mu;
+		std::vector<std::pair<VkSemaphore, std::function<void()>>> semaInUse;
+		std::vector<std::pair<VkSemaphore, std::function<void()>>> semaToDelete;
 	};
 }

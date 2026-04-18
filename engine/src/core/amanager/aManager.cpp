@@ -47,7 +47,7 @@ namespace engine
 			return error{ "makeShader wasn't set" };
 
 		{
-			std::lock_guard l{ mShaderMu };
+			co::mutex_guard l{ mShaderMu };
 			auto loadRes = mLoadedShaders.get(key(path));
 			if (loadRes)
 				return loadRes.value();
@@ -69,7 +69,7 @@ namespace engine
 			shader.err();
 
 		{
-			std::lock_guard l{ mShaderMu };
+			co::mutex_guard l{ mShaderMu };
 			mLoadedShaders.put(key(path), shader.value());
 		}
 
@@ -82,7 +82,7 @@ namespace engine
 			return error{ "makeTexture wasn't set" };
 
 		{
-			std::lock_guard l{ mShaderMu };
+			co::mutex_guard l{ mShaderMu };
 			auto loadRes = mLoadedTextures.get(img.hash());
 			if (loadRes)
 				return loadRes.value();
@@ -93,7 +93,7 @@ namespace engine
 			return texture.err();
 
 		{
-			std::lock_guard l{ mShaderMu };
+			co::mutex_guard l{ mShaderMu };
 			mLoadedTextures.put(img.hash(), texture.value());
 		}
 
@@ -106,7 +106,7 @@ namespace engine
 			return error{ "makeTextureWithMips wasn't set" };
 
 		{
-			std::lock_guard l{ mShaderMu };
+			co::mutex_guard l{ mShaderMu };
 			auto loadRes = mLoadedTextures.get(img.main.hash());
 			if (loadRes)
 				return loadRes.value();
@@ -117,7 +117,7 @@ namespace engine
 			return texture.err();
 
 		{
-			std::lock_guard l{ mShaderMu };
+			co::mutex_guard l{ mShaderMu };
 			mLoadedTextures.put(img.main.hash(), texture.value());
 		}
 
@@ -126,7 +126,7 @@ namespace engine
 
 	void aManager::clearCache()
 	{
-		std::lock_guard l1{ mShaderMu };
+		co::mutex_guard l1{ mShaderMu };
 
 		mLoadedShaders.clear();
 		mLoadedModels.clear();
@@ -284,7 +284,7 @@ namespace engine
 	)
 	{
 		{
-			std::lock_guard l{ mModelMu };
+			co::mutex_guard l{ mModelMu };
 
 			auto found = mLoadedModels.get(key(path));
 			if (found)
@@ -384,7 +384,7 @@ namespace engine
 		cgltf_free(data);
 
 		{
-			std::lock_guard l{ mModelMu };
+			co::mutex_guard l{ mModelMu };
 
 			mLoadedModels.put(key(path), static_cast<std::shared_ptr<const model>>(result));
 		}

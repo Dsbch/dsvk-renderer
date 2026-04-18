@@ -9,8 +9,8 @@ namespace engine
 	class eventDispatcher 
 	{
 	private:
-		std::mutex mDispatchMU;
-		std::mutex mQueueMU;
+		co::mutex mDispatchMU;
+		co::mutex mQueueMU;
 
 		std::map<eventType, std::list<std::function<void(std::shared_ptr<baseEvent>)>>> mEventMap;
 		std::queue<std::shared_ptr<baseEvent>> mQueue;

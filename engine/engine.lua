@@ -44,6 +44,7 @@ project "engine"
       "../vendor/glfw/include",
       "../vendor/imgui",
       "../vendor/basis_universal/transcoder",
+      "../vendor/coost/include",
    }
 
    includedirs
@@ -64,6 +65,7 @@ project "engine"
       "imgui",
       "glfw",
       "basis_universal",
+      "coost",
    }
 
    fatalwarnings 
@@ -84,7 +86,7 @@ project "engine"
 
    filter "system:windows"
        systemversion "latest"
-       defines { }
+       defines { "NOMINMAX" }
 
    filter "configurations:Debug"
        defines { "DEBUG" }

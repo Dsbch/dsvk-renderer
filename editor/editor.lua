@@ -28,6 +28,7 @@ project "editor"
       "../vendor/json/single_include",
       "../vendor/entt/src",
       "../vendor/glm",
+      "../vendor/coost/include",
    }
 
    includedirs 
@@ -43,6 +44,7 @@ project "editor"
       "imgui",
       "glfw",
       "basis_universal",
+      "coost",
    }
 
    fatalwarnings
@@ -57,6 +59,7 @@ project "editor"
          "WINDOWS",
          "_GLM_WIN32",
          "_CRT_SECURE_NO_WARNINGS",
+         "NOMINMAX"
        }
        systemversion "latest"
 

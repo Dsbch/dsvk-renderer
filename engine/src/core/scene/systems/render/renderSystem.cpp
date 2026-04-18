@@ -66,6 +66,18 @@ namespace engine
 
 	error renderSystem::onRender(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
+		static int callCount = 0;
+		static auto lastLog = std::chrono::steady_clock::now();
+
+		callCount++;
+		auto now = std::chrono::steady_clock::now();
+		if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastLog).count() >= 1000) 
+		{
+			LOGINFO("onRender: {} calls/sec", callCount);
+			callCount = 0;
+			lastLog = now;
+		}
+
 		renderer::renderCallIn renderCall{
 			.deltaTime = deltaTime,
 		};
@@ -151,6 +163,7 @@ namespace engine
 		error err{};
 
 		std::vector<entity> newEntites{};
+		std::vector<model> newModels{};
 
 		// Animated.
 		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>(
@@ -159,7 +172,7 @@ namespace engine
 				if (err)
 					return;
 
-				model m{
+				newModels.push_back({
 					.id = uid.uid,
 					.instanceAttributes = perInstanceAttr{
 						.modelTransform = transform{
@@ -174,11 +187,7 @@ namespace engine
 					.anims = animations{
 						.jointMatrices = anim.jointMatrices,
 					},
-				};
-
-				err = mRenderer->addToRender(m);
-				if (err)
-					return;
+				});
 				
 				newEntites.push_back({ mCtx, e, registry });
 			}
@@ -194,7 +203,7 @@ namespace engine
 				if (err)
 					return;
 
-				model m{
+				newModels.push_back({
 					.id = uid.uid,
 					.instanceAttributes = perInstanceAttr{
 						.modelTransform = transform{
@@ -206,19 +215,20 @@ namespace engine
 					.meshData = mesh.meshData,
 					.perMeshData = mesh.meshAttributes,
 					.mat = material.mat,
-				};
-
-				err = mRenderer->addToRender(m);
-				if (err)
-					return;
+				});
 				
-				entity ent{ mCtx, e, registry };
-
 				newEntites.push_back({ mCtx, e, registry });
 			}
 		);
 		if (err)
 			return err;
+
+		for (auto& m : newModels)
+		{
+			err = mRenderer->addToRender(m);
+			if (err)
+				return {};
+		}
 
 		for (auto& e : newEntites)
 			e.removeComponent<newEntityComponent>();
@@ -260,11 +270,12 @@ namespace engine
 		error err{};
 
 		std::vector<entity> updatedEntites{};
+		std::vector<model> toUpdate{};
 
 		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>(
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
 			{
-				model m{
+				toUpdate.push_back({
 					.id = uid.uid,
 					.instanceAttributes = perInstanceAttr{
 						.modelTransform = transform{
@@ -275,17 +286,20 @@ namespace engine
 					},
 					.meshData = mesh.meshData,
 					.mat = material.mat,
-				};
-
-				err = mRenderer->updateInstance(m);
-				if (err)
-					return;
+				});
 				
 				updatedEntites.push_back({ mCtx, e, registry });
 			}
 		);
 		if (err)
 			return err;
+
+		for (auto& m : toUpdate)
+		{
+			err = mRenderer->updateInstance(m);
+			if (err)
+				return {};
+		}
 
 		for (auto& e : updatedEntites)
 			e.removeComponent<updateInstanceComponent>();
@@ -298,6 +312,7 @@ namespace engine
 		error err{};
 
 		std::vector<entity> animatedEntites{};
+		std::vector<model> toUpdateAnim{};
 
 		registry->forEach<uidComponent, meshComponent, materialComponent, animationComponent, updateAnimationComponent>(
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, animationComponent& anim)
@@ -305,24 +320,27 @@ namespace engine
 				if (err)
 					return;
 
-				model m{
+				toUpdateAnim.push_back({
 					.id = uid.uid,
 					.meshData = mesh.meshData,
 					.mat = material.mat,
 					.anims = animations{
 						.jointMatrices = anim.jointMatrices,
 					}
-				};
-
-				err = mRenderer->updateAnimations(m);
-				if (err)
-					return;
+				});
 
 				animatedEntites.push_back({ mCtx, e, registry });
 			}
 		);
 		if (err)
 			return err;
+
+		for (auto& m : toUpdateAnim)
+		{
+			err = mRenderer->updateAnimations(m);
+			if (err)
+				return err;
+		}
 
 		for (auto& e : animatedEntites)
 			e.removeComponent<updateAnimationComponent>();

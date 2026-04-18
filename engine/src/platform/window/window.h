@@ -51,7 +51,7 @@ namespace engine
 
 		std::shared_ptr<context> mCtx;
 
-		std::mutex mEvenetQueueMu;
+		co::mutex mEvenetQueueMu;
 		std::map<key, std::shared_ptr<baseEvent>> mKeyDown;
 		std::queue<std::shared_ptr<baseEvent>> mEventQueue;
 

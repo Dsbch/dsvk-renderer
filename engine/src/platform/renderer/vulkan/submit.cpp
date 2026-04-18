@@ -4,14 +4,9 @@
 
 namespace engine
 {
-	std::mutex submit::mu;
-	std::once_flag submit::onceFlag;
-	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaInUse;
-	std::vector<std::pair<VkSemaphore, std::function<void()>>> submit::semaToDelete;
-
 	engine::error submit::init(std::shared_ptr<context> ctx, VkDevice device, VkQueue queue, uint32_t queueFamily)
 	{
-		mCommandPoolMutex = std::make_shared<std::mutex>();
+		mCommandPoolMutex = std::make_shared<co::mutex>();
 
 		mDevice = device;
 
@@ -34,49 +29,43 @@ namespace engine
 			return engine::error{ vkResultToStr(vkres) };
 		}
 
-		std::call_once(
-			onceFlag,
-			[ctxPtr = ctx.get(), device = mDevice]()
+		goNotMain(
+			[this, ctx, device]()
 			{
-				ctxPtr->mThreadPool->start(
-					[ctxPtr = ctxPtr, device = device]()
+				while (ctx->isRunning || !semaToDelete.empty())
+				{
 					{
-						while (ctxPtr->mThreadPool->isThreadPoolRunning() || !semaToDelete.empty())
+						co::mutex_guard m{ mu };
+
+						while (!semaToDelete.empty())
 						{
+							auto sema = semaToDelete.back();
+
+							VkSemaphoreWaitInfo waitInfo;
+							uint64_t waitVal = 1;
+
+							waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+							waitInfo.pNext = NULL;
+							waitInfo.flags = 0;
+							waitInfo.semaphoreCount = 1;
+							waitInfo.pSemaphores = &sema.first;
+							waitInfo.pValues = &waitVal;
+
+							VkResult result = vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
+							if (result != VK_SUCCESS)
 							{
-								std::lock_guard m{ mu };
-
-								while (!semaToDelete.empty())
-								{
-									auto sema = semaToDelete.back();
-
-									VkSemaphoreWaitInfo waitInfo;
-									uint64_t waitVal = 1;
-
-									waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-									waitInfo.pNext = NULL;
-									waitInfo.flags = 0;
-									waitInfo.semaphoreCount = 1;
-									waitInfo.pSemaphores = &sema.first;
-									waitInfo.pValues = &waitVal;
-
-									VkResult result = vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
-									if (result != VK_SUCCESS)
-									{
-										LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
-									}
-
-									if (sema.second != nullptr)
-										sema.second();
-
-									semaToDelete.pop_back();
-								}
+								LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
 							}
 
-							std::this_thread::sleep_for(std::chrono::microseconds(500));
+							if (sema.second != nullptr)
+								sema.second();
+
+							semaToDelete.pop_back();
 						}
 					}
-				);
+
+					co::sleep(10);
+				}
 			}
 		);
 
@@ -144,7 +133,7 @@ namespace engine
 		VkSemaphore sema;
 
 		{
-			std::lock_guard l{ *mCommandPoolMutex.get() };
+			co::mutex_guard l{ *mCommandPoolMutex.get() };
 
 			VkCommandBufferAllocateInfo cmdAllocInfo = commandBufferAllocateInfo(mCommandPool, 1);
 
@@ -173,7 +162,7 @@ namespace engine
 		}
 
 		{
-			std::lock_guard l{ mSubmitedCommandsMu };
+			co::mutex_guard l{ mSubmitedCommandsMu };
 
 			std::vector<VkSemaphoreSubmitInfo> semaSubmitInfo = { semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, sema) };
 			VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
@@ -181,7 +170,7 @@ namespace engine
 		}
 
 		{
-			std::lock_guard m{ mu };
+			co::mutex_guard m{ mu };
 			semaInUse.push_back(
 				std::pair<VkSemaphore, std::function<void()>>
 			{
@@ -189,7 +178,7 @@ namespace engine
 					[cleanUp = cleanUp, device = mDevice, commandPool = mCommandPool, cmd = cmd, commandPoolMu = mCommandPoolMutex]()
 					{
 						{
-							std::lock_guard l{ *commandPoolMu.get() };
+							co::mutex_guard l{ *commandPoolMu.get() };
 							vkFreeCommandBuffers(device, commandPool, 1, &cmd);
 						}
 
@@ -203,7 +192,7 @@ namespace engine
 
 	std::vector<VkSubmitInfo2> submit::getSumbitedCommands()
 	{
-		std::lock_guard l{ mSubmitedCommandsMu };
+		co::mutex_guard l{ mSubmitedCommandsMu };
 
 		std::vector<VkSubmitInfo2> result{};
 		result.reserve(mSubmitedCommands.size());
@@ -216,14 +205,14 @@ namespace engine
 
 	void submit::deleteSubmitedCommands(size_t indices)
 	{
-		std::lock_guard l{ mSubmitedCommandsMu };
+		co::mutex_guard l{ mSubmitedCommandsMu };
 
 		mSubmitedCommands.erase(mSubmitedCommands.begin(), mSubmitedCommands.begin() + indices);
 	}
 
 	std::vector<VkSemaphore> submit::getCurrentSemaInUse()
 	{
-		std::lock_guard m{ mu };
+		co::mutex_guard m{ mu };
 
 		std::vector<VkSemaphore> result;
 
@@ -235,7 +224,7 @@ namespace engine
 
 	void submit::deleteSemaInUse(size_t indices)
 	{
-		std::lock_guard m{ mu };
+		co::mutex_guard m{ mu };
 
 		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.begin() + indices));
 

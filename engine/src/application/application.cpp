@@ -4,6 +4,8 @@
 #include "core/scene/scene.h"
 #include "core/scene/systems/system.h"
 
+#include <co/co.h>
+
 namespace engine
 {
 	application* application::app = nullptr;
@@ -17,6 +19,15 @@ namespace engine
 			return err;
 
 		return mErr;
+	}
+
+	void application::shutdown()
+	{
+		LOGINFO("application shutting down");
+
+		mCtx->isRunning = false;
+
+		mRunning = false;
 	}
 
 	error application::initApplication()
@@ -70,7 +81,7 @@ namespace engine
 				auto e = mCtx->mEventDispatcher->getEvent();
 				if (e->getEventType() == eventType::close)
 				{
-					mRunning = false;
+					shutdown();
 				}
 
 				error err = mScene->onEvent(e);
@@ -110,12 +121,12 @@ namespace engine
 			error err = mScene->onRender(deltaTime);
 			if (err)
 				return err;
-			
+
 			last = now;
 
 			mWindow->swapBuffers();
 			nextRender += renderShift;
-		
+
 			return std::pair<float, bool>{deltaTime, true};
 		}
 
@@ -148,11 +159,12 @@ namespace engine
 
 	application::~application()
 	{
-		mCtx->mThreadPool->destroy();
 	}
 
-	error application::run()
+	void application::run()
 	{
+		LOGINFO("application game loop started on thread: {}, scheduler: {}", co::thread_id(), co::sched_id());
+
 		mRunning = true;
 
 		auto nextGameUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
@@ -161,7 +173,7 @@ namespace engine
 
 		auto nextRender = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());
 		auto renderShift = std::chrono::milliseconds(1000 / mCtx->config.inner.gameLoop.fps);
-		
+
 		auto maxGupsDept = updateShift * maxFrameSkip;
 		auto maxFpsDept = renderShift;
 
@@ -169,28 +181,31 @@ namespace engine
 
 		while (mRunning)
 		{
-			error err = mScene->onBeginUpdate();
-			if (err)
-				return err;
+			mErr = mScene->onBeginUpdate();
+			if (mErr)
+				return;
 
-			err = fixedUpdate(nextGameUpdate, updateShift, maxFrameSkip);
-			if (err)
-				return err;
-			
+			mErr = fixedUpdate(nextGameUpdate, updateShift, maxFrameSkip);
+			if (mErr)
+				return;
+
 			if (prevRenderResult.second)
 			{
-				err = update(prevRenderResult.first);
-				if (err)
-					return err;
+				mErr = update(prevRenderResult.first);
+				if (mErr)
+					return;
 			}
 
-			err = mScene->onEndUpdate();
-			if (err)
-				return err;
+			mErr = mScene->onEndUpdate();
+			if (mErr)
+				return;
 
 			auto renderResult = onRender(nextRender, renderShift);
 			if (!renderResult)
-				return renderResult.err();
+			{
+				mErr = renderResult.err();
+				return;
+			}
 
 			prevRenderResult = renderResult.value();
 
@@ -202,7 +217,7 @@ namespace engine
 				nextRender = now - maxFpsDept;
 		}
 
-		return {};
+		return;
 	}
 
 

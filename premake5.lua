@@ -2,6 +2,8 @@ workspace "dsengine"
    configurations { "Debug", "Release", "Dist" }
    outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+   platforms { "x64" }
+
    newoption {
       trigger     = "gfxapi",
       value       = "API",
@@ -40,3 +42,4 @@ workspace "dsengine"
    include "vendor/glfw.lua"
    include "vendor/imgui.lua"
    include "vendor/basis_universal.lua"
+   include "vendor/coost.lua"

@@ -15,11 +15,8 @@ namespace engine
 		:
 		mSceneRegistry(std::make_shared<registryHandle>()),
 		mCtx(ctx),
-		mSystems(),
-		mThreadPool(std::make_unique<threadPool>())
+		mSystems()
 	{
-		mThreadPool->init("engine::scene");
-
 		// Core engine systems.
 		// Core systems are executed in the same render thread.
 		// It's important not to overload it.
@@ -34,8 +31,6 @@ namespace engine
 
 	scene::~scene()
 	{
-		mThreadPool->destroy();
-
 		for (auto& s : mUserSystems)
 			s->onDetach(mSceneRegistry);
 
@@ -49,7 +44,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			mThreadPool->start(
+			goNotMain(
 				[registry = mSceneRegistry, deltaTime = deltaTime, sys = s]()
 				{
 					error err = sys->onRender(registry, deltaTime);
@@ -73,7 +68,7 @@ namespace engine
 	{
 		for (auto& s : mUserSystems)
 		{
-			mThreadPool->start(
+			goNotMain( 
 				[event = e, registry = mSceneRegistry, sys = s]
 				{
 					error err = sys->onEvent(registry, event);
@@ -100,7 +95,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			mThreadPool->start(
+			goNotMain(
 				[registry = mSceneRegistry, sys = s, deltaTime = deltaTime]
 				{
 					error err = sys->onFixedUpdate(registry, deltaTime);
@@ -126,7 +121,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			mThreadPool->start(
+			goNotMain(
 				[registry = mSceneRegistry, deltaTime = deltaTime, sys = s]
 				{
 					error err = sys->onUpdate(registry, deltaTime);
@@ -152,7 +147,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			mThreadPool->start(
+			goNotMain(
 				[registry = mSceneRegistry, sys = s]
 				{
 					error err = sys->onBeginUpdate(registry);
@@ -178,7 +173,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			mThreadPool->start(
+			goNotMain(
 				[registry = mSceneRegistry, sys = s]
 				{
 					error err = sys->onEndUpdate(registry);

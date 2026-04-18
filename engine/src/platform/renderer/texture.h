@@ -27,12 +27,12 @@ namespace engine
 
 		uint32_t mipLevels() const
 		{
-			return static_cast<uint32_t>(std::floor(std::log2(std::max(w, h)))) + 1;
+			return static_cast<uint32_t>(std::floor(std::log2((std::max)(w, h)))) + 1;
 		}
 
 		static uint32_t mipLevels(int w, int h)
 		{
-			return static_cast<uint32_t>(std::floor(std::log2(std::max(w, h)))) + 1;
+			return static_cast<uint32_t>(std::floor(std::log2((std::max)(w, h)))) + 1;
 		}
 	};
 

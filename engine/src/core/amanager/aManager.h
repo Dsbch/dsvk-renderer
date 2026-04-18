@@ -47,9 +47,9 @@ namespace engine
 		std::function<withError<std::shared_ptr<const texture>>(const image& img)> makeTexture;
 		std::function<withError<std::shared_ptr<const texture>>(const imageWithMipLevels& img)> makeTextureWithMips;
 
-		std::mutex mModelMu;
-		std::mutex mShaderMu;
-		std::mutex mTexturesMu;
+		co::mutex mModelMu;
+		co::mutex mShaderMu;
+		co::mutex mTexturesMu;
 		lruCache<uint32_t, std::shared_ptr<const model>> mLoadedModels;
 		lruCache<uint32_t, std::shared_ptr<const shader>> mLoadedShaders;
 		lruCache<uint32_t, std::shared_ptr<const texture>> mLoadedTextures;

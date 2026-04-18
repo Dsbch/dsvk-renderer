@@ -34,3 +34,6 @@
 [submodule "vendor/basis_universal"]
 	path = vendor/basis_universal
 	url = https://github.com/BinomialLLC/basis_universal.git
+[submodule "vendor/coost"]
+	path = vendor/coost
+	url = https://github.com/idealvin/coost.git

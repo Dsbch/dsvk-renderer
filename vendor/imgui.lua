@@ -1,8 +1,8 @@
 project "imgui"
 	kind "StaticLib"
 	language "C++"
-   	warnings "off"
-    architecture "x64"
+   warnings "off"
+   architecture "x64"
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
    objdir ("../bin/inter/" .. outputdir .. "/%{prj.name}")

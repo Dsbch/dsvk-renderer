@@ -32,6 +32,7 @@ project "sandbox"
       "../vendor/json/single_include",
       "../vendor/entt/src",
       "../vendor/glm",
+      "../vendor/coost/include",
    }
 
    includedirs 
@@ -47,6 +48,7 @@ project "sandbox"
       "imgui",
       "glfw",
       "basis_universal",
+      "coost",
    }
 
    filter "system:windows"
@@ -59,7 +61,7 @@ project "sandbox"
 
    filter "system:windows"
        systemversion "latest"
-       defines { }
+       defines { "NOMINMAX" }
 
    filter "configurations:Debug"
        defines { "DEBUG" }

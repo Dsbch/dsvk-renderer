@@ -18,7 +18,7 @@ namespace engine
 
 		std::shared_ptr<context> getAppContext();
 		void addUserSystem(std::shared_ptr<system>);
-		error run();
+		void run();
 		error checkError();
 	protected:
 		error mErr;
@@ -26,6 +26,8 @@ namespace engine
 		std::shared_ptr<window> mWindow;
 		bool mRunning;
 	private:
+		void shutdown();
+
 		static application* app;
 
 		std::unique_ptr<scene> mScene;
