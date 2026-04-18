@@ -161,22 +161,15 @@ namespace engine
 	{
 		glm::mat4 inverseBind;
 		transform localTransform;
-	};
-
-	struct skeletonNode
-	{
-		std::shared_ptr<joint> j;
-		std::vector<skeletonNode> children;
-
-		std::vector<std::pair<glm::mat4, std::shared_ptr<joint>>> getSkeletonMatrices(glm::mat4 accumilation = glm::mat4{ 1.0f }) const;
+		bool isSkinJoint;
+		int parentIdx;
 	};
 
 	struct skin
 	{
-		skeletonNode root;
-		std::set<std::shared_ptr<joint>> skinJoints;
+		std::vector<joint> skinJoints;
 
-		std::vector<glm::mat4> getJointMatrices() const;
+		std::vector<glm::mat4> getJointMatrices();
 	};
 
 	enum animationType
@@ -198,9 +191,11 @@ namespace engine
 		animationType aType;
 		interpolationType iType;
 		float currentTimeStamp;
+		size_t skinIndex;
+		size_t jointIndex;
+		
 		std::shared_ptr<const std::vector<float>> timestamps;
 		std::shared_ptr<const std::vector<transform>> keyframes;
-		std::shared_ptr<joint> j;
 	};
 
 	struct animation
@@ -208,7 +203,7 @@ namespace engine
 		std::string name;
 		std::vector<channel> channels;
 
-		void update(float deltaTime);
+		void update(float deltaTime, std::shared_ptr<std::vector<skin>> skins);
 	};
 
 	struct perMeshAttributes
@@ -226,8 +221,8 @@ namespace engine
 	struct animations
 	{
 		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
-		std::shared_ptr<const std::vector<skin>> skins;
-		std::shared_ptr<const std::vector<animation>> animations;
+		std::shared_ptr<std::vector<skin>> skins;
+		std::shared_ptr<std::vector<animation>> animations;
 	};
 
 	struct model

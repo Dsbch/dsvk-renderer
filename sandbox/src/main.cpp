@@ -44,6 +44,7 @@
 		2. Frustum culling for animated meshes doesn't work. Need to fix it.
 		3. When animation not in frustum do not update it at all. Just accumilate deltaTime.
 			Then when it comes back to frustum update it to correct animatation with accumilated deltaTime.
+		4. Fix bug when animated models are not added.
 */
 
 // TODO: figure out how to shutdown.

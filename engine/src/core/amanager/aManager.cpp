@@ -318,8 +318,8 @@ namespace engine
 
 		auto animations = proccessAnimations(data);
 
-		result->anims.animations = std::make_shared<const std::vector<animation>>(std::move(animations.first));
-		result->anims.skins = std::make_shared<const std::vector<skin>>(std::move(animations.second));
+		result->anims.animations = std::make_shared<std::vector<animation>>(std::move(animations.first));
+		result->anims.skins = std::make_shared<std::vector<skin>>(std::move(animations.second));
 
 		auto materials = processMaterials(baseDir, data->materials, int(data->materials_count));
 		if (!materials)

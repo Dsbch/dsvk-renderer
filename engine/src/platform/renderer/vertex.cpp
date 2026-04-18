@@ -3,46 +3,31 @@
 
 namespace engine
 {
-	std::vector<std::pair<glm::mat4, std::shared_ptr<joint>>> engine::skeletonNode::getSkeletonMatrices(glm::mat4 accumilation) const
+	std::vector<glm::mat4> skin::getJointMatrices()
 	{
-		std::vector<std::pair<glm::mat4, std::shared_ptr<joint>>> result{};
+		std::vector<glm::mat4> worldMats;
+		worldMats.resize(skinJoints.size());
 
-		accumilation = accumilation * toMat4(j->localTransform);
+		std::vector<glm::mat4> result;
+		result.reserve(skinJoints.size());
 
-		glm::mat4 m = accumilation * j->inverseBind;
-
-		result.push_back(
-			{
-				m,
-				j,
-			}
-			);
-
-		for (auto& c : children)
+		for (size_t i = 0; i < skinJoints.size(); i++)
 		{
-			auto joints = c.getSkeletonMatrices(accumilation);
+			const joint& j = skinJoints[i];
+			glm::mat4 local = toMat4(j.localTransform);
 
-			result.insert(result.end(), std::move_iterator(joints.begin()), std::move_iterator(joints.end()));
+			worldMats[i] = (j.parentIdx < 0)
+				? local
+				: worldMats[j.parentIdx] * local;
+
+			if (j.isSkinJoint)
+				result.push_back(worldMats[i] * j.inverseBind);
 		}
 
 		return result;
 	}
 
-	std::vector<glm::mat4> skin::getJointMatrices() const
-	{
-		auto joints = root.getSkeletonMatrices();
-
-		std::vector<glm::mat4> result{};
-		result.reserve(skinJoints.size());
-
-		for (auto& j : joints)
-			if (skinJoints.find(j.second) != skinJoints.end())
-				result.push_back(j.first);
-
-		return result;
-	}
-
-	void animation::update(float deltaTime)
+	void animation::update(float deltaTime, std::shared_ptr<std::vector<skin>> skins)
 	{
 		for (auto& c : channels)
 		{
@@ -56,20 +41,13 @@ namespace engine
 				time = 0.0f;
 			}
 
-			size_t frame0 = 0;
-			size_t frame1 = 0;
-			for (size_t k = 1; k < c.timestamps->size(); k++)
-			{
-				if (c.timestamps->operator[](k) > time)
-				{
-					frame1 = k;
-					frame0 = k - 1;
-					break;
-				}
-			}
-
-			if (frame0 == frame1)
+			auto it = std::upper_bound(c.timestamps->begin(), c.timestamps->end(), time);
+			
+			size_t frame1 = it - c.timestamps->begin();
+			if (frame1 == 0)
 				continue;
+			
+			size_t frame0 = frame1 - 1;
 
 			float t0 = c.timestamps->operator[](frame0);
 			float t1 = c.timestamps->operator[](frame1);
@@ -82,7 +60,8 @@ namespace engine
 					? c.keyframes->operator[](frame0).translation
 					: glm::mix(c.keyframes->operator[](frame0).translation, c.keyframes->operator[](frame1).translation, alpha);
 
-				c.j->localTransform.translation = result;
+
+				skins->operator[](c.skinIndex).skinJoints[c.jointIndex].localTransform.translation = result;
 			}
 			else if (c.aType == rt)
 			{
@@ -90,7 +69,7 @@ namespace engine
 					? c.keyframes->operator[](frame0).rotation
 					: glm::slerp(c.keyframes->operator[](frame0).rotation, c.keyframes->operator[](frame1).rotation, alpha);
 
-				c.j->localTransform.rotation = result;
+				skins->operator[](c.skinIndex).skinJoints[c.jointIndex].localTransform.rotation = result;
 			}
 			else if (c.aType == sc)
 			{
@@ -98,7 +77,7 @@ namespace engine
 					? c.keyframes->operator[](frame0).scale
 					: glm::mix(c.keyframes->operator[](frame0).scale, c.keyframes->operator[](frame1).scale, alpha);
 
-				c.j->localTransform.scale = result;
+				skins->operator[](c.skinIndex).skinJoints[c.jointIndex].localTransform.scale = result;
 			}
 
 			c.currentTimeStamp = time;

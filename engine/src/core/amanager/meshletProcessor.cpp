@@ -330,14 +330,14 @@ namespace engine
 
 	error generateLodLevel(
 		const glm::vec3* positions,
-		size_t vertexLen, 
+		size_t vertexLen,
 		size_t sizeOfVertex,
 		const std::vector<uint32_t> i,
-		mesh& crntMesh, 
-		size_t targetIndexCount, 
-		size_t maxVert, 
-		size_t maxTriangles, 
-		float coneWeight, 
+		mesh& crntMesh,
+		size_t targetIndexCount,
+		size_t maxVert,
+		size_t maxTriangles,
+		float coneWeight,
 		float errorLevel
 	)
 	{
@@ -468,10 +468,10 @@ namespace engine
 					};
 
 				error err = remapMesh(
-					positions, 
+					positions,
 					vertexLen,
-					sizeOfVertex, 
-					crntPrimitive.indicies, 
+					sizeOfVertex,
+					crntPrimitive.indicies,
 					resizeV,
 					resizeI
 				);
@@ -630,32 +630,32 @@ namespace engine
 				return inverseMat;
 			};
 
-		std::function<skeletonNode(const cgltf_node* root, const cgltf_skin* s, std::map<const cgltf_node*, std::shared_ptr<joint>>& nodeToJoint)> proccessSkinNode;
-		proccessSkinNode = [&proccessSkinNode, &getInverseBindForNode](const cgltf_node* root, const cgltf_skin* s, std::map<const cgltf_node*, std::shared_ptr<joint>>& nodeToJoint) -> skeletonNode
+		std::function<void(const cgltf_node* root, const cgltf_skin* s, const cgltf_data* data, skin& result, int parentIdx, std::map<const cgltf_node*, std::pair<size_t, size_t>>& nodeToJoint)> processSkinNode;
+		processSkinNode = [&](const cgltf_node* root, const cgltf_skin* s, const cgltf_data* data, skin& result, int parentIdx, std::map<const cgltf_node*, std::pair<size_t, size_t>>& nodeToJoint)
 			{
-				skeletonNode result = {
-				};
+				joint j{};
+				
+				j.localTransform = getNodeLocalTransform(root);
+				j.inverseBind = getInverseBindForNode(s, root);
+				j.isSkinJoint = std::any_of(s->joints, s->joints + s->joints_count,
+					[root](const cgltf_node* n) { return n == root; });
 
-				auto j = std::make_shared<joint>();
+				size_t jointIdx = result.skinJoints.size();
+				nodeToJoint[root] = { s - data->skins, jointIdx };
+				result.skinJoints.push_back(j);
 
-				j->localTransform = getNodeLocalTransform(root);
-				j->inverseBind = getInverseBindForNode(s, root);
+				if (parentIdx >= 0)
+					result.skinJoints[jointIdx].parentIdx = parentIdx;
+				else
+					result.skinJoints[jointIdx].parentIdx = -1;
 
-				result.j = j;
-
-				nodeToJoint[root] = j;
-
-				for (int i = 0; i < root->children_count; i++)
-				{
-					result.children.push_back(proccessSkinNode(root->children[i], s, nodeToJoint));
-				}
-
-				return result;
+				for (size_t i = 0; i < root->children_count; i++)
+					processSkinNode(root->children[i], s, data, result, int(jointIdx), nodeToJoint);
 			};
 
 		std::pair<std::vector<animation>, std::vector<skin>> result{};
 
-		std::map<const cgltf_node*, std::shared_ptr<joint>> nodeToJoint{};
+		std::map<const cgltf_node*, std::pair<size_t, size_t>> nodeToJoint{};
 
 		for (int i = 0; i < data->nodes_count; i++)
 		{
@@ -685,16 +685,11 @@ namespace engine
 
 				if (root)
 				{
-					skin s{
-						.root = proccessSkinNode(root, sk, nodeToJoint),
-					};
+					skin crntSkin{};
 
-					for (int i = 0; i < sk->joints_count; i++)
-					{
-						s.skinJoints.insert(nodeToJoint[sk->joints[i]]);
-					}
+					processSkinNode(root, sk, data, crntSkin, -1, nodeToJoint);
 
-					result.second.push_back(s);
+					result.second.push_back(crntSkin);
 				}
 			}
 		}
@@ -719,10 +714,8 @@ namespace engine
 					.currentTimeStamp = 0.0f,
 				};
 
-				ac.j = nodeToJoint[ch.target_node];
-
-				if (!ac.j)
-					continue;
+				ac.skinIndex = nodeToJoint[ch.target_node].first;
+				ac.jointIndex = nodeToJoint[ch.target_node].second;
 
 				std::vector<float> ts{};
 				std::vector<transform> trs{};

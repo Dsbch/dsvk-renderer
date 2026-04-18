@@ -50,7 +50,7 @@ namespace engine
 
 			for (int i = 0; i < animations->size(); i++)
 			{
-				animations->operator[](i).update(deltaTime);
+				animations->operator[](i).update(deltaTime, anim->skins);
 			}
 
 			size_t offset = 0;
