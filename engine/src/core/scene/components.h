@@ -91,7 +91,7 @@ namespace engine
 		animationComponent(std::shared_ptr<std::vector<animation>> aPtr, std::shared_ptr<std::vector<skin>> sPtr)
 			: uid(genUID()), 
 			jointMatrices(std::make_shared<std::vector<glm::mat4>>()), 
-			animations(aPtr), 
+			animations(std::make_shared<std::vector<animation>>(*aPtr.get())),
 			skins(std::make_shared<std::vector<skin>>(*sPtr.get()))
 		{
 			// Load bind pose.
