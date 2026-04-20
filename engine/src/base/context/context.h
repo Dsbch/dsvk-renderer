@@ -10,7 +10,6 @@ namespace engine
 {
 	struct context
 	{
-		bool isRunning = true;
 		timer appTimer;
 		std::unique_ptr<aManager> mAmanager;
 		std::unique_ptr<eventDispatcher> mEventDispatcher;

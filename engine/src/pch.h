@@ -17,11 +17,7 @@
 #include <filesystem>
 
 // Concurrency.
-#include <co/co.h>
-#include <co/co/chan.h>
-#include <co/co/wait_group.h>
-#include <co/co/event.h>
-#include <co/co/mutex.h>
+#include <co/all.h>
 
 // base.
 #include <base/logger/logger.h>
@@ -37,14 +33,23 @@ inline void measure(const std::string& name, F&& func)
 	LOGINFO("{} took: {}", name, std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
 }
 
-template<typename F>
-inline void goMain(F&& f)
-{
-	auto& scheds = co::scheds();
+inline co::wait_group gWG;
 
-	scheds.front()->go(
+inline void waitDone()
+{
+	gWG.wait();
+}
+
+template<typename F>
+inline void goCatch(F&& f)
+{
+	gWG.add(1);
+
+	go(
 		[f]()
 		{
+			defer(gWG.done());
+
 			try { f(); }
 			catch (...) { LOGERROR("caught exception in goCatch"); }
 		}
@@ -52,37 +57,7 @@ inline void goMain(F&& f)
 }
 
 template<typename F>
-inline void goNotMain(F&& f)
+inline void goCatchMeasure(const std::string& name, F&& f)
 {
-	auto& scheds = co::scheds();
-	static std::atomic<int> idx = 1;
-
-	int schedCount = (int)scheds.size();
-	if (schedCount <= 1)
-	{
-		go(
-			[f]()
-			{
-				try { f(); }
-				catch (...) { LOGERROR("caught exception in goCatch"); }
-			}
-		);
-
-		return;
-	}
-
-	int i = 1 + (idx.fetch_add(1) % (schedCount - 1));
-	scheds[i]->go(
-		[f]()
-		{
-			try { f(); }
-			catch (...) { LOGERROR("caught exception in goCatch"); }
-		}
-	);
-}
-
-template<typename F>
-inline void goNotMainMeasure(const std::string& name, F&& f)
-{
-	goNotMain([name, f]() {measure(name, f); });
+	goCatch([name, f]() {measure(name, f); });
 }

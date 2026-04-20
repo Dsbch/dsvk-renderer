@@ -29,10 +29,14 @@ namespace engine
 			return engine::error{ vkResultToStr(vkres) };
 		}
 
-		goNotMain(
+		mWg.add(1);
+
+		goCatch(
 			[this, ctx, device]()
 			{
-				while (ctx->isRunning || !semaToDelete.empty())
+				defer(mWg.done());
+
+				while (mRunning || !semaToDelete.empty())
 				{
 					{
 						co::mutex_guard m{ mu };
@@ -74,6 +78,12 @@ namespace engine
 
 	void submit::destroy()
 	{
+		deleteSemaInUse(semaInUse.size());
+
+		mRunning = false;
+
+		mWg.wait();
+
 		if (mCommandPool != VK_NULL_HANDLE)
 			vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
 	}
@@ -203,11 +213,11 @@ namespace engine
 		return result;
 	}
 
-	void submit::deleteSubmitedCommands(size_t indices)
+	void submit::deleteSubmitedCommands(size_t idx)
 	{
 		co::mutex_guard l{ mSubmitedCommandsMu };
 
-		mSubmitedCommands.erase(mSubmitedCommands.begin(), mSubmitedCommands.begin() + indices);
+		mSubmitedCommands.erase(mSubmitedCommands.begin(), mSubmitedCommands.begin() + idx);
 	}
 
 	std::vector<VkSemaphore> submit::getCurrentSemaInUse()
@@ -222,12 +232,12 @@ namespace engine
 		return result;
 	}
 
-	void submit::deleteSemaInUse(size_t indices)
+	void submit::deleteSemaInUse(size_t idx)
 	{
 		co::mutex_guard m{ mu };
 
-		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.begin() + indices));
+		semaToDelete.insert(semaToDelete.end(), std::move_iterator(semaInUse.begin()), std::move_iterator(semaInUse.begin() + idx));
 
-		semaInUse.erase(semaInUse.begin(), semaInUse.begin() + indices);
+		semaInUse.erase(semaInUse.begin(), semaInUse.begin() + idx);
 	}
 }

@@ -25,8 +25,6 @@ namespace engine
 	{
 		LOGINFO("application shutting down");
 
-		mCtx->isRunning = false;
-
 		mRunning = false;
 	}
 

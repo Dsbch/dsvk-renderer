@@ -44,50 +44,44 @@
 		2. Frustum culling for animated meshes doesn't work. Need to fix it.
 		3. When animation not in frustum do not update it at all. Just accumilate deltaTime.
 			Then when it comes back to frustum update it to correct animatation with accumilated deltaTime.
-		4. Fix bug when animated models are not added.
 */
-
-// TODO: figure out how to shutdown.
-// Shutdown isn't working.
 int main(int argc, char* argv[])
 {
 	flag::parse(argc, argv);
 
-	auto s = co::main_sched();
+	// On main thread only app.Run.
+	{
+		engine::application app;
 
-	goMain([]()
+		engine::error err = app.checkError();
+		if (err)
 		{
-			engine::application app;
-
-			engine::error err = app.checkError();
-			if (err)
-			{
-				LOGERROR(err.err());
-				return;
-			}
-
-			auto ss = std::make_shared<sandbox::sandboxSystem>(app.getAppContext());
-
-			app.addUserSystem(ss);
-			err = app.checkError();
-			if (err)
-			{
-				LOGERROR(err.err());
-				return;
-			}
-
-			app.run();
-
-			err = app.checkError();
-			if (err)
-			{
-				LOGERROR(err.err());
-				return;
-			}
+			LOGERROR(err.err());
+			return 0;
 		}
-	);
 
-	s->loop();
+		auto ss = std::make_shared<sandbox::sandboxSystem>(app.getAppContext());
+
+		app.addUserSystem(ss);
+		err = app.checkError();
+		if (err)
+		{
+			LOGERROR(err.err());
+			return 0;
+		}
+
+		app.run();
+
+		err = app.checkError();
+		if (err)
+		{
+			LOGERROR(err.err());
+			return 0;
+		}
+	}
+
+	// Wait for all background threads to finish.
+	waitDone();
 
 	return 0;
 }

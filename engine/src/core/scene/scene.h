@@ -3,35 +3,13 @@
 #include <pch.h>
 #include "base/context/context.h"
 #include "core/events/events.h"
+#include "base/concurrency/ringBuffer.h"
 #include <entt/entt.hpp>
 
 #include "components.h"
 
 namespace engine
 {
-	class timerr
-	{
-	private:
-		std::string name;
-		std::chrono::steady_clock::time_point start;
-	public:
-		timerr(std::string&& name)
-			:
-			start(std::chrono::high_resolution_clock::now()),
-			name(std::move(name))
-		{
-		}
-		~timerr()
-		{
-			auto end = std::chrono::high_resolution_clock::now();
-
-			auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-
-			if (count >= 1000)
-				LOGINFO("{} took: {}", name, count);
-		}
-	};
-
 	class system;
 	class window;
 
@@ -47,8 +25,6 @@ namespace engine
 		template<typename... Components, typename Func>
 		void forEach(Func&& func)
 		{
-			timerr t{ "forEach" };
-
 			co::mutex_guard lock(mMutex);
 			mRegistry.view<Components...>().each(std::forward<Func>(func));
 		}
@@ -60,8 +36,6 @@ namespace engine
 		template<typename... Components, typename... Exclude, typename Func>
 		void forEach(entt::exclude_t<Exclude...> excl, Func&& func)
 		{
-			timerr t{ "forEach" };
-
 			co::mutex_guard lock(mMutex);
 			mRegistry.view<Components...>(excl).each(std::forward<Func>(func));
 		}
@@ -69,8 +43,6 @@ namespace engine
 		template<typename... Components>
 		size_t sizeHint()
 		{
-			timerr t{ "sizeHint" };
-
 			co::mutex_guard lock(mMutex);
 			return mRegistry.view<Components...>().size_hint();
 		}
@@ -78,8 +50,6 @@ namespace engine
 		template<typename T>
 		T& getComponent(entt::entity entity)
 		{
-			timerr t{ "getComp" };
-
 			co::mutex_guard lock(mMutex);
 
 			return mRegistry.get<T>(entity);
@@ -88,8 +58,6 @@ namespace engine
 		template<typename T>
 		T* tryGetComponent(entt::entity entity)
 		{
-			timerr t{ "tryGetComp" };
-
 			co::mutex_guard lock(mMutex);
 
 			return mRegistry.try_get<T>(entity);
@@ -97,8 +65,6 @@ namespace engine
 
 		entt::entity createEntity()
 		{
-			timerr t{ "createEnt" };
-
 			co::mutex_guard lock(mMutex);
 
 			return mRegistry.create();
@@ -106,8 +72,6 @@ namespace engine
 
 		void destroyEntity(entt::entity ent)
 		{
-			timerr t{ "destroyEnt" };
-
 			co::mutex_guard lock(mMutex);
 
 			if (mRegistry.valid(ent))
@@ -117,8 +81,6 @@ namespace engine
 		template<typename T, typename... Args>
 		void emplaceComponent(entt::entity ent, Args&&... args)
 		{
-			timerr t{ "emplaceComp" };
-
 			co::mutex_guard lock(mMutex);
 
 			if (mRegistry.valid(ent))
@@ -128,8 +90,6 @@ namespace engine
 		template<typename T>
 		void emplaceComponent(entt::entity ent)
 		{
-			timerr t{ "emplaceComponent" };
-
 			co::mutex_guard lock(mMutex);
 
 			if (mRegistry.valid(ent))
@@ -139,8 +99,6 @@ namespace engine
 		template<typename T, typename... Args>
 		void emplaceOrReplaceComponent(entt::entity ent, Args&&... args)
 		{
-			timerr t{ "emplaceOrReplaceComponent" };
-
 			co::mutex_guard lock(mMutex);
 
 			if (mRegistry.valid(ent))
@@ -150,8 +108,6 @@ namespace engine
 		template<typename T, typename... Args>
 		void emplaceOrReplaceComponent(entt::entity ent)
 		{
-			timerr t{ "emplaceOrReplaceComponent" };
-
 			co::mutex_guard lock(mMutex);
 
 			if (mRegistry.valid(ent))
@@ -161,8 +117,6 @@ namespace engine
 		template<typename T>
 		void removeComponent(entt::entity ent)
 		{
-			timerr t{ "removeComponent" };
-
 			co::mutex_guard lock(mMutex);
 
 			if (mRegistry.valid(ent))
@@ -171,6 +125,35 @@ namespace engine
 	private:
 		entt::registry mRegistry;
 		co::mutex mMutex;
+	};
+
+	class userSystemHandle
+	{
+	public:
+		userSystemHandle(std::shared_ptr<context> mCtx, std::shared_ptr<system> mUserSystem, std::shared_ptr<registryHandle> sceneRegistry);
+		~userSystemHandle();
+
+		error checkError() const;
+
+		void onRender(float deltaTime);
+		void onEvent(std::shared_ptr<baseEvent> e);
+		void onFixedUpdate(float deltaTime);
+		void onUpdate(float deltaTime);
+		void onBeginUpdate();
+		void onEndUpdate();
+	private:
+		std::shared_ptr<context> mCtx;
+		std::shared_ptr<system> mUserSystem;
+		std::shared_ptr<registryHandle> mSceneRegistry;
+
+		ringBuffer<float, 100> mRenderBuffer;
+		ringBuffer<float, 100> mUpdateBuffer;
+		ringBuffer<float, 100> mFixedUpdateBuffer;
+		ringBuffer<std::shared_ptr<baseEvent>, 100> mEventBuffer;
+		ringBuffer<empty, 100> mBeginUpdateBuffer;
+		ringBuffer<empty, 100> mEndUpdateBuffer;
+
+		co::wait_group mWg;
 	};
 
 	class scene
@@ -194,7 +177,7 @@ namespace engine
 
 	private:
 		std::vector<std::unique_ptr<system>> mSystems;
-		static std::vector<std::shared_ptr<system>> mUserSystems;
+		std::vector<std::unique_ptr<userSystemHandle>> mUserSystems;
 		std::shared_ptr<registryHandle> mSceneRegistry;
 
 		void addSystem(std::unique_ptr<system>&&);

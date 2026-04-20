@@ -8,9 +8,6 @@
 
 namespace engine
 {
-	// user systems.
-	std::vector<std::shared_ptr<system>> scene::mUserSystems;
-
 	scene::scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
 		:
 		mSceneRegistry(std::make_shared<registryHandle>()),
@@ -31,8 +28,7 @@ namespace engine
 
 	scene::~scene()
 	{
-		for (auto& s : mUserSystems)
-			s->onDetach(mSceneRegistry);
+		mUserSystems.clear();
 
 		for (auto& s : mSystems)
 			s->onDetach(mSceneRegistry);
@@ -44,14 +40,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			goNotMain(
-				[registry = mSceneRegistry, deltaTime = deltaTime, sys = s]()
-				{
-					error err = sys->onRender(registry, deltaTime);
-					if (err)
-						LOGERROR("User system err onRender: {}", err.err());
-				}
-			);
+			s->onRender(deltaTime);
 		}
 
 		for (auto& s : mSystems)
@@ -68,14 +57,7 @@ namespace engine
 	{
 		for (auto& s : mUserSystems)
 		{
-			goNotMain( 
-				[event = e, registry = mSceneRegistry, sys = s]
-				{
-					error err = sys->onEvent(registry, event);
-					if (err)
-						LOGERROR("User system err onEvent: {}", err.err());
-				}
-			);
+			s->onEvent(e);
 		}
 
 		error err;
@@ -95,14 +77,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			goNotMain(
-				[registry = mSceneRegistry, sys = s, deltaTime = deltaTime]
-				{
-					error err = sys->onFixedUpdate(registry, deltaTime);
-					if (err)
-						LOGERROR("User system err onFixedUpdate: {}", err.err());
-				}
-			);
+			s->onFixedUpdate(deltaTime);
 		}
 
 		for (auto& s : mSystems)
@@ -121,14 +96,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			goNotMain(
-				[registry = mSceneRegistry, deltaTime = deltaTime, sys = s]
-				{
-					error err = sys->onUpdate(registry, deltaTime);
-					if (err)
-						LOGERROR("User system err onUpdate: {}", err.err());
-				}
-			);
+			s->onUpdate(deltaTime);
 		}
 
 		for (auto& s : mSystems)
@@ -147,14 +115,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			goNotMain(
-				[registry = mSceneRegistry, sys = s]
-				{
-					error err = sys->onBeginUpdate(registry);
-					if (err)
-						LOGERROR("User system err onBeginUpdate: {}", err.err());
-				}
-			);
+			s->onBeginUpdate();
 		}
 
 		for (auto& s : mSystems)
@@ -173,14 +134,7 @@ namespace engine
 
 		for (auto& s : mUserSystems)
 		{
-			goNotMain(
-				[registry = mSceneRegistry, sys = s]
-				{
-					error err = sys->onEndUpdate(registry);
-					if (err)
-						LOGERROR("User system err onEndUpdate: {}", err.err());
-				}
-			);
+			s->onEndUpdate();
 		}
 
 		for (auto& s : mSystems)
@@ -219,8 +173,180 @@ namespace engine
 
 	void scene::addUserSystem(std::shared_ptr<system> s)
 	{
-		s->onAttach(mSceneRegistry);
+		mUserSystems.emplace_back(std::make_unique<userSystemHandle>(mCtx, s, mSceneRegistry));
+	}
 
-		mUserSystems.push_back(s);
+	userSystemHandle::userSystemHandle(std::shared_ptr<context> ctx, std::shared_ptr<system> userSystem, std::shared_ptr<registryHandle> sceneRegistry)
+		: mCtx(ctx),
+		mUserSystem(userSystem),
+		mSceneRegistry(sceneRegistry)
+	{
+		mWg.add(5);
+
+		mUserSystem->onAttach(mSceneRegistry);
+
+		goCatch(
+			[&]()
+			{
+				defer(mWg.done());
+
+				while (true)
+				{
+					float deltaTime{};
+					if (!mUpdateBuffer.recieve(deltaTime))
+						break;
+
+					error err = mUserSystem->onUpdate(mSceneRegistry, deltaTime);
+					if (err)
+					{
+						LOGERROR(err.err());
+						break;
+					}
+				}
+			}
+		);
+
+		goCatch(
+			[&]()
+			{
+				defer(mWg.done());
+
+				while (true)
+				{
+					float deltaTime{};
+					if (!mFixedUpdateBuffer.recieve(deltaTime))
+						break;
+
+					error err = mUserSystem->onFixedUpdate(mSceneRegistry, deltaTime);
+					if (err)
+					{
+						LOGERROR(err.err());
+						break;
+					}
+				}
+			}
+		);
+
+		goCatch(
+			[&]()
+			{
+				defer(mWg.done());
+
+				while (true)
+				{
+					empty upd{};
+					if (!mBeginUpdateBuffer.recieve(upd))
+						break;
+
+					error err = mUserSystem->onBeginUpdate(mSceneRegistry);
+					if (err)
+					{
+						LOGERROR(err.err());
+						break;
+					}
+
+					if (!mEndUpdateBuffer.recieve(upd))
+						break;
+
+					err = mUserSystem->onEndUpdate(mSceneRegistry);
+					if (err)
+					{
+						LOGERROR(err.err());
+						break;
+					}
+				}
+			}
+		);
+
+		goCatch(
+			[&]()
+			{
+				defer(mWg.done());
+
+				while (true)
+				{
+					float deltaTime{};
+					if (!mRenderBuffer.recieve(deltaTime))
+						break;
+
+					error err = mUserSystem->onRender(mSceneRegistry, deltaTime);
+					if (err)
+					{
+						LOGERROR(err.err());
+						break;
+					}
+				}
+			}
+		);
+
+		goCatch(
+			[&]()
+			{
+				defer(mWg.done());
+
+				while (true)
+				{
+					std::shared_ptr<baseEvent> event{};
+					if (!mEventBuffer.recieve(event))
+						break;
+
+					error err = mUserSystem->onEvent(mSceneRegistry, event);
+					if (err)
+					{
+						LOGERROR(err.err());
+						break;
+					}
+				}
+			}
+		);
+	}
+
+	userSystemHandle::~userSystemHandle()
+	{
+		mUserSystem->onDetach(mSceneRegistry);
+
+		mRenderBuffer.close();
+		mUpdateBuffer.close();
+		mFixedUpdateBuffer.close();
+		mEventBuffer.close();
+		mBeginUpdateBuffer.close();
+		mEndUpdateBuffer.close();
+
+		mWg.wait();
+	}
+
+	void userSystemHandle::onRender(float deltaTime)
+	{
+		mRenderBuffer.push(deltaTime);
+	}
+
+	void userSystemHandle::onEvent(std::shared_ptr<baseEvent> e)
+	{
+		mEventBuffer.push(e);
+	}
+
+	void userSystemHandle::onFixedUpdate(float deltaTime)
+	{
+		mFixedUpdateBuffer.push(deltaTime);
+	}
+
+	void userSystemHandle::onUpdate(float deltaTime)
+	{
+		mUpdateBuffer.push(deltaTime);
+	}
+
+	void userSystemHandle::onBeginUpdate()
+	{
+		mBeginUpdateBuffer.push({});
+	}
+
+	void userSystemHandle::onEndUpdate()
+	{
+		mEndUpdateBuffer.push({});
+	}
+
+	error userSystemHandle::checkError() const
+	{
+		return mUserSystem->checkError();
 	}
 }

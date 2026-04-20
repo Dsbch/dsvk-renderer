@@ -16,7 +16,8 @@ namespace engine
 			mQueue(VK_NULL_HANDLE),
 			mCommandPool(VK_NULL_HANDLE),
 			mCommandBufferImmediate(VK_NULL_HANDLE),
-			mQueueFamily(0)
+			mQueueFamily(0),
+			mRunning(true)
 		{}
 
 		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue queue, uint32_t queueFamily);
@@ -26,10 +27,13 @@ namespace engine
 		engine::error queue(const std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp);
 
 		std::vector<VkSubmitInfo2> getSumbitedCommands();
-		void deleteSubmitedCommands(size_t indices);
+		void deleteSubmitedCommands(size_t idx);
 		std::vector<VkSemaphore> getCurrentSemaInUse();
-		void deleteSemaInUse(size_t indices);
+		void deleteSemaInUse(size_t idx);
 	private:
+		co::wait_group mWg;
+		std::atomic<bool> mRunning;
+
 		VkDevice mDevice;
 		VkQueue mQueue;
 		uint32_t mQueueFamily;
