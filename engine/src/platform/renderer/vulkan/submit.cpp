@@ -57,14 +57,14 @@ namespace engine
 
 							VkResult result = vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
 							if (result != VK_SUCCESS)
-							{
 								LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
-							}
 
 							if (sema.second != nullptr)
 								sema.second();
 
 							semaToDelete.pop_back();
+
+							LOGDEBUG("cleanup submit thread");
 						}
 					}
 

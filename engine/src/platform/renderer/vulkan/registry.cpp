@@ -7,11 +7,12 @@
 
 namespace engine
 {
-	void bufferRegistry::init(VkDevice device, VmaAllocator allocator)
+	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, bool mapped)
 	{
 		mDevice = device;
 		mAllocator = allocator;
 		mNeedUpdate = false;
+		mUseMappedBuffers = mapped;
 	}
 
 	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize)
@@ -51,7 +52,7 @@ namespace engine
 		}
 
 		vulkanBuffer newBuffer{};
-		newBuffer.init(mDevice, mAllocator);
+		newBuffer.init(mDevice, mAllocator, mUseMappedBuffers);
 
 		if (sizeInBytes > newSize)
 		{
@@ -253,7 +254,7 @@ namespace engine
 		mNeedDescriptorUpdate = true;
 
 		mCmdBufferNewSize = 2 << 21;
-		mCmdBuffer.init(device, allocator);
+		mCmdBuffer.init(device, allocator, true);
 
 		error err = mCmdBuffer.build(is, nullptr, mCmdBufferNewSize, 0);
 		if (err)

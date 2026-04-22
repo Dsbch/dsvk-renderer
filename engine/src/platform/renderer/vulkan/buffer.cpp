@@ -5,8 +5,9 @@
 
 namespace engine
 {
-	void vulkanBuffer::init(VkDevice device, VmaAllocator allocator)
+	void vulkanBuffer::init(VkDevice device, VmaAllocator allocator, bool mapped)
 	{
+		mMapped = mapped;
 		mDevice = device;
 		mAllocator = allocator;
 	}
@@ -19,7 +20,14 @@ namespace engine
 		mLoadedBytes = validBytes;
 		mByteSize = sizeInBytes;
 
-		auto createBufRes = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+		auto createBufRes = createBuffer(
+			mAllocator,
+			mDevice,
+			sizeInBytes,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+			mMapped
+		);
 		if (!createBufRes)
 			return createBufRes.err();
 
@@ -27,29 +35,40 @@ namespace engine
 
 		if (data && mLoadedBytes != 0)
 		{
-			auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
-			if (!stagingBuffer)
-				return stagingBuffer.err();
+			if (mMapped)
+			{
+				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, 0, mLoadedBytes);
+				if (res != VK_SUCCESS)
+					return { vkResultToStr(res) };
+			}
+			else
+			{
+				auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, true);
+				if (!stagingBuffer)
+					return stagingBuffer.err();
 
-			std::memcpy(stagingBuffer.value().info.pMappedData, data, mLoadedBytes);
+				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, stagingBuffer.value().allocation, 0, mLoadedBytes);
+				if (res != VK_SUCCESS)
+					return { vkResultToStr(res) };
 
-			error err = is.queue(
-				[&](VkCommandBuffer cmd)
-				{
-					VkBufferCopy copy{};
-					copy.dstOffset = 0;
-					copy.srcOffset = 0;
-					copy.size = mLoadedBytes;
+				error err = is.queue(
+					[&](VkCommandBuffer cmd)
+					{
+						VkBufferCopy copy{};
+						copy.dstOffset = 0;
+						copy.srcOffset = 0;
+						copy.size = mLoadedBytes;
 
-					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
-				},
-				[allocator = mAllocator, buffer = stagingBuffer.value()]()
-				{
-					destroyBuffer(allocator, buffer);
-				}
-			);
-			if (err)
-				return err;
+						vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+					},
+					[allocator = mAllocator, buffer = stagingBuffer.value()]()
+					{
+						destroyBuffer(allocator, buffer);
+					}
+				);
+				if (err)
+					return err;
+			}
 		}
 
 		return {};
@@ -63,7 +82,14 @@ namespace engine
 		mLoadedBytes = validBytes;
 		mByteSize = sizeInBytes;
 
-		auto createBufRes = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+		auto createBufRes = createBuffer(
+			mAllocator,
+			mDevice,
+			sizeInBytes,
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+			mMapped
+		);
 		if (!createBufRes)
 			return createBufRes.err();
 
@@ -71,29 +97,40 @@ namespace engine
 
 		if (data && mLoadedBytes != 0)
 		{
-			auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
-			if (!stagingBuffer)
-				return stagingBuffer.err();
+			if (mMapped)
+			{
+				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, 0, mLoadedBytes);
+				if (res != VK_SUCCESS)
+					return { vkResultToStr(res) };
+			}
+			else
+			{
+				auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, true);
+				if (!stagingBuffer)
+					return stagingBuffer.err();
 
-			std::memcpy(stagingBuffer.value().info.pMappedData, data, mLoadedBytes);
+				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, stagingBuffer.value().allocation, 0, mLoadedBytes);
+				if (res != VK_SUCCESS)
+					return { vkResultToStr(res) };
 
-			error err = is.queue(
-				[&](VkCommandBuffer cmd)
-				{
-					VkBufferCopy copy{};
-					copy.dstOffset = 0;
-					copy.srcOffset = 0;
-					copy.size = mLoadedBytes;
+				error err = is.queue(
+					[&](VkCommandBuffer cmd)
+					{
+						VkBufferCopy copy{};
+						copy.dstOffset = 0;
+						copy.srcOffset = 0;
+						copy.size = mLoadedBytes;
 
-					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
-				},
-				[allocator = mAllocator, buffer = stagingBuffer.value()]()
-				{
-					destroyBuffer(allocator, buffer);
-				}
-			);
-			if (err)
-				return err;
+						vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+					},
+					[allocator = mAllocator, buffer = stagingBuffer.value()]()
+					{
+						destroyBuffer(allocator, buffer);
+					}
+				);
+				if (err)
+					return err;
+			}
 		}
 
 		return {};
@@ -107,29 +144,40 @@ namespace engine
 		if (sizeInBytes + mLoadedBytes > mByteSize)
 			return error{ errCodeBufferOverFlow, "buffer overflow" };
 
-		auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
-		if (!stagingBuffer)
-			return stagingBuffer.err();
+		if (mMapped)
+		{
+			VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, offset, sizeInBytes);
+			if (res != VK_SUCCESS)
+				return { vkResultToStr(res) };
+		}
+		else
+		{
+			auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, true);
+			if (!stagingBuffer)
+				return stagingBuffer.err();
 
-		std::memcpy(stagingBuffer.value().info.pMappedData, data, sizeInBytes);
+			VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, stagingBuffer.value().allocation, 0, sizeInBytes);
+			if (res != VK_SUCCESS)
+				return { vkResultToStr(res) };
 
-		error err = is.queue(
-			[&](VkCommandBuffer cmd)
-			{
-				VkBufferCopy copy{};
-				copy.dstOffset = offset;
-				copy.srcOffset = 0;
-				copy.size = sizeInBytes;
+			error err = is.queue(
+				[&](VkCommandBuffer cmd)
+				{
+					VkBufferCopy copy{};
+					copy.dstOffset = offset;
+					copy.srcOffset = 0;
+					copy.size = sizeInBytes;
 
-				vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
-			},
-			[=]()
-			{
-				destroyBuffer(mAllocator, stagingBuffer.value());
-			}
-		);
-		if (err)
-			return err;
+					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+				},
+				[=]()
+				{
+					destroyBuffer(mAllocator, stagingBuffer.value());
+				}
+			);
+			if (err)
+				return err;
+		}
 
 		mLoadedBytes += sizeInBytes;
 
@@ -165,7 +213,7 @@ namespace engine
 		vmaallocInfo.usage = memoryUsage;
 
 		if (useMemmoryMap)
-			vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+			vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 
 		allocatedBuffer newBuffer;
 

@@ -40,7 +40,6 @@
 	Current development TODO:
 		1. Figure out how to handle animations updates. For now I need more flat structure for joints parent to child. Also look for copy leaks on each frame.
 		 1.1. It should handle at least 1K animated objects before starting to lag.
-		 1.2. Also I have data race on animations with ECS.
 		2. Frustum culling for animated meshes doesn't work. Need to fix it.
 		3. When animation not in frustum do not update it at all. Just accumilate deltaTime.
 			Then when it comes back to frustum update it to correct animatation with accumilated deltaTime.

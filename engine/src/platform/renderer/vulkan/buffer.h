@@ -30,14 +30,15 @@ namespace engine
 				),
 			mAllocator(VK_NULL_HANDLE),
 			mLoadedBytes(0),
-			mByteSize(0)
+			mByteSize(0),
+			mMapped(false)
 		{
 		}
 
-		void init(VkDevice device, VmaAllocator allocator);
-		engine::error build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
-		engine::error buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
-		engine::error updateBuffer(submit& is, const void* data, size_t sizeInBytes, size_t offset);
+		void init(VkDevice device, VmaAllocator allocator, bool mapped = false);
+		error build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
+		error buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
+		error updateBuffer(submit& is, const void* data, size_t sizeInBytes, size_t offset);
 		void destroy();
 
 		allocatedBuffer getBuffer();
@@ -46,12 +47,13 @@ namespace engine
 		size_t getSize() const;
 		size_t getLoadedBytes() const;
 
-		static engine::withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, bool useMemmoryMap = false);
+		static withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, bool useMemmoryMap = false);
 		static void destroyBuffer(VmaAllocator allocator, allocatedBuffer buf);
 	private:
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
 		allocatedBuffer mBuffer;
+		bool mMapped;
 
 		size_t mLoadedBytes;
 		size_t mByteSize;

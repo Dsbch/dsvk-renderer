@@ -38,7 +38,7 @@ namespace engine
 	struct bufferRegistry
 	{
 	public:
-		void init(VkDevice device, VmaAllocator allocator);
+		void init(VkDevice device, VmaAllocator allocator, bool mapped = false);
 		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize = newBufferSize);
 		withError<bufferHandle> findBlock(uint32_t id);
 		error updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is);
@@ -49,6 +49,7 @@ namespace engine
 
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 	private:
+		bool mUseMappedBuffers;
 		std::vector<bufferWithHandles> mBuffers;
 		std::vector<VkDescriptorBufferInfo> mBuffersInfo;
 

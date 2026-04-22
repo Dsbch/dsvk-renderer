@@ -75,11 +75,13 @@ namespace engine
 		bufferRegistry mIndexRegistry;
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
-		bufferRegistry mPerInstanceRegistry;
-		bufferRegistry mJointRegistry;
 		bufferRegistry mPerMeshRegistry;
 		pipelineRegistry mPipelineRegistry;
 		materialRegistry mMaterialRegistry;
+
+		// Can be updated each frame, they live as MAPPED buffers.
+		bufferRegistry mPerInstanceRegistry;
+		bufferRegistry mJointRegistry;
 
 		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
 		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits, VkBuffer UBObuffer);

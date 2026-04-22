@@ -79,23 +79,24 @@ namespace engine
 	{
 		mVertexRegistry.init(device, allocator);
 
+		mAnimVertexRegistry.init(device, allocator);
+
 		mIndexRegistry.init(device, allocator);
 
 		mPrimitiveRegistry.init(device, allocator);
 
 		mMeshletRegistry.init(device, allocator);
 
-		mPerInstanceRegistry.init(device, allocator);
-
-		mJointRegistry.init(device, allocator);
-
 		mPerMeshRegistry.init(device, allocator);
-
-		mAnimVertexRegistry.init(device, allocator);
 
 		error err = mPipelineRegistry.init(device, allocator, is);
 		if (err)
 			return err;
+
+		// Updated each frame used as MAPPED.
+		mPerInstanceRegistry.init(device, allocator, true);
+
+		mJointRegistry.init(device, allocator, true);
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
 
