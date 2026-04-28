@@ -161,8 +161,6 @@ namespace engine
 
 	void application::run()
 	{
-		LOGINFO("application game loop started on thread: {}, scheduler: {}", co::thread_id(), co::sched_id());
-
 		mRunning = true;
 
 		auto nextGameUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(mCtx->appTimer.getTimeSinceStart());

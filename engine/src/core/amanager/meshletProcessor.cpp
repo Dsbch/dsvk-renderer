@@ -412,8 +412,8 @@ namespace engine
 			perMeshAttributes crntMeshAttrs = {};
 			crntMeshAttrs.meshGlobalTransform = getNodeWorldTransformMat4(node);
 			crntMeshAttrs.meshLocalTransform = getNodeLocalTransformMat4(node);
-			crntMeshAttrs.meshGlobalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshGlobalTransform)));;
-			crntMeshAttrs.meshLocalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshLocalTransform)));;
+			crntMeshAttrs.meshGlobalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshGlobalTransform)));
+			crntMeshAttrs.meshLocalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshLocalTransform)));
 			crntMeshAttrs.isSkinned = uint32_t(node->skin != nullptr);
 
 			// For tangent calculation and lod calculation.

@@ -22,9 +22,14 @@
 		4. Add postproccessing like bloom, focus etc - on hold.
 		5. Get your bsdf and brdf together - on hold.
 
-	Concurrency:
+	Optimizations:
+		1. Optimize OIT pass. 
+			Need to combine two passes: geometry and accumilation in one pass or figure out how to optimize them individually.
+			Huge performance drop because I have two passes that run the same task and mesh shader for the WHOLE scene.
+
+	Cuncurrency:
 		1. Switch to true corutines instead of threadPool. Right now you have a big problem with your thread pool.
-			Your thread pool will block thread until it release a lock, it's pretty bad.
+			Your thread pool will block thread until it release a lock, it's pretty bad - DONE.
 
 	Physics:
 		1. Add jolt CPU side physics - on hold.
