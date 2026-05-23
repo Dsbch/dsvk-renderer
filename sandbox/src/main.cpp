@@ -18,18 +18,24 @@
 		1. Added animation system - in development.
 		2. Add VCT for global illumination and soft shadows - on hold.
 			3.1. Optional: add shadow mapping for hard shadows - on hold.
-		3. Occlussion culling - on hold.
+		3. Two phase HZB oclussion culling - on hold.
 		4. Add postproccessing like bloom, focus etc - on hold.
 		5. Get your bsdf and brdf together - on hold.
 
 	Optimizations:
-		1. Optimize OIT pass. 
+		1. Optimize OIT pass.
 			Need to combine two passes: geometry and accumilation in one pass or figure out how to optimize them individually.
 			Huge performance drop because I have two passes that run the same task and mesh shader for the WHOLE scene.
+			Or add to accumilation pass models that only have materials with alpha < 0.5f.
+
+			Also need to make skinning in compute shader. That price should be payed only ONCE! Do not skin entities that are not in frustum.
 
 	Cuncurrency:
 		1. Switch to true corutines instead of threadPool. Right now you have a big problem with your thread pool.
 			Your thread pool will block thread until it release a lock, it's pretty bad - DONE.
+
+	Graphics:
+		1. Global illumination with radiance cascades - on hold.
 
 	Physics:
 		1. Add jolt CPU side physics - on hold.
@@ -48,6 +54,8 @@
 		2. Frustum culling for animated meshes doesn't work. Need to fix it.
 		3. When animation not in frustum do not update it at all. Just accumilate deltaTime.
 			Then when it comes back to frustum update it to correct animatation with accumilated deltaTime.
+		4. For mapped buffers I need to accumilate updates in some buffer and then flush them later. All at once. 
+			MAY BE not required and simple mapped buffer with frequent updates is enough.
 */
 int main(int argc, char* argv[])
 {

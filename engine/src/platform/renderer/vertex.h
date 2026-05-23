@@ -131,6 +131,7 @@ namespace engine
 		std::shared_ptr<const texture> albedo;
 		std::shared_ptr<const texture> normal;
 		std::shared_ptr<const texture> metallicRoughness;
+		bool isTransperent;
 	};
 
 	struct materials

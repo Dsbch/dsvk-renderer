@@ -134,7 +134,7 @@ namespace engine
 	}
 
 	aManager::aManager()
-		: mLoadedModels(50), mLoadedShaders(100), mLoadedTextures(100)
+		: mLoadedModels(1000), mLoadedShaders(1000), mLoadedTextures(2000)
 	{
 		basist::basisu_transcoder_init();
 	}
@@ -329,13 +329,22 @@ namespace engine
 		if (!mippedImages)
 			return mippedImages.err();
 
-		// Compress textures to BC7.
 		for (auto& t : mippedImages.value())
 		{
+			materialTextures mt{};
+
+			mt.isTransperent = t.albedo.main.isTransperent();
+
 			t.albedo.main = compressTextureBC7(t.albedo.main);
 
 			for (int i = 0; i < t.albedo.mipLevels.size(); i++)
 				t.albedo.mipLevels[i] = compressTextureBC7(t.albedo.mipLevels[i]);
+
+			auto albedo = loadTexture(t.albedo);
+			if (!albedo)
+				return albedo.err();
+
+			mt.albedo = albedo.value();
 
 			t.normal.main = compressTextureBC7(t.normal.main);
 
@@ -346,17 +355,6 @@ namespace engine
 
 			for (int i = 0; i < t.metallicRoughness.mipLevels.size(); i++)
 				t.metallicRoughness.mipLevels[i] = compressTextureBC7(t.metallicRoughness.mipLevels[i]);
-		}
-
-		for (auto& t : mippedImages.value())
-		{
-			materialTextures mt{};
-
-			auto albedo = loadTexture(t.albedo);
-			if (!albedo)
-				return albedo.err();
-
-			mt.albedo = albedo.value();
 
 			auto normal = loadTexture(t.normal);
 			if (!normal)

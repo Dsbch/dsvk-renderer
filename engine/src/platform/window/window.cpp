@@ -184,9 +184,6 @@ namespace engine
 			return;
 		}
 
-		if (!mShowCursor)
-			glfwSetInputMode(mWnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
 		glfwSetWindowUserPointer(mWnd, this);
 
 		glfwSetKeyCallback(mWnd, keyCallback);

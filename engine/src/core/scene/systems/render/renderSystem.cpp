@@ -66,18 +66,6 @@ namespace engine
 
 	error renderSystem::onRender(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
-		static int callCount = 0;
-		static auto lastLog = std::chrono::steady_clock::now();
-
-		callCount++;
-		auto now = std::chrono::steady_clock::now();
-		if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastLog).count() >= 1000) 
-		{
-			LOGINFO("onRender: {} calls/sec", callCount);
-			callCount = 0;
-			lastLog = now;
-		}
-
 		renderer::renderCallIn renderCall{
 			.deltaTime = deltaTime,
 		};

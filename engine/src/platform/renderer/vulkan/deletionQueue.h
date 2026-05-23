@@ -11,6 +11,7 @@
 #include "pipeline.h"
 #include "registry.h"
 #include "texture.h"
+#include "gpuProfiler.h"
 
 namespace engine
 {
@@ -26,6 +27,7 @@ namespace engine
 		pipelineReg,
 		sampler,
 		vulkanBuf,
+		gpuProf,
 	};
 
 	struct destroyTask
@@ -43,6 +45,7 @@ namespace engine
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;
 			pipelineRegistry* pipelineReg;
+			gpuProfiler* profiler;
 		};
 	};
 

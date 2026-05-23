@@ -58,6 +58,10 @@ namespace engine
 				if (it->pipelineReg)
 					it->pipelineReg->destroy();
 				break;
+			case gpuProf:
+				if (it->profiler)
+					it->profiler->destroy();
+				break;
 			default:
 				LOGERROR("deletionQueue.cpp unkown deletionType");
 			}

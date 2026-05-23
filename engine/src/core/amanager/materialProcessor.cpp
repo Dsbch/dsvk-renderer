@@ -429,9 +429,7 @@ namespace engine
 					albedo = rawTexture.value();
 				}
 				else
-				{
 					albedo = generateAlbedoImage(w, h, 4, albedoFactor);
-				}
 
 				// metallic-roughness.
 				if (auto metalicRoughnesTexture = material->pbr_metallic_roughness.metallic_roughness_texture.texture; metalicRoughnesTexture && metalicRoughnesTexture->image)
@@ -445,9 +443,7 @@ namespace engine
 					metallicRoughness = rawTexture.value();
 				}
 				else
-				{
 					metallicRoughness = generateMetallicRoughnessImage(w, h, 4, material->pbr_metallic_roughness.metallic_factor, material->pbr_metallic_roughness.roughness_factor);
-				}
 
 				// normal.
 				if (auto normalTexture = material->normal_texture.texture; normalTexture && normalTexture->image)
@@ -459,9 +455,7 @@ namespace engine
 					normal = rawTexture.value();
 				}
 				else
-				{
 					normal = generateNormalImage(w, h, 4);
-				}
 
 				// oclussion, put in normal aplha channel.
 				if (auto oclussionTexture = material->occlusion_texture.texture; oclussionTexture && oclussionTexture->image)

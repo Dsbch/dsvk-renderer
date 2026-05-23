@@ -16,6 +16,7 @@ namespace engine
 		uint32_t maxImage;
 		VkSampleCountFlagBits maxMultiSampling;
 		float maxFiltering;
+		float timestampPeriod;
 	};
 
 	inline std::string vkResultToStr(VkResult result)

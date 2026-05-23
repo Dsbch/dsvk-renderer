@@ -1,4 +1,4 @@
-#include <pch.h>
+﻿#include <pch.h>
 #include "meshletRenderer.h"
 #include "renderer.h"
 
@@ -404,7 +404,7 @@ namespace engine
 		vkCmdBeginRendering(cmd, &renderInfo);
 
 		// Draw UI.
-		mUi.onRender(cmd);
+		mUi.onRender(cmd, mProfInfo);
 
 		vkCmdEndRendering(cmd);
 

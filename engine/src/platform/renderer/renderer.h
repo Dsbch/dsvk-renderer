@@ -10,6 +10,29 @@
 
 namespace engine
 {
+	struct renderingProfilingInfo
+	{
+		float fps;
+		float deltaTime;
+		float opaquePass;
+		float transperentPass;
+		float compositePass;
+		float uiPass;
+	};
+
+	struct sceneProfilingInfo
+	{
+		uint32_t maxLodTriangles;
+		uint32_t maxLodMeshlets;
+		uint32_t entities;
+	};
+
+	struct profilingInfo
+	{
+		sceneProfilingInfo sceneInfo;
+		renderingProfilingInfo renderingInfo;
+	};
+
 	struct graphicsPreset
 	{
 		uint32_t msaa;
@@ -46,6 +69,8 @@ namespace engine
 		virtual error updateAnimations(const model& m) = 0;
 		virtual void removeFromRender(const model& m) = 0;
 		virtual error render(renderCallIn in) = 0;
+
+		virtual profilingInfo getProfilingInfo() = 0;
 
 		virtual withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src) = 0;
 		virtual withError<std::shared_ptr<const texture>> makeTexture(const image& img) = 0;

@@ -37,7 +37,8 @@ namespace engine
 		:
 		renderer(ctx, window),
 		mWindowMinimized(false),
-		mVkCmdDrawMeshTasksEXT(nullptr)
+		mVkCmdDrawMeshTasksEXT(nullptr),
+		mProfInfo()
 	{
 		mErr = initVulkan();
 		if (mErr)
@@ -68,6 +69,13 @@ namespace engine
 		mErr = initRenderers();
 		if (mErr)
 			return;
+
+		mGpuProfiler.init(mDevice, 4, mDeviceLimits);
+		mErr = mGpuProfiler.createProfiling();
+		if (mErr)
+			return;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = gpuProf, .profiler = &mGpuProfiler });
 	}
 
 	vulkanRenderer::~vulkanRenderer()
@@ -238,6 +246,7 @@ namespace engine
 		mDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
 		mDeviceLimits.maxUniformBuffers = props.limits.maxPerStageDescriptorUniformBuffers;
 		mDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
+		mDeviceLimits.timestampPeriod = props.limits.timestampPeriod;
 
 		VkSampleCountFlags counts = props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
 
@@ -524,25 +533,7 @@ namespace engine
 
 	error vulkanRenderer::addToRender(const model& m)
 	{
-		//glm::vec3 lightPositions[4] =
-		//{
-		//	glm::vec3(0.0f, 0.0f, 2.0f),
-		//	glm::vec3(0.0f, 0.0f, -2.0f),
-		//	glm::vec3(2.0f, 0.0f, 0.0f),
-		//	glm::vec3(-2.0f, 0.0f, 0.0f),
-		//};
-
-		/*for (auto& p : lightPositions)
-		{
-			mLineRenderer.addLine(p, m.instanceAttributes.bsWorldCenter);
-		}*/
-
-		/*for (auto& v : *m.meshData.vertex.get())
-		{
-			glm::vec3 pos = glm::vec3(m.instanceAttributes.modelTransform.translation + m.instanceAttributes.modelTransform.rotation * m.instanceAttributes.modelTransform.scale * v.position);
-
-			mLineRenderer.addLine(pos, pos + v.normal/10.0f);
-		}*/
+		registerSceneMetrics(m);
 
 		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain, m);
 	}
@@ -559,6 +550,8 @@ namespace engine
 
 	void vulkanRenderer::removeFromRender(const model& m)
 	{
+		registerSceneMetrics(m, true);
+
 		mMeshletRenderer.removeFromRender(m);
 	}
 
@@ -592,6 +585,13 @@ namespace engine
 		if (waitResult)
 			return waitResult.err();
 
+		static float firstFrame = true;
+
+		if (!firstFrame)
+			updateProfInfo(in.deltaTime);
+
+		firstFrame = false;
+		
 		// request image from the swapchain.
 		// keep in mind that we use swapChain semaphore as signaling here.
 		err = mSwapChain.acquireImageIndex();
@@ -628,29 +628,49 @@ namespace engine
 		if (vkResult != VK_SUCCESS)
 			return vkResultToStr(vkResult);
 
+		mGpuProfiler.reset(cmd);
+
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
 		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+		err = mGpuProfiler.beginTimeStamp(cmd);
+		if (err)
+			return err;
+
 		// Begin a render pass connected to our draw image and depth buffer.
 		err = drawOpaque(cmd, in);
 		if (err)
 			return err;
 
+		mGpuProfiler.endTimestamp(cmd);
+
+		err = mGpuProfiler.beginTimeStamp(cmd);
+
 		err = drawTransperent(cmd, in);
 		if (err)
 			return err;
+
+		mGpuProfiler.endTimestamp(cmd);
+		
+		err = mGpuProfiler.beginTimeStamp(cmd);
 
 		err = compositeOpaqueAndTransperent(cmd, in);
 		if (err)
 			return err;
 
+		mGpuProfiler.endTimestamp(cmd);
+
+		err = mGpuProfiler.beginTimeStamp(cmd);
+		
 		err = drawUI(cmd);
 		if (err)
 			return err;
 
+		mGpuProfiler.endTimestamp(cmd);
+		
 		//transition the resolve image and the swapchain image into their correct transfer layouts
 		transitionImage(cmd, mPreset.msaa <= 1 ? mSwapChain.getDrawImage() : mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -742,5 +762,66 @@ namespace engine
 			return vkTexture->checkError();
 
 		return vkTexture;
+	}
+
+	void vulkanRenderer::updateProfInfo(float deltaTime)
+	{
+		static uint32_t frames = 0;
+		static auto lastCall = std::chrono::steady_clock::now();
+
+		frames++;
+		auto now = std::chrono::steady_clock::now();
+		float elapsed = std::chrono::duration<float>(now - lastCall).count();
+
+		if (elapsed >= 1.0f)
+		{
+			mProfInfo.renderingInfo.fps = frames / elapsed;
+			frames = 0;
+			lastCall = now;
+		}
+
+		std::vector<float> slots = mGpuProfiler.getAllSlots();
+
+		if (slots.size() >= 4)
+		{
+			mProfInfo.renderingInfo.deltaTime = deltaTime;
+			mProfInfo.renderingInfo.opaquePass = slots[0];
+			mProfInfo.renderingInfo.transperentPass = slots[1];
+			mProfInfo.renderingInfo.compositePass = slots[2];
+			mProfInfo.renderingInfo.uiPass = slots[3];
+		}
+	}
+
+	void vulkanRenderer::registerSceneMetrics(const model& m, bool isDeleted)
+	{
+		if (isDeleted)
+		{
+			for (auto& mesh : *m.meshData.get())
+			{
+				mProfInfo.sceneInfo.maxLodMeshlets -= mesh.meshlets.second;
+
+				for (uint32_t i = 0; i < mesh.meshlets.second; i++)
+					mProfInfo.sceneInfo.maxLodTriangles -= mesh.meshlets.data[i].triangleCount;
+			}
+
+			mProfInfo.sceneInfo.entities--;
+		}
+		else
+		{
+			for (auto& mesh : *m.meshData.get())
+			{
+				mProfInfo.sceneInfo.maxLodMeshlets += mesh.meshlets.second;
+
+				for (uint32_t i = 0; i < mesh.meshlets.second; i++)
+					mProfInfo.sceneInfo.maxLodTriangles += mesh.meshlets.data[i].triangleCount;
+			}
+
+			mProfInfo.sceneInfo.entities++;
+		}
+	}
+
+	profilingInfo vulkanRenderer::getProfilingInfo()
+	{
+		return mProfInfo;
 	}
 }

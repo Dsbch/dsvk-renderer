@@ -16,6 +16,7 @@
 #include "deletionQueue.h"
 #include "meshletRenderer.h"
 #include "lineRenderer.h"
+#include "gpuProfiler.h"
 
 namespace engine
 {
@@ -36,6 +37,8 @@ namespace engine
 
 		error render(renderer::renderCallIn in);
 
+		profilingInfo getProfilingInfo();
+
 		withError<std::shared_ptr<const texture>> makeTexture(const image& img);
 		withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<const texture>> makeTextureWithMips(const imageWithMipLevels& img);
@@ -47,6 +50,9 @@ namespace engine
 		VkInstance mInstance;
 		VkPhysicalDevice mPhysicalDevice;
 		deviceLimits mDeviceLimits;
+		VkPhysicalDeviceProperties mDeviceProps;
+
+		profilingInfo mProfInfo;
 
 		VkSurfaceKHR mSurface;
 		swapChain mSwapChain;
@@ -68,8 +74,10 @@ namespace engine
 		// Line renderer.
 		lineRenderer mLineRenderer;
 
-		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
+		gpuProfiler mGpuProfiler;
 
+		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
+		
 		error initVulkan();
 		error setLimits();
 		error initImmediateSubmit();
@@ -85,5 +93,8 @@ namespace engine
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error drawUI(VkCommandBuffer cmd);
+
+		void updateProfInfo(float deltaTime);
+		void registerSceneMetrics(const model& m, bool isDeleted = false);
 	};
 }
