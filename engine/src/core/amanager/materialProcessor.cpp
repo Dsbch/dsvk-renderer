@@ -339,14 +339,48 @@ namespace engine
 		return result;
 	}
 
+	void setOpaqueAlpha(image& img)
+	{
+		auto ptr = img.data.begin();
+		for (int y = 0; y < img.h; y++)
+		{
+			for (int w = 0; w < img.w; w++)
+			{
+				ptr[3] = 255;
+				ptr += 4;
+			}
+		}
+	}
+
+	void setDefaultCutoff(image& img, float oldCutoff)
+	{
+		uint8_t oldCutoffByte = (uint8_t)std::round(oldCutoff * 255.0f);
+		uint8_t newCutoffByte = (uint8_t)std::round(0.5f * 255.0f);
+
+		auto ptr = img.data.begin();
+		for (int y = 0; y < img.h; y++)
+		{
+			for (int w = 0; w < img.w; w++)
+			{	
+				if (ptr[3] >= oldCutoffByte)
+					ptr[3] = 255;
+				else
+					ptr[3] = 0;
+
+				ptr += 4;
+			}
+		}
+	}
+
 	images genDefaultMaterial(int w, int h, int ch)
 	{
-		constexpr float albedoFactor[4] = {0.7f, 0.5f, 0.45f, 1.0f};
+		constexpr float albedoFactor[4] = { 0.7f, 0.5f, 0.45f, 1.0f };
 
 		images result{
 			.albedo = generateAlbedoImage(w, h, ch, albedoFactor),
 			.normal = generateNormalImage(w, h, ch),
 			.metallicRoughness = generateMetallicRoughnessImage(w, h, ch, 0.5f, 0.5f),
+			.alphaMode = alphaModeType::opaque
 		};
 
 		return result;
@@ -481,6 +515,25 @@ namespace engine
 				tex.albedo = albedo;
 				tex.normal = normal;
 				tex.metallicRoughness = metallicRoughness;
+
+				switch (material->alpha_mode)
+				{
+				case cgltf_alpha_mode_opaque:
+					tex.alphaMode = alphaModeType::opaque;
+					setOpaqueAlpha(tex.albedo);
+					break;
+				case cgltf_alpha_mode_blend:
+					tex.alphaMode = alphaModeType::blend;
+					break;
+				case cgltf_alpha_mode_mask:
+					if (material->alpha_cutoff != 0.5f)
+						setDefaultCutoff(tex.albedo, material->alpha_cutoff);
+
+					tex.alphaMode = alphaModeType::mask;
+					break;
+				default:
+					break;
+				}
 
 				result.push_back(tex);
 			}

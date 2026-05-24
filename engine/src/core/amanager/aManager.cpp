@@ -329,11 +329,13 @@ namespace engine
 		if (!mippedImages)
 			return mippedImages.err();
 
-		for (auto& t : mippedImages.value())
+		for (int i = 0; i < mippedImages.value().size(); i++)
 		{
+			auto t = mippedImages.value()[i];
+
 			materialTextures mt{};
 
-			mt.isTransperent = t.albedo.main.isTransperent();
+			mt.alphaMode = materials.value()[i].alphaMode;
 
 			t.albedo.main = compressTextureBC7(t.albedo.main);
 

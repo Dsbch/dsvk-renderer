@@ -29,5 +29,6 @@ namespace engine
 		friend struct meshletRenderer;
 		friend struct lineRenderer;
 		friend struct pipelineData;
+		friend struct pipelineRegistry;
 	};
 }

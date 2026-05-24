@@ -41,7 +41,6 @@ struct MeshShaderPayload
     uint meshletOffset[THREADS_COUNT];
     uint perInstanceIndex[THREADS_COUNT];
     uint perInstanceOffset[THREADS_COUNT];
-    uint lodLevel[THREADS_COUNT];
 };
 
 groupshared MeshShaderPayload payload;
@@ -55,6 +54,10 @@ void asmain(
 {
     const uint maxUint = 4294967295;
     
+    const uint opaqueAlphaMode = 0;
+    const uint blendAlphaMode = 1;
+    const uint maskAlphaMode = 2;
+   
     float visible = false;
     
     // Not overdraw.
@@ -70,11 +73,12 @@ void asmain(
     
         meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
         perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
-
+        
+        visible = meshletOffset != maxUint;
+        
         // Still have meshlets for that lodLevel.
-        if (meshletOffset != maxUint)
+        if (visible)
         {
-            visible = true;
             if (!meshAttr.isSkinned)
             {
                 mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
@@ -104,9 +108,6 @@ void asmain(
         
                 payload.perInstanceIndex[index] = perInstanceIndex;
                 payload.perInstanceOffset[index] = perInstanceOffset;
-     
-                payload.lodLevel[index] = selectedLod;
-        
                 payload.meshletIndex[index] = meshletIdx;
                 payload.meshletOffset[index] = meshletOffset;
             }
@@ -178,9 +179,9 @@ void msmain(
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
         vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));
-        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + skinnedVertex.localMaterialOffset * 3;
-        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + skinnedVertex.localMaterialOffset * 3 + 1;
-        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + skinnedVertex.localMaterialOffset * 3 + 2;
+        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
+        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 1;
+        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 2;
     }
 }
 
@@ -199,7 +200,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;
     
-    // Discard non solid geometry, value is just a guess works for my cases for now.
+    // Discard non solid geometry, in case for cutoff.
     if (albedo.a < 0.5f)
         discard;
    

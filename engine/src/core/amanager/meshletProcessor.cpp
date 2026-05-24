@@ -230,7 +230,9 @@ namespace engine
 		std::vector<uint32_t>& iOut,
 		size_t maxVert, size_t maxTriangles, float coneWieght,
 		float errorLevel,
-		size_t targetIndexCount
+		size_t targetIndexCount,
+		uint32_t materialOffset,
+		alphaModeType alphaType
 	)
 	{
 		mOut.clear();
@@ -306,6 +308,8 @@ namespace engine
 
 			mOut.push_back(
 				meshlet{
+					.alphaType = uint32_t(alphaType),
+					.localMaterialOffset = materialOffset,
 					.indexBufferIndex = 0,
 					.indexBufferOffset = m.vertex_offset,
 					.vertexBufferIndex = 0,
@@ -333,12 +337,16 @@ namespace engine
 		size_t vertexLen,
 		size_t sizeOfVertex,
 		const std::vector<uint32_t> i,
-		mesh& crntMesh,
+		std::vector<meshlet>& meshletsOut,
+		std::vector<uint32_t>& indicesOut,
+		std::vector<uint32_t>& repackedPrimitivesOut,
 		size_t targetIndexCount,
 		size_t maxVert,
 		size_t maxTriangles,
 		float coneWeight,
-		float errorLevel
+		float errorLevel,
+		uint32_t materialOffset,
+		alphaModeType alphaMode
 	)
 	{
 		std::vector<meshlet> meshlets;
@@ -357,33 +365,29 @@ namespace engine
 			maxTriangles,
 			coneWeight,
 			errorLevel,
-			targetIndexCount
+			targetIndexCount,
+			materialOffset,
+			alphaMode
 		);
 		if (err)
 			return err;
 
 		std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
 
-		for (auto& m : meshlets)
-		{
-			m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-			m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
-		}
-
-		crntMesh.indices.data.insert(
-			crntMesh.indices.data.end(),
+		indicesOut.insert(
+			indicesOut.end(),
 			std::move_iterator(indices.begin()),
 			std::move_iterator(indices.end())
 		);
 
-		crntMesh.primitives.data.insert(
-			crntMesh.primitives.data.end(),
+		repackedPrimitivesOut.insert(
+			repackedPrimitivesOut.end(),
 			std::move_iterator(repackedPrimitives.begin()),
 			std::move_iterator(repackedPrimitives.end())
 		);
 
-		crntMesh.meshlets.data.insert(
-			crntMesh.meshlets.data.end(),
+		meshletsOut.insert(
+			meshletsOut.end(),
 			std::move_iterator(meshlets.begin()),
 			std::move_iterator(meshlets.end())
 		);
@@ -393,11 +397,105 @@ namespace engine
 
 	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
 	{
+		auto addLodLevels = [](
+			mesh& crntMesh,
+			std::vector<meshlet>& meshletLod1,
+			std::vector<meshlet>& meshletLod2,
+			std::vector<meshlet>& meshletLod3,
+			std::vector<uint32_t>& indicesLod1,
+			std::vector<uint32_t>& indicesLod2,
+			std::vector<uint32_t>& indicesLod3,
+			std::vector<uint32_t>& primitivesLod1,
+			std::vector<uint32_t>& primitivesLod2,
+			std::vector<uint32_t>& primitivesLod3
+			)
+			{
+				for (auto& m : meshletLod1)
+				{
+					m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+				}
+
+				crntMesh.indices.second = uint32_t(crntMesh.indices.data.size());
+				crntMesh.primitives.second = uint32_t(crntMesh.primitives.data.size());
+				crntMesh.meshlets.second = uint32_t(crntMesh.meshlets.data.size());
+
+				crntMesh.indices.data.insert(
+					crntMesh.indices.data.end(),
+					std::move_iterator(indicesLod1.begin()),
+					std::move_iterator(indicesLod1.end())
+				);
+
+				crntMesh.primitives.data.insert(
+					crntMesh.primitives.data.end(),
+					std::move_iterator(primitivesLod1.begin()),
+					std::move_iterator(primitivesLod1.end())
+				);
+
+				crntMesh.meshlets.data.insert(
+					crntMesh.meshlets.data.end(),
+					std::move_iterator(meshletLod1.begin()),
+					std::move_iterator(meshletLod1.end())
+				);
+
+				for (auto& m : meshletLod2)
+				{
+					m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+				}
+
+				crntMesh.indices.third = uint32_t(crntMesh.indices.data.size());
+				crntMesh.primitives.third = uint32_t(crntMesh.primitives.data.size());
+				crntMesh.meshlets.third = uint32_t(crntMesh.meshlets.data.size());
+
+				crntMesh.indices.data.insert(
+					crntMesh.indices.data.end(),
+					std::move_iterator(indicesLod2.begin()),
+					std::move_iterator(indicesLod2.end())
+				);
+
+				crntMesh.primitives.data.insert(
+					crntMesh.primitives.data.end(),
+					std::move_iterator(primitivesLod2.begin()),
+					std::move_iterator(primitivesLod2.end())
+				);
+
+				crntMesh.meshlets.data.insert(
+					crntMesh.meshlets.data.end(),
+					std::move_iterator(meshletLod2.begin()),
+					std::move_iterator(meshletLod2.end())
+				);
+
+				for (auto& m : meshletLod3)
+				{
+					m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+				}
+
+				crntMesh.indices.fourth = uint32_t(crntMesh.indices.data.size());
+				crntMesh.primitives.fourth = uint32_t(crntMesh.primitives.data.size());
+				crntMesh.meshlets.fourth = uint32_t(crntMesh.meshlets.data.size());
+
+				crntMesh.indices.data.insert(
+					crntMesh.indices.data.end(),
+					std::move_iterator(indicesLod3.begin()),
+					std::move_iterator(indicesLod3.end())
+				);
+
+				crntMesh.primitives.data.insert(
+					crntMesh.primitives.data.end(),
+					std::move_iterator(primitivesLod3.begin()),
+					std::move_iterator(primitivesLod3.end())
+				);
+
+				crntMesh.meshlets.data.insert(
+					crntMesh.meshlets.data.end(),
+					std::move_iterator(meshletLod3.begin()),
+					std::move_iterator(meshletLod3.end())
+				);
+			};
+
 		std::pair<std::vector<mesh>, std::vector<perMeshAttributes>> result{};
-
-		LOGDEBUG("mesh count: {}", data->meshes_count);
-
-		uint32_t jointOffset = 0;
 
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
 		{
@@ -416,16 +514,24 @@ namespace engine
 			crntMeshAttrs.meshLocalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshLocalTransform)));
 			crntMeshAttrs.isSkinned = uint32_t(node->skin != nullptr);
 
-			// For tangent calculation and lod calculation.
-			std::vector<uint32_t> remappedIndexBuffer;
+			// For lod levels.
+			std::vector<meshlet> meshletLod1{};
+			std::vector<uint32_t> indicesLod1{};
+			std::vector<uint32_t> primitivesLod1{};
+
+			std::vector<meshlet> meshletLod2{};
+			std::vector<uint32_t> indicesLod2{};
+			std::vector<uint32_t> primitivesLod2{};
+
+			std::vector<meshlet> meshletLod3{};
+			std::vector<uint32_t> indicesLod3{};
+			std::vector<uint32_t> primitivesLod3{};
 
 			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
 			{
-				primitives crntPrimitive = processPrimitive(
+				primitive crntPrimitive = processPrimitive(
 					gtlfMesh.primitives[pri],
-					crntMeshAttrs.isSkinned,
-					uint32_t(gtlfMesh.primitives[pri].material - data->materials),
-					jointOffset
+					crntMeshAttrs.isSkinned
 				);
 
 				if (crntPrimitive.indicies.size() == 0 || (crntPrimitive.vertecies.size() == 0 && crntPrimitive.animVertecies.size() == 0))
@@ -478,6 +584,21 @@ namespace engine
 				if (err)
 					return err;
 
+				alphaModeType alphaMode = alphaModeType::opaque;
+
+				switch (gtlfMesh.primitives[pri].material->alpha_mode)
+				{
+				case cgltf_alpha_mode_opaque:
+					alphaMode = alphaModeType::opaque;
+					break;
+				case cgltf_alpha_mode_blend:
+					alphaMode = alphaModeType::blend;
+					break;
+				case cgltf_alpha_mode_mask:
+					alphaMode = alphaModeType::mask;
+					break;
+				}
+
 				std::vector<meshlet> meshlets;
 				std::vector<uint32_t> indices;
 				std::vector<uint8_t> primitives;
@@ -486,15 +607,26 @@ namespace engine
 				sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
 				vertexLen = crntMeshAttrs.isSkinned ? remappedAnimVertex.size() : remappedVertex.size();
 
-				err = generateMeshlets(positions, vertexLen, sizeOfVertex, remappedIndex, meshlets, primitives, indices, maxVert, maxTriangles, coneWeight, 0, 0);
+				err = generateMeshlets(
+					positions,
+					vertexLen,
+					sizeOfVertex,
+					remappedIndex,
+					meshlets,
+					primitives,
+					indices,
+					maxVert,
+					maxTriangles,
+					coneWeight,
+					0,
+					0,
+					uint32_t(gtlfMesh.primitives[pri].material - data->materials),
+					alphaMode
+				);
 				if (err)
 					return err;
 
 				std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
-
-				// Write indices for later lod level generation.
-				for (auto& i : remappedIndex)
-					remappedIndexBuffer.push_back(i + uint32_t(crntMesh.vertices.size()));
 
 				for (auto& m : meshlets)
 				{
@@ -502,8 +634,11 @@ namespace engine
 					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
 				}
 
+				size_t vertexBase = crntMeshAttrs.isSkinned ?
+					crntMesh.animVertices.size() : crntMesh.vertices.size();
+
 				for (auto& i : indices)
-					i += uint32_t(crntMesh.vertices.size());
+					i += uint32_t(vertexBase);
 
 				crntMesh.indices.data.insert(
 					crntMesh.indices.data.end(),
@@ -534,10 +669,60 @@ namespace engine
 					std::move_iterator(remappedAnimVertex.begin()),
 					std::move_iterator(remappedAnimVertex.end())
 				);
-			}
 
-			if (node->skin)
-				jointOffset += uint32_t(node->skin->joints_count);
+				std::vector<uint32_t> crntLodIndices{};
+
+				// LOD1
+				size_t meshletLod1Before = meshletLod1.size();
+				size_t indexLod1Before = indicesLod1.size();
+				size_t primLod1Before = primitivesLod1.size();
+
+				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod1, crntLodIndices, primitivesLod1, remappedIndex.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(gtlfMesh.primitives[pri].material - data->materials), alphaMode);
+				if (err) return err;
+
+				for (size_t m = meshletLod1Before; m < meshletLod1.size(); m++) 
+				{
+					meshletLod1[m].indexBufferOffset += uint32_t(indexLod1Before);
+					meshletLod1[m].triangleBufferOffset += uint32_t(primLod1Before);
+				}
+				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
+				indicesLod1.insert(indicesLod1.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
+				crntLodIndices.clear();
+
+				// LOD2
+				size_t meshletLod2Before = meshletLod2.size();
+				size_t indexLod2Before = indicesLod2.size();
+				size_t primLod2Before = primitivesLod2.size();
+
+				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod2, crntLodIndices, primitivesLod2, remappedIndex.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(gtlfMesh.primitives[pri].material - data->materials), alphaMode);
+				if (err) return err;
+
+				for (size_t m = meshletLod2Before; m < meshletLod2.size(); m++) 
+				{
+					meshletLod2[m].indexBufferOffset += uint32_t(indexLod2Before);
+					meshletLod2[m].triangleBufferOffset += uint32_t(primLod2Before);
+				}
+				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
+				indicesLod2.insert(indicesLod2.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
+				crntLodIndices.clear();
+
+				// LOD3
+				size_t meshletLod3Before = meshletLod3.size();
+				size_t indexLod3Before = indicesLod3.size();
+				size_t primLod3Before = primitivesLod3.size();
+
+				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod3, crntLodIndices, primitivesLod3, remappedIndex.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(gtlfMesh.primitives[pri].material - data->materials), alphaMode);
+				if (err) return err;
+
+				for (size_t m = meshletLod3Before; m < meshletLod3.size(); m++) 
+				{
+					meshletLod3[m].indexBufferOffset += uint32_t(indexLod3Before);
+					meshletLod3[m].triangleBufferOffset += uint32_t(primLod3Before);
+				}
+				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
+				indicesLod3.insert(indicesLod3.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
+				crntLodIndices.clear();
+			}
 
 			const glm::vec3* positions = crntMeshAttrs.isSkinned ? &crntMesh.animVertices.front().vert.position : &crntMesh.vertices.front().position;
 			size_t sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
@@ -548,32 +733,9 @@ namespace engine
 			crntMeshAttrs.bsCenter = sphere.first;
 			crntMeshAttrs.bsRadius = sphere.second;
 
-			// Generate lod levels.
-			crntMesh.indices.second = uint32_t(crntMesh.indices.data.size());
-			crntMesh.primitives.second = uint32_t(crntMesh.primitives.data.size());
-			crntMesh.meshlets.second = uint32_t(crntMesh.meshlets.data.size());
+			addLodLevels(crntMesh, meshletLod1, meshletLod2, meshletLod3, indicesLod1, indicesLod2, indicesLod3, primitivesLod1, primitivesLod2, primitivesLod3);
 
-			error err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel);
-			if (err)
-				return err;
-
-			crntMesh.indices.third = uint32_t(crntMesh.indices.data.size());
-			crntMesh.primitives.third = uint32_t(crntMesh.primitives.data.size());
-			crntMesh.meshlets.third = uint32_t(crntMesh.meshlets.data.size());
-
-			err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel);
-			if (err)
-				return err;
-
-			crntMesh.indices.fourth = uint32_t(crntMesh.indices.data.size());
-			crntMesh.primitives.fourth = uint32_t(crntMesh.primitives.data.size());
-			crntMesh.meshlets.fourth = uint32_t(crntMesh.meshlets.data.size());
-
-			err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndexBuffer, crntMesh, remappedIndexBuffer.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel);
-			if (err)
-				return err;
-
-			crntMesh.generateHash();
+			crntMesh.generateHashes();
 
 			result.first.push_back(std::move(crntMesh));
 			result.second.push_back(std::move(crntMeshAttrs));
@@ -634,7 +796,7 @@ namespace engine
 		processSkinNode = [&](const cgltf_node* root, const cgltf_skin* s, const cgltf_data* data, skin& result, int parentIdx, std::map<const cgltf_node*, std::pair<size_t, size_t>>& nodeToJoint)
 			{
 				joint j{};
-				
+
 				j.localTransform = getNodeLocalTransform(root);
 				j.inverseBind = getInverseBindForNode(s, root);
 				j.isSkinJoint = std::any_of(s->joints, s->joints + s->joints_count,

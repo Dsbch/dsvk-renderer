@@ -286,7 +286,7 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		error err = mPipelineRegistry.createPipeline(
+		error err = mPipelineRegistry.initAccumilatePipeline(
 			device,
 			pixel.value(),
 			meshlets.value(),
@@ -294,8 +294,7 @@ namespace engine
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
 			{ sChain.getAccumImageFormat(), sChain.getRevealImageFormat() },
-			mPreset,
-			true
+			mPreset
 		);
 		if (err)
 			return err;
@@ -312,7 +311,7 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		err = mPipelineRegistry.createPipeline(
+		err = mPipelineRegistry.initCompositePipeline(
 			device,
 			pixel.value(),
 			meshlets.value(),
@@ -320,9 +319,7 @@ namespace engine
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
 			{ sChain.getDrawImageFormat() },
-			mPreset,
-			false,
-			true
+			mPreset
 		);
 		if (err)
 			return err;
@@ -381,11 +378,11 @@ namespace engine
 	{
 		auto blendingPipelines = mPipelineRegistry.getBlendPipelines();
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.pipeline.getPipeline().first);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.getPipeline().first);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.pipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
 
@@ -487,7 +484,7 @@ namespace engine
 			if (crntMeshAttrs.isSkinned)
 			{
 				auto handle = mAnimVertexRegistry.addBlock(
-					crntMesh.hash,
+					crntMesh.vertexHash,
 					crntMesh.animVertices.data(),
 					crntMesh.animVertices.size() * vertexSize,
 					is
@@ -500,7 +497,7 @@ namespace engine
 			else
 			{
 				auto handle = mVertexRegistry.addBlock(
-					crntMesh.hash,
+					crntMesh.vertexHash,
 					crntMesh.vertices.data(),
 					crntMesh.vertices.size() * vertexSize,
 					is
@@ -512,7 +509,7 @@ namespace engine
 			}
 
 			auto perMeshHandle = mPerMeshRegistry.addBlock(
-				crntMesh.hash,
+				crntMesh.meshHash,
 				&crntMeshAttrs,
 				sizeof(perMeshAttributes),
 				is
@@ -531,7 +528,7 @@ namespace engine
 			}
 
 			auto handle = mIndexRegistry.addBlock(
-				crntMesh.hash,
+				crntMesh.vertexHash,
 				crntMesh.indices.data.data(),
 				crntMesh.indices.data.size() * sizeof(uint32_t),
 				is
@@ -546,7 +543,7 @@ namespace engine
 			}
 
 			handle = mPrimitiveRegistry.addBlock(
-				crntMesh.hash,
+				crntMesh.vertexHash,
 				crntMesh.primitives.data.data(),
 				crntMesh.primitives.data.size() * sizeof(uint32_t),
 				is
@@ -561,7 +558,7 @@ namespace engine
 			}
 
 			handle = mMeshletRegistry.addBlock(
-				crntMesh.hash,
+				crntMesh.meshletHash,
 				meshlets.data(),
 				meshlets.size() * sizeof(meshlet),
 				is
@@ -569,11 +566,12 @@ namespace engine
 			if (!handle)
 				return handle.err();
 
-			addParams.meshesData.push_back(pipelineRegistry::meshes{
-					.meshID = crntMesh.hash,
-					.meshletHandle = handle.value(),
-					.meshlets = crntMesh.meshlets,
-				}
+			addParams.meshesData.push_back(
+					pipelineRegistry::meshes{
+						.meshID = crntMesh.meshHash,
+						.meshletHandle = handle.value(),
+						.meshlets = crntMesh.meshlets,
+					}
 				);
 		}
 
@@ -622,27 +620,27 @@ namespace engine
 		for (auto& crntMesh : *m.meshData.get())
 		{
 			// Remove instance.
-			mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, crntMesh.hash);
+			mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, crntMesh.meshHash);
 
 			// Remove animation data.
 			mJointRegistry.deleteBlock(m.id);
 
 			// Mesh isn't used.
-			if (!mPipelineRegistry.meshIsUsed(crntMesh.hash))
+			if (!mPipelineRegistry.meshIsUsed(crntMesh.meshHash))
 			{
-				mVertexRegistry.deleteBlock(crntMesh.hash);
+				mVertexRegistry.deleteBlock(crntMesh.vertexHash);
 
-				mAnimVertexRegistry.deleteBlock(crntMesh.hash);
+				mAnimVertexRegistry.deleteBlock(crntMesh.meshHash);
 
-				mIndexRegistry.deleteBlock(crntMesh.hash);
+				mIndexRegistry.deleteBlock(crntMesh.meshHash);
 
-				mPrimitiveRegistry.deleteBlock(crntMesh.hash);
+				mPrimitiveRegistry.deleteBlock(crntMesh.meshHash);
 
-				mMeshletRegistry.deleteBlock(crntMesh.hash);
+				mMeshletRegistry.deleteBlock(crntMesh.meshletHash);
 
 				mMaterialRegistry.deleteMaterials(m.mat);
 
-				mPerMeshRegistry.deleteBlock(crntMesh.hash);
+				mPerMeshRegistry.deleteBlock(crntMesh.meshHash);
 			}
 		}
 	}

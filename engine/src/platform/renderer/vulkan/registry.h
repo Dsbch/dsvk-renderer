@@ -62,7 +62,6 @@ namespace engine
 	// PipelineData and pipeLineRegistry structs manage pipeline creation and constrcting command buffer for task shader.
 	struct pipelineData
 	{
-	public:
 		error init(
 			VkDevice device,
 			std::shared_ptr<const shader> pixelShader,
@@ -71,9 +70,7 @@ namespace engine
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
 			const std::vector<VkFormat>& colorAttachmentFormats,
-			VkSampleCountFlagBits sampleCount,
-			bool accumilatePipeline = false,
-			bool compositePipeline = false
+			VkSampleCountFlagBits sampleCount
 		);
 		void destroy();
 
@@ -88,6 +85,27 @@ namespace engine
 	{
 	public:
 		error init(VkDevice device, VmaAllocator allocator, submit& is);
+		error initAccumilatePipeline(
+			VkDevice device,
+			std::shared_ptr<const shader> pixelShader,
+			std::shared_ptr<const shader> meshShader,
+			std::shared_ptr<const shader> taskShader,
+			const std::vector<VkDescriptorSetLayout>& descriptorSets,
+			VkFormat depthFormat,
+			const std::initializer_list<VkFormat>& colorAttachmentFormats,
+			graphicsPreset preset
+		);
+		error initCompositePipeline(
+			VkDevice device,
+			std::shared_ptr<const shader> pixelShader,
+			std::shared_ptr<const shader> meshShader,
+			std::shared_ptr<const shader> taskShader,
+			const std::vector<VkDescriptorSetLayout>& descriptorSets,
+			VkFormat depthFormat,
+			const std::initializer_list<VkFormat>& colorAttachmentFormats,
+			graphicsPreset preset
+		);
+
 		void destroy();
 
 		error createPipeline(
@@ -98,9 +116,7 @@ namespace engine
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
 			const std::initializer_list<VkFormat>& colorAttachmentFormats,
-			graphicsPreset preset,
-			bool accumilatePipeline = false,
-			bool compositePipeline = false
+			graphicsPreset preset
 		);
 
 		struct meshes
@@ -133,7 +149,7 @@ namespace engine
 			uint32_t cmdPipelineEndOffset;
 		};
 		const std::map<pixelShaderHash, taskShaderRender> getOpaquePipelines() const;
-		const std::pair<taskShaderRender, pipelineData> getBlendPipelines() const;
+		const std::pair<taskShaderRender, classicGraphicPipeline> getBlendPipelines() const;
 
 		error updateCommandBuffer(submit& is);
 
@@ -148,8 +164,8 @@ namespace engine
 
 		std::map<pixelShaderHash, taskShaderRender> mCmdMappings;
 		std::map<pixelShaderHash, pipelineData> mPipelines;
-		pipelineData mAccumilatePipeline;
-		pipelineData mCompositePipeline;
+		classicGraphicPipeline mAccumilatePipeline;
+		classicGraphicPipeline mCompositePipeline;
 	};
 
 	struct materialRegistry

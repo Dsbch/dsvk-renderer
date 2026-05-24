@@ -30,29 +30,6 @@ namespace engine
 			return static_cast<uint32_t>(std::floor(std::log2((std::max)(w, h)))) + 1;
 		}
 
-		bool isTransperent()
-		{
-			if (channels != 4)
-				return false;
-
-			auto ptr = data.begin();
-
-			uint32_t transperentCound = 0;
-
-			for (int r = 0; r < h; r++)
-			{
-				for (int p = 0; p < w; p++)
-				{	
-					if (ptr[3] / 255.0f < 0.5f)
-						return true;
-
-					ptr += channels;
-				}
-			}
-
-			return false;
-		}
-
 		static uint32_t mipLevels(int w, int h)
 		{
 			return static_cast<uint32_t>(std::floor(std::log2((std::max)(w, h)))) + 1;

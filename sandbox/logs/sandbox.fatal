@@ -2592,3 +2592,119 @@ D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scr
 D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
 00007FF8558F7374 (KERNEL32): (filename not available): BaseThreadInitThunk
 00007FF8564FCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0524 01:32:47.294] SIGABRT: aborted
+00007FFF9C749E77 (ucrtbased): (filename not available): raise
+00007FFF9C7457DE (ucrtbased): (filename not available): setmbcp
+00007FFF9C7465B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFF9C748006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFF9C746499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFF9C7347F1 (ucrtbased): (filename not available): _threadid
+00007FFF9C7349A3 (ucrtbased): (filename not available): _threadid
+00007FFF9C74BA9D (ucrtbased): (filename not available): abort
+00007FFF9C751715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF9C751387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF9C74F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFF9C751C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (63): meshopt::updateEdgeAdjacency
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (1875): meshopt_simplifyEdge
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (2094): meshopt_simplify
+C:\code\C++\engine\vendor\meshoptimizer\src\meshoptimizer.h (1189): meshopt_simplify<unsigned int>
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (247): engine::generateMeshlets
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (356): engine::generateLodLevel
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (673): engine::proccessMeshes
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (312): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (172): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+00000245840C0060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+0000009208BFEA30 ((module-name not available)): (filename not available): (function-name not available)
+00000244FE314200 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0524 11:44:18.207] SIGABRT: aborted
+00007FFFADA99E77 (ucrtbased): (filename not available): raise
+00007FFFADA957DE (ucrtbased): (filename not available): setmbcp
+00007FFFADA965B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFADA98006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFFADA96499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFFADA847F1 (ucrtbased): (filename not available): _threadid
+00007FFFADA849A3 (ucrtbased): (filename not available): _threadid
+00007FFFADA9BA9D (ucrtbased): (filename not available): abort
+00007FFFADAA1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFADAA1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFADA9F378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFADAA1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (63): meshopt::updateEdgeAdjacency
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (1875): meshopt_simplifyEdge
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (2094): meshopt_simplify
+C:\code\C++\engine\vendor\meshoptimizer\src\meshoptimizer.h (1189): meshopt_simplify<unsigned int>
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (247): engine::generateMeshlets
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (356): engine::generateLodLevel
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (675): engine::proccessMeshes
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (312): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (202): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+0000015F82212060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+0000003AF7CFEEB0 ((module-name not available)): (filename not available): (function-name not available)
+0000015E6CC601B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0524 13:07:53.280] SIGABRT: aborted
+00007FFFBD2B9E77 (ucrtbased): (filename not available): raise
+00007FFFBD2B57DE (ucrtbased): (filename not available): setmbcp
+00007FFFBD2B65B3 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFBD2B8006 (ucrtbased): (filename not available): VCrtDbgReportW
+00007FFFBD2B6499 (ucrtbased): (filename not available): CrtDbgReportW
+00007FFFBD2A47F1 (ucrtbased): (filename not available): _threadid
+00007FFFBD2A49A3 (ucrtbased): (filename not available): _threadid
+00007FFFBD2BBA9D (ucrtbased): (filename not available): abort
+00007FFFBD2C1715 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFBD2C1387 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFBD2BF378 (ucrtbased): (filename not available): get_wide_winmain_command_line
+00007FFFBD2C1C7F (ucrtbased): (filename not available): wassert
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (63): meshopt::updateEdgeAdjacency
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (1875): meshopt_simplifyEdge
+C:\code\C++\engine\vendor\meshoptimizer\src\simplifier.cpp (2094): meshopt_simplify
+C:\code\C++\engine\vendor\meshoptimizer\src\meshoptimizer.h (1189): meshopt_simplify<unsigned int>
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (247): engine::generateMeshlets
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (356): engine::generateLodLevel
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (686): engine::proccessMeshes
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (312): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (187): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+0000022282F63060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000339E5FEE70 ((module-name not available)): (filename not available): (function-name not available)
+00000221C9494280 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0524 13:17:31.972] SIGABRT: aborted
+00007FFFAC899E77 (ucrtbased): (filename not available): raise
+00007FFFAC8950CF (ucrtbased): (filename not available): setmbcp
+00007FFFAC896563 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FFFAC897422 (ucrtbased): (filename not available): VCrtDbgReportA
+00007FFFAC896409 (ucrtbased): (filename not available): CrtDbgReport
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (1270): std::vector<unsigned int,std::allocator<unsigned int> >::insert<std::move_iterator<std::_Vector_iterator<std::_Vector_val<std::_Simple_types<unsigned int> > > >,0>
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (685): engine::proccessMeshes
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (312): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (187): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000001E7020BF060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+0000000633EFEB80 ((module-name not available)): (filename not available): (function-name not available)
+000001E6786D81B0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)

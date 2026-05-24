@@ -20,7 +20,6 @@ namespace engine
 	struct vertex
 	{
 		glm::vec3 position;
-		uint32_t localMaterialOffset;
 		glm::vec2 textureCoords;
 		glm::vec3 normal;
 		glm::vec4 tangent;
@@ -75,6 +74,9 @@ namespace engine
 
 	struct meshlet
 	{
+		uint32_t alphaType;
+		uint32_t localMaterialOffset;
+
 		uint32_t indexBufferIndex;
 		uint32_t indexBufferOffset;
 
@@ -109,21 +111,32 @@ namespace engine
 		dataWithLodLevels<uint32_t> primitives;
 		dataWithLodLevels<meshlet> meshlets;
 
-		uint32_t hash = 0;
+		uint32_t meshHash = 0;
+		uint32_t vertexHash = 0;
+		uint32_t meshletHash = 0;
 
-		uint32_t generateHash()
+		void generateHashes()
 		{
-			if (hash != 0)
-				return hash;
+			if (vertexHash != 0 && meshletHash != 0 && meshHash != 0)
+				return;
 
 			const uint8_t* ptr = vertices.size() == 0 ? reinterpret_cast<const uint8_t*>(animVertices.data()) : reinterpret_cast<const uint8_t*>(vertices.data());
 			size_t size = vertices.size() == 0 ? animVertices.size() : vertices.size();
 			size_t sizeOf = vertices.size() == 0 ? sizeof(animVertex) : sizeof(vertex);
 
-			hash = crc32(ptr, size * sizeOf / sizeof(uint8_t));
+			vertexHash = crc32(ptr, size * sizeOf / sizeof(uint8_t));
 
-			return hash;
+			meshletHash = crc32(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
+
+			meshHash = mergeCrc32({ vertexHash, meshletHash });
 		}
+	};
+
+	enum class alphaModeType
+	{
+		opaque,
+		blend,
+		mask,
 	};
 
 	struct materialTextures
@@ -131,7 +144,7 @@ namespace engine
 		std::shared_ptr<const texture> albedo;
 		std::shared_ptr<const texture> normal;
 		std::shared_ptr<const texture> metallicRoughness;
-		bool isTransperent;
+		alphaModeType alphaMode;
 	};
 
 	struct materials
@@ -155,6 +168,15 @@ namespace engine
 			}
 
 			hash = mergeCrc32(crcVals);
+		}
+
+		bool hasBlendMaterials() const
+		{
+			for (auto& matText : textures)
+				if (matText.alphaMode == alphaModeType::blend)
+					return true;
+
+			return false;
 		}
 	};
 
@@ -194,7 +216,7 @@ namespace engine
 		float currentTimeStamp;
 		size_t skinIndex;
 		size_t jointIndex;
-		
+
 		std::shared_ptr<const std::vector<float>> timestamps;
 		std::shared_ptr<const std::vector<transform>> keyframes;
 	};
@@ -211,7 +233,7 @@ namespace engine
 	{
 		float  bsRadius;
 		glm::vec3 bsCenter;
-		
+
 		uint32_t isSkinned;
 		glm::mat4 meshLocalTransform;
 		glm::mat4 meshGlobalTransform;

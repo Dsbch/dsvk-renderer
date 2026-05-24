@@ -19,7 +19,6 @@
 struct vertex
 {
     float3 position;
-    uint localMaterialOffset;
     float2 textureCoords;
     float3 normal;
     float4 tangent;
@@ -46,6 +45,9 @@ struct meshletBounds
 
 struct meshlet
 {
+    uint alphaType;
+    uint localMaterialOffset;
+
     uint indexBufferIndex;
     uint indexBufferOffset;
     

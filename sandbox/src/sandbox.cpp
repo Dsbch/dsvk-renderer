@@ -182,6 +182,21 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
+			if (event->getKey() == engine::key::o)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/AlphaBlendModeTest.glb");
+				if (!loadedModel)
+					return loadedModel.err();
+
+				auto tr = generateTransform();
+				engine::entity e{ mCtx, registry };
+
+				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::newEntityComponent>();
+			}
+
 			if (event->getKey() == engine::key::y)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/bistro_outside.glb");

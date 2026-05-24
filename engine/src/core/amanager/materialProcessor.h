@@ -2,6 +2,7 @@
 
 #include <pch.h>
 #include "platform/renderer/texture.h"
+#include "platform/renderer/vertex.h"
 
 struct cgltf_texture;
 struct cgltf_material;
@@ -18,6 +19,7 @@ namespace engine
 		image albedo;
 		image normal;
 		image metallicRoughness;
+		alphaModeType alphaMode;
 	};
 
 	struct mippedImages

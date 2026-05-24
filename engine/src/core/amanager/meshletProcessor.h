@@ -43,7 +43,9 @@ namespace engine
 		std::vector<uint32_t>& iOut,
 		size_t maxVert, size_t maxTriangles, float coneWieght,
 		float errorLevel,
-		size_t targetIndexCount
+		size_t targetIndexCount,
+		uint32_t materialOffset,
+		alphaModeType alphaType
 	);
 
 	error generateLodLevel(
@@ -51,12 +53,16 @@ namespace engine
 		size_t vertexLen,
 		size_t sizeOfVertex,
 		const std::vector<uint32_t> i,
-		mesh& crntMesh,
+		std::vector<meshlet>& meshletsOut,
+		std::vector<uint32_t>& indicesOut,
+		std::vector<uint32_t>& repackedPrimitivesOut,
 		size_t targetIndexCount,
 		size_t maxVert,
 		size_t maxTriangles,
 		float coneWeight,
-		float errorLevel
+		float errorLevel,
+		uint32_t materialOffset,
+		alphaModeType alphaMode
 	);
 
 	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel);

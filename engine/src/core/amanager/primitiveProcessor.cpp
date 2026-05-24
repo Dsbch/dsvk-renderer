@@ -54,9 +54,9 @@ namespace engine
 		return getNodeWorldTransformMat4(node->parent) * getNodeLocalTransformMat4(node);
 	}
 
-	primitives processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t localMaterialOffset, uint32_t jointOffset)
+	primitive processPrimitive(const cgltf_primitive& prim, bool skinned)
 	{
-		primitives result{};
+		primitive result{};
 
 		const cgltf_accessor* positionAccessor = nullptr;
 		const cgltf_accessor* normalAccessor = nullptr;
@@ -111,9 +111,7 @@ namespace engine
 				{
 					animVertex animV{};
 
-					vertex v{
-						.localMaterialOffset = localMaterialOffset,
-					};
+					vertex v{};
 
 					float pos[3]{};
 					cgltf_accessor_read_float(positionAccessor, i, pos, 3);
@@ -142,11 +140,6 @@ namespace engine
 
 						float weights[4]{};
 						cgltf_accessor_read_float(weightsAccessor, i, weights, 4);
-
-						joints[0] += jointOffset;
-						joints[1] += jointOffset;
-						joints[2] += jointOffset;
-						joints[3] += jointOffset;
 
 						animV.joints[0] = joints[0];
 						animV.joints[1] = joints[1];

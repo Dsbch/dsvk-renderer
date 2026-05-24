@@ -187,9 +187,7 @@ namespace engine
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
 		const std::vector<VkFormat>& colorAttachmentFormats,
-		VkSampleCountFlagBits sampleCount,
-		bool accumilatePipeline,
-		bool compositePipeline
+		VkSampleCountFlagBits sampleCount
 	)
 	{
 		needUpdate = false;
@@ -217,21 +215,8 @@ namespace engine
 
 		pipeline.setMultisampling(sampleCount);
 
-		if (accumilatePipeline)
-		{
-			pipeline.enableBlendingOITAccumulation();
-			pipeline.enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
-		}
-		else if (compositePipeline)
-		{
-			pipeline.enableBlendingOITComposite();
-			pipeline.disableDepthtest();
-		}
-		else
-		{
-			pipeline.disableBlending();
-			pipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-		}
+		pipeline.disableBlending();
+		pipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 		//connect the image format we will draw into, from draw image
 		pipeline.setColorAttachmentFormats(colorAttachmentFormats);
@@ -266,6 +251,102 @@ namespace engine
 		return {};
 	}
 
+	error pipelineRegistry::initAccumilatePipeline(
+		VkDevice device,
+		std::shared_ptr<const shader> pixelShader,
+		std::shared_ptr<const shader> meshShader,
+		std::shared_ptr<const shader> taskShader,
+		const std::vector<VkDescriptorSetLayout>& descriptorSets,
+		VkFormat depthFormat,
+		const std::initializer_list<VkFormat>& colorAttachmentFormats,
+		graphicsPreset preset
+	)
+	{
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(pushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_ALL;
+
+		// init pipeline.
+		mAccumilatePipeline.init(device);
+
+		//connecting the vertex and pixel shaders to the pipeline
+		mAccumilatePipeline.setShaders(
+			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+		);
+
+		mAccumilatePipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		mAccumilatePipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
+
+		// Back face culling is done in shaders.
+		mAccumilatePipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+
+		mAccumilatePipeline.setMultisampling(sampleCounts(preset.msaa));
+
+		mAccumilatePipeline.enableBlendingOITAccumulation();
+		mAccumilatePipeline.enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+		//connect the image format we will draw into, from draw image
+		mAccumilatePipeline.setColorAttachmentFormats(colorAttachmentFormats);
+		mAccumilatePipeline.setDepthFormat(depthFormat);
+
+		error err = mAccumilatePipeline.build(&pc, descriptorSets, true);
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	error pipelineRegistry::initCompositePipeline(
+		VkDevice device,
+		std::shared_ptr<const shader> pixelShader,
+		std::shared_ptr<const shader> meshShader,
+		std::shared_ptr<const shader> taskShader,
+		const std::vector<VkDescriptorSetLayout>& descriptorSets,
+		VkFormat depthFormat,
+		const std::initializer_list<VkFormat>& colorAttachmentFormats,
+		graphicsPreset preset
+	)
+	{
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(pushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_ALL;
+
+		// init pipeline.
+		mCompositePipeline.init(device);
+
+		//connecting the vertex and pixel shaders to the pipeline
+		mCompositePipeline.setShaders(
+			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+		);
+
+		mCompositePipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		mCompositePipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
+
+		// Back face culling is done in shaders.
+		mCompositePipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+
+		mCompositePipeline.setMultisampling(sampleCounts(preset.msaa));
+
+		mCompositePipeline.enableBlendingOITComposite();
+		mCompositePipeline.disableDepthtest();
+
+		//connect the image format we will draw into, from draw image
+		mCompositePipeline.setColorAttachmentFormats(colorAttachmentFormats);
+		mCompositePipeline.setDepthFormat(depthFormat);
+
+		error err = mCompositePipeline.build(&pc, descriptorSets, true);
+		if (err)
+			return err;
+
+		return {};
+	}
+
 	void pipelineRegistry::destroy()
 	{
 		for (auto& [_, p] : mPipelines)
@@ -284,9 +365,7 @@ namespace engine
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
 		const std::initializer_list<VkFormat>& colorAttachmentFormats,
-		graphicsPreset preset,
-		bool accumilatePipeline,
-		bool compositePipeline
+		graphicsPreset preset
 	)
 	{
 		if (mPipelines.find(pixelShader->hash()) != mPipelines.end())
@@ -302,19 +381,12 @@ namespace engine
 			descriptorSets, 
 			depthFormat, 
 			colorAttachmentFormats, 
-			sampleCounts(preset.msaa),
-			accumilatePipeline,
-			compositePipeline
+			sampleCounts(preset.msaa)
 		);
 		if (err)
 			return err;
-
-		if (accumilatePipeline)
-			mAccumilatePipeline = pipeline;
-		else if (compositePipeline)
-			mCompositePipeline = pipeline;
-		else
-			mPipelines.insert({ pixelShader->hash(), pipeline });
+		
+		mPipelines.insert({ pixelShader->hash(), pipeline });
 
 		return {};
 	}
@@ -408,16 +480,16 @@ namespace engine
 		return mCmdMappings;
 	}
 
-	const std::pair<pipelineRegistry::taskShaderRender, pipelineData> pipelineRegistry::getBlendPipelines() const
+	const std::pair<pipelineRegistry::taskShaderRender, classicGraphicPipeline> pipelineRegistry::getBlendPipelines() const
 	{
-		pipelineRegistry::taskShaderRender fullOpaqueRender = {
-			.pipeline = mAccumilatePipeline.pipeline.getPipeline().first,
-			.layout = mAccumilatePipeline.pipeline.getPipeline().second,
+		pipelineRegistry::taskShaderRender fullTransperentRender = {
+			.pipeline = mAccumilatePipeline.getPipeline().first,
+			.layout = mAccumilatePipeline.getPipeline().second,
 			.cmdPipelineStartOffset = 0,
 			.cmdPipelineEndOffset = uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD)),
 		};
 
-		return { fullOpaqueRender, mCompositePipeline };
+		return { fullTransperentRender, mCompositePipeline };
 	}
 
 	error pipelineRegistry::updateCommandBuffer(submit& is)
