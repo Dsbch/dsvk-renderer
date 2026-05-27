@@ -3,59 +3,33 @@
 #include "sandbox.h"
 
 /*
-	Implemented:
-		1. Full mesh shader geometry pass with instancing, and simple culling - DONE.
+	DONE:
+		1. Full mesh shader geometry pass with instancing, and simple culling.
 			Added culling types:
-				1.1. Backface culling first in task shader next in mesh shader - DONE.
-				1.2. Frustum culling in task shader - DONE.
-		2. Integraion with ECS - DONE.
-		3. Added material proccessing for PBR metallic workflow - DONE.
-		4. Added OIT algoritm - DONE.
-
-	To implement:
-
-	Core engine systems:
-		1. Added animation system - in development.
-		2. Add VCT for global illumination and soft shadows - on hold.
-			3.1. Optional: add shadow mapping for hard shadows - on hold.
-		3. Two phase HZB oclussion culling - on hold.
-		4. Add postproccessing like bloom, focus etc - on hold.
-		5. Get your bsdf and brdf together - on hold.
-
-	Optimizations:
-		1. Optimize OIT pass - DONE.
-			Need to combine two passes: geometry and accumilation in one pass or figure out how to optimize them individually.
-			Huge performance drop because I have two passes that run the same task and mesh shader for the WHOLE scene.
-			Or add to accumilation pass models that only have materials with alpha < 0.5f.
-
-		2. Also need to make skinning in compute shader. That price should be payed only ONCE! Do not skin entities that are not in frustum - in development.
-
-	Cuncurrency:
-		1. Switch to true corutines instead of threadPool. Right now you have a big problem with your thread pool.
-			Your thread pool will block thread until it release a lock, it's pretty bad - DONE.
-
-	Graphics:
-		1. Global illumination with radiance cascades - on hold.
-
-	Physics:
-		1. Add jolt CPU side physics - on hold.
-
-	Asset manager:
-		1. Own file format. Ser/Dser of whole ECS - on hold.
-		2. Own save files - on hold.
-
-	Editor:
-		1. Simple debug window - on hold.
-		2. Add guismos - on hold.
-
-	Current development TODO:
-		1. Figure out how to handle animations updates. For now I need more flat structure for joints parent to child. Also look for copy leaks on each frame.
-		 1.1. It should handle at least 1K animated objects before starting to lag.
-		2. Frustum culling for animated meshes doesn't work. Need to fix it.
-		3. When animation not in frustum do not update it at all. Just accumilate deltaTime.
-			Then when it comes back to frustum update it to correct animatation with accumilated deltaTime.
-		4. For mapped buffers I need to accumilate updates in some buffer and then flush them later. All at once. 
-			MAY BE not required and simple mapped buffer with frequent updates is enough.
+				1.1. Backface culling first in task shader next in mesh shader.
+				1.2. Frustum culling in task shader.
+		2. Integraion with ECS.
+		3. Added material proccessing for PBR metallic workflow.
+		4. Added OIT algoritm.
+		5. Optimized OIT.
+		6. Added concurrency library to the project libcoost.
+		7. Added simple GPU profiling window.
+	
+	IN DEVELOPMENT:
+		1. Add animation system, with skinning in compute shader.
+	
+	TODO:
+		1. Two phase HZB occlision culling.
+		2. Add shadow mapping for soft and hard shadows.
+		3. Global illumination and reflections with radiance cascades.
+		4. Add jolt CPU side physics.
+		5. Add postproccessing like bloom, focus etc.
+		6. Get your bsdf and brdf together.
+	
+		Optional:
+			1. Own file format. Ser/Dser of whole ECS.
+			2. Own save files.
+			3. Add guismos.
 */
 int main(int argc, char* argv[])
 {
