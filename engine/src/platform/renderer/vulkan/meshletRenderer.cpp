@@ -26,23 +26,24 @@ namespace engine
 
 		mBindings = meshletBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 13,
+			.totalDescriptorsCount = 14,
 
-			.accumBinding = 11,
-			.revealBinding = 12,
+			.accumBinding = 12,
+			.revealBinding = 13,
 			.vertexBinding = 0,
 			.animVertexBinding = 1,
 			.perInstanceBinding = 2,
-			.meshletCmdBinding = 3,
-			.indexBinding = 4,
-			.primitiveBinding = 5,
-			.meshletBinding = 6,
-			.jointsBinding = 7,
-			.perMeshBinding = 8,
+			.cmdOpaqueBufferBinding = 3,
+			.cmdAccumilationBufferBinding = 4,
+			.indexBinding = 5,
+			.primitiveBinding = 6,
+			.meshletBinding = 7,
+			.jointsBinding = 8,
+			.perMeshBinding = 9,
 
-			.perDrawBufferUboBinding = 9,
+			.perDrawBufferUboBinding = 10,
 
-			.materialArrayBinding = 10,
+			.materialArrayBinding = 11,
 		};
 
 		mDeletionQueue.init(device);
@@ -149,7 +150,7 @@ namespace engine
 			return err;
 
 		const uint32_t combinedImageSamplers = 3;
-		const uint32_t bufferObjects = 9;
+		const uint32_t bufferObjects = 10;
 		const uint32_t uniformObjects = 1;
 
 		// add bindings for blending stage.
@@ -193,7 +194,13 @@ namespace engine
 
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.meshletCmdBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.cmdOpaqueBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+		
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.cmdAccumilationBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
@@ -327,11 +334,11 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::drawOpaqueGeometry(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		auto pipelines = mPipelineRegistry.getOpaquePipelines();
+		auto pipelinesMappings = mPipelineRegistry.getOpaquePipelines();
 
-		for (auto& [_, v] : pipelines)
+		for (auto& v : pipelinesMappings)
 		{
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.pipeline);
 
@@ -352,37 +359,41 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::drawTransperentGeometry(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		auto blendingPipelines = mPipelineRegistry.getBlendPipelines();
+		auto blendingPipeline = mPipelineRegistry.getAccumilationPipeline();
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.first.pipeline);
+		// Nothing to render.
+		if (blendingPipeline.cmdPipelineEndOffset == 0)
+			return {};
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
 
 		pushConstants pc{
-			.commandBufferOffset = blendingPipelines.first.cmdPipelineStartOffset,
-			.meshletCount = blendingPipelines.first.cmdPipelineEndOffset - blendingPipelines.first.cmdPipelineStartOffset,
+			.commandBufferOffset = blendingPipeline.cmdPipelineStartOffset,
+			.meshletCount = blendingPipeline.cmdPipelineEndOffset - blendingPipeline.cmdPipelineStartOffset,
 		};
 
-		vkCmdPushConstants(cmd, blendingPipelines.first.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+		vkCmdPushConstants(cmd, blendingPipeline.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.first.layout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.layout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 
 		return {};
 	}
 
-	error meshletRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		auto blendingPipelines = mPipelineRegistry.getBlendPipelines();
+		auto blendingPipeline = mPipelineRegistry.getCompositePipeline();
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.getPipeline().first);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.getPipeline().first);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipelines.second.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
 
@@ -470,6 +481,7 @@ namespace engine
 			.instanceID = m.id,
 			.perInstanceHandle = perInstanceHandle.value(),
 			.meshesData = {},
+			.isBlendGeometry = m.mat.hasBlendMaterials(),
 		};
 
 		for (int i = 0; i < m.meshData->size(); i++)
@@ -648,16 +660,28 @@ namespace engine
 	error meshletRenderer::updateDescriptors(renderer::renderCallIn in, submit& is)
 	{
 		// Update command buffer for mesh pipeline.
-		error err = mPipelineRegistry.updateCommandBuffer(is);
+		error err = mPipelineRegistry.updateOpaqueCmdBuffer(is);
 		if (err)
 			return err;
 
-		// update buffers.
-		if (mPipelineRegistry.needDescriptorUpdate())
+		err = mPipelineRegistry.updateAccumilationCmdBuffer(is);
+		if (err)
+			return err;
+
+		// update cmd opaque buffer.
+		if (mPipelineRegistry.needOpaqueDescriptorUpdate())
 		{
-			auto writeInfo = mPipelineRegistry.getWriteInfo(mBindings.meshletCmdBinding);
+			auto writeInfo = mPipelineRegistry.getOpaqueCmdBufferWriteInfo(mBindings.cmdOpaqueBufferBinding);
 			mDescriptorSet.updateWrite(writeInfo);
-			mPipelineRegistry.setUpdated();
+			mPipelineRegistry.setOpaqueUpdated();
+		}
+
+		// update cmd accumilation buffer.
+		if (mPipelineRegistry.needAccumilationDescriptorUpdate())
+		{
+			auto writeInfo = mPipelineRegistry.getAccumilationCmdBufferWriteInfo(mBindings.cmdAccumilationBufferBinding);
+			mDescriptorSet.updateWrite(writeInfo);
+			mPipelineRegistry.setAccumilationUpdated();
 		}
 
 		if (mVertexRegistry.needDescriptorUpdate())

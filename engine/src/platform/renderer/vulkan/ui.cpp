@@ -149,7 +149,7 @@ namespace engine
 			if (elapsed >= 60.0f)
 			{
 				history[0][offset] = profInfo.renderingInfo.opaquePass;
-				history[1][offset] = profInfo.renderingInfo.transperentPass;
+				history[1][offset] = profInfo.renderingInfo.accumilationPass;
 				history[2][offset] = profInfo.renderingInfo.compositePass;
 				history[3][offset] = profInfo.renderingInfo.uiPass;
 				offset = (offset + 1) % 128;
@@ -162,7 +162,7 @@ namespace engine
 			};
 			static PassInfo passes[] = {
 				{ "Opaque Pass",      IM_COL32(255, 150, 0,   255) },
-				{ "Transparent Pass", IM_COL32(0,   255, 128, 255) },
+				{ "Accumilation Pass", IM_COL32(0,   255, 128, 255) },
 				{ "Composite Pass",   IM_COL32(255, 50,  50,  255) },
 				{ "UI Pass",          IM_COL32(180, 0,   255, 255) },
 			};

@@ -15,7 +15,7 @@ namespace engine
 		float fps;
 		float deltaTime;
 		float opaquePass;
-		float transperentPass;
+		float accumilationPass;
 		float compositePass;
 		float uiPass;
 	};

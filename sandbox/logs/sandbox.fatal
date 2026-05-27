@@ -2708,3 +2708,25 @@ CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (funct
 0000000633EFEB80 ((module-name not available)): (filename not available): (function-name not available)
 000001E6786D81B0 ((module-name not available)): (filename not available): (function-name not available)
 00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0527 13:13:22.054] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFFD661CE46 (ntdll): (filename not available): _C_specific_handler
+00007FFFD663296F (ntdll): (filename not available): _chkstk
+00007FFFD65E2554 (ntdll): (filename not available): RtlRaiseException
+00007FFFD663147E (ntdll): (filename not available): KiUserExceptionDispatcher
+00007FFF3AC6EF58 (nvoglv64): (filename not available): vkGetInstanceProcAddr
+00007FFF3ACA83BB (nvoglv64): (filename not available): vkGetInstanceProcAddr
+00007FFF314FAC55 (VkLayer_khronos_validation): (filename not available): vkEnumerateInstanceLayerProperties
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\meshletRenderer.cpp (388): engine::meshletRenderer::compositePass
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (477): engine::vulkanRenderer::compositeOpaqueAndTransperent
+C:\code\C++\engine\engine\src\platform\renderer\vulkan\renderer.cpp (660): engine::vulkanRenderer::render
+C:\code\C++\engine\engine\src\core\scene\systems\render\renderSystem.cpp (124): engine::renderSystem::onRender
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (48): engine::scene::onRender
+C:\code\C++\engine\engine\src\application\application.cpp (119): engine::application::onRender
+C:\code\C++\engine\engine\src\application\application.cpp (199): engine::application::run
+C:\code\C++\engine\sandbox\src\main.cpp (85): main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (79): invoke_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (288): __scrt_common_main_seh
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scrt_common_main
+D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
+00007FFFD63D7374 (KERNEL32): (filename not available): BaseThreadInitThunk
+00007FFFD65DCC91 (ntdll): (filename not available): RtlUserThreadStart

@@ -108,12 +108,13 @@ struct perMeshAttributes
 StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
 StructuredBuffer<animVertex> animVertexBuffer[] : register(t1, space0);
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t2, space0);
-StructuredBuffer<command> commandBuffer : register(t3, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t4, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t5, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t6, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t7, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t8, space0);
+StructuredBuffer<command> commandOpaqueBuffer : register(t3, space0);
+StructuredBuffer<command> commandAccumilationBuffer : register(t4, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t5, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t6, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t7, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t8, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t9, space0);
 
 // SSBO END.
 
@@ -184,34 +185,42 @@ struct meshOutput
     nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
 };
 
-uint getMeshletOffset(uint lodLevel, uint idx)
+uint getMeshletOffset(StructuredBuffer<command> cmdBuffer, uint lodLevel, uint idx)
 {
     uint result;
     
     switch (lodLevel)
     {
         case 2:
-            result = commandBuffer[idx].meshletOffset2;
+            result = cmdBuffer[idx].meshletOffset2;
             break;
         case 3:
-            result = commandBuffer[idx].meshletOffset3;
+            result = cmdBuffer[idx].meshletOffset3;
             break;
         case 4:
-            result = commandBuffer[idx].meshletOffset4;
+            result = cmdBuffer[idx].meshletOffset4;
             break;
         default:
-            result = commandBuffer[idx].meshletOffset1;
+            result = cmdBuffer[idx].meshletOffset1;
             break;
     }
     
     return result;
 }
 
-uint selectLodLevel(perDrawData drawData, transform modelTransform, uint cmdBuffIdx, uint meshletIdx)
+uint selectLodLevel(
+    StructuredBuffer<command> cmdBuf, 
+    StructuredBuffer<meshlet> meshletBuf[], 
+    StructuredBuffer<perMeshAttributes> perMeshBuf[],
+    perDrawData drawData, 
+    transform modelTransform, 
+    uint cmdBuffIdx, 
+    uint meshletIdx
+)
 {
     // Get first lod level to reference a meshlet.
-    meshlet mesh = meshletBuffer[meshletIdx][getMeshletOffset(1, cmdBuffIdx)];
-    perMeshAttributes meshAttrs = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+    meshlet mesh = meshletBuf[meshletIdx][getMeshletOffset(cmdBuf, 1, cmdBuffIdx)];
+    perMeshAttributes meshAttrs = perMeshBuf[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
     
     float uniformScale = max(length(meshAttrs.meshGlobalTransform[0].xyz), max(length(meshAttrs.meshGlobalTransform[1].xyz), length(meshAttrs.meshGlobalTransform[2].xyz)));
 

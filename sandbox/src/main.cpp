@@ -23,12 +23,12 @@
 		5. Get your bsdf and brdf together - on hold.
 
 	Optimizations:
-		1. Optimize OIT pass.
+		1. Optimize OIT pass - DONE.
 			Need to combine two passes: geometry and accumilation in one pass or figure out how to optimize them individually.
 			Huge performance drop because I have two passes that run the same task and mesh shader for the WHOLE scene.
 			Or add to accumilation pass models that only have materials with alpha < 0.5f.
 
-			Also need to make skinning in compute shader. That price should be payed only ONCE! Do not skin entities that are not in frustum.
+		2. Also need to make skinning in compute shader. That price should be payed only ONCE! Do not skin entities that are not in frustum - in development.
 
 	Cuncurrency:
 		1. Switch to true corutines instead of threadPool. Right now you have a big problem with your thread pool.

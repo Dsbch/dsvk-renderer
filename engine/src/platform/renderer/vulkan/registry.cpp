@@ -110,7 +110,7 @@ namespace engine
 				return *handle;
 		}
 
-		return error{"block not found"};
+		return error{ "block not found" };
 	}
 
 	error bufferRegistry::updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is)
@@ -187,7 +187,8 @@ namespace engine
 		const std::vector<VkDescriptorSetLayout>& descriptorSets,
 		VkFormat depthFormat,
 		const std::vector<VkFormat>& colorAttachmentFormats,
-		VkSampleCountFlagBits sampleCount
+		VkSampleCountFlagBits sampleCount,
+		pipelineType type
 	)
 	{
 		needUpdate = false;
@@ -215,8 +216,23 @@ namespace engine
 
 		pipeline.setMultisampling(sampleCount);
 
-		pipeline.disableBlending();
-		pipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		if (type == pipelineType::opaque)
+		{
+			pipeline.disableBlending();
+			pipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
+
+		if (type == pipelineType::accumilation)
+		{
+			pipeline.enableBlendingOITAccumulation();
+			pipeline.enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
+
+		if (type == pipelineType::composite)
+		{
+			pipeline.enableBlendingOITComposite();
+			pipeline.disableDepthtest();
+		}
 
 		//connect the image format we will draw into, from draw image
 		pipeline.setColorAttachmentFormats(colorAttachmentFormats);
@@ -236,12 +252,21 @@ namespace engine
 
 	error pipelineRegistry::init(VkDevice device, VmaAllocator allocator, submit& is)
 	{
-		mNeedDescriptorUpdate = true;
+		mNeedOpaqueDescriptorUpdate = true;
+		mNeedAccumilationDescriptorUpdate = true;
 
-		mCmdBufferNewSize = 2 << 21;
-		mCmdBuffer.init(device, allocator, true);
+		mCmdOpaqueBufferNewSize = 2 << 21;
+		mCmdOpaqueBuffer.init(device, allocator);
 
-		error err = mCmdBuffer.build(is, nullptr, mCmdBufferNewSize, 0);
+		error err = mCmdOpaqueBuffer.build(is, nullptr, mCmdOpaqueBufferNewSize, 0);
+		if (err)
+			return err;
+
+		mCmdAccumilationBufferNewSize = 2 << 21;
+
+		mCmdAccumilationBuffer.init(device, allocator);
+
+		err = mCmdAccumilationBuffer.build(is, nullptr, mCmdAccumilationBufferNewSize, 0);
 		if (err)
 			return err;
 
@@ -262,41 +287,17 @@ namespace engine
 		graphicsPreset preset
 	)
 	{
-		VkPushConstantRange pc{};
-		pc.offset = 0;
-		pc.size = sizeof(pushConstants);
-		pc.stageFlags = VK_SHADER_STAGE_ALL;
-
-		// init pipeline.
-		mAccumilatePipeline.init(device);
-
-		//connecting the vertex and pixel shaders to the pipeline
-		mAccumilatePipeline.setShaders(
-			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+		return mAccumilatePipeline.init(
+			device,
+			pixelShader,
+			meshShader,
+			taskShader,
+			descriptorSets,
+			depthFormat,
+			colorAttachmentFormats,
+			sampleCounts(preset.msaa),
+			pipelineData::pipelineType::accumilation
 		);
-
-		mAccumilatePipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		mAccumilatePipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
-
-		// Back face culling is done in shaders.
-		mAccumilatePipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-
-		mAccumilatePipeline.setMultisampling(sampleCounts(preset.msaa));
-
-		mAccumilatePipeline.enableBlendingOITAccumulation();
-		mAccumilatePipeline.enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-		//connect the image format we will draw into, from draw image
-		mAccumilatePipeline.setColorAttachmentFormats(colorAttachmentFormats);
-		mAccumilatePipeline.setDepthFormat(depthFormat);
-
-		error err = mAccumilatePipeline.build(&pc, descriptorSets, true);
-		if (err)
-			return err;
-
-		return {};
 	}
 
 	error pipelineRegistry::initCompositePipeline(
@@ -310,41 +311,17 @@ namespace engine
 		graphicsPreset preset
 	)
 	{
-		VkPushConstantRange pc{};
-		pc.offset = 0;
-		pc.size = sizeof(pushConstants);
-		pc.stageFlags = VK_SHADER_STAGE_ALL;
-
-		// init pipeline.
-		mCompositePipeline.init(device);
-
-		//connecting the vertex and pixel shaders to the pipeline
-		mCompositePipeline.setShaders(
-			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+		return mCompositePipeline.init(
+			device,
+			pixelShader,
+			meshShader,
+			taskShader,
+			descriptorSets,
+			depthFormat,
+			colorAttachmentFormats,
+			sampleCounts(preset.msaa),
+			pipelineData::pipelineType::composite
 		);
-
-		mCompositePipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		mCompositePipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
-
-		// Back face culling is done in shaders.
-		mCompositePipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-
-		mCompositePipeline.setMultisampling(sampleCounts(preset.msaa));
-
-		mCompositePipeline.enableBlendingOITComposite();
-		mCompositePipeline.disableDepthtest();
-
-		//connect the image format we will draw into, from draw image
-		mCompositePipeline.setColorAttachmentFormats(colorAttachmentFormats);
-		mCompositePipeline.setDepthFormat(depthFormat);
-
-		error err = mCompositePipeline.build(&pc, descriptorSets, true);
-		if (err)
-			return err;
-
-		return {};
 	}
 
 	void pipelineRegistry::destroy()
@@ -354,7 +331,8 @@ namespace engine
 
 		mPipelines.clear();
 
-		mCmdBuffer.destroy();
+		mCmdOpaqueBuffer.destroy();
+		mCmdAccumilationBuffer.destroy();
 	}
 
 	error pipelineRegistry::createPipeline(
@@ -374,18 +352,19 @@ namespace engine
 		pipelineData pipeline{};
 
 		error err = pipeline.init(
-			device, 
-			pixelShader, 
-			meshShader, 
-			taskShader, 
-			descriptorSets, 
-			depthFormat, 
-			colorAttachmentFormats, 
-			sampleCounts(preset.msaa)
+			device,
+			pixelShader,
+			meshShader,
+			taskShader,
+			descriptorSets,
+			depthFormat,
+			colorAttachmentFormats,
+			sampleCounts(preset.msaa),
+			pipelineData::pipelineType::opaque
 		);
 		if (err)
 			return err;
-		
+
 		mPipelines.insert({ pixelShader->hash(), pipeline });
 
 		return {};
@@ -393,36 +372,17 @@ namespace engine
 
 	error pipelineRegistry::addInstance(const pipelineRegistry::addInstanceParams& params)
 	{
-		if (mPipelines.find(params.pixelShaderID) == mPipelines.end())
-			return { "pipeline doesn't exist" };
+		// Always add every geometry to opaque pipeline.
+		error err = addOpaqueInstance(params);
+		if (err)
+			return err;
 
-		pipelineData& pipeline = mPipelines[params.pixelShaderID];
-
-		if (pipeline.entityCmd.find(params.instanceID) != pipeline.entityCmd.end())
-			return {};
-
-		pipeline.needUpdate = true;
-
-		for (auto& m : params.meshesData)
+		// Also add to transperent pass geometry that have blend materials.
+		if (params.isBlendGeometry)
 		{
-			pipeline.instanceMeshCount[m.meshID]++;
-			
-			uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
-
-			for (uint32_t i = 0; i < m.meshlets.second; i++)
-			{
-				pipeline.entityCmd[params.instanceID].push_back(
-					meshletShaderCMD{
-						.instanceIndex = params.perInstanceHandle.bufferIndex,
-						.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
-						.meshletIndex = m.meshletHandle.bufferIndex,
-						.meshletOffset1 = baseOffset + i,
-						.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
-						.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
-						.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max()
-					}
-				);
-			}
+			err = addBlendInstance(params);
+			if (err)
+				return err;
 		}
 
 		return {};
@@ -430,27 +390,22 @@ namespace engine
 
 	void pipelineRegistry::removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID)
 	{
-		if (mPipelines.find(pixelShaderID) == mPipelines.end())
-			return;
-
-		pipelineData& pipeline = mPipelines[pixelShaderID];
-
-		if (pipeline.entityCmd.find(instanceID) == pipeline.entityCmd.end())
-			return;
-
-		pipeline.entityCmd.erase(instanceID);
-
-		if (auto found = pipeline.instanceMeshCount.find(meshID); found != pipeline.instanceMeshCount.end() && found->second != 0)
-			found->second--;
-
-		pipeline.needUpdate = true;
+		removeOpaqueInstance(pixelShaderID, instanceID, meshID);
+		removeBlendInstance(instanceID, meshID);
 	}
 
-	std::vector<VkWriteDescriptorSet> pipelineRegistry::getWriteInfo(uint32_t binding)
+	std::vector<VkWriteDescriptorSet> pipelineRegistry::getOpaqueCmdBufferWriteInfo(uint32_t binding)
 	{
-		mBufferInfo = { VkDescriptorBufferInfo{.buffer = mCmdBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
+		mOpaqueBufferInfo = { VkDescriptorBufferInfo{.buffer = mCmdOpaqueBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
 
-		return descriptorSet::getWriteInfo(binding, mBufferInfo);
+		return descriptorSet::getWriteInfo(binding, mOpaqueBufferInfo);
+	}
+
+	std::vector<VkWriteDescriptorSet> pipelineRegistry::getAccumilationCmdBufferWriteInfo(uint32_t binding)
+	{
+		mAccumilationsBufferInfo = { VkDescriptorBufferInfo{.buffer = mCmdAccumilationBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE } };
+
+		return descriptorSet::getWriteInfo(binding, mAccumilationsBufferInfo);
 	}
 
 	bool pipelineRegistry::instanceExists(uint32_t id) const
@@ -475,24 +430,26 @@ namespace engine
 		return false;
 	}
 
-	const std::map<pixelShaderHash, pipelineRegistry::taskShaderRender> pipelineRegistry::getOpaquePipelines() const
+	const std::vector<pipelineData::taskShaderRender> pipelineRegistry::getOpaquePipelines() const
 	{
-		return mCmdMappings;
+		std::vector<pipelineData::taskShaderRender> pipelineMappings;
+		for (auto& [_, v] : mPipelines)
+			pipelineMappings.push_back(v.mCmdMapping);
+
+		return pipelineMappings;
 	}
 
-	const std::pair<pipelineRegistry::taskShaderRender, classicGraphicPipeline> pipelineRegistry::getBlendPipelines() const
+	const classicGraphicPipeline pipelineRegistry::getCompositePipeline() const
 	{
-		pipelineRegistry::taskShaderRender fullTransperentRender = {
-			.pipeline = mAccumilatePipeline.getPipeline().first,
-			.layout = mAccumilatePipeline.getPipeline().second,
-			.cmdPipelineStartOffset = 0,
-			.cmdPipelineEndOffset = uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD)),
-		};
-
-		return { fullTransperentRender, mCompositePipeline };
+		return mCompositePipeline.pipeline;
 	}
 
-	error pipelineRegistry::updateCommandBuffer(submit& is)
+	const pipelineData::taskShaderRender pipelineRegistry::getAccumilationPipeline() const
+	{
+		return mAccumilatePipeline.mCmdMapping;
+	}
+
+	error pipelineRegistry::updateOpaqueCmdBuffer(submit& is)
 	{
 		bool needBufferUpdate = false;
 		for (auto& [_, p] : mPipelines)
@@ -512,39 +469,85 @@ namespace engine
 				endOffset += uint32_t(v.size());
 			}
 
-			mCmdMappings[k] = taskShaderRender{
+			p.mCmdMapping = pipelineData::taskShaderRender{
 				.pipeline = p.pipeline.getPipeline().first,
 				.layout = p.pipeline.getPipeline().second,
 				.cmdPipelineStartOffset = startOffset,
 				.cmdPipelineEndOffset = endOffset,
 			};
 
-			startOffset += endOffset;
+			startOffset = endOffset;
 		}
 
-		mCmdBuffer.markBytesAsDead(mCmdBuffer.getLoadedBytes());
+		mCmdOpaqueBuffer.markBytesAsDead(mCmdOpaqueBuffer.getLoadedBytes());
 
-		error err = mCmdBuffer.updateBuffer(is, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
-		if (err.err() == "buffer overflow")
+		error err = mCmdOpaqueBuffer.updateBuffer(is, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
+		if (err && err.is(errCodeBufferOverFlow))
 		{
-			mCmdBufferNewSize = uint32_t(float(mCmdBufferNewSize) * 1.5f);
+			mCmdOpaqueBufferNewSize = uint32_t(float(mCmdOpaqueBufferNewSize) * 1.5f);
 
-			if (cmd.size() > mCmdBufferNewSize)
-				mCmdBufferNewSize = uint32_t(cmd.size());
+			if (cmd.size() > mCmdOpaqueBufferNewSize)
+				mCmdOpaqueBufferNewSize = uint32_t(cmd.size());
 
-			mCmdBuffer.destroy();
+			mCmdOpaqueBuffer.destroy();
 
-			err = mCmdBuffer.build(is, cmd.data(), mCmdBufferNewSize, cmd.size() * sizeof(meshletShaderCMD));
+			err = mCmdOpaqueBuffer.build(is, cmd.data(), mCmdOpaqueBufferNewSize, cmd.size() * sizeof(meshletShaderCMD));
 			if (err)
 				return err;
 
-			mNeedDescriptorUpdate = true;
+			mNeedOpaqueDescriptorUpdate = true;
 		}
 		if (err)
 			return err;
 
 		for (auto& [_, p] : mPipelines)
 			p.needUpdate = false;
+
+		return {};
+	}
+
+	error pipelineRegistry::updateAccumilationCmdBuffer(submit& is)
+	{
+		if (!mAccumilatePipeline.needUpdate)
+			return {};
+
+		uint32_t endOffset = 0;
+		std::vector<meshletShaderCMD> cmd;
+		for (auto& [_, v] : mAccumilatePipeline.entityCmd)
+		{
+			cmd.insert(cmd.end(), v.begin(), v.end());
+			endOffset += uint32_t(v.size());
+		}
+
+		mAccumilatePipeline.mCmdMapping = pipelineData::taskShaderRender{
+			.pipeline = mAccumilatePipeline.pipeline.getPipeline().first,
+			.layout = mAccumilatePipeline.pipeline.getPipeline().second,
+			.cmdPipelineStartOffset = 0,
+			.cmdPipelineEndOffset = endOffset,
+		};
+
+		mCmdAccumilationBuffer.markBytesAsDead(mCmdAccumilationBuffer.getLoadedBytes());
+
+		error err = mCmdAccumilationBuffer.updateBuffer(is, cmd.data(), cmd.size() * sizeof(meshletShaderCMD), 0);
+		if (err && err.is(errCodeBufferOverFlow))
+		{
+			mCmdAccumilationBufferNewSize = uint32_t(float(mCmdAccumilationBufferNewSize) * 1.5f);
+
+			if (cmd.size() > mCmdAccumilationBufferNewSize)
+				mCmdAccumilationBufferNewSize = uint32_t(cmd.size());
+
+			mCmdAccumilationBuffer.destroy();
+
+			err = mCmdAccumilationBuffer.build(is, cmd.data(), mCmdAccumilationBufferNewSize, cmd.size() * sizeof(meshletShaderCMD));
+			if (err)
+				return err;
+
+			mNeedAccumilationDescriptorUpdate = true;
+		}
+		if (err)
+			return err;
+
+		mAccumilatePipeline.needUpdate = false;
 
 		return {};
 	}
@@ -564,14 +567,124 @@ namespace engine
 		return {};
 	}
 
-	bool pipelineRegistry::needDescriptorUpdate() const
+	bool pipelineRegistry::needOpaqueDescriptorUpdate() const
 	{
-		return mNeedDescriptorUpdate;
+		return mNeedOpaqueDescriptorUpdate;
 	}
 
-	void pipelineRegistry::setUpdated()
+	bool pipelineRegistry::needAccumilationDescriptorUpdate() const
 	{
-		mNeedDescriptorUpdate = false;
+		return mNeedAccumilationDescriptorUpdate;
+	}
+
+	void pipelineRegistry::setOpaqueUpdated()
+	{
+		mNeedOpaqueDescriptorUpdate = false;
+	}
+
+	void pipelineRegistry::setAccumilationUpdated()
+	{
+		mNeedAccumilationDescriptorUpdate = false;
+	}
+
+	error pipelineRegistry::addOpaqueInstance(const addInstanceParams& params)
+	{
+		if (mPipelines.find(params.pixelShaderID) == mPipelines.end())
+			return { "pipeline doesn't exist" };
+
+		pipelineData& pipeline = mPipelines[params.pixelShaderID];
+
+		if (pipeline.entityCmd.find(params.instanceID) != pipeline.entityCmd.end())
+			return {};
+
+		pipeline.needUpdate = true;
+
+		for (auto& m : params.meshesData)
+		{
+			pipeline.instanceMeshCount[m.meshID]++;
+
+			uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
+
+			for (uint32_t i = 0; i < m.meshlets.second; i++)
+			{
+				pipeline.entityCmd[params.instanceID].push_back(
+					meshletShaderCMD{
+						.instanceIndex = params.perInstanceHandle.bufferIndex,
+						.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
+						.meshletIndex = m.meshletHandle.bufferIndex,
+						.meshletOffset1 = baseOffset + i,
+						.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
+						.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
+						.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max()
+					}
+				);
+			}
+		}
+
+		return {};
+	}
+
+	error pipelineRegistry::addBlendInstance(const addInstanceParams& params)
+	{
+		if (mAccumilatePipeline.entityCmd.find(params.instanceID) != mAccumilatePipeline.entityCmd.end())
+			return {};
+
+		mAccumilatePipeline.needUpdate = true;
+
+		for (auto& m : params.meshesData)
+		{
+			mAccumilatePipeline.instanceMeshCount[m.meshID]++;
+
+			uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
+
+			for (uint32_t i = 0; i < m.meshlets.second; i++)
+			{
+				mAccumilatePipeline.entityCmd[params.instanceID].push_back(
+					meshletShaderCMD{
+						.instanceIndex = params.perInstanceHandle.bufferIndex,
+						.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
+						.meshletIndex = m.meshletHandle.bufferIndex,
+						.meshletOffset1 = baseOffset + i,
+						.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
+						.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
+						.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max()
+					}
+				);
+			}
+		}
+
+		return {};
+	}
+
+	void pipelineRegistry::removeOpaqueInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID)
+	{
+		if (mPipelines.find(pixelShaderID) == mPipelines.end())
+			return;
+
+		pipelineData& pipeline = mPipelines[pixelShaderID];
+
+		if (pipeline.entityCmd.find(instanceID) == pipeline.entityCmd.end())
+			return;
+
+		pipeline.entityCmd.erase(instanceID);
+
+		if (auto found = pipeline.instanceMeshCount.find(meshID); found != pipeline.instanceMeshCount.end() && found->second != 0)
+			found->second--;
+
+		pipeline.needUpdate = true;
+	}
+
+	void pipelineRegistry::removeBlendInstance(uint32_t instanceID, uint32_t meshID)
+	{
+		if (mAccumilatePipeline.entityCmd.find(instanceID) == mAccumilatePipeline.entityCmd.end())
+			return;
+
+		mAccumilatePipeline.entityCmd.erase(instanceID);
+
+		if (auto found = mAccumilatePipeline.instanceMeshCount.find(meshID); found != mAccumilatePipeline.instanceMeshCount.end() && found->second != 0)
+			found->second--;
+
+		mAccumilatePipeline.needUpdate = true;
 	}
 
 	withError<uint32_t> materialRegistry::addMaterials(const materials& materials)

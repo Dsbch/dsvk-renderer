@@ -6,14 +6,14 @@
 
 // UBO START.
 
-ConstantBuffer<perDrawData> drawData : register(b9, space0);
+ConstantBuffer<perDrawData> drawData : register(b10, space0);
 
 // UBO END.
 
 // TEXTURES START.
 
-Texture2D materials[] : register(t10, space0);
-SamplerState materialsSampler[] : register(s10, space0);
+Texture2D materials[] : register(t11, space0);
+SamplerState materialsSampler[] : register(s11, space0);
 
 // TEXTURES END.
 
@@ -63,13 +63,13 @@ void asmain(
     // Not overdraw.
     if (dtid < push.meshletCount)
     {
-        uint perInstanceIndex = commandBuffer[dtid + push.commandBufferOffset].instanceIndex;
-        uint perInstanceOffset = commandBuffer[dtid + push.commandBufferOffset].instanceOffset;
+        uint perInstanceIndex = commandOpaqueBuffer[dtid + push.commandBufferOffset].instanceIndex;
+        uint perInstanceOffset = commandOpaqueBuffer[dtid + push.commandBufferOffset].instanceOffset;
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
         
-        uint meshletIdx = commandBuffer[dtid + push.commandBufferOffset].meshletIndex;
-        uint selectedLod = selectLodLevel(drawData, instanceAttr.modelTransform, dtid + push.commandBufferOffset, meshletIdx);
-        uint meshletOffset = getMeshletOffset(selectedLod, dtid + push.commandBufferOffset);
+        uint meshletIdx = commandOpaqueBuffer[dtid + push.commandBufferOffset].meshletIndex;
+        uint selectedLod = selectLodLevel(commandOpaqueBuffer, meshletBuffer, perMeshBuffer, drawData, instanceAttr.modelTransform, dtid + push.commandBufferOffset, meshletIdx);
+        uint meshletOffset = getMeshletOffset(commandOpaqueBuffer, selectedLod, dtid + push.commandBufferOffset);
     
         meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
         perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
@@ -201,7 +201,7 @@ float4 psmain(meshOutput input) : SV_TARGET
     float roughnes = metalicRoughnes.g;
     
     // Discard non solid geometry, in case for cutoff.
-    if (albedo.a < 0.5f)
+    if (albedo.a < 0.99f)
         discard;
    
     normal = normalize(normal);

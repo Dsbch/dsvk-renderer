@@ -352,10 +352,9 @@ namespace engine
 		}
 	}
 
-	void setDefaultCutoff(image& img, float oldCutoff)
+	void setDefaultCutoffToZero(image& img, float oldCutoff)
 	{
 		uint8_t oldCutoffByte = (uint8_t)std::round(oldCutoff * 255.0f);
-		uint8_t newCutoffByte = (uint8_t)std::round(0.5f * 255.0f);
 
 		auto ptr = img.data.begin();
 		for (int y = 0; y < img.h; y++)
@@ -526,8 +525,7 @@ namespace engine
 					tex.alphaMode = alphaModeType::blend;
 					break;
 				case cgltf_alpha_mode_mask:
-					if (material->alpha_cutoff != 0.5f)
-						setDefaultCutoff(tex.albedo, material->alpha_cutoff);
+					setDefaultCutoffToZero(tex.albedo, material->alpha_cutoff);
 
 					tex.alphaMode = alphaModeType::mask;
 					break;

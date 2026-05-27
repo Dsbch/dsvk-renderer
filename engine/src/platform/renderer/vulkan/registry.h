@@ -59,9 +59,24 @@ namespace engine
 		bool mNeedUpdate;
 	};
 
-	// PipelineData and pipeLineRegistry structs manage pipeline creation and constrcting command buffer for task shader.
+	// PipelineData and pipeLineRegistry structs manage pipeline creation and constructing of command buffer for task shader.
 	struct pipelineData
 	{
+		enum class pipelineType
+		{
+			opaque,
+			accumilation,
+			composite,
+		};
+
+		struct taskShaderRender
+		{
+			VkPipeline pipeline;
+			VkPipelineLayout layout;
+			uint32_t cmdPipelineStartOffset;
+			uint32_t cmdPipelineEndOffset;
+		};
+
 		error init(
 			VkDevice device,
 			std::shared_ptr<const shader> pixelShader,
@@ -70,12 +85,13 @@ namespace engine
 			const std::vector<VkDescriptorSetLayout>& descriptorSets,
 			VkFormat depthFormat,
 			const std::vector<VkFormat>& colorAttachmentFormats,
-			VkSampleCountFlagBits sampleCount
+			VkSampleCountFlagBits sampleCount,
+			pipelineType type = pipelineType::opaque
 		);
 		void destroy();
 
 		classicGraphicPipeline pipeline;
-		// Command buffer to render enity.
+		taskShaderRender mCmdMapping;
 		std::map<entityHash, std::vector<meshletShaderCMD>> entityCmd;
 		std::map<meshHash, uint32_t> instanceMeshCount;
 		bool needUpdate;
@@ -132,40 +148,50 @@ namespace engine
 			uint32_t instanceID;
 			bufferHandle perInstanceHandle;
 			std::vector<meshes> meshesData;
+			bool isBlendGeometry;
 		};
 
 		error addInstance(const addInstanceParams& params);
-		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshesID);
+		void removeInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID);
 
-		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
+		std::vector<VkWriteDescriptorSet> getOpaqueCmdBufferWriteInfo(uint32_t binding);
+		std::vector<VkWriteDescriptorSet> getAccumilationCmdBufferWriteInfo(uint32_t binding);
 
 		bool instanceExists(uint32_t id) const;
 		bool meshIsUsed(uint32_t id) const;
-		struct taskShaderRender
-		{
-			VkPipeline pipeline;
-			VkPipelineLayout layout;
-			uint32_t cmdPipelineStartOffset;
-			uint32_t cmdPipelineEndOffset;
-		};
-		const std::map<pixelShaderHash, taskShaderRender> getOpaquePipelines() const;
-		const std::pair<taskShaderRender, classicGraphicPipeline> getBlendPipelines() const;
+		const std::vector<pipelineData::taskShaderRender> getOpaquePipelines() const;
+		const pipelineData::taskShaderRender getAccumilationPipeline() const;
+		const classicGraphicPipeline getCompositePipeline() const;
 
-		error updateCommandBuffer(submit& is);
+		error updateOpaqueCmdBuffer(submit& is);
+		error updateAccumilationCmdBuffer(submit& is);
 
-		bool needDescriptorUpdate() const;
-		void setUpdated();
+		bool needOpaqueDescriptorUpdate() const;
+		bool needAccumilationDescriptorUpdate() const;
+		void setOpaqueUpdated();
+		void setAccumilationUpdated();
 	private:
-		bool mNeedDescriptorUpdate;
-		std::vector<VkDescriptorBufferInfo> mBufferInfo;
-
-		uint32_t mCmdBufferNewSize;
-		vulkanBuffer mCmdBuffer;
-
-		std::map<pixelShaderHash, taskShaderRender> mCmdMappings;
+		// Pipeline state.
+		pipelineData mAccumilatePipeline;
+		pipelineData mCompositePipeline;
 		std::map<pixelShaderHash, pipelineData> mPipelines;
-		classicGraphicPipeline mAccumilatePipeline;
-		classicGraphicPipeline mCompositePipeline;
+
+		error addOpaqueInstance(const addInstanceParams& params);
+		error addBlendInstance(const addInstanceParams& params);
+		void removeOpaqueInstance(uint32_t pixelShaderID, uint32_t instanceID, uint32_t meshID);
+		void removeBlendInstance(uint32_t instanceID, uint32_t meshID);
+		
+		// Command buffers state.
+		bool mNeedOpaqueDescriptorUpdate;
+		bool mNeedAccumilationDescriptorUpdate;
+		std::vector<VkDescriptorBufferInfo> mOpaqueBufferInfo;
+		std::vector<VkDescriptorBufferInfo> mAccumilationsBufferInfo;
+
+		uint32_t mCmdOpaqueBufferNewSize;
+		uint32_t mCmdAccumilationBufferNewSize;
+		vulkanBuffer mCmdOpaqueBuffer;
+		vulkanBuffer mCmdAccumilationBuffer;
+
 	};
 
 	struct materialRegistry

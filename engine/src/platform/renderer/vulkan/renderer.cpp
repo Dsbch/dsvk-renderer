@@ -411,7 +411,7 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mMeshletRenderer.drawOpaqueGeometry(cmd, in);
+		err = mMeshletRenderer.opaquePass(cmd, in);
 		if (err)
 			return err;
 
@@ -456,7 +456,7 @@ namespace engine
 
 		vkCmdBeginRendering(cmd, &renderInfo);
 
-		mMeshletRenderer.drawTransperentGeometry(cmd, in);
+		mMeshletRenderer.accumilationPass(cmd, in);
 
 		vkCmdEndRendering(cmd);
 
@@ -474,7 +474,7 @@ namespace engine
 
 		vkCmdBeginRendering(cmd, &renderInfo);
 
-		mMeshletRenderer.compositeOpaqueAndTransperent(cmd, in);
+		mMeshletRenderer.compositePass(cmd, in);
 
 		vkCmdEndRendering(cmd);
 
@@ -786,7 +786,7 @@ namespace engine
 		{
 			mProfInfo.renderingInfo.deltaTime = deltaTime;
 			mProfInfo.renderingInfo.opaquePass = slots[0];
-			mProfInfo.renderingInfo.transperentPass = slots[1];
+			mProfInfo.renderingInfo.accumilationPass = slots[1];
 			mProfInfo.renderingInfo.compositePass = slots[2];
 			mProfInfo.renderingInfo.uiPass = slots[3];
 		}

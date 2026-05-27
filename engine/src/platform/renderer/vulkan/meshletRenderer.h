@@ -21,7 +21,8 @@ namespace engine
 		uint32_t vertexBinding;
 		uint32_t animVertexBinding;
 		uint32_t perInstanceBinding;
-		uint32_t meshletCmdBinding;
+		uint32_t cmdOpaqueBufferBinding;
+		uint32_t cmdAccumilationBufferBinding;
 		uint32_t indexBinding;
 		uint32_t primitiveBinding;
 		uint32_t meshletBinding;
@@ -56,9 +57,9 @@ namespace engine
 		void removeFromRender(const model& m);
 		
 		error updateDescriptors(renderer::renderCallIn in, submit& is);
-		error drawOpaqueGeometry(VkCommandBuffer cmd, renderer::renderCallIn in);
-		error drawTransperentGeometry(VkCommandBuffer cmd, renderer::renderCallIn in);
-		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error compositePass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
 	private:
 		std::shared_ptr<context> mCtx;
