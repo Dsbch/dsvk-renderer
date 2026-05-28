@@ -147,8 +147,8 @@ namespace engine
 		}
 	}
 
-	window::window(std::shared_ptr<context> ctx, const std::string& name, std::uint32_t width, std::uint32_t heigth, bool showCuresor)
-		: mCtx(ctx), mWnd(nullptr), mName(name), mErr(), mShowCursor(showCuresor)
+	window::window(std::shared_ptr<context> ctx)
+		: mCtx(ctx), mWnd(nullptr)
 	{
 		std::call_once(initFlag, [&] {
 			if (glfwInit() != GLFW_TRUE)
@@ -172,14 +172,13 @@ namespace engine
 		glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
 		glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-#ifdef DEBUG
-		monitor = nullptr;
-#endif // DEBUG
+		if (!mCtx->config.inner.wnd.fullScreen)
+			monitor = nullptr;
 
-		mWnd = glfwCreateWindow(width, heigth, name.c_str(), monitor, nullptr);
+		mWnd = glfwCreateWindow(mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.name.c_str(), monitor, nullptr);
 		if (!mWnd)
 		{
-			mErr = { "can't create window {}", name };
+			mErr = { "can't create window {}", mCtx->config.inner.wnd.name };
 			glfwTerminate();
 			return;
 		}
@@ -193,7 +192,9 @@ namespace engine
 		glfwSetFramebufferSizeCallback(mWnd, framebufferSizeCallback);
 		glfwSetWindowSizeCallback(mWnd, windowSizeCallback);
 
-		if (mShowCursor)
+		mIsCursorPresent = mCtx->config.inner.wnd.showCursor;
+
+		if (mIsCursorPresent)
 			glfwSetInputMode(mWnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		else
 			glfwSetInputMode(mWnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -228,12 +229,12 @@ namespace engine
 
 	void window::toggleCursor()
 	{
-		if (mShowCursor)
+		if (mIsCursorPresent)
 			glfwSetInputMode(mWnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		else
 			glfwSetInputMode(mWnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
-		mShowCursor = !mShowCursor;
+		mIsCursorPresent = !mIsCursorPresent;
 	}
 
 	void window::setWidthHeight(uint32_t width, uint32_t height)

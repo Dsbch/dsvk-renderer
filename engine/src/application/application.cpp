@@ -52,7 +52,7 @@ namespace engine
 
 	error application::createWindow()
 	{
-		mWindow = std::make_shared<window>(mCtx, mCtx->config.inner.wnd.name, mCtx->config.inner.wnd.width, mCtx->config.inner.wnd.height, mCtx->config.inner.wnd.showCursor);
+		mWindow = std::make_shared<window>(mCtx);
 		if (mErr = mWindow->checkError(); mErr)
 			return mErr;
 

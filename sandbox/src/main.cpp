@@ -20,11 +20,11 @@
 	
 	TODO:
 		1. Two phase HZB occlision culling.
-		2. Add shadow mapping for soft and hard shadows.
+		2. Figure out how to do shadows, my goal is good hard and soft shadows.
 		3. Global illumination and reflections with radiance cascades.
 		4. Add jolt CPU side physics.
 		5. Add postproccessing like bloom, focus etc.
-		6. Get your bsdf and brdf together.
+		6. Get your bsdf and brdf together. Should use disney.
 	
 		Optional:
 			1. Own file format. Ser/Dser of whole ECS.

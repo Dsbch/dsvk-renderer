@@ -73,6 +73,7 @@ namespace engine
 			{"width", p.width},
 			{"height", p.height},
 			{"name", p.name},
+			{"fullScreen", p.fullScreen},
 			{"showCursor", p.showCursor},
 		};
 	}
@@ -82,6 +83,7 @@ namespace engine
 		j.at("width").get_to(p.width);
 		j.at("height").get_to(p.height);
 		j.at("name").get_to(p.name);
+		j.at("fullScreen").get_to(p.fullScreen);
 		j.at("showCursor").get_to(p.showCursor);
 	}
 

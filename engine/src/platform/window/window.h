@@ -14,12 +14,7 @@ namespace engine
 	class window
 	{
 	public:
-		window(
-			std::shared_ptr<context> ctx,
-			const std::string& name,
-			std::uint32_t width,
-			std::uint32_t heigth,
-			bool showCuresor);
+		window(std::shared_ptr<context> ctx);
 		~window();
 
 		error checkError();
@@ -56,8 +51,7 @@ namespace engine
 		std::queue<std::shared_ptr<baseEvent>> mEventQueue;
 
 		GLFWwindow* mWnd;
-		std::string mName;
+		bool mIsCursorPresent;
 		error mErr;
-		bool mShowCursor;
 	};
 }

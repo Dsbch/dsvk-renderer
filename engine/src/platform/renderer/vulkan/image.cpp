@@ -320,7 +320,8 @@ namespace engine
 				vkCmdCopyBufferToImage(cmd, uploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
 				// Upload mip levels to GPU.
-				vkCmdCopyBufferToImage(cmd, mipUploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, uint32_t(mipsCopyRegions.size()), mipsCopyRegions.data());
+				if (mipUploadBufSize != 0)
+					vkCmdCopyBufferToImage(cmd, mipUploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, uint32_t(mipsCopyRegions.size()), mipsCopyRegions.data());
 			},
 			[=]()
 			{
