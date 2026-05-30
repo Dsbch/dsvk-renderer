@@ -552,8 +552,9 @@ namespace engine
 		return {};
 	}
 
-	error materialRegistry::init(VkSampler sampler)
+	error materialRegistry::init(VkSampler sampler, materialTextures defaultMat)
 	{
+		mDefaultMat = defaultMat;
 		mNeedUpdate = false;
 		mSampler = sampler;
 
@@ -565,6 +566,13 @@ namespace engine
 			return error{ "can't create virtual block" };
 
 		return {};
+	}
+
+	void materialRegistry::destroy()
+	{
+		mDefaultMat.albedo.reset();
+		mDefaultMat.normal.reset();
+		mDefaultMat.metallicRoughness.reset();
 	}
 
 	bool pipelineRegistry::needOpaqueDescriptorUpdate() const
@@ -707,13 +715,14 @@ namespace engine
 
 			mUploadedMaterials[materials.hash] = materialRegistry::virtualTextureBlock{
 				.offset = uint32_t(offset),
+				.size = uint32_t(allocateInfo.size),
 				.allocation = allocation,
 			};
 
 			mNeedUpdate = true;
 			if (offset + materials.textures.size() * 3 > mImagesInfo.size())
 			{
-				mImagesInfo.resize(mImagesInfo.size() + materials.textures.size() * 3);
+				mImagesInfo.resize(offset + materials.textures.size() * 3);
 			}
 
 			VkDescriptorImageInfo info{};
@@ -753,7 +762,19 @@ namespace engine
 	{
 		if (auto found = mUploadedMaterials.find(materials.hash); found != mUploadedMaterials.end())
 		{
+			// Still need to update descripts, because we can get error if textures get deleted later.
+			mNeedUpdate = true;
+
 			vmaVirtualFree(mVBlock, found->second.allocation);
+
+			// Set freed materials to default, because they can get deleted and descriptor will be invalidated.
+			for (uint32_t i = found->second.offset; i < found->second.offset + found->second.size; i += 3)
+			{
+				mImagesInfo[i].imageView = static_cast<const vulkanTexture*>(mDefaultMat.albedo.get())->mImage.img.view;
+				mImagesInfo[i + 1].imageView = static_cast<const vulkanTexture*>(mDefaultMat.normal.get())->mImage.img.view;
+				mImagesInfo[i + 2].imageView = static_cast<const vulkanTexture*>(mDefaultMat.metallicRoughness.get())->mImage.img.view;
+			}
+
 			mUploadedMaterials.erase(materials.hash);
 		}
 	}

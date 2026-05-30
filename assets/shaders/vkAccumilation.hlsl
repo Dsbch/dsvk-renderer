@@ -72,15 +72,20 @@ void asmain(
         uint selectedLod = selectLodLevel(commandAccumilationBuffer, meshletBuffer, perMeshBuffer, drawData, instanceAttr.modelTransform, dtid + push.commandBufferOffset, meshletIdx);
         uint meshletOffset = getMeshletOffset(commandAccumilationBuffer, selectedLod, dtid + push.commandBufferOffset);
     
-        meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
-        perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+        meshlet mesh;
+        perMeshAttributes meshAttr;
         
-        visible = mesh.alphaType == blendAlphaMode && meshletOffset != maxUint;
+        visible = meshletOffset != maxUint;
         
         // Still have meshlets for that lodLevel.
         if (visible)
         {
-            if (!meshAttr.isSkinned)
+            mesh = meshletBuffer[meshletIdx][meshletOffset];
+            meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+            
+            visible = mesh.alphaType == blendAlphaMode;
+            
+            if (visible && !meshAttr.isSkinned)
             {
                 mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
                 

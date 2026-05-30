@@ -30,6 +30,7 @@ namespace engine
 		withError<std::shared_ptr<const shader>> getDefaultLineVertexShader();
 		withError<std::shared_ptr<const shader>> getDefaultLinePixelShader();
 		withError<std::shared_ptr<const shader>> loadShader(const std::string& path);
+		withError<materialTextures> loadDetaultMaterial();
 		withError<std::shared_ptr<const texture>> loadTexture(const image& img);
 		withError<std::shared_ptr<const texture>> loadTexture(const imageWithMipLevels& img);
 

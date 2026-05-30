@@ -113,6 +113,8 @@ namespace engine
 
 		uint32_t meshHash = 0;
 		uint32_t vertexHash = 0;
+		uint32_t indexHash = 0;
+		uint32_t primitiveHash = 0;
 		uint32_t meshletHash = 0;
 
 		void generateHashes()
@@ -120,15 +122,19 @@ namespace engine
 			if (vertexHash != 0 && meshletHash != 0 && meshHash != 0)
 				return;
 
-			const uint8_t* ptr = vertices.size() == 0 ? reinterpret_cast<const uint8_t*>(animVertices.data()) : reinterpret_cast<const uint8_t*>(vertices.data());
+			const uint8_t* vertexPtr = vertices.size() == 0 ? reinterpret_cast<const uint8_t*>(animVertices.data()) : reinterpret_cast<const uint8_t*>(vertices.data());
 			size_t size = vertices.size() == 0 ? animVertices.size() : vertices.size();
 			size_t sizeOf = vertices.size() == 0 ? sizeof(animVertex) : sizeof(vertex);
 
-			vertexHash = crc32(ptr, size * sizeOf / sizeof(uint8_t));
+			vertexHash = crc32(vertexPtr, size * sizeOf / sizeof(uint8_t));
+
+			indexHash = crc32(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
+			
+			primitiveHash = crc32(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
 
 			meshletHash = crc32(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
 
-			meshHash = mergeCrc32({ vertexHash, meshletHash });
+			meshHash = mergeCrc32({ vertexHash, meshletHash, indexHash, primitiveHash });
 		}
 	};
 

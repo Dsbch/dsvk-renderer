@@ -530,6 +530,7 @@ namespace engine
 					tex.alphaMode = alphaModeType::mask;
 					break;
 				default:
+					tex.alphaMode = alphaModeType::opaque;
 					break;
 				}
 

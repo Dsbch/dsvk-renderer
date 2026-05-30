@@ -28,6 +28,7 @@ namespace engine
 		sampler,
 		vulkanBuf,
 		gpuProf,
+		matReg,
 	};
 
 	struct destroyTask
@@ -46,6 +47,7 @@ namespace engine
 			vulkanBuffer* vulkanBuf;
 			pipelineRegistry* pipelineReg;
 			gpuProfiler* profiler;
+			materialRegistry* matReg;
 		};
 	};
 

@@ -175,14 +175,14 @@ float3 transformPoint(transform pointTransform, float3 p)
 
 struct meshOutput
 {
-    float3 tangentWorldPos : TANGENT0;
-    float3 tangentCameraPos : TANGENT1;
-    nointerpolation float3 tangentCameraFront : TANGENT2;
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
     nointerpolation uint albedoIndex : TEXCOORD1;
     nointerpolation uint normalIndex : TEXCOORD2;
     nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
+    float3 tangentWorldPos : TANGENT0;
+    float3 tangentCameraPos : TANGENT1;
+    nointerpolation float3 tangentCameraFront : TANGENT2;
 };
 
 uint getMeshletOffset(StructuredBuffer<command> cmdBuffer, uint lodLevel, uint idx)

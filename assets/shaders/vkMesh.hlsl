@@ -71,14 +71,17 @@ void asmain(
         uint selectedLod = selectLodLevel(commandOpaqueBuffer, meshletBuffer, perMeshBuffer, drawData, instanceAttr.modelTransform, dtid + push.commandBufferOffset, meshletIdx);
         uint meshletOffset = getMeshletOffset(commandOpaqueBuffer, selectedLod, dtid + push.commandBufferOffset);
     
-        meshlet mesh = meshletBuffer[meshletIdx][meshletOffset];
-        perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+        meshlet mesh;
+        perMeshAttributes meshAttr;
         
         visible = meshletOffset != maxUint;
         
         // Still have meshlets for that lodLevel.
         if (visible)
         {
+            mesh = meshletBuffer[meshletIdx][meshletOffset];
+            meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+            
             if (!meshAttr.isSkinned)
             {
                 mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
@@ -164,7 +167,7 @@ void msmain(
     }
 
     if (gtid < mesh.vertexCount)
-    {
+    {   
         uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
         
         vertex skinnedVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexIndex);
@@ -174,7 +177,7 @@ void msmain(
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
         float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skinnedVertex);
-        
+
         vertices[gtid].uv = skinnedVertex.textureCoords;
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);

@@ -76,6 +76,35 @@ namespace engine
 		return shader.value();
 	}
 
+	withError<materialTextures> aManager::loadDetaultMaterial()
+	{
+		materialTextures result{
+			.alphaMode = alphaModeType::opaque,
+		};
+
+		images defMat = genDefaultMaterial(1024, 1024, 4);
+
+		auto albedo = loadTexture(defMat.albedo);
+		if (!albedo)
+			return albedo.err();
+
+		result.albedo = albedo.value();
+
+		auto normal = loadTexture(defMat.normal);
+		if (!normal)
+			return normal.err();
+
+		result.normal = normal.value();
+
+		auto metallicRoughness = loadTexture(defMat.metallicRoughness);
+		if (!metallicRoughness)
+			return metallicRoughness.err();
+
+		result.metallicRoughness = metallicRoughness.value();
+
+		return result;
+	}
+
 	withError<std::shared_ptr<const texture>> aManager::loadTexture(const image& img)
 	{
 		if (!makeTexture)

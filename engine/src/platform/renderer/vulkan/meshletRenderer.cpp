@@ -127,9 +127,15 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = sampler, .sampler = &mSampler });
 
-		err = mMaterialRegistry.init(mSampler);
+		auto defaultMat = mCtx->mAmanager->loadDetaultMaterial();
+		if (!defaultMat)
+			return defaultMat.err();
+
+		err = mMaterialRegistry.init(mSampler, defaultMat.value());
 		if (err)
 			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = matReg, .matReg = &mMaterialRegistry });
 
 		return {};
 	}
@@ -197,7 +203,7 @@ namespace engine
 				mBindings.cmdOpaqueBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
-		
+
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mBindings.cmdAccumilationBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
@@ -496,7 +502,7 @@ namespace engine
 			if (crntMeshAttrs.isSkinned)
 			{
 				auto handle = mAnimVertexRegistry.addBlock(
-					crntMesh.vertexHash,
+					crntMesh.meshHash,
 					crntMesh.animVertices.data(),
 					crntMesh.animVertices.size() * vertexSize,
 					is
@@ -509,7 +515,7 @@ namespace engine
 			else
 			{
 				auto handle = mVertexRegistry.addBlock(
-					crntMesh.vertexHash,
+					crntMesh.meshHash,
 					crntMesh.vertices.data(),
 					crntMesh.vertices.size() * vertexSize,
 					is
@@ -540,7 +546,7 @@ namespace engine
 			}
 
 			auto handle = mIndexRegistry.addBlock(
-				crntMesh.vertexHash,
+				crntMesh.meshHash,
 				crntMesh.indices.data.data(),
 				crntMesh.indices.data.size() * sizeof(uint32_t),
 				is
@@ -555,7 +561,7 @@ namespace engine
 			}
 
 			handle = mPrimitiveRegistry.addBlock(
-				crntMesh.vertexHash,
+				crntMesh.meshHash,
 				crntMesh.primitives.data.data(),
 				crntMesh.primitives.data.size() * sizeof(uint32_t),
 				is
@@ -570,7 +576,7 @@ namespace engine
 			}
 
 			handle = mMeshletRegistry.addBlock(
-				crntMesh.meshletHash,
+				crntMesh.meshHash,
 				meshlets.data(),
 				meshlets.size() * sizeof(meshlet),
 				is
@@ -579,12 +585,12 @@ namespace engine
 				return handle.err();
 
 			addParams.meshesData.push_back(
-					pipelineRegistry::meshes{
-						.meshID = crntMesh.meshHash,
-						.meshletHandle = handle.value(),
-						.meshlets = crntMesh.meshlets,
-					}
-				);
+				pipelineRegistry::meshes{
+					.meshID = crntMesh.meshHash,
+					.meshletHandle = handle.value(),
+					.meshlets = crntMesh.meshlets,
+				}
+			);
 		}
 
 		err = mPipelineRegistry.addInstance(addParams);
@@ -640,7 +646,7 @@ namespace engine
 			// Mesh isn't used.
 			if (!mPipelineRegistry.meshIsUsed(crntMesh.meshHash))
 			{
-				mVertexRegistry.deleteBlock(crntMesh.vertexHash);
+				mVertexRegistry.deleteBlock(crntMesh.meshHash);
 
 				mAnimVertexRegistry.deleteBlock(crntMesh.meshHash);
 
@@ -648,7 +654,7 @@ namespace engine
 
 				mPrimitiveRegistry.deleteBlock(crntMesh.meshHash);
 
-				mMeshletRegistry.deleteBlock(crntMesh.meshletHash);
+				mMeshletRegistry.deleteBlock(crntMesh.meshHash);
 
 				mMaterialRegistry.deleteMaterials(m.mat);
 

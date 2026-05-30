@@ -537,6 +537,8 @@ namespace engine
 				if (crntPrimitive.indicies.size() == 0 || (crntPrimitive.vertecies.size() == 0 && crntPrimitive.animVertecies.size() == 0))
 					continue;
 
+				uint32_t primitiveMaterialOffset = uint32_t(gtlfMesh.primitives[pri].material - data->materials);
+
 				const glm::vec3* positions = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.position : &crntPrimitive.vertecies.front().position;
 				const glm::vec2* textCoords = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.textureCoords : &crntPrimitive.vertecies.front().textureCoords;
 				const glm::vec3* normals = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.normal : &crntPrimitive.vertecies.front().normal;
@@ -620,7 +622,7 @@ namespace engine
 					coneWeight,
 					0,
 					0,
-					uint32_t(gtlfMesh.primitives[pri].material - data->materials),
+					primitiveMaterialOffset,
 					alphaMode
 				);
 				if (err)
@@ -677,10 +679,10 @@ namespace engine
 				size_t indexLod1Before = indicesLod1.size();
 				size_t primLod1Before = primitivesLod1.size();
 
-				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod1, crntLodIndices, primitivesLod1, remappedIndex.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(gtlfMesh.primitives[pri].material - data->materials), alphaMode);
+				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod1, crntLodIndices, primitivesLod1, remappedIndex.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
-				for (size_t m = meshletLod1Before; m < meshletLod1.size(); m++) 
+				for (size_t m = meshletLod1Before; m < meshletLod1.size(); m++)
 				{
 					meshletLod1[m].indexBufferOffset += uint32_t(indexLod1Before);
 					meshletLod1[m].triangleBufferOffset += uint32_t(primLod1Before);
@@ -694,10 +696,10 @@ namespace engine
 				size_t indexLod2Before = indicesLod2.size();
 				size_t primLod2Before = primitivesLod2.size();
 
-				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod2, crntLodIndices, primitivesLod2, remappedIndex.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(gtlfMesh.primitives[pri].material - data->materials), alphaMode);
+				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod2, crntLodIndices, primitivesLod2, remappedIndex.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
-				for (size_t m = meshletLod2Before; m < meshletLod2.size(); m++) 
+				for (size_t m = meshletLod2Before; m < meshletLod2.size(); m++)
 				{
 					meshletLod2[m].indexBufferOffset += uint32_t(indexLod2Before);
 					meshletLod2[m].triangleBufferOffset += uint32_t(primLod2Before);
@@ -711,14 +713,15 @@ namespace engine
 				size_t indexLod3Before = indicesLod3.size();
 				size_t primLod3Before = primitivesLod3.size();
 
-				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod3, crntLodIndices, primitivesLod3, remappedIndex.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel, uint32_t(gtlfMesh.primitives[pri].material - data->materials), alphaMode);
+				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod3, crntLodIndices, primitivesLod3, remappedIndex.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
-				for (size_t m = meshletLod3Before; m < meshletLod3.size(); m++) 
+				for (size_t m = meshletLod3Before; m < meshletLod3.size(); m++)
 				{
 					meshletLod3[m].indexBufferOffset += uint32_t(indexLod3Before);
 					meshletLod3[m].triangleBufferOffset += uint32_t(primLod3Before);
 				}
+
 				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
 				indicesLod3.insert(indicesLod3.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
 				crntLodIndices.clear();

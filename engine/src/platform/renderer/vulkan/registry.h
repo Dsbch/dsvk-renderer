@@ -197,7 +197,8 @@ namespace engine
 	struct materialRegistry
 	{
 	public:
-		error init(VkSampler sampler);
+		error init(VkSampler sampler, materialTextures defaultMat);
+		void destroy();
 		void setUpdated();
 		bool needDescriptorUpdate() const;
 
@@ -207,11 +208,14 @@ namespace engine
 		withError<uint32_t> getMaterialsOffset(const materials& materials);
 		void deleteMaterials(const materials& materials);
 	private:
+		materialTextures mDefaultMat;
+
 		VmaVirtualBlock mVBlock;
 
 		struct virtualTextureBlock
 		{
 			uint32_t offset;
+			uint32_t size;
 			VmaVirtualAllocation allocation;
 		};
 		std::map<textureHash, virtualTextureBlock> mUploadedMaterials;

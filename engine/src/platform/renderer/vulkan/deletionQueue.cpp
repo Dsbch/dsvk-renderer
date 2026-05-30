@@ -62,6 +62,10 @@ namespace engine
 				if (it->profiler)
 					it->profiler->destroy();
 				break;
+			case matReg:
+				if (it->matReg)
+					it->matReg->destroy();
+				break;
 			default:
 				LOGERROR("deletionQueue.cpp unkown deletionType");
 			}
