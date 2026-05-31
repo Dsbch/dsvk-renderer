@@ -16,21 +16,13 @@
 
 // DescriptorSet START.
 
-struct vertex
+struct skinnedVertex
 {
     float3 position;
     float2 textureCoords;
     float3 normal;
     float4 tangent;
 };
-
-struct animVertex
-{
-    vertex vert;
-    uint joints[4];
-    float weights[4];
-};
-
 
 struct meshletBounds
 {
@@ -50,6 +42,9 @@ struct meshlet
 
     uint indexBufferIndex;
     uint indexBufferOffset;
+    
+    uint weightBufferOffset;
+    uint weightBufferIndex;
     
     uint vertexBufferIndex;
     uint vertexBufferOffset;
@@ -93,7 +88,7 @@ struct command
 };
 
 struct perMeshAttributes
-{
+{   
     float bsRadius;
     float3 bsCenter;
     uint isSkinned;
@@ -102,21 +97,6 @@ struct perMeshAttributes
     float3x3 meshLocalNormal;
     float3x3 meshGlobalNormal;
 };
-
-// SSBO START.
-
-StructuredBuffer<vertex> vertexBuffer[] : register(t0, space0);
-StructuredBuffer<animVertex> animVertexBuffer[] : register(t1, space0);
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t2, space0);
-StructuredBuffer<command> commandOpaqueBuffer : register(t3, space0);
-StructuredBuffer<command> commandAccumilationBuffer : register(t4, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t5, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t6, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t7, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t8, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t9, space0);
-
-// SSBO END.
 
 // UBO START.
 
@@ -150,6 +130,95 @@ struct perDrawData
     float deltaTime;
 };
 
+struct meshOutput
+{
+    float4 position : SV_POSITION;
+    float2 uv : TEXCOORD0;
+    nointerpolation uint albedoIndex : TEXCOORD1;
+    nointerpolation uint normalIndex : TEXCOORD2;
+    nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
+    float3 tangentWorldPos : TANGENT0;
+    float3 tangentCameraPos : TANGENT1;
+    nointerpolation float3 tangentCameraFront : TANGENT2;
+};
+
+// SSBO START.
+
+// Vertex attributes.
+// 0 - 10.
+StructuredBuffer<float4> positionBuffer[] : register(t0, space0);
+StructuredBuffer<float4> normalBuffer[] : register(t1, space0);
+StructuredBuffer<float4> tangenBuffer[] : register(t2, space0);
+StructuredBuffer<uint4> jointIndexBuffer[] : register(t3, space0);
+StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
+
+// Buffers.
+// 11 - 20.
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t11, space0);
+StructuredBuffer<command> commandOpaqueBuffer : register(t12, space0);
+StructuredBuffer<command> commandAccumilationBuffer : register(t13, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t14, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t15, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t16, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t17, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t18, space0);
+
+// SSBO END.
+
+// UBO START.
+
+ConstantBuffer<perDrawData> drawData : register(b19, space0);
+
+// UBO END.
+
+// MATERIALS START.
+// 21 - 30.                               
+Texture2D materials[] : register(t21, space0);
+SamplerState materialsSampler[] : register(s21, space0);
+Texture2D accum : register(t22, space0);
+SamplerState accumSampler : register(s22, space0);
+Texture2D reveal : register(t23, space0);
+SamplerState revealSampler : register(s23, space0);
+
+// MATERIALS END.
+
+float3 getPostition(uint index, uint offset)
+{
+    float4 pos = positionBuffer[index][offset];
+    
+    return pos.xyz;
+}
+
+float2 getTexCoords(uint index, uint offset)
+{
+    float4 pos = positionBuffer[index][offset];
+    float4 normal = normalBuffer[index][offset];
+    
+    return float2(pos.w, normal.w);
+}
+
+float3 getNormal(uint index, uint offset)
+{
+    float4 normal = normalBuffer[index][offset];
+    
+    return normal.xyz;
+}
+
+float4 getTangent(uint index, uint offset)
+{
+    return tangenBuffer[index][offset];
+}
+
+uint4 getJointIndices(uint index, uint offset)
+{
+    return jointIndexBuffer[index][offset];
+}
+
+float4 getWieghts(uint index, uint offset)
+{
+    return weightBuffer[index][offset];
+}
+
 float3 rotate(float4 quat, float3 v)
 {
     float3 uv = cross(quat.xyz, v);
@@ -172,18 +241,6 @@ float3 transformPoint(transform pointTransform, float3 p)
 {
     return translate(pointTransform.translation, rotate(pointTransform.rotation, scale(pointTransform.scale, p)));
 }
-
-struct meshOutput
-{
-    float4 position : SV_POSITION;
-    float2 uv : TEXCOORD0;
-    nointerpolation uint albedoIndex : TEXCOORD1;
-    nointerpolation uint normalIndex : TEXCOORD2;
-    nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
-    float3 tangentWorldPos : TANGENT0;
-    float3 tangentCameraPos : TANGENT1;
-    nointerpolation float3 tangentCameraFront : TANGENT2;
-};
 
 uint getMeshletOffset(StructuredBuffer<command> cmdBuffer, uint lodLevel, uint idx)
 {
@@ -209,12 +266,12 @@ uint getMeshletOffset(StructuredBuffer<command> cmdBuffer, uint lodLevel, uint i
 }
 
 uint selectLodLevel(
-    StructuredBuffer<command> cmdBuf, 
-    StructuredBuffer<meshlet> meshletBuf[], 
+    StructuredBuffer<command> cmdBuf,
+    StructuredBuffer<meshlet> meshletBuf[],
     StructuredBuffer<perMeshAttributes> perMeshBuf[],
-    perDrawData drawData, 
-    transform modelTransform, 
-    uint cmdBuffIdx, 
+    perDrawData drawData,
+    transform modelTransform,
+    uint cmdBuffIdx,
     uint meshletIdx
 )
 {
@@ -326,18 +383,17 @@ bool isBackface(perDrawData drawData, transform modelTransform, float3 v1, float
     return dot(normal, drawData.cameraPos - center) < 0;
 }
 
-float3x3 calculateTBN(float4 quat, vertex v)
+float3x3 calculateTBN(float4 quat, float4 tangent, float3 normal)
 {
-    float3 T = normalize(rotate(quat, float3(v.tangent.xyz)));
-    float3 N = normalize(rotate(quat, v.normal));
+    float3 T = normalize(rotate(quat, float3(tangent.xyz)));
+    float3 N = normalize(rotate(quat, normal));
     
     T = normalize(T - dot(T, N) * N);
     
-    float3 B = v.tangent.w * cross(N, T);
+    float3 B = tangent.w * cross(N, T);
     
     return transpose(float3x3(T, B, N));
 }
-
 
 // it's just approxiamtion the formula itself quite complex and using radiant flux that we do not have.
 float3 lightRadiance(float3 lightColor, float distance)
@@ -415,44 +471,50 @@ float3 toSRGB(float3 color)
 }
 
 // Skins all vertex attributes if needed.
-vertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uint index, uint offset)
+skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uint index, uint offset, uint weightOffset, uint weightIndex)
 {
+    skinnedVertex result;
+    
+    result.position = getPostition(index, offset);
+    result.textureCoords = getTexCoords(index, offset);
+    result.normal = getNormal(index, offset);
+    result.tangent = getTangent(index, offset);
+    
     if (!perMesh.isSkinned)
     {
-        vertex v = vertexBuffer[index][offset];
-        
-        v.position = mul(perMesh.meshGlobalTransform, float4(v.position, 1.0f)).xyz;
+        result.position = mul(perMesh.meshGlobalTransform, float4(result.position, 1.0f)).xyz;
 
-        return v;
+        return result;
     }
     
-    animVertex aVertex = animVertexBuffer[index][offset];
+    float4 weights = getWieghts(weightIndex, weightOffset);
+    uint4 jointIndices = getJointIndices(weightIndex, weightOffset);
     
-    float4 bindPos = float4(aVertex.vert.position, 1.0f);
+    float4 bindPos = float4(result.position, 1.0f);
     float4 skinnedPos = float4(0, 0, 0, 0);
         
-    skinnedPos += aVertex.weights[0] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[0]], bindPos);
-    skinnedPos += aVertex.weights[1] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[1]], bindPos);
-    skinnedPos += aVertex.weights[2] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[2]], bindPos);
-    skinnedPos += aVertex.weights[3] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[3]], bindPos);
+    skinnedPos += weights[0] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], bindPos);
+    skinnedPos += weights[1] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[1]], bindPos);
+    skinnedPos += weights[2] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], bindPos);
+    skinnedPos += weights[3] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], bindPos);
     
-    aVertex.vert.position = mul(perMesh.meshGlobalTransform, float4(skinnedPos.xyz, 1.0f)).xyz;
+    result.position = mul(perMesh.meshGlobalTransform, float4(skinnedPos.xyz, 1.0f)).xyz;
     
-    aVertex.vert.normal = normalize(
-            aVertex.weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[0]], aVertex.vert.normal) +
-            aVertex.weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[1]], aVertex.vert.normal) +
-            aVertex.weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[2]], aVertex.vert.normal) +
-            aVertex.weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[3]], aVertex.vert.normal)
+    result.normal = normalize(
+            weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], result.normal) +
+            weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[1]], result.normal) +
+            weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], result.normal) +
+            weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.normal)
         );
 
     float3 skinnedTangent = normalize(
-            aVertex.weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[0]], aVertex.vert.tangent.xyz) +
-            aVertex.weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[1]], aVertex.vert.tangent.xyz) +
-            aVertex.weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[2]], aVertex.vert.tangent.xyz) +
-            aVertex.weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + aVertex.joints[3]], aVertex.vert.tangent.xyz)
+            weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], result.tangent.xyz) +
+            weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[1]], result.tangent.xyz) +
+            weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], result.tangent.xyz) +
+            weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.tangent.xyz)
         );
     
-    aVertex.vert.tangent = float4(skinnedTangent, aVertex.vert.tangent.w);
+    result.tangent = float4(skinnedTangent, result.tangent.w);
     
-    return aVertex.vert;
+    return result;
 }

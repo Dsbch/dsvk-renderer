@@ -4,19 +4,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-// UBO START.
-
-ConstantBuffer<perDrawData> drawData : register(b10, space0);
-
-// UBO END.
-
-// TEXTURES START.
-
-Texture2D materials[] : register(t11, space0);
-SamplerState materialsSampler[] : register(s11, space0);
-
-// TEXTURES END.
-
 // DescriptorSets END.
 
 // Push constant START.
@@ -157,28 +144,33 @@ void msmain(
         uint idx2 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.y] + mesh.vertexBufferOffset;
         uint idx3 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.vertexBufferOffset;
         
+        uint idxAnim1 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.weightBufferOffset;
+        uint idxAnim2 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.weightBufferOffset;
+        uint idxAnim3 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.weightBufferOffset;
+        
         primitives[gtid].cullPrimitive = isBackface(
                 drawData,
                 instanceAttr.modelTransform,
-                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx1).position,
-                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx2).position,
-                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx3).position
+                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx1, idxAnim1, mesh.weightBufferIndex).position,
+                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx2, idxAnim2, mesh.weightBufferIndex).position,
+                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx3, idxAnim3, mesh.weightBufferIndex).position
             );
     }
 
     if (gtid < mesh.vertexCount)
     {   
-        uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
+        uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
+        uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.weightBufferOffset;
         
-        vertex skinnedVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexIndex);
+        skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
         
-        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skinnedVertex.position), 1.0f);
+        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
-        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skinnedVertex);
+        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skVertex.tangent, skVertex.normal);
 
-        vertices[gtid].uv = skinnedVertex.textureCoords;
+        vertices[gtid].uv = skVertex.textureCoords;
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
         vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));

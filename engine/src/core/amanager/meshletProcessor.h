@@ -2,19 +2,16 @@
 
 #include <pch.h>
 #include "platform/renderer/vertex.h"
+#include "primitiveProcessor.h"
 
 struct cgltf_data;
 
 namespace engine
 {
-	void calculateTangents(
-		const glm::vec3* positions,
-		const glm::vec3* normals,
-		const glm::vec2* textCoords,
-		size_t verticesLen,
-		size_t stride,
-		const std::vector<uint32_t>& indices,
-		glm::vec4* outTangents
+	std::vector<glm::vec4> calculateTangents(
+		const std::vector<glm::vec4>& positions,
+		const std::vector<glm::vec4>& normals,
+		const std::vector<uint32_t>& indices
 	);
 
 	std::vector<uint32_t> repackPrimitives(
@@ -22,21 +19,12 @@ namespace engine
 		std::vector<meshlet>& meshlets
 	);
 
-	std::pair<glm::vec3, float> calculateBoundingSphere(const glm::vec3* positions, size_t verticesLen, size_t stride);
+	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec3>& positions);
 
-	error remapMesh(
-		const glm::vec3* positions,
-		size_t vertexLen,
-		size_t sizeOfVertex,
-		const std::vector<uint32_t> indicies,
-		const std::function<void* (size_t)>& resizeV,
-		const std::function<uint32_t*(size_t)>& resizeI
-	);
+	error remapMesh(primitive& prim, bool isSkinned);
 
 	error generateMeshlets(
-		const glm::vec3* positions,
-		size_t vertexLen, 
-		size_t sizeOfVertex,
+		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t>& indicies,
 		std::vector<meshlet>& mOut,
 		std::vector<uint8_t>& pOut,
@@ -49,9 +37,7 @@ namespace engine
 	);
 
 	error generateLodLevel(
-		const glm::vec3* positions,
-		size_t vertexLen,
-		size_t sizeOfVertex,
+		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t> i,
 		std::vector<meshlet>& meshletsOut,
 		std::vector<uint32_t>& indicesOut,

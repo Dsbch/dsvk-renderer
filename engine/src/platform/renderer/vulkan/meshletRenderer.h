@@ -16,10 +16,14 @@ namespace engine
 		uint32_t descriptorSet;
 		uint32_t totalDescriptorsCount;
 
-		uint32_t accumBinding;
-		uint32_t revealBinding;
-		uint32_t vertexBinding;
-		uint32_t animVertexBinding;
+		// Vertex attributes.
+		uint32_t positionsBinding;
+		uint32_t normalBinding;
+		uint32_t tangentBinding;
+		uint32_t jointIndexBinding;
+		uint32_t wightBinding;
+
+		// Buffers binding.
 		uint32_t perInstanceBinding;
 		uint32_t cmdOpaqueBufferBinding;
 		uint32_t cmdAccumilationBufferBinding;
@@ -28,10 +32,12 @@ namespace engine
 		uint32_t meshletBinding;
 		uint32_t jointsBinding;
 		uint32_t perMeshBinding;
-
 		uint32_t perDrawBufferUboBinding;
 
+		// Materil binding.
 		uint32_t materialArrayBinding;
+		uint32_t accumBinding;
+		uint32_t revealBinding;
 	};
 
 	struct meshletRenderer
@@ -71,12 +77,19 @@ namespace engine
 
 		VkSampler mSampler;
 		descriptorSet mDescriptorSet;
-		bufferRegistry mVertexRegistry;
-		bufferRegistry mAnimVertexRegistry;
+		// Vertex attribtes.
+		bufferRegistry mPositionRegistry;
+		bufferRegistry mNormalRegistry;
+		bufferRegistry mTangentRegistry;
+		bufferRegistry mJointIndexRegistry;
+		bufferRegistry mWeightRegistry;
+
+		// Buffers.
 		bufferRegistry mIndexRegistry;
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
 		bufferRegistry mPerMeshRegistry;
+		
 		pipelineRegistry mPipelineRegistry;
 		materialRegistry mMaterialRegistry;
 

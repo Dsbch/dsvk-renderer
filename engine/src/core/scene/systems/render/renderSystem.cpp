@@ -236,6 +236,7 @@ namespace engine
 				model m{
 					.id = uid.uid,
 					.meshData = mesh.meshData,
+					.perMeshData = mesh.meshAttributes,
 					.mat = material.mat,
 				};
 

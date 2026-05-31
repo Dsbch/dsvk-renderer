@@ -4,41 +4,20 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "meshletProcessor.h"
-#include "primitiveProcessor.h"
 
 namespace engine
 {
-	template<typename T>
-	const T& getAttr(const void* base, size_t idx, size_t stride)
-	{
-		return *reinterpret_cast<const T*>(
-			reinterpret_cast<const char*>(base) + idx * stride
-			);
-	}
-
-	template<typename T>
-	void setAttr(void* base, size_t idx, size_t stride, const T& value)
-	{
-		*reinterpret_cast<T*>(
-			reinterpret_cast<char*>(base) + idx * stride
-			) = value;
-	}
-
-	void calculateTangents(
-		const glm::vec3* positions,
-		const glm::vec3* normals,
-		const glm::vec2* textCoords,
-		size_t verticesLen,
-		size_t stride,
-		const std::vector<uint32_t>& indices,
-		glm::vec4* outTangents
+	std::vector<glm::vec4> calculateTangents(
+		const std::vector<glm::vec4>& positions,
+		const std::vector<glm::vec4>& normals,
+		const std::vector<uint32_t>& indices
 	)
 	{
 		std::vector<glm::vec3> tan1{};
-		tan1.resize(verticesLen);
+		tan1.resize(positions.size());
 
 		std::vector<glm::vec3> tan2{};
-		tan2.resize(verticesLen);
+		tan2.resize(positions.size());
 
 		for (size_t i = 0; i < indices.size(); i += 3)
 		{
@@ -46,12 +25,12 @@ namespace engine
 			uint32_t i2 = indices[i + 1];
 			uint32_t i3 = indices[i + 2];
 
-			const glm::vec3& v1 = getAttr<glm::vec3>(positions, i1, stride);
-			const glm::vec3& v2 = getAttr<glm::vec3>(positions, i2, stride);
-			const glm::vec3& v3 = getAttr<glm::vec3>(positions, i3, stride);
-			const glm::vec2& tc1 = getAttr<glm::vec2>(textCoords, i1, stride);
-			const glm::vec2& tc2 = getAttr<glm::vec2>(textCoords, i2, stride);
-			const glm::vec2& tc3 = getAttr<glm::vec2>(textCoords, i3, stride);
+			const glm::vec3& v1 = glm::vec3{ positions[i1] };
+			const glm::vec3& v2 = glm::vec3{ positions[i2] };
+			const glm::vec3& v3 = glm::vec3{ positions[i3] };
+			const glm::vec2& tc1 = glm::vec2{ positions[i1].w, normals[i1].w };
+			const glm::vec2& tc2 = glm::vec2{ positions[i2].w, normals[i2].w };
+			const glm::vec2& tc3 = glm::vec2{ positions[i3].w, normals[i3].w };
 
 			float x1 = v2.x - v1.x;
 			float x2 = v3.x - v1.x;
@@ -88,16 +67,20 @@ namespace engine
 			tan2[i3] += tdir;
 		}
 
-		for (size_t i = 0; i < verticesLen; i++)
+		std::vector<glm::vec4> result{};
+
+		for (size_t i = 0; i < positions.size(); i++)
 		{
-			const auto& n = getAttr<glm::vec3>(normals, i, stride);
+			const auto& n = glm::vec3{ normals[i] };
 			const auto& t = tan1[i];
 
 			// Gram-Schmidt orthogonalize.
 			glm::vec3 tangent = glm::normalize(t - n * glm::dot(n, t));
 
-			setAttr<glm::vec4>(outTangents, i, stride, glm::vec4(tangent, (glm::dot(glm::cross(n, t), tan2[i]) < 0.0F) ? -1.0F : 1.0F));
+			result.push_back(glm::vec4(tangent, (glm::dot(glm::cross(n, t), tan2[i]) < 0.0F) ? -1.0F : 1.0F));
 		}
+
+		return result;
 	}
 
 	std::vector<uint32_t> repackPrimitives(
@@ -137,16 +120,16 @@ namespace engine
 		return repacked;
 	}
 
-	std::pair<glm::vec3, float> calculateBoundingSphere(const glm::vec3* positions, size_t verticesLen, size_t stride)
+	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec4>& positions)
 	{
-		auto findFarthest = [](glm::vec3 point, const glm::vec3* positions, size_t verticesLen, size_t stride)-> glm::vec3
+		auto findFarthest = [](glm::vec3 point, const std::vector<glm::vec4>& positions)-> glm::vec3
 			{
 				glm::vec3 result{ 0.0f };
 				float maxLength = 0.0f;
 
-				for (int i = 0; i < verticesLen; i++)
+				for (int i = 0; i < positions.size(); i++)
 				{
-					glm::vec3 pos = getAttr<glm::vec3>(positions, i, stride);
+					glm::vec3 pos = glm::vec3{ positions[i] };
 
 					float length = glm::length(pos - point);
 
@@ -162,17 +145,17 @@ namespace engine
 
 		std::pair<glm::vec3, float> result{ glm::vec3(1.0f), 0.0f };
 
-		glm::vec3 first = getAttr<glm::vec3>(positions, std::rand() % verticesLen, stride);
+		glm::vec3 first = glm::vec3{ positions[std::rand() % positions.size()] };
 
-		glm::vec3 second = findFarthest(first, positions, verticesLen, stride);
-		glm::vec3 third = findFarthest(second, positions, verticesLen, stride);
+		glm::vec3 second = findFarthest(first, positions);
+		glm::vec3 third = findFarthest(second, positions);
 
 		glm::vec3 potentialCenter = (second + third) / 2.0f;
 		float potentialRadius = glm::length(third - potentialCenter);
 
-		for (int i = 0; i < verticesLen; i++)
+		for (int i = 0; i < positions.size(); i++)
 		{
-			glm::vec3 pos = getAttr<glm::vec3>(positions, i, stride);
+			glm::vec3 pos = glm::vec3{ positions[i] };
 
 			glm::vec3 toCenter = pos - potentialCenter;
 			float crntRadius = glm::length(toCenter);
@@ -191,39 +174,66 @@ namespace engine
 		return result;
 	}
 
-	error remapMesh(
-		const glm::vec3* positions,
-		size_t vertexLen,
-		size_t sizeOfVertex,
-		const std::vector<uint32_t> indicies,
-		const std::function<void* (size_t)>& resizeV,
-		const std::function<uint32_t* (size_t)>& resizeI
-	)
+	error remapMesh(primitive& prim, bool isSkinned)
 	{
-		std::vector<unsigned int> remap(indicies.size());
+		std::vector<meshopt_Stream> streams;
 
-		size_t vertex_count = meshopt_generateVertexRemap(
+		streams.push_back({ prim.positions.data(), sizeof(glm::vec4), sizeof(glm::vec4) });
+		streams.push_back({ prim.normal.data(),    sizeof(glm::vec4), sizeof(glm::vec4) });
+
+		if (!prim.jointIndices.empty())
+			streams.push_back({ prim.jointIndices.data(), sizeof(glm::uvec4), sizeof(glm::uvec4) });
+
+		if (!prim.weights.empty())
+			streams.push_back({ prim.weights.data(), sizeof(glm::vec4), sizeof(glm::vec4) });
+
+		std::vector<uint32_t> remap(prim.indicies.size());
+
+		size_t vertexCount = meshopt_generateVertexRemapMulti(
 			remap.data(),
-			indicies.data(),
-			indicies.size(),
-			&positions->x,
-			vertexLen,
-			sizeOfVertex
+			prim.indicies.data(),
+			prim.indicies.size(),
+			prim.positions.size(),
+			streams.data(),
+			streams.size()
 		);
-		if (vertex_count == 0)
+
+		if (vertexCount == 0)
 			return error{ "vertex count is zero" };
 
-		meshopt_remapIndexBuffer(resizeI(indicies.size()), indicies.data(), indicies.size(), remap.data());
+		std::vector<uint32_t>    remappedIndices(prim.indicies.size());
+		std::vector<glm::vec4>   remappedPositions(vertexCount);
+		std::vector<glm::vec4>   remappedNormals(vertexCount);
+		std::vector<glm::uvec4>  remappedJoints{};
+		std::vector<glm::vec4>   remappedWeights{};
 
-		meshopt_remapVertexBuffer(resizeV(vertex_count), &positions->x, vertexLen, sizeOfVertex, remap.data());
+		meshopt_remapIndexBuffer(remappedIndices.data(), prim.indicies.data(), prim.indicies.size(), remap.data());
+		meshopt_remapVertexBuffer(remappedPositions.data(), prim.positions.data(), prim.positions.size(), sizeof(glm::vec4), remap.data());
+		meshopt_remapVertexBuffer(remappedNormals.data(), prim.normal.data(), prim.normal.size(), sizeof(glm::vec4), remap.data());
+
+		if (isSkinned && !prim.jointIndices.empty())
+		{
+			remappedJoints.resize(vertexCount);
+			meshopt_remapVertexBuffer(remappedJoints.data(), prim.jointIndices.data(), prim.jointIndices.size(), sizeof(glm::uvec4), remap.data());
+		}
+
+		if (isSkinned && !prim.weights.empty())
+		{
+			remappedWeights.resize(vertexCount);
+			meshopt_remapVertexBuffer(remappedWeights.data(), prim.weights.data(), prim.weights.size(), sizeof(glm::vec4), remap.data());
+		}
+
+		prim.indicies = std::move(remappedIndices);
+		prim.positions = std::move(remappedPositions);
+		prim.normal = std::move(remappedNormals);
+		prim.jointIndices = std::move(remappedJoints);
+		prim.weights = std::move(remappedWeights);
 
 		return {};
 	}
 
 	error generateMeshlets(
-		const glm::vec3* positions,
-		size_t vertexLen,
-		size_t sizeOfVertex,
+		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t>& indicies,
 		std::vector<meshlet>& mOut,
 		std::vector<uint8_t>& pOut,
@@ -248,9 +258,9 @@ namespace engine
 			simplyfiedIndexBuf.data(),
 			indicies.data(),
 			indicies.size(),
-			&positions->x,
-			vertexLen,
-			sizeOfVertex,
+			&positions[0].x,
+			positions.size(),
+			sizeof(glm::vec4),
 			targetIndexCount,
 			errorLevel
 		);
@@ -273,9 +283,9 @@ namespace engine
 			pOut.data(),												// Output: array of uint8_t - triangle indices
 			simplyfiedIndexBuf.data(),									// Input: pointer mesh vertex indices
 			simplyfiedIndexBuf.size(),									// Input: number of vertex indices
-			&positions->x,												// Input: pointer to vertex positions
-			vertexLen,													// Input: number of vertex positions	
-			sizeOfVertex,												// Input: stride of vertex position elements
+			&positions[0].x,											// Input: pointer to vertex positions
+			positions.size(),											// Input: number of vertex positions	
+			sizeof(glm::vec4),											// Input: stride of vertex position elements
 			maxVert,													// Input: maximum number of vertices per meshlet
 			maxTriangles,												// Input: maximum number of triangles per meshlet
 			coneWieght													// Input: cone weight (we'll discuss this eventually...maybe)
@@ -301,9 +311,9 @@ namespace engine
 				&iOut[m.vertex_offset],
 				&pOut[m.triangle_offset],
 				m.triangle_count,
-				&positions->x,
-				vertexLen,
-				sizeOfVertex
+				&positions[0].x,
+				positions.size(),
+				sizeof(glm::vec4)
 			);
 
 			mOut.push_back(
@@ -312,12 +322,15 @@ namespace engine
 					.localMaterialOffset = materialOffset,
 					.indexBufferIndex = 0,
 					.indexBufferOffset = m.vertex_offset,
+					.weightBufferOffset = 0,
+					.weightBufferIndex = 0,
 					.vertexBufferIndex = 0,
 					.vertexBufferOffset = 0,
 					.vertexCount = m.vertex_count,
 					.triangleBufferIndex = 0,
 					.triangleBufferOffset = m.triangle_offset,
 					.triangleCount = m.triangle_count,
+					.perMeshBufferIndex = 0,
 					.perMeshBufferOffset = 0,
 					.bounds = meshletBounds{
 						.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
@@ -333,9 +346,7 @@ namespace engine
 	}
 
 	error generateLodLevel(
-		const glm::vec3* positions,
-		size_t vertexLen,
-		size_t sizeOfVertex,
+		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t> i,
 		std::vector<meshlet>& meshletsOut,
 		std::vector<uint32_t>& indicesOut,
@@ -355,8 +366,6 @@ namespace engine
 
 		error err = generateMeshlets(
 			positions,
-			vertexLen,
-			sizeOfVertex,
 			i,
 			meshlets,
 			primitives,
@@ -529,59 +538,18 @@ namespace engine
 
 			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
 			{
-				primitive crntPrimitive = processPrimitive(
+				auto crntPrimitive = processPrimitive(
 					gtlfMesh.primitives[pri],
 					crntMeshAttrs.isSkinned
 				);
-
-				if (crntPrimitive.indicies.size() == 0 || (crntPrimitive.vertecies.size() == 0 && crntPrimitive.animVertecies.size() == 0))
-					continue;
+				if (!crntPrimitive)
+					return crntPrimitive.err();
 
 				uint32_t primitiveMaterialOffset = uint32_t(gtlfMesh.primitives[pri].material - data->materials);
 
-				const glm::vec3* positions = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.position : &crntPrimitive.vertecies.front().position;
-				const glm::vec2* textCoords = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.textureCoords : &crntPrimitive.vertecies.front().textureCoords;
-				const glm::vec3* normals = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.normal : &crntPrimitive.vertecies.front().normal;
-				glm::vec4* tangents = crntMeshAttrs.isSkinned ? &crntPrimitive.animVertecies.front().vert.tangent : &crntPrimitive.vertecies.front().tangent;
-				size_t sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
-				size_t vertexLen = crntMeshAttrs.isSkinned ? crntPrimitive.animVertecies.size() : crntPrimitive.vertecies.size();
-
-				calculateTangents(positions, normals, textCoords, vertexLen, sizeOfVertex, crntPrimitive.indicies, tangents);
-
-				std::vector<vertex> remappedVertex;
-				std::vector<animVertex> remappedAnimVertex;
-				std::vector<uint32_t> remappedIndex;
-
-				void* vOut = crntMeshAttrs.isSkinned ? static_cast<void*>(remappedAnimVertex.data()) : static_cast<void*>(remappedVertex.data());
-				auto resizeV = [&remappedVertex, &remappedAnimVertex, crntMeshAttrs](size_t size) -> void*
-					{
-						if (crntMeshAttrs.isSkinned)
-						{
-							remappedAnimVertex.resize(size);
-
-							return static_cast<void*>(remappedAnimVertex.data());
-						}
-						else
-						{
-							remappedVertex.resize(size);
-
-							return static_cast<void*>(remappedVertex.data());
-						}
-					};
-				auto resizeI = [&remappedIndex](size_t size) -> uint32_t*
-					{
-						remappedIndex.resize(size);
-
-						return remappedIndex.data();
-					};
-
 				error err = remapMesh(
-					positions,
-					vertexLen,
-					sizeOfVertex,
-					crntPrimitive.indicies,
-					resizeV,
-					resizeI
+					crntPrimitive.value(),
+					crntMeshAttrs.isSkinned
 				);
 				if (err)
 					return err;
@@ -605,15 +573,9 @@ namespace engine
 				std::vector<uint32_t> indices;
 				std::vector<uint8_t> primitives;
 
-				positions = crntMeshAttrs.isSkinned ? &remappedAnimVertex.front().vert.position : &remappedVertex.front().position;
-				sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
-				vertexLen = crntMeshAttrs.isSkinned ? remappedAnimVertex.size() : remappedVertex.size();
-
 				err = generateMeshlets(
-					positions,
-					vertexLen,
-					sizeOfVertex,
-					remappedIndex,
+					crntPrimitive.value().positions,
+					crntPrimitive.value().indicies,
 					meshlets,
 					primitives,
 					indices,
@@ -627,7 +589,8 @@ namespace engine
 				);
 				if (err)
 					return err;
-
+				
+				std::vector<glm::vec4> tangents = calculateTangents(crntPrimitive.value().positions, crntPrimitive.value().normal, crntPrimitive.value().indicies);
 				std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
 
 				for (auto& m : meshlets)
@@ -636,8 +599,7 @@ namespace engine
 					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
 				}
 
-				size_t vertexBase = crntMeshAttrs.isSkinned ?
-					crntMesh.animVertices.size() : crntMesh.vertices.size();
+				size_t vertexBase = crntMesh.positions.size();
 
 				for (auto& i : indices)
 					i += uint32_t(vertexBase);
@@ -660,17 +622,38 @@ namespace engine
 					std::move_iterator(meshlets.end())
 				);
 
-				crntMesh.vertices.insert(
-					crntMesh.vertices.end(),
-					std::move_iterator(remappedVertex.begin()),
-					std::move_iterator(remappedVertex.end())
+				crntMesh.positions.insert(
+					crntMesh.positions.end(),
+					std::move_iterator(crntPrimitive.value().positions.begin()),
+					std::move_iterator(crntPrimitive.value().positions.end())
 				);
 
-				crntMesh.animVertices.insert(
-					crntMesh.animVertices.end(),
-					std::move_iterator(remappedAnimVertex.begin()),
-					std::move_iterator(remappedAnimVertex.end())
+				crntMesh.tangent.insert(
+					crntMesh.tangent.end(),
+					std::move_iterator(tangents.begin()),
+					std::move_iterator(tangents.end())
 				);
+				
+				crntMesh.normal.insert(
+					crntMesh.normal.end(),
+					std::move_iterator(crntPrimitive.value().normal.begin()),
+					std::move_iterator(crntPrimitive.value().normal.end())
+				);
+
+				if (crntMeshAttrs.isSkinned)
+				{
+					crntMesh.weights.insert(
+						crntMesh.weights.end(),
+						std::move_iterator(crntPrimitive.value().weights.begin()),
+						std::move_iterator(crntPrimitive.value().weights.end())
+					);
+
+					crntMesh.jointIndices.insert(
+						crntMesh.jointIndices.end(),
+						std::move_iterator(crntPrimitive.value().jointIndices.begin()),
+						std::move_iterator(crntPrimitive.value().jointIndices.end())
+					);
+				}
 
 				std::vector<uint32_t> crntLodIndices{};
 
@@ -679,7 +662,7 @@ namespace engine
 				size_t indexLod1Before = indicesLod1.size();
 				size_t primLod1Before = primitivesLod1.size();
 
-				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod1, crntLodIndices, primitivesLod1, remappedIndex.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
+				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod1, crntLodIndices, primitivesLod1, crntPrimitive.value().indicies.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
 				for (size_t m = meshletLod1Before; m < meshletLod1.size(); m++)
@@ -696,7 +679,7 @@ namespace engine
 				size_t indexLod2Before = indicesLod2.size();
 				size_t primLod2Before = primitivesLod2.size();
 
-				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod2, crntLodIndices, primitivesLod2, remappedIndex.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
+				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod2, crntLodIndices, primitivesLod2, crntPrimitive.value().indicies.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
 				for (size_t m = meshletLod2Before; m < meshletLod2.size(); m++)
@@ -713,7 +696,7 @@ namespace engine
 				size_t indexLod3Before = indicesLod3.size();
 				size_t primLod3Before = primitivesLod3.size();
 
-				err = generateLodLevel(positions, vertexLen, sizeOfVertex, remappedIndex, meshletLod3, crntLodIndices, primitivesLod3, remappedIndex.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
+				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod3, crntLodIndices, primitivesLod3, crntPrimitive.value().indicies.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
 				for (size_t m = meshletLod3Before; m < meshletLod3.size(); m++)
@@ -727,11 +710,7 @@ namespace engine
 				crntLodIndices.clear();
 			}
 
-			const glm::vec3* positions = crntMeshAttrs.isSkinned ? &crntMesh.animVertices.front().vert.position : &crntMesh.vertices.front().position;
-			size_t sizeOfVertex = crntMeshAttrs.isSkinned ? sizeof(animVertex) : sizeof(vertex);
-			size_t vertexLen = crntMeshAttrs.isSkinned ? crntMesh.animVertices.size() : crntMesh.vertices.size();
-
-			auto sphere = calculateBoundingSphere(positions, vertexLen, sizeOfVertex);
+			auto sphere = calculateBoundingSphere(crntMesh.positions);
 
 			crntMeshAttrs.bsCenter = sphere.first;
 			crntMeshAttrs.bsRadius = sphere.second;

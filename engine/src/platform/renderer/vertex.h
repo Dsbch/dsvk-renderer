@@ -17,21 +17,6 @@ namespace engine
 	typedef uint32_t meshHash;
 	typedef uint32_t textureHash;
 
-	struct vertex
-	{
-		glm::vec3 position;
-		glm::vec2 textureCoords;
-		glm::vec3 normal;
-		glm::vec4 tangent;
-	};
-
-	struct animVertex
-	{
-		vertex vert;
-		uint32_t joints[4];
-		float weights[4];
-	};
-
 	struct transform
 	{
 		glm::vec3 translation;
@@ -80,6 +65,9 @@ namespace engine
 		uint32_t indexBufferIndex;
 		uint32_t indexBufferOffset;
 
+		uint32_t weightBufferOffset;
+		uint32_t weightBufferIndex;
+
 		uint32_t vertexBufferIndex;
 		uint32_t vertexBufferOffset;
 		uint32_t vertexCount;
@@ -105,34 +93,40 @@ namespace engine
 
 	struct mesh
 	{
-		std::vector<vertex> vertices;
-		std::vector<animVertex> animVertices;
+		// Vertex attributes.
+		// In pos fourth parameter is X texCoord.
+		std::vector<glm::vec4> positions;
+		// In normal fourth parameter is Y texCoord.
+		std::vector<glm::vec4> normal;
+		std::vector<glm::vec4> tangent;
+		std::vector<glm::uvec4> jointIndices;
+		std::vector<glm::vec4> weights;
+		
+		// Meshlets data.
 		dataWithLodLevels<uint32_t> indices;
 		dataWithLodLevels<uint32_t> primitives;
 		dataWithLodLevels<meshlet> meshlets;
 
 		uint32_t meshHash = 0;
-		uint32_t vertexHash = 0;
-		uint32_t indexHash = 0;
-		uint32_t primitiveHash = 0;
-		uint32_t meshletHash = 0;
 
 		void generateHashes()
 		{
-			if (vertexHash != 0 && meshletHash != 0 && meshHash != 0)
+			if (meshHash != 0)
 				return;
 
-			const uint8_t* vertexPtr = vertices.size() == 0 ? reinterpret_cast<const uint8_t*>(animVertices.data()) : reinterpret_cast<const uint8_t*>(vertices.data());
-			size_t size = vertices.size() == 0 ? animVertices.size() : vertices.size();
-			size_t sizeOf = vertices.size() == 0 ? sizeof(animVertex) : sizeof(vertex);
+			uint32_t posHash = crc32(reinterpret_cast<const uint8_t*>(positions.data()), positions.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+			uint32_t normalHash = crc32(reinterpret_cast<const uint8_t*>(normal.data()), normal.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+			uint32_t tangentHash = crc32(reinterpret_cast<const uint8_t*>(tangent.data()), tangent.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+			uint32_t jointsIndicesHash = crc32(reinterpret_cast<const uint8_t*>(jointIndices.data()), jointIndices.size() * sizeof(glm::uvec4) / sizeof(uint8_t));
+			uint32_t weightsHash = crc32(reinterpret_cast<const uint8_t*>(weights.data()), weights.size() * sizeof(glm::vec4) / sizeof(uint8_t));
 
-			vertexHash = crc32(vertexPtr, size * sizeOf / sizeof(uint8_t));
+			uint32_t vertexHash = mergeCrc32( {posHash, normalHash, tangentHash, jointsIndicesHash, weightsHash } );
 
-			indexHash = crc32(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
+			uint32_t indexHash = crc32(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
 			
-			primitiveHash = crc32(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
+			uint32_t primitiveHash = crc32(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
 
-			meshletHash = crc32(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
+			uint32_t meshletHash = crc32(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
 
 			meshHash = mergeCrc32({ vertexHash, meshletHash, indexHash, primitiveHash });
 		}
@@ -310,7 +304,6 @@ namespace engine
 	};
 }
 
-static_assert(std::is_trivially_constructible_v<engine::vertex>&& std::is_standard_layout_v<engine::vertex>);
 static_assert(std::is_trivially_constructible_v<engine::perInstanceAttr>&& std::is_standard_layout_v<engine::perInstanceAttr>);
 static_assert(std::is_trivially_constructible_v<engine::transform>&& std::is_standard_layout_v<engine::transform>);
 static_assert(std::is_trivially_constructible_v<engine::meshletShaderCMD>&& std::is_standard_layout_v<engine::meshletShaderCMD>);

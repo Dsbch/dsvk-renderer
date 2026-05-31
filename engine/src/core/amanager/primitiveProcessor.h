@@ -11,8 +11,14 @@ namespace engine
 {
 	struct primitive
 	{
-		std::vector<vertex> vertecies;
-		std::vector<animVertex> animVertecies;
+		// Vertex attributes.
+		// In pos fourth parameter is X texCoord.
+		std::vector<glm::vec4> positions;
+		// In normal fourth parameter is Y texCoord.
+		std::vector<glm::vec4> normal;
+		std::vector<glm::uvec4> jointIndices;
+		std::vector<glm::vec4> weights;
+		
 		std::vector<uint32_t> indicies;
 	};
 
@@ -20,5 +26,5 @@ namespace engine
 	glm::mat4 getNodeLocalTransformMat4(const cgltf_node* node);
 	transform getNodeLocalTransform(const cgltf_node* node);
 
-	primitive processPrimitive(const cgltf_primitive& prim, bool skinned);
+	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned);
 }

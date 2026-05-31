@@ -26,24 +26,30 @@ namespace engine
 
 		mBindings = meshletBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 14,
+			.totalDescriptorsCount = 17,
 
-			.accumBinding = 12,
-			.revealBinding = 13,
-			.vertexBinding = 0,
-			.animVertexBinding = 1,
-			.perInstanceBinding = 2,
-			.cmdOpaqueBufferBinding = 3,
-			.cmdAccumilationBufferBinding = 4,
-			.indexBinding = 5,
-			.primitiveBinding = 6,
-			.meshletBinding = 7,
-			.jointsBinding = 8,
-			.perMeshBinding = 9,
+			// Vertex attributes.
+			.positionsBinding = 0,
+			.normalBinding = 1,
+			.tangentBinding = 2,
+			.jointIndexBinding = 3,
+			.wightBinding = 4,
 
-			.perDrawBufferUboBinding = 10,
+			// Buffers.
+			.perInstanceBinding = 11,
+			.cmdOpaqueBufferBinding = 12,
+			.cmdAccumilationBufferBinding = 13,
+			.indexBinding = 14,
+			.primitiveBinding = 15,
+			.meshletBinding = 16,
+			.jointsBinding = 17,
+			.perMeshBinding = 18,
+			.perDrawBufferUboBinding = 19,
 
-			.materialArrayBinding = 11,
+			// Materials.
+			.materialArrayBinding = 21,
+			.accumBinding = 22,
+			.revealBinding = 23,
 		};
 
 		mDeletionQueue.init(device);
@@ -78,9 +84,11 @@ namespace engine
 
 	error meshletRenderer::initRegistry(VkDevice device, VmaAllocator allocator, submit& is)
 	{
-		mVertexRegistry.init(device, allocator);
-
-		mAnimVertexRegistry.init(device, allocator);
+		mPositionRegistry.init(device, allocator);
+		mNormalRegistry.init(device, allocator);
+		mTangentRegistry.init(device, allocator);
+		mJointIndexRegistry.init(device, allocator);
+		mWeightRegistry.init(device, allocator);
 
 		mIndexRegistry.init(device, allocator);
 
@@ -99,7 +107,15 @@ namespace engine
 
 		mJointRegistry.init(device, allocator, true);
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mVertexRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPositionRegistry});
+		
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mNormalRegistry });
+		
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mTangentRegistry });
+		
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mJointIndexRegistry });
+		
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mWeightRegistry });
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
 
@@ -112,8 +128,6 @@ namespace engine
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mJointRegistry });
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerMeshRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mAnimVertexRegistry });
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipelineReg, .pipelineReg = &mPipelineRegistry });
 
@@ -156,7 +170,7 @@ namespace engine
 			return err;
 
 		const uint32_t combinedImageSamplers = 3;
-		const uint32_t bufferObjects = 10;
+		const uint32_t bufferObjects = 13;
 		const uint32_t uniformObjects = 1;
 
 		// add bindings for blending stage.
@@ -179,19 +193,38 @@ namespace engine
 			)
 		);
 
+		// add bindings for vertex attributes.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.positionsBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.normalBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.tangentBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.jointIndexBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.wightBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
 		// add bindings for buffers.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.vertexBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.animVertexBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mBindings.perInstanceBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
@@ -493,37 +526,62 @@ namespace engine
 		for (int i = 0; i < m.meshData->size(); i++)
 		{
 			const mesh& crntMesh = m.meshData->operator[](i);
-			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
-
-			// Upload geometry.
-			uint32_t vertexSize = crntMeshAttrs.isSkinned ? uint32_t(sizeof(animVertex)) : uint32_t(sizeof(vertex));
+			perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
 
 			bufferHandle vertexHandle{};
-			if (crntMeshAttrs.isSkinned)
+			// Upload common vertex attributes.
+			auto handle = mPositionRegistry.addBlock(
+				crntMesh.meshHash,
+				crntMesh.positions.data(),
+				crntMesh.positions.size() * sizeof(glm::vec4),
+				is
+			);
+			if (!handle)
+				return handle.err();
+
+			handle = mNormalRegistry.addBlock(
+				crntMesh.meshHash,
+				crntMesh.normal.data(),
+				crntMesh.normal.size() * sizeof(glm::vec4),
+				is
+			);
+			if (!handle)
+				return handle.err();
+
+			handle = mTangentRegistry.addBlock(
+				crntMesh.meshHash,
+				crntMesh.tangent.data(),
+				crntMesh.tangent.size() * sizeof(glm::vec4),
+				is
+			);
+			if (!handle)
+				return handle.err();
+			
+			vertexHandle = handle.value();
+
+			bufferHandle weightHandle{};
+			// Upload skin data if needed.
+			if (crntMeshAttrs.isSkinned && !crntMesh.jointIndices.empty() && !crntMesh.weights.empty())
 			{
-				auto handle = mAnimVertexRegistry.addBlock(
+				handle = mJointIndexRegistry.addBlock(
 					crntMesh.meshHash,
-					crntMesh.animVertices.data(),
-					crntMesh.animVertices.size() * vertexSize,
+					crntMesh.jointIndices.data(),
+					crntMesh.jointIndices.size() * sizeof(glm::uvec4),
 					is
 				);
 				if (!handle)
 					return handle.err();
 
-				vertexHandle = handle.value();
-			}
-			else
-			{
-				auto handle = mVertexRegistry.addBlock(
+				handle = mWeightRegistry.addBlock(
 					crntMesh.meshHash,
-					crntMesh.vertices.data(),
-					crntMesh.vertices.size() * vertexSize,
+					crntMesh.weights.data(),
+					crntMesh.weights.size() * sizeof(glm::vec4),
 					is
 				);
 				if (!handle)
 					return handle.err();
 
-				vertexHandle = handle.value();
+				weightHandle = handle.value();
 			}
 
 			auto perMeshHandle = mPerMeshRegistry.addBlock(
@@ -537,15 +595,7 @@ namespace engine
 
 			std::vector<meshlet> meshlets = crntMesh.meshlets.data;
 
-			for (auto& m : meshlets)
-			{
-				m.vertexBufferOffset += vertexHandle.offset / vertexSize;
-				m.vertexBufferIndex = vertexHandle.bufferIndex;
-				m.perMeshBufferOffset = perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
-				m.perMeshBufferIndex = perMeshHandle.value().bufferIndex;
-			}
-
-			auto handle = mIndexRegistry.addBlock(
+			auto indexHandle = mIndexRegistry.addBlock(
 				crntMesh.meshHash,
 				crntMesh.indices.data.data(),
 				crntMesh.indices.data.size() * sizeof(uint32_t),
@@ -554,13 +604,7 @@ namespace engine
 			if (!handle)
 				return handle.err();
 
-			for (auto& m : meshlets)
-			{
-				m.indexBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-				m.indexBufferIndex = handle.value().bufferIndex;
-			}
-
-			handle = mPrimitiveRegistry.addBlock(
+			auto primitivesHandle = mPrimitiveRegistry.addBlock(
 				crntMesh.meshHash,
 				crntMesh.primitives.data.data(),
 				crntMesh.primitives.data.size() * sizeof(uint32_t),
@@ -571,8 +615,20 @@ namespace engine
 
 			for (auto& m : meshlets)
 			{
-				m.triangleBufferOffset += handle.value().offset / uint32_t(sizeof(uint32_t));
-				m.triangleBufferIndex = handle.value().bufferIndex;
+				// Set offset + index for vertex attribs.
+				m.vertexBufferOffset = vertexHandle.offset / sizeof(glm::vec4);
+				m.vertexBufferIndex = vertexHandle.bufferIndex;
+				m.perMeshBufferOffset = perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
+				m.perMeshBufferIndex = perMeshHandle.value().bufferIndex;
+				// Set offset + index for vertex anim attribs.
+				m.weightBufferOffset = weightHandle.offset / sizeof(glm::vec4);
+				m.weightBufferIndex = weightHandle.bufferIndex;
+
+				m.triangleBufferOffset += primitivesHandle.value().offset / uint32_t(sizeof(uint32_t));
+				m.triangleBufferIndex = primitivesHandle.value().bufferIndex;
+
+				m.indexBufferOffset += indexHandle.value().offset / uint32_t(sizeof(uint32_t));
+				m.indexBufferIndex = indexHandle.value().bufferIndex;
 			}
 
 			handle = mMeshletRegistry.addBlock(
@@ -590,7 +646,7 @@ namespace engine
 					.meshletHandle = handle.value(),
 					.meshlets = crntMesh.meshlets,
 				}
-			);
+				);
 		}
 
 		err = mPipelineRegistry.addInstance(addParams);
@@ -635,8 +691,11 @@ namespace engine
 	{
 		mPerInstanceRegistry.deleteBlock(m.id);
 
-		for (auto& crntMesh : *m.meshData.get())
+		for (int i = 0; i < m.meshData->size(); i++)
 		{
+			const mesh& crntMesh = m.meshData->operator[](i);
+			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
+
 			// Remove instance.
 			mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, crntMesh.meshHash);
 
@@ -646,9 +705,17 @@ namespace engine
 			// Mesh isn't used.
 			if (!mPipelineRegistry.meshIsUsed(crntMesh.meshHash))
 			{
-				mVertexRegistry.deleteBlock(crntMesh.meshHash);
-
-				mAnimVertexRegistry.deleteBlock(crntMesh.meshHash);
+				mPositionRegistry.deleteBlock(crntMesh.meshHash);
+				
+				mNormalRegistry.deleteBlock(crntMesh.meshHash);
+				
+				mTangentRegistry.deleteBlock(crntMesh.meshHash);
+				
+				if (crntMeshAttrs.isSkinned)
+				{
+					mJointIndexRegistry.deleteBlock(crntMesh.meshHash);
+					mWeightRegistry.deleteBlock(crntMesh.meshHash);
+				}
 
 				mIndexRegistry.deleteBlock(crntMesh.meshHash);
 
@@ -690,18 +757,39 @@ namespace engine
 			mPipelineRegistry.setAccumilationUpdated();
 		}
 
-		if (mVertexRegistry.needDescriptorUpdate())
+		if (mPositionRegistry.needDescriptorUpdate())
 		{
-			auto writeInfo = mVertexRegistry.getWriteInfo(mBindings.vertexBinding);
+			auto writeInfo = mPositionRegistry.getWriteInfo(mBindings.positionsBinding);
 			mDescriptorSet.updateWrite(writeInfo);
-			mVertexRegistry.setUpdated();
+			mPositionRegistry.setUpdated();
 		}
 
-		if (mAnimVertexRegistry.needDescriptorUpdate())
+		if (mNormalRegistry.needDescriptorUpdate())
 		{
-			auto writeInfo = mAnimVertexRegistry.getWriteInfo(mBindings.animVertexBinding);
+			auto writeInfo = mNormalRegistry.getWriteInfo(mBindings.normalBinding);
 			mDescriptorSet.updateWrite(writeInfo);
-			mAnimVertexRegistry.setUpdated();
+			mNormalRegistry.setUpdated();
+		}
+
+		if (mTangentRegistry.needDescriptorUpdate())
+		{
+			auto writeInfo = mTangentRegistry.getWriteInfo(mBindings.tangentBinding);
+			mDescriptorSet.updateWrite(writeInfo);
+			mTangentRegistry.setUpdated();
+		}
+
+		if (mJointIndexRegistry.needDescriptorUpdate())
+		{
+			auto writeInfo = mJointIndexRegistry.getWriteInfo(mBindings.jointIndexBinding);
+			mDescriptorSet.updateWrite(writeInfo);
+			mJointIndexRegistry.setUpdated();
+		}
+
+		if (mWeightRegistry.needDescriptorUpdate())
+		{
+			auto writeInfo = mWeightRegistry.getWriteInfo(mBindings.wightBinding);
+			mDescriptorSet.updateWrite(writeInfo);
+			mWeightRegistry.setUpdated();
 		}
 
 		if (mIndexRegistry.needDescriptorUpdate())

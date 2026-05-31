@@ -18,6 +18,9 @@
 	IN DEVELOPMENT:
 		1. Add animation system, with skinning in compute shader.
 	
+	BUGS:
+		1. Something is wrong with normals or tangents, light is caclulated wrong.
+
 	TODO:
 		1. Two phase HZB occlision culling.
 		2. Figure out how to do shadows, my goal is good hard and soft shadows.

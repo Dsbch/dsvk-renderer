@@ -4,19 +4,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-// UBO START.
-
-ConstantBuffer<perDrawData> drawData : register(b10, space0);
-
-// UBO END.
-
-// TEXTURES START.
-
-Texture2D materials[] : register(t11, space0);
-SamplerState materialsSampler[] : register(s11, space0);
-
-// TEXTURES END.
-
 // DescriptorSets END.
 
 // Push constant START.
@@ -103,8 +90,7 @@ void asmain(
                 
                 mesh.bounds.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, mesh.bounds.coneAxis));
                 
-                visible =
-                    isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
+                visible = isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
             }
             
             if (visible)
@@ -155,17 +141,18 @@ void msmain(
 
     if (gtid < mesh.vertexCount)
     {
-        uint vertexIndex = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
+        uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
+        uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.weightBufferOffset;
         
-        vertex skinnedVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexIndex);
+        skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
         
-        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skinnedVertex.position), 1.0f);
+        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
-        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skinnedVertex);
+        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skVertex.tangent, skVertex.normal);
         
-        vertices[gtid].uv = skinnedVertex.textureCoords;
+        vertices[gtid].uv = skVertex.textureCoords;
         vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
         vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
         vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));

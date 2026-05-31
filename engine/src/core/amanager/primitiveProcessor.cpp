@@ -54,7 +54,7 @@ namespace engine
 		return getNodeWorldTransformMat4(node->parent) * getNodeLocalTransformMat4(node);
 	}
 
-	primitive processPrimitive(const cgltf_primitive& prim, bool skinned)
+	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned)
 	{
 		primitive result{};
 
@@ -105,62 +105,47 @@ namespace engine
 
 		auto processVertecies = [&]()
 			{
-				result.vertecies.reserve(positionAccessor->count);
+				result.positions.reserve(positionAccessor->count);
+				result.normal.reserve(normalAccessor->count);
+
+				if (skinned)
+				{
+					result.jointIndices.reserve(jointsAccessor->count);
+					result.weights.reserve(weightsAccessor->count);
+				}
 
 				for (size_t i = 0; i < positionAccessor->count; ++i)
 				{
-					animVertex animV{};
-
-					vertex v{};
-
 					float pos[3]{};
-					cgltf_accessor_read_float(positionAccessor, i, pos, 3);
-					glm::vec4 localPos(pos[0], pos[1], pos[2], 1.0f);
-					v.position = localPos;
+					float normal[3]{};
+					float uv[2]{};
 
-					if (normalAccessor)
-					{
-						float norm[3]{};
-						cgltf_accessor_read_float(normalAccessor, i, norm, 3);
-						glm::vec3 n(norm[0], norm[1], norm[2]);
-						v.normal = n;
-					}
+					uint32_t joints[4]{};
+					float weights[4]{};
 
-					if (texcoordAccessor)
-					{
-						float uv[2]{};
-						cgltf_accessor_read_float(texcoordAccessor, i, uv, 2);
-						v.textureCoords = glm::vec2(uv[0], uv[1]);
-					}
+					if (!positionAccessor || !cgltf_accessor_read_float(positionAccessor, i, pos, 3))
+						return error{ "can't read position" };
 
-					if (jointsAccessor && weightsAccessor)
-					{
-						uint32_t joints[4]{};
-						cgltf_accessor_read_uint(jointsAccessor, i, joints, 4);
+					if (!normalAccessor || !cgltf_accessor_read_float(normalAccessor, i, normal, 3))
+						return error{ "can't read normal" };
 
-						float weights[4]{};
-						cgltf_accessor_read_float(weightsAccessor, i, weights, 4);
+					if (!texcoordAccessor || !cgltf_accessor_read_float(texcoordAccessor, i, uv, 2))
+						return error{ "can't read texcoords" };
 
-						animV.joints[0] = joints[0];
-						animV.joints[1] = joints[1];
-						animV.joints[2] = joints[2];
-						animV.joints[3] = joints[3];
+					if (skinned && (!jointsAccessor || !weightsAccessor || !cgltf_accessor_read_uint(jointsAccessor, i, joints, 4) || !cgltf_accessor_read_float(weightsAccessor, i, weights, 4)))
+						return error{ "can't read joints or weights" };
 
-						animV.weights[0] = weights[0];
-						animV.weights[1] = weights[1];
-						animV.weights[2] = weights[2];
-						animV.weights[3] = weights[3];
-					}
+					result.positions.push_back(glm::vec4{ pos[0], pos[1], pos[2], uv[0] });
+					result.normal.push_back(glm::vec4{ normal[0], normal[1], normal[2], uv[1] });
 
 					if (skinned)
 					{
-						animV.vert = v;
-
-						result.animVertecies.push_back(animV);
+						result.jointIndices.push_back(glm::uvec4{ joints[0], joints[1], joints[2], joints[3] });
+						result.weights.push_back(glm::vec4{ weights[0], weights[1], weights[2], weights[3] });
 					}
-					else
-						result.vertecies.push_back(v);
 				}
+
+				return error{};
 			};
 
 		auto processIndecies = [&]()
@@ -168,7 +153,7 @@ namespace engine
 				const cgltf_accessor* indexAccessor = prim.indices;
 
 				if (!indexAccessor)
-					return;
+					return error{ "index accessor is undefined" };
 
 				const uint8_t* bufferStart = reinterpret_cast<const uint8_t*>(
 					indexAccessor->buffer_view->buffer->data) +
@@ -207,11 +192,13 @@ namespace engine
 						indices = *reinterpret_cast<const uint8_t*>(elem);
 						break;
 					default:
-						continue;
+						return error{ "index accessor is invalid" };
 					}
 
 					result.indicies.push_back(indices);
 				}
+
+				return error{};
 			};
 
 		if (prim.type != cgltf_primitive_type_triangles)
@@ -219,13 +206,13 @@ namespace engine
 
 		processAccessors();
 
-		if (!positionAccessor || positionAccessor->component_type != cgltf_component_type_r_32f || positionAccessor->type != cgltf_type_vec3)
-			return result;
+		error err = processVertecies();
+		if (err)
+			return err;
 
-		processVertecies();
-
-		if (prim.indices)
-			processIndecies();
+		err = processIndecies();
+		if (err)
+			return err;
 
 		return result;
 	}

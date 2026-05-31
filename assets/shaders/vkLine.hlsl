@@ -6,7 +6,35 @@
 #define DEFINE_AS_PUSH_CONSTANT
 #endif
 
-#include "common.hlsl"
+struct frustum
+{
+    float3 worldFrontN;
+    float frontDistance;
+    float3 worldBackN;
+    float backDistance;
+    float3 worldRightN;
+    float rightDistance;
+    float3 worldLeftN;
+    float leftDistance;
+    float3 worldTopN;
+    float topDistance;
+    float3 worldBottomN;
+    float bottomDistance;
+};
+
+struct perDrawData
+{
+    float4x4 debugViewProjection;
+    uint useDebugCamera;
+    float3 cameraFront;
+    float3 cameraPos;
+    float3 cameraUp;
+    float4x4 view;
+    float4x4 projection;
+    float4x4 viewProjection;
+    frustum cameraFrustum;
+    float deltaTime;
+};
 
 // INPUT START.
 
