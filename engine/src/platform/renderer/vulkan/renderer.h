@@ -96,5 +96,6 @@ namespace engine
 
 		void updateProfInfo(float deltaTime);
 		void registerSceneMetrics(const model& m, bool isDeleted = false);
+		void visualizeNormals(const model& m);
 	};
 }

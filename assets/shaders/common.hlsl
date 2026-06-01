@@ -483,6 +483,8 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
     if (!perMesh.isSkinned)
     {
         result.position = mul(perMesh.meshGlobalTransform, float4(result.position, 1.0f)).xyz;
+        result.normal = normalize(mul(perMesh.meshGlobalNormal, result.normal));
+        result.tangent = float4(normalize(mul((float3x3) perMesh.meshGlobalTransform, result.tangent.xyz).xyz), result.tangent.w);
 
         return result;
     }
@@ -506,6 +508,8 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
             weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], result.normal) +
             weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.normal)
         );
+    
+    result.normal = normalize(mul(perMesh.meshGlobalNormal, result.normal));
 
     float3 skinnedTangent = normalize(
             weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], result.tangent.xyz) +
@@ -514,7 +518,10 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
             weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.tangent.xyz)
         );
     
-    result.tangent = float4(skinnedTangent, result.tangent.w);
+    result.tangent = float4(
+        normalize(mul((float3x3) perMesh.meshGlobalTransform, skinnedTangent)).xyz,
+        result.tangent.w
+    );
     
     return result;
 }

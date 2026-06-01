@@ -200,7 +200,7 @@ float4 psmain(meshOutput input) : SV_TARGET
         discard;
    
     normal = normalize(normal);
-    
+
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
     // render equation.

@@ -591,7 +591,7 @@ namespace engine
 			updateProfInfo(in.deltaTime);
 
 		firstFrame = false;
-		
+
 		// request image from the swapchain.
 		// keep in mind that we use swapChain semaphore as signaling here.
 		err = mSwapChain.acquireImageIndex();
@@ -654,7 +654,7 @@ namespace engine
 			return err;
 
 		mGpuProfiler.endTimestamp(cmd);
-		
+
 		err = mGpuProfiler.beginTimeStamp(cmd);
 
 		err = compositeOpaqueAndTransperent(cmd, in);
@@ -664,13 +664,13 @@ namespace engine
 		mGpuProfiler.endTimestamp(cmd);
 
 		err = mGpuProfiler.beginTimeStamp(cmd);
-		
+
 		err = drawUI(cmd);
 		if (err)
 			return err;
 
 		mGpuProfiler.endTimestamp(cmd);
-		
+
 		//transition the resolve image and the swapchain image into their correct transfer layouts
 		transitionImage(cmd, mPreset.msaa <= 1 ? mSwapChain.getDrawImage() : mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -817,6 +817,31 @@ namespace engine
 			}
 
 			mProfInfo.sceneInfo.entities++;
+		}
+	}
+
+	void vulkanRenderer::visualizeNormals(const model& m)
+	{
+		for (int y = 0; y < m.meshData->size(); y++)
+		{
+			auto perMeshAttr = m.perMeshData->operator[](y);
+			auto mesh = m.meshData->operator[](y);
+
+			for (int i = 0; i < mesh.positions.size(); i++)
+			{
+				glm::vec3 pos = mesh.positions[i];
+				glm::vec3 normal = mesh.normal[i];
+
+				pos = perMeshAttr.meshGlobalTransform * glm::vec4{ pos, 1.0f };
+				pos = glm::vec3(
+					m.instanceAttributes.modelTransform.translation + m.instanceAttributes.modelTransform.rotation * m.instanceAttributes.modelTransform.scale * pos
+				);
+
+				normal = glm::transpose(glm::inverse(glm::mat3(perMeshAttr.meshGlobalTransform))) * normal;
+				normal = m.instanceAttributes.modelTransform.rotation * normal;
+
+				mLineRenderer.addLine(pos, pos + normal / 10.0f);
+			}
 		}
 	}
 
