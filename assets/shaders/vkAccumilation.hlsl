@@ -72,7 +72,7 @@ void asmain(
             
             visible = mesh.alphaType == blendAlphaMode;
             
-            if (visible && !meshAttr.isSkinned)
+            if (visible)
             {
                 mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
                 

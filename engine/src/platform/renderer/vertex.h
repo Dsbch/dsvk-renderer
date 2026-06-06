@@ -192,7 +192,7 @@ namespace engine
 	{
 		std::vector<joint> skinJoints;
 
-		std::vector<glm::mat4> getJointMatrices();
+		std::vector<glm::mat4> getJointMatrices() const;
 	};
 
 	enum animationType
@@ -227,6 +227,7 @@ namespace engine
 		std::vector<channel> channels;
 
 		void update(float deltaTime, std::shared_ptr<std::vector<skin>> skins);
+		void update(float deltaTime, std::vector<skin>& skins);
 	};
 
 	struct perMeshAttributes

@@ -342,13 +342,19 @@ namespace engine
 		if (!meshes)
 			return meshes.err();
 
+		auto [animations, skins] = proccessAnimations(data);
+
+		for (int i = 0; i < meshes.value().first.size(); i++)
+		{
+			if (meshes.value().second[i].isSkinned)
+				recalculateMeshletBounds(meshes.value().first[i], animations, skins);
+		}
+
 		result->meshData = std::make_shared<const std::vector<mesh>>(std::move(meshes.value().first));
 		result->perMeshData = std::make_shared<const std::vector<perMeshAttributes>>(std::move(meshes.value().second));
 
-		auto animations = proccessAnimations(data);
-
-		result->anims.animations = std::make_shared<std::vector<animation>>(std::move(animations.first));
-		result->anims.skins = std::make_shared<std::vector<skin>>(std::move(animations.second));
+		result->anims.animations = std::make_shared<std::vector<animation>>(std::move(animations));
+		result->anims.skins = std::make_shared<std::vector<skin>>(std::move(skins));
 
 		auto materials = processMaterials(baseDir, data->materials, int(data->materials_count));
 		if (!materials)

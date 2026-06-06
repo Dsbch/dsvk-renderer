@@ -2991,3 +2991,44 @@ D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl (331): __scr
 D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_main.cpp (17): mainCRTStartup
 00007FFE863E7374 (KERNEL32): (filename not available): BaseThreadInitThunk
 00007FFE872FCC91 (ntdll): (filename not available): RtlUserThreadStart
+F0606 18:23:27.962] SIGABRT: aborted
+00007FF8F2309E77 (ucrtbased): (filename not available): raise
+00007FF8F23050CF (ucrtbased): (filename not available): setmbcp
+00007FF8F2306563 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FF8F2307422 (ucrtbased): (filename not available): VCrtDbgReportA
+00007FF8F2306409 (ucrtbased): (filename not available): CrtDbgReport
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (1930): std::vector<std::vector<`engine::recalculateMeshletBounds'::`2'::skinnedVertex,std::allocator<`engine::recalculateMeshletBounds'::`2'::skinnedVertex> >,std::allocator<std::vector<`engine::recalculateMeshletBounds'::`2'::skinnedVertex,std::allocator<`engine::recalculateMeshletBounds'::`2'::skinnedVertex> > > >::operator[]
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (965): `engine::recalculateMeshletBounds'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (1005): engine::recalculateMeshletBounds
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (349): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (105): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+0000016E05AAD060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+00000001F42FE9D0 ((module-name not available)): (filename not available): (function-name not available)
+0000016D6CB02250 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0606 19:33:56.134] SIGABRT: aborted
+00007FF8EF8F9E77 (ucrtbased): (filename not available): raise
+00007FF8EF8F50CF (ucrtbased): (filename not available): setmbcp
+00007FF8EF8F6563 (ucrtbased): (filename not available): CrtSetReportHookW2
+00007FF8EF8F7422 (ucrtbased): (filename not available): VCrtDbgReportA
+00007FF8EF8F6409 (ucrtbased): (filename not available): CrtDbgReport
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (1930): std::vector<glm::vec<4,float,0>,std::allocator<glm::vec<4,float,0> > >::operator[]
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (1111): engine::recalculateMeshletBounds
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (349): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (105): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+000002450592E060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000EF1A9FEF70 ((module-name not available)): (filename not available): (function-name not available)
+0000024455F50200 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)

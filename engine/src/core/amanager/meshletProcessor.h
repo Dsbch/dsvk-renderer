@@ -20,6 +20,7 @@ namespace engine
 	);
 
 	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec3>& positions);
+	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec4>& positions);
 
 	error remapMesh(primitive& prim, bool isSkinned);
 
@@ -53,4 +54,7 @@ namespace engine
 
 	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel);
 	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data);
+
+	// Need to calculate conservative meshlet bounds and cones for animated meshes.
+	void recalculateMeshletBounds(mesh& m, std::vector<animation> anims, std::vector<skin> skins);
 }

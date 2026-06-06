@@ -3,7 +3,7 @@
 
 namespace engine
 {
-	std::vector<glm::mat4> skin::getJointMatrices()
+	std::vector<glm::mat4> skin::getJointMatrices() const
 	{
 		std::vector<glm::mat4> worldMats;
 		worldMats.resize(skinJoints.size());
@@ -29,24 +29,31 @@ namespace engine
 
 	void animation::update(float deltaTime, std::shared_ptr<std::vector<skin>> skins)
 	{
+		std::vector<skin>& s = *skins.get();
+
+		update(deltaTime, s);
+	}
+
+	void animation::update(float deltaTime, std::vector<skin>& skins)
+	{
 		for (auto& c : channels)
 		{
 			if (c.timestamps->empty())
 				continue;
 
 			float time = c.currentTimeStamp + deltaTime;
-			
+
 			if (time >= c.timestamps->back())
 			{
 				time = 0.0f;
 			}
 
 			auto it = std::upper_bound(c.timestamps->begin(), c.timestamps->end(), time);
-			
+
 			size_t frame1 = it - c.timestamps->begin();
 			if (frame1 == 0)
 				continue;
-			
+
 			size_t frame0 = frame1 - 1;
 
 			float t0 = c.timestamps->operator[](frame0);
@@ -61,7 +68,7 @@ namespace engine
 					: glm::mix(c.keyframes->operator[](frame0).translation, c.keyframes->operator[](frame1).translation, alpha);
 
 
-				skins->operator[](c.skinIndex).skinJoints[c.jointIndex].localTransform.translation = result;
+				skins[c.skinIndex].skinJoints[c.jointIndex].localTransform.translation = result;
 			}
 			else if (c.aType == rt)
 			{
@@ -69,7 +76,7 @@ namespace engine
 					? c.keyframes->operator[](frame0).rotation
 					: glm::slerp(c.keyframes->operator[](frame0).rotation, c.keyframes->operator[](frame1).rotation, alpha);
 
-				skins->operator[](c.skinIndex).skinJoints[c.jointIndex].localTransform.rotation = result;
+				skins[c.skinIndex].skinJoints[c.jointIndex].localTransform.rotation = result;
 			}
 			else if (c.aType == sc)
 			{
@@ -77,7 +84,7 @@ namespace engine
 					? c.keyframes->operator[](frame0).scale
 					: glm::mix(c.keyframes->operator[](frame0).scale, c.keyframes->operator[](frame1).scale, alpha);
 
-				skins->operator[](c.skinIndex).skinJoints[c.jointIndex].localTransform.scale = result;
+				skins[c.skinIndex].skinJoints[c.jointIndex].localTransform.scale = result;
 			}
 
 			c.currentTimeStamp = time;

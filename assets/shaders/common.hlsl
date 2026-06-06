@@ -146,9 +146,11 @@ struct meshOutput
 
 // Vertex attributes.
 // 0 - 10.
+// Common attributes always present.
 StructuredBuffer<float4> positionBuffer[] : register(t0, space0);
 StructuredBuffer<float4> normalBuffer[] : register(t1, space0);
 StructuredBuffer<float4> tangenBuffer[] : register(t2, space0);
+// Optional only for animated meshes.
 StructuredBuffer<uint4> jointIndexBuffer[] : register(t3, space0);
 StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
 

@@ -1,4 +1,4 @@
-#include <pch.h>
+﻿#include <pch.h>
 #include <cgltf.h>
 #include <meshoptimizer.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -120,9 +120,9 @@ namespace engine
 		return repacked;
 	}
 
-	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec4>& positions)
+	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec3>& positions)
 	{
-		auto findFarthest = [](glm::vec3 point, const std::vector<glm::vec4>& positions)-> glm::vec3
+		auto findFarthest = [](glm::vec3 point, const std::vector<glm::vec3>& positions)-> glm::vec3
 			{
 				glm::vec3 result{ 0.0f };
 				float maxLength = 0.0f;
@@ -142,8 +142,6 @@ namespace engine
 
 				return result;
 			};
-
-		std::pair<glm::vec3, float> result{ glm::vec3(1.0f), 0.0f };
 
 		glm::vec3 first = glm::vec3{ positions[std::rand() % positions.size()] };
 
@@ -168,10 +166,56 @@ namespace engine
 			}
 		}
 
-		result.first = potentialCenter;
-		result.second = potentialRadius;
+		return { potentialCenter, potentialRadius };
+	}
 
-		return result;
+	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec4>& positions)
+	{
+		auto findFarthest = [](glm::vec3 point, const std::vector<glm::vec4>& positions)-> glm::vec3
+			{
+				glm::vec3 result{ 0.0f };
+				float maxLength = 0.0f;
+
+				for (int i = 0; i < positions.size(); i++)
+				{
+					glm::vec3 pos = glm::vec3{ positions[i] };
+
+					float length = glm::length(pos - point);
+
+					if (length > maxLength)
+					{
+						maxLength = length;
+						result = pos;
+					}
+				}
+
+				return result;
+			};
+
+		glm::vec3 first = glm::vec3{ positions[std::rand() % positions.size()] };
+
+		glm::vec3 second = findFarthest(first, positions);
+		glm::vec3 third = findFarthest(second, positions);
+
+		glm::vec3 potentialCenter = (second + third) / 2.0f;
+		float potentialRadius = glm::length(third - potentialCenter);
+
+		for (int i = 0; i < positions.size(); i++)
+		{
+			glm::vec3 pos = glm::vec3{ positions[i] };
+
+			glm::vec3 toCenter = pos - potentialCenter;
+			float crntRadius = glm::length(toCenter);
+
+			if (crntRadius > potentialRadius)
+			{
+				float newRadius = potentialRadius + (crntRadius - potentialRadius) / 2.0f;
+				potentialCenter += toCenter - (toCenter * (newRadius / crntRadius));
+				potentialRadius = newRadius;
+			}
+		}
+
+		return { potentialCenter, potentialRadius };
 	}
 
 	error remapMesh(primitive& prim, bool isSkinned)
@@ -589,7 +633,7 @@ namespace engine
 				);
 				if (err)
 					return err;
-				
+
 				std::vector<glm::vec4> tangents = calculateTangents(crntPrimitive.value().positions, crntPrimitive.value().normal, crntPrimitive.value().indicies);
 				std::vector<uint32_t> repackedPrimitives = repackPrimitives(primitives, meshlets);
 
@@ -633,7 +677,7 @@ namespace engine
 					std::move_iterator(tangents.begin()),
 					std::move_iterator(tangents.end())
 				);
-				
+
 				crntMesh.normal.insert(
 					crntMesh.normal.end(),
 					std::move_iterator(crntPrimitive.value().normal.begin()),
@@ -710,10 +754,10 @@ namespace engine
 				crntLodIndices.clear();
 			}
 
-			auto sphere = calculateBoundingSphere(crntMesh.positions);
+			auto [center, radius] = calculateBoundingSphere(crntMesh.positions);
 
-			crntMeshAttrs.bsCenter = sphere.first;
-			crntMeshAttrs.bsRadius = sphere.second;
+			crntMeshAttrs.bsCenter = center;
+			crntMeshAttrs.bsRadius = radius;
 
 			addLodLevels(crntMesh, meshletLod1, meshletLod2, meshletLod3, indicesLod1, indicesLod2, indicesLod3, primitivesLod1, primitivesLod2, primitivesLod3);
 
@@ -908,5 +952,242 @@ namespace engine
 		}
 
 		return result;
+	}
+
+	void recalculateMeshletBounds(mesh& m, std::vector<animation> anims, std::vector<skin> skins)
+	{
+		auto skinMesh =
+			[](
+				const mesh& m,
+				const std::vector<glm::mat4>& jointMatrices,
+				std::vector<std::vector<glm::vec3>>& sPosition
+				)
+			{
+				const size_t numVertices = m.positions.size();
+
+				for (size_t v = 0; v < numVertices; ++v)
+				{
+					const glm::vec4& weights = m.weights[v];
+					const glm::uvec4& joints = m.jointIndices[v];
+
+					const glm::mat4& m0 = jointMatrices[joints.x];
+					const glm::mat4& m1 = jointMatrices[joints.y];
+					const glm::mat4& m2 = jointMatrices[joints.z];
+					const glm::mat4& m3 = jointMatrices[joints.w];
+
+					glm::vec4 bindPos = glm::vec4{ glm::vec3{m.positions[v]} , 1.0f };
+					glm::vec4 skinnedPos = (m0 * bindPos) * weights.x +
+						(m1 * bindPos) * weights.y +
+						(m2 * bindPos) * weights.z +
+						(m3 * bindPos) * weights.w;
+
+					sPosition[v].push_back(glm::vec3{ skinnedPos });
+				}
+			};
+
+		auto calculateJointMatrices = [](const std::vector<skin>& skins) -> std::vector<glm::mat4>
+			{
+				std::vector<glm::mat4> result{};
+
+				for (auto& s : skins)
+				{
+					auto mat = s.getJointMatrices();
+
+					result.insert(result.end(), std::move_iterator(mat.begin()), std::move_iterator(mat.end()));
+				}
+
+				return result;
+			};
+
+		auto mergeSpheres = [](const std::vector<glm::vec4>& spheres) -> glm::vec4
+			{
+				auto findFarthestCenter = [](glm::vec3 point, const std::vector<glm::vec4>& spheres)-> glm::vec3
+					{
+						glm::vec3 result{ 0.0f };
+						float maxLength = 0.0f;
+
+						for (int i = 0; i < spheres.size(); i++)
+						{
+							glm::vec3 center = glm::vec3{ spheres[i] };
+
+							float length = glm::length(center - point);
+
+							if (length > maxLength)
+							{
+								maxLength = length;
+								result = center;
+							}
+						}
+
+						return result;
+					};
+
+				glm::vec3 first = glm::vec3{ spheres[std::rand() % spheres.size()] };
+
+				glm::vec3 second = findFarthestCenter(first, spheres);
+				glm::vec3 third = findFarthestCenter(second, spheres);
+
+				glm::vec3 potentialCenter = (second + third) / 2.0f;
+				float potentialRadius = glm::length(third - potentialCenter);
+
+				for (int i = 0; i < spheres.size(); i++)
+				{
+					glm::vec3 center = glm::vec3{ spheres[i] };
+
+					glm::vec3 toCenter = center - potentialCenter;
+					float crntRadius = glm::length(toCenter);
+
+					if (crntRadius > potentialRadius)
+					{
+						float newRadius = potentialRadius + (crntRadius - potentialRadius) / 2.0f;
+						potentialCenter += toCenter - (toCenter * (newRadius / crntRadius));
+						potentialRadius = newRadius;
+					}
+				}
+
+				// Includes all centers of all spheres.
+				glm::vec4 mergedSphere = { potentialCenter, potentialRadius };
+
+				for (int i = 0; i < spheres.size(); i++)
+				{
+					glm::vec3 c2 = glm::vec3{ spheres[i] };
+					float r2 = spheres[i].w;
+
+					glm::vec3 c1 = glm::vec3{ mergedSphere };
+					float r1 = mergedSphere.w;
+
+					float d = glm::length(c2 - c1);
+
+					if (d + r2 > r1)
+					{
+						mergedSphere.w = d + r2;
+					}
+				}
+
+				return mergedSphere;
+			};
+
+		auto calculateMeshletCone = [](
+			const std::vector<std::vector<glm::vec3>>& skinnedPositions,
+			const std::vector<uint32_t>& localIndices
+			) -> std::pair<glm::vec3, float>
+			{
+				std::vector<glm::vec3> triangleNormals;
+
+				size_t triangleCount = localIndices.size() / 3;
+
+				for (size_t frame = 0; frame < skinnedPositions[0].size(); ++frame)
+				{
+					for (size_t t = 0; t < triangleCount; ++t)
+					{
+						unsigned int a = localIndices[t * 3 + 0];
+						unsigned int b = localIndices[t * 3 + 1];
+						unsigned int c = localIndices[t * 3 + 2];
+
+						glm::vec3 p0 = skinnedPositions[a][frame];
+						glm::vec3 p1 = skinnedPositions[b][frame];
+						glm::vec3 p2 = skinnedPositions[c][frame];
+
+						glm::vec3 normal = glm::cross(p1 - p0, p2 - p0);
+						float area = glm::length(normal);
+
+						if (area == 0.0f) continue;
+
+						triangleNormals.push_back(normal / area);
+					}
+				}
+
+				if (triangleNormals.empty())
+					return { glm::vec3(0.0f, 1.0f, 0.0f), 1.0f };
+
+				glm::vec3 axis(0.0f);
+				for (auto& n : triangleNormals)
+					axis += n;
+
+				float axisLength = glm::length(axis);
+				if (axisLength < 1e-4f)
+					return { glm::vec3(0.0f, 1.0f, 0.0f), 1.0f };
+
+				axis /= axisLength;
+
+				float mindp = 1.0f;
+				for (auto& n : triangleNormals)
+				{
+					float dp = glm::dot(n, axis);
+					if (dp < mindp)
+						mindp = dp;
+				}
+
+				if (mindp <= 0.1f)
+					return { axis, 1.0f };
+
+				float coneCutoff = sqrtf(1.0f - mindp * mindp);
+
+				return { axis, coneCutoff };
+			};
+
+		std::vector<glm::mat4> jointMatrices = calculateJointMatrices(skins);
+		std::vector<std::vector<glm::vec3>> skinnedPositions{ m.positions.size() };
+
+		float longestAnim = 0.0f;
+		float deltaTime = 0.033f;
+
+		for (auto& a : anims)
+			for (auto& c : a.channels)
+				longestAnim = std::max(c.timestamps->back(), longestAnim);
+
+		for (auto& a : anims)
+		{
+			for (float currentFrame = 0.0f; currentFrame < longestAnim; currentFrame += deltaTime)
+			{
+				a.update(deltaTime, skins);
+				jointMatrices = calculateJointMatrices(skins);
+				skinMesh(m, jointMatrices, skinnedPositions);
+			}
+		}
+
+		std::vector<glm::vec4> skinnedVertexBS{};
+		skinnedVertexBS.reserve(m.positions.size());
+
+		for (auto& sp : skinnedPositions)
+		{
+			auto [center, radius] = calculateBoundingSphere(sp);
+
+			skinnedVertexBS.push_back(glm::vec4{ center, radius });
+		}
+
+		for (auto& crntMeshlet : m.meshlets.data)
+		{
+			std::vector<glm::vec4> meshletBS{};
+			meshletBS.reserve(crntMeshlet.vertexCount);
+
+			std::vector<uint32_t> meshletIndices;
+
+			for (uint32_t v = 0; v < crntMeshlet.vertexCount; v++)
+			{
+				uint32_t idx = m.indices.data[crntMeshlet.indexBufferOffset + v];
+				meshletBS.push_back(skinnedVertexBS[idx]);
+			}
+
+			for (uint32_t t = 0; t < crntMeshlet.triangleCount; t++)
+			{
+				uint32_t packed = m.primitives.data[crntMeshlet.triangleBufferOffset + t];
+				uint8_t v0 = (packed >> 0) & 0xFF;
+				uint8_t v1 = (packed >> 8) & 0xFF;
+				uint8_t v2 = (packed >> 16) & 0xFF;
+
+				meshletIndices.push_back(v0);
+				meshletIndices.push_back(v1);
+				meshletIndices.push_back(v2);
+			}
+
+			glm::vec4 sphere = mergeSpheres(meshletBS);
+			crntMeshlet.bounds.center = glm::vec3{ sphere };
+			crntMeshlet.bounds.radius = sphere.w;
+
+			auto [coneAxis, coneCutoff] = calculateMeshletCone(skinnedPositions, meshletIndices);
+			crntMeshlet.bounds.coneAxis = coneAxis;
+			crntMeshlet.bounds.coneCutoff = coneCutoff;
+		}
 	}
 }

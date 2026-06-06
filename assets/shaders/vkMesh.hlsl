@@ -69,28 +69,25 @@ void asmain(
             mesh = meshletBuffer[meshletIdx][meshletOffset];
             meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
             
-            if (!meshAttr.isSkinned)
-            {
-                mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
+            mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
                 
-                float3 sx = meshAttr.meshGlobalTransform[0].xyz;
-                float3 sy = meshAttr.meshGlobalTransform[1].xyz;
-                float3 sz = meshAttr.meshGlobalTransform[2].xyz;
+            float3 sx = meshAttr.meshGlobalTransform[0].xyz;
+            float3 sy = meshAttr.meshGlobalTransform[1].xyz;
+            float3 sz = meshAttr.meshGlobalTransform[2].xyz;
 
-                float scaleX = length(sx);
-                float scaleY = length(sy);
-                float scaleZ = length(sz);
+            float scaleX = length(sx);
+            float scaleY = length(sy);
+            float scaleZ = length(sz);
 
-                float maxScale = max(scaleX, max(scaleY, scaleZ));
+            float maxScale = max(scaleX, max(scaleY, scaleZ));
 
-                mesh.bounds.radius = mesh.bounds.radius * maxScale;
+            mesh.bounds.radius = mesh.bounds.radius * maxScale;
                 
-                mesh.bounds.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, mesh.bounds.coneAxis));
+            mesh.bounds.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, mesh.bounds.coneAxis));
                 
-                visible =
-                    isFrontfaceMeshlet(drawData, instanceAttr.modelTransform, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
+            // Doesn't work for animated meshlets. On CPU cone calculation is wrong.
+            visible = isFrontfaceMeshlet(drawData, instanceAttr.modelTransform, mesh.bounds.coneAxis, mesh.bounds.center, mesh.bounds.coneCutoff) &&
                     isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
-            }
             
             if (visible)
             {
@@ -110,6 +107,8 @@ void asmain(
 // TS END.
 
 // MS START.
+
+groupshared float3 sharedPositions[THREADS_COUNT];
 
 struct meshletPrimitiveOut
 {
@@ -132,6 +131,32 @@ void msmain(
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
         
+    if (gtid < mesh.vertexCount)
+    {
+        uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
+        uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.weightBufferOffset;
+        
+        skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
+        
+        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
+        
+        sharedPositions[gtid] = skVertex.position;
+        
+        vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
+        
+        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skVertex.tangent, skVertex.normal);
+
+        vertices[gtid].uv = skVertex.textureCoords;
+        vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
+        vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
+        vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));
+        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
+        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 1;
+        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 2;
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
+    
     if (gtid < mesh.triangleCount)
     {
         uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
@@ -151,32 +176,10 @@ void msmain(
         primitives[gtid].cullPrimitive = isBackface(
                 drawData,
                 instanceAttr.modelTransform,
-                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx1, idxAnim1, mesh.weightBufferIndex).position,
-                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx2, idxAnim2, mesh.weightBufferIndex).position,
-                skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, idx3, idxAnim3, mesh.weightBufferIndex).position
+                sharedPositions[unpacked.x],
+                sharedPositions[unpacked.y],
+                sharedPositions[unpacked.z]
             );
-    }
-
-    if (gtid < mesh.vertexCount)
-    {   
-        uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
-        uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.weightBufferOffset;
-        
-        skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
-        
-        float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
-        
-        vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
-        
-        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skVertex.tangent, skVertex.normal);
-
-        vertices[gtid].uv = skVertex.textureCoords;
-        vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
-        vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
-        vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));
-        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
-        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 1;
-        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 2;
     }
 }
 

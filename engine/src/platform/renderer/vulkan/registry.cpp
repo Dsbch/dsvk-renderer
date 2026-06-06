@@ -256,7 +256,7 @@ namespace engine
 		mNeedAccumilationDescriptorUpdate = true;
 
 		mCmdOpaqueBufferNewSize = 2 << 21;
-		mCmdOpaqueBuffer.init(device, allocator);
+		mCmdOpaqueBuffer.init(device, allocator, true);
 
 		error err = mCmdOpaqueBuffer.build(is, nullptr, mCmdOpaqueBufferNewSize, 0);
 		if (err)
@@ -264,7 +264,7 @@ namespace engine
 
 		mCmdAccumilationBufferNewSize = 2 << 21;
 
-		mCmdAccumilationBuffer.init(device, allocator);
+		mCmdAccumilationBuffer.init(device, allocator, true);
 
 		err = mCmdAccumilationBuffer.build(is, nullptr, mCmdAccumilationBufferNewSize, 0);
 		if (err)
