@@ -54,7 +54,7 @@ namespace engine
 		return getNodeWorldTransformMat4(node->parent) * getNodeLocalTransformMat4(node);
 	}
 
-	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned)
+	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t jointOffset)
 	{
 		primitive result{};
 
@@ -129,11 +129,16 @@ namespace engine
 					if (!normalAccessor || !cgltf_accessor_read_float(normalAccessor, i, normal, 3))
 						return error{ "can't read normal" };
 
-					if (!texcoordAccessor || !cgltf_accessor_read_float(texcoordAccessor, i, uv, 2))
-						return error{ "can't read texcoords" };
+					if (texcoordAccessor)
+						cgltf_accessor_read_float(texcoordAccessor, i, uv, 2);
 
 					if (skinned && (!jointsAccessor || !weightsAccessor || !cgltf_accessor_read_uint(jointsAccessor, i, joints, 4) || !cgltf_accessor_read_float(weightsAccessor, i, weights, 4)))
 						return error{ "can't read joints or weights" };
+
+					joints[0] += jointOffset;
+					joints[1] += jointOffset;
+					joints[2] += jointOffset;
+					joints[3] += jointOffset;
 
 					result.positions.push_back(glm::vec4{ pos[0], pos[1], pos[2], uv[0] });
 					result.normal.push_back(glm::vec4{ normal[0], normal[1], normal[2], uv[1] });

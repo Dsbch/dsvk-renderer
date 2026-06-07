@@ -123,6 +123,29 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
+			if (event->getKey() == engine::key::k)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/black_rat.glb",
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
+				if (!loadedModel)
+					return loadedModel.err();
+
+				engine::entity e{ mCtx, registry };
+
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
+				e.addComponent<engine::newEntityComponent>();
+			}
+
 			if (event->getKey() == engine::key::h)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
@@ -184,7 +207,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::key::o)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/AlphaBlendModeTest.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/facial_animation.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 

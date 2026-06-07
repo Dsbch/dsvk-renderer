@@ -38,7 +38,7 @@ namespace engine
 	{
 		for (auto& c : channels)
 		{
-			if (c.timestamps->empty())
+			if (c.timestamps->empty() || c.timestamps->size() == 1)
 				continue;
 
 			float time = c.currentTimeStamp + deltaTime;

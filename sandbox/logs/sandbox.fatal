@@ -3032,3 +3032,112 @@ CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (funct
 000000EF1A9FEF70 ((module-name not available)): (filename not available): (function-name not available)
 0000024455F50200 ((module-name not available)): (filename not available): (function-name not available)
 00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0607 16:03:41.912] Error: EXCEPTION_INT_DIVIDE_BY_ZERO
+00007FFC3540E1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFC58BD296F (ntdll): (filename not available): _chkstk
+00007FFC58B82554 (ntdll): (filename not available): RtlRaiseException
+00007FFC58BD147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (146): engine::calculateBoundingSphere
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (1154): engine::recalculateMeshletBounds
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (350): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (187): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+0000028D06918060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+000000E6F14FE9C0 ((module-name not available)): (filename not available): (function-name not available)
+0000028C5DDA61A0 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0607 16:33:29.495] Unexpected error: 0x80000003
+00007FFC1AB3E1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFC58BD296F (ntdll): (filename not available): _chkstk
+00007FFC58B82554 (ntdll): (filename not available): RtlRaiseException
+00007FFC58BD147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (1940): std::vector<float,std::allocator<float> >::operator[]
+C:\code\C++\engine\engine\src\platform\renderer\vertex.cpp (60): engine::animation::update
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (1146): engine::recalculateMeshletBounds
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (350): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (187): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+00000216843FD060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+0000008795EFEFE0 ((module-name not available)): (filename not available): (function-name not available)
+00000215E6512180 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0607 16:33:29.495] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFC1AB3E1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFC58BD296F (ntdll): (filename not available): _chkstk
+00007FFC58B82554 (ntdll): (filename not available): RtlRaiseException
+00007FFC58BD147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1365): std::_Iterator_base12::_Orphan_me_unlocked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1376): std::_Iterator_base12::_Orphan_me_locked_v3
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\xmemory (1284): std::_Iterator_base12::~_Iterator_base12
+00007FF6DC15094F (sandbox): (filename not available): std::_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>::~_Tree_unchecked_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > >,std::_Iterator_base12>
+00007FF6DC1507AF (sandbox): (filename not available): std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+00007FF6DC1507EF (sandbox): (filename not available): std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >::~_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<std::pair<__int64 const ,co::xx::Coroutine *> > > >
+C:\code\C++\engine\vendor\coost\src\co\sched.h (279): co::xx::TimerManager::~TimerManager
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (53): co::xx::Sched::~Sched
+00007FF6DC1883C3 (sandbox): (filename not available): co::xx::Sched::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\include\co\mem.h (80): <lambda_3d83e87682bd94f41eaececb21c9ea23>::operator()
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\type_traits (1670): std::invoke<<lambda_3d83e87682bd94f41eaececb21c9ea23> &>
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (880): std::_Func_impl_no_alloc<<lambda_3d83e87682bd94f41eaececb21c9ea23>,void>::_Do_call
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\functional (926): std::_Func_class<void>::operator()
+C:\code\C++\engine\vendor\coost\src\mem.cc (210): co::xx::Dealloc::~Dealloc
+00007FF6DC594840 (sandbox): (filename not available): `eh vector destructor iterator'
+C:\code\C++\engine\vendor\coost\src\mem.cc (228): co::xx::Root::~Root
+00007FF6DC0F80C3 (sandbox): (filename not available): co::xx::Root::`scalar deleting destructor'
+C:\code\C++\engine\vendor\coost\src\mem.cc (673): co::xx::Initializer::~Initializer
+00007FF6DC998DEB (sandbox): (filename not available): co::xx::`dynamic atexit destructor for 'g_initializer''
+00007FFB560F2B99 (ucrtbased): (filename not available): initterm_e
+00007FFB560F25C5 (ucrtbased): (filename not available): initterm_e
+00007FFB560F2717 (ucrtbased): (filename not available): initterm_e
+00007FFB560F2D44 (ucrtbased): (filename not available): execute_onexit_table
+00007FFB560F1F7A (ucrtbased): (filename not available): wassert
+00007FFB560F1E0D (ucrtbased): (filename not available): wassert
+00007FFB560F1E87 (ucrtbased): (filename not available): wassert
+00007FFB560F2120 (ucrtbased): (filename not available): wassert
+00007FFB560F2456 (ucrtbased): (filename not available): exit
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1037): _xx::log::xx::ExceptHandler::handle_exception
+C:\code\C++\engine\vendor\coost\src\log\log.cc (858): _xx::log::xx::on_except
+C:\code\C++\engine\vendor\coost\src\log\log.cc (1129): _co_on_exception
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (67): `co::xx::Sched::main_func'::`1'::filt$0
+00007FFC1AB3E1EB (VCRUNTIME140D): (filename not available): _C_specific_handler
+00007FFC58BD296F (ntdll): (filename not available): _chkstk
+00007FFC58B82554 (ntdll): (filename not available): RtlRaiseException
+00007FFC58BD147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\dev-soft\visual studio\ide\VC\Tools\MSVC\14.44.35207\include\vector (1940): std::vector<float,std::allocator<float> >::operator[]
+C:\code\C++\engine\engine\src\platform\renderer\vertex.cpp (60): engine::animation::update
+C:\code\C++\engine\engine\src\core\amanager\meshletProcessor.cpp (1146): engine::recalculateMeshletBounds
+C:\code\C++\engine\engine\src\core\amanager\aManager.cpp (350): engine::aManager::loadModelGLTF
+C:\code\C++\engine\sandbox\src\sandbox.cpp (187): sandbox::sandboxSystem::onEvent
+C:\code\C++\engine\engine\src\core\scene\scene.cpp (293): `engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5>::operator()
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (28): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_5> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+00000216843FD060 ((module-name not available)): (filename not available): (function-name not available)
+CDCDCDCDCDCDCDCD ((module-name not available)): (filename not available): (function-name not available)
+0000008795EFEFE0 ((module-name not available)): (filename not available): (function-name not available)
+00000215E6512180 ((module-name not available)): (filename not available): (function-name not available)
+00000000FDFDFDFD ((module-name not available)): (filename not available): (function-name not available)
+F0607 17:21:14.855] Error: EXCEPTION_ACCESS_VIOLATION
+00007FFC4300E5CF (VCRUNTIME140): (filename not available): _C_specific_handler
+00007FFC58BD296F (ntdll): (filename not available): _chkstk
+00007FFC58B82554 (ntdll): (filename not available): RtlRaiseException
+00007FFC58BD147E (ntdll): (filename not available): KiUserExceptionDispatcher
+C:\code\C++\engine\engine\src\platform\renderer\vertex.cpp (71): engine::animation::update
+C:\code\C++\engine\engine\src\platform\renderer\vertex.cpp (35): engine::animation::update
+C:\code\C++\engine\engine\src\core\scene\systems\animation\animation.cpp (51): engine::animationSystem::onUpdate
+C:\code\C++\engine\engine\src\pch.h (53): `goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_1> >'::`2'::<lambda_1>::operator()
+C:\code\C++\engine\vendor\coost\include\co\closure.h (29): co::xx::Function0<`goCatch<`engine::userSystemHandle::userSystemHandle'::`2'::<lambda_1> >'::`2'::<lambda_1> >::run
+C:\code\C++\engine\vendor\coost\src\co\sched.cc (66): co::xx::Sched::main_func
+C:\code\C++\engine\vendor\coost\src\co\context\context_x64.asm (155): tb_context_make
+0000001DC4DFF750 ((module-name not available)): (filename not available): (function-name not available)
+F0607 17:21:14.855] Error: EXCEPTION_ACCESS_VIOLATION

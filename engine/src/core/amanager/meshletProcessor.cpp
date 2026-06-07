@@ -143,6 +143,9 @@ namespace engine
 				return result;
 			};
 
+		if (positions.size() == 0)
+			return { glm::vec3{0.0f}, 0.0f };
+
 		glm::vec3 first = glm::vec3{ positions[std::rand() % positions.size()] };
 
 		glm::vec3 second = findFarthest(first, positions);
@@ -549,6 +552,7 @@ namespace engine
 			};
 
 		std::pair<std::vector<mesh>, std::vector<perMeshAttributes>> result{};
+		std::map<cgltf_skin*, std::pair<uint32_t, uint32_t>> skinOffsets{};
 
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
 		{
@@ -567,6 +571,20 @@ namespace engine
 			crntMeshAttrs.meshLocalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshLocalTransform)));
 			crntMeshAttrs.isSkinned = uint32_t(node->skin != nullptr);
 
+			uint32_t jointOffset = 0;
+			if (crntMeshAttrs.isSkinned && skinOffsets.size() != 0)
+			{
+				if (auto found = skinOffsets.find(node->skin); found != skinOffsets.end())
+				{
+					jointOffset = found->second.first;
+				}
+				else
+				{
+					for (auto [_, v] : skinOffsets)
+						jointOffset += v.second;
+				}
+			}
+
 			// For lod levels.
 			std::vector<meshlet> meshletLod1{};
 			std::vector<uint32_t> indicesLod1{};
@@ -584,7 +602,8 @@ namespace engine
 			{
 				auto crntPrimitive = processPrimitive(
 					gtlfMesh.primitives[pri],
-					crntMeshAttrs.isSkinned
+					crntMeshAttrs.isSkinned,
+					jointOffset
 				);
 				if (!crntPrimitive)
 					return crntPrimitive.err();
@@ -765,6 +784,9 @@ namespace engine
 
 			result.first.push_back(std::move(crntMesh));
 			result.second.push_back(std::move(crntMeshAttrs));
+
+			if (crntMeshAttrs.isSkinned)
+				skinOffsets[node->skin] = { jointOffset, uint32_t(node->skin->joints_count) };
 		}
 
 		return result;
@@ -843,6 +865,9 @@ namespace engine
 
 		std::pair<std::vector<animation>, std::vector<skin>> result{};
 
+		if (data->skins_count == 0)
+			return result;
+
 		std::map<const cgltf_node*, std::pair<size_t, size_t>> nodeToJoint{};
 
 		for (int i = 0; i < data->nodes_count; i++)
@@ -893,17 +918,17 @@ namespace engine
 				cgltf_animation_sampler* sampler = data->animations[i].channels[c].sampler;
 				cgltf_animation_channel ch = data->animations[i].channels[c];
 
-				if (!sampler)
+				auto it = nodeToJoint.find(ch.target_node);
+				if (it == nodeToJoint.end())
 					continue;
 
 				channel ac{
 					.aType = animType(ch.target_path),
 					.iType = interpolationType(sampler->interpolation),
 					.currentTimeStamp = 0.0f,
+					.skinIndex = it->second.first,
+					.jointIndex = it->second.second,
 				};
-
-				ac.skinIndex = nodeToJoint[ch.target_node].first;
-				ac.jointIndex = nodeToJoint[ch.target_node].second;
 
 				std::vector<float> ts{};
 				std::vector<transform> trs{};

@@ -200,7 +200,7 @@ namespace engine
 					if (err)
 					{
 						LOGERROR(err.err());
-						break;
+						continue;
 					}
 				}
 			}
@@ -221,7 +221,7 @@ namespace engine
 					if (err)
 					{
 						LOGERROR(err.err());
-						break;
+						continue;
 					}
 				}
 			}
@@ -242,7 +242,7 @@ namespace engine
 					if (err)
 					{
 						LOGERROR(err.err());
-						break;
+						continue;
 					}
 
 					if (!mEndUpdateBuffer.recieve(upd))
@@ -252,7 +252,7 @@ namespace engine
 					if (err)
 					{
 						LOGERROR(err.err());
-						break;
+						continue;
 					}
 				}
 			}
@@ -273,7 +273,7 @@ namespace engine
 					if (err)
 					{
 						LOGERROR(err.err());
-						break;
+						continue;
 					}
 				}
 			}
@@ -294,7 +294,7 @@ namespace engine
 					if (err)
 					{
 						LOGERROR(err.err());
-						break;
+						continue;
 					}
 				}
 			}
