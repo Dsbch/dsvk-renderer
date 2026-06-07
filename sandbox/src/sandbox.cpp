@@ -218,6 +218,7 @@ namespace sandbox
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::newEntityComponent>();
+				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
 			}
 
 			if (event->getKey() == engine::key::y)

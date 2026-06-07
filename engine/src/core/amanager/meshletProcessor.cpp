@@ -870,40 +870,37 @@ namespace engine
 
 		std::map<const cgltf_node*, std::pair<size_t, size_t>> nodeToJoint{};
 
-		for (int i = 0; i < data->nodes_count; i++)
+		for (int i = 0; i < data->skins_count; i++)
 		{
-			auto sk = data->nodes[i].skin;
+			const cgltf_skin* sk = &data->skins[i];
 
-			if (sk)
+			std::map<const cgltf_node*, const cgltf_node*> childToParent{};
+			for (int i = 0; i < sk->joints_count; i++)
 			{
-				std::map<const cgltf_node*, const cgltf_node*> childToParent{};
-				for (int i = 0; i < sk->joints_count; i++)
+				for (int c = 0; c < sk->joints[i]->children_count; c++)
 				{
-					for (int c = 0; c < sk->joints[i]->children_count; c++)
-					{
-						childToParent[sk->joints[i]->children[c]] = sk->joints[i];
-					}
+					childToParent[sk->joints[i]->children[c]] = sk->joints[i];
 				}
+			}
 
-				cgltf_node* root = nullptr;
+			cgltf_node* root = nullptr;
 
-				for (auto& [k, v] : childToParent)
+			for (auto& [k, v] : childToParent)
+			{
+				if (childToParent.find(v) == childToParent.end())
 				{
-					if (childToParent.find(v) == childToParent.end())
-					{
-						root = const_cast<cgltf_node*>(v);
-						break;
-					}
+					root = const_cast<cgltf_node*>(v);
+					break;
 				}
+			}
 
-				if (root)
-				{
-					skin crntSkin{};
+			if (root)
+			{
+				skin crntSkin{};
 
-					processSkinNode(root, sk, data, crntSkin, -1, nodeToJoint);
+				processSkinNode(root, sk, data, crntSkin, -1, nodeToJoint);
 
-					result.second.push_back(crntSkin);
-				}
+				result.second.push_back(crntSkin);
 			}
 		}
 
