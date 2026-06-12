@@ -165,9 +165,9 @@ namespace engine
 	}
 
 	inline VkSubmitInfo2 submitInfo(
-		VkCommandBufferSubmitInfo* cmd, 
+		VkCommandBufferSubmitInfo* cmd,
 		std::vector<VkSemaphoreSubmitInfo>& signalSemaphoreInfo,
-		std::vector<VkSemaphoreSubmitInfo>& waitSemaphoreInfo, 
+		std::vector<VkSemaphoreSubmitInfo>& waitSemaphoreInfo,
 		const void* pNext = nullptr
 	)
 	{
@@ -225,7 +225,12 @@ namespace engine
 	}
 
 	inline VkRenderingAttachmentInfo depthAttachmentInfo(
-		VkImageView view, VkImageLayout layout, bool needClear = true)
+		VkImageView view,
+		VkImageView resolveImageView,
+		VkResolveModeFlagBits resolveMode,
+		VkImageLayout layout,
+		bool needClear = true
+	)
 	{
 		VkRenderingAttachmentInfo depthAttachment{};
 		depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -236,6 +241,10 @@ namespace engine
 		depthAttachment.loadOp = needClear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthAttachment.clearValue.depthStencil.depth = 0.f;
+
+		depthAttachment.resolveImageView = resolveImageView;
+		depthAttachment.resolveImageLayout = layout;
+		depthAttachment.resolveMode = resolveMode;
 
 		return depthAttachment;
 	}

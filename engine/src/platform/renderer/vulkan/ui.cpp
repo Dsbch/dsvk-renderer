@@ -8,9 +8,25 @@
 
 namespace engine
 {
-	error vulkanUI::init(GLFWwindow* wnd, VkDevice device, VkPhysicalDevice physicalDevice, VkInstance instance, uint32_t queueFamily, VkQueue queue, VkFormat colorAttachmentFormat)
+	error vulkanUI::init(
+		GLFWwindow* wnd,
+		VkDevice device,
+		VkPhysicalDevice physicalDevice,
+		VkInstance instance,
+		uint32_t queueFamily,
+		VkQueue queue,
+		swapChain sChain,
+		graphicsPreset preset
+	)
 	{
-		mColorAttachmentFormat = colorAttachmentFormat;
+		mDevice = device;
+		mPreset = preset;
+
+		auto samp = descriptorSet::createSampler(mDevice, float(mPreset.anisotropicFiltering));
+		if (!samp)
+			return samp.err();
+
+		mSampler = samp.value();
 
 		auto logResult = [](VkResult err)
 			{
@@ -23,6 +39,8 @@ namespace engine
 		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+		auto colorAttachmentFormat = sChain.getDrawImageFormat();
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplGlfw_InitForVulkan(wnd, true);          // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
@@ -38,7 +56,11 @@ namespace engine
 		initInfo.ImageCount = 3;
 		initInfo.PipelineInfoMain.Subpass = 0;
 		initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-		initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO, .colorAttachmentCount = 1, .pColorAttachmentFormats = &mColorAttachmentFormat };;
+		initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+			.colorAttachmentCount = 1,
+			.pColorAttachmentFormats = &colorAttachmentFormat
+		};
 		initInfo.CheckVkResultFn = logResult;
 		initInfo.UseDynamicRendering = true;
 
@@ -46,11 +68,18 @@ namespace engine
 		if (!result)
 			return error{ "can't init UI" };
 
+		updateDescriptorSets(sChain);
+
 		return error();
 	}
 
 	error vulkanUI::destroy()
 	{
+		for (auto& ds : mImGuiDescroptorSets)
+			ImGui_ImplVulkan_RemoveTexture(ds);
+
+		vkDestroySampler(mDevice, mSampler, nullptr);
+
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
@@ -67,11 +96,45 @@ namespace engine
 		// Add calls to imgui here.
 		renderProfilingInfo(profInfo);
 
+		renderAccumAndRevealImages();
+
 		ImGui::Render();
 
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
 		return {};
+	}
+
+	void vulkanUI::updateDescriptorSets(swapChain sChain)
+	{
+		for (auto& ds : mImGuiDescroptorSets)
+			ImGui_ImplVulkan_RemoveTexture(ds);
+
+		mImGuiDescroptorSets.clear();
+
+		VkDescriptorSet depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
+			mSampler,
+			sChain.getAccumImageView(mPreset.msaa > 1),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
+
+		mImGuiDescroptorSets.push_back(depthDescriptorSet);
+
+		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
+			mSampler,
+			sChain.getRevealImageView(mPreset.msaa > 1),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
+
+		mImGuiDescroptorSets.push_back(depthDescriptorSet);
+
+		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
+			mSampler,
+			sChain.getDepthImageView(mPreset.msaa > 1),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
+
+		mImGuiDescroptorSets.push_back(depthDescriptorSet);
 	}
 
 	void vulkanUI::renderProfilingInfo(profilingInfo profInfo)
@@ -91,7 +154,7 @@ namespace engine
 
 		ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
-		
+
 		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
 
 		// FPS.
@@ -335,5 +398,70 @@ namespace engine
 		}
 
 		ImGui::End();
+	}
+
+	void vulkanUI::renderAccumAndRevealImages()
+	{
+		// Style
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.08f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.04f, 0.04f, 0.04f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_PlotLines, ImVec4(1.0f, 0.6f, 0.0f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_PlotLinesHovered, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+
+		char title[64];
+		snprintf(title, sizeof(title), "Color/depth attachments");
+
+		ImGui::SetNextWindowPos(ImVec2(0, 300), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_Once);
+
+		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
+
+		float padding = ImGui::GetStyle().ItemSpacing.x;
+		float imageWidth = (ImGui::GetContentRegionAvail().x - padding * 2.0f) / 3.0f;
+
+		float textOverhead = ImGui::GetTextLineHeightWithSpacing();
+		float imageHeight = ImGui::GetContentRegionAvail().y - textOverhead;
+
+		if (imageHeight < 10.0f) imageHeight = 10.0f;
+
+		ImVec2 imageSize = ImVec2(imageWidth, imageHeight);
+
+		ImGui::BeginGroup();
+		ImGui::Text("Accumulation image");
+		ImGui::Image(
+			(ImTextureID)mImGuiDescroptorSets[0],
+			imageSize
+		);
+		ImGui::EndGroup();
+
+		ImGui::SameLine();
+
+		ImGui::BeginGroup();
+		ImGui::Text("Reveal image");
+		ImGui::Image(
+			(ImTextureID)mImGuiDescroptorSets[1],
+			imageSize
+		);
+		ImGui::EndGroup();
+
+		ImGui::SameLine();
+
+		ImGui::BeginGroup();
+		ImGui::Text("Depth image");
+		ImGui::Image(
+			(ImTextureID)mImGuiDescroptorSets[2],
+			imageSize
+		);
+		ImGui::EndGroup();
+
+		ImGui::SameLine();
+
+		ImGui::End();
+
+		ImGui::PopStyleVar(3);
+		ImGui::PopStyleColor(4);
 	}
 }

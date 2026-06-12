@@ -251,7 +251,7 @@ PSOutput psmain(meshOutput input)
     
     PSOutput output;
     output.accum = float4(color.rgb * alpha, alpha) * weight;
-    output.reveal = float4(alpha, 0.0f, 0.0f, 0.0f);
+    output.reveal = float4(alpha, 0.0f, 0.0f, 1.0f);
     
     return output;
 }

@@ -133,9 +133,7 @@ namespace engine
 
 		auto samp = descriptorSet::createSampler(device, float(mPreset.anisotropicFiltering));
 		if (!samp)
-		{
 			return samp.err();
-		}
 
 		mSampler = samp.value();
 
@@ -301,7 +299,7 @@ namespace engine
 		std::vector<VkDescriptorImageInfo> info{ VkDescriptorImageInfo{} };
 		info.front().sampler = mSampler;
 		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		info.front().imageView = mPreset.msaa <= 1 ? sChain.getAccumImageView() : sChain.getAccumResolveImageView();
+		info.front().imageView = sChain.getAccumImageView(mPreset.msaa > 1);
 
 		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.accumBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
 
@@ -309,7 +307,7 @@ namespace engine
 
 		info.front().sampler = mSampler;
 		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		info.front().imageView = mPreset.msaa <= 1 ? sChain.getRevealImageView() : sChain.getRevealResolveImageView();
+		info.front().imageView = sChain.getRevealImageView(mPreset.msaa > 1);
 
 		wSet = descriptorSet::getWriteInfo(mBindings.revealBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
 
@@ -435,25 +433,6 @@ namespace engine
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
-
-		return {};
-	}
-
-	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
-	{
-		// Imgui can't work with msaa color attachments.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mPreset.msaa <= 1 ? mSwapChain.getDrawImageView() : mSwapChain.getResolveImageView(), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
-
-		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, nullptr);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
-		// Draw UI.
-		mUi.onRender(cmd, mProfInfo);
-
-		vkCmdEndRendering(cmd);
 
 		return {};
 	}

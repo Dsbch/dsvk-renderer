@@ -55,36 +55,31 @@ namespace engine
 		{
 		}
 
-		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU);
-		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily, graphicsPreset preset);
+		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU, graphicsPreset preset);
+		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
 		void destroy();
 
 		VkFormat getDrawImageFormat() const;
 		VkFormat getDepthImageFormat() const;
 		VkFormat getAccumImageFormat() const;
 		VkFormat getRevealImageFormat() const;
+		VkFormat getResolveImageFormat() const;
 
 		VkExtent3D getDrawImageExtent() const;
-		VkExtent3D getResolveImageExtent() const;
 		VkExtent3D getDepthImageExtent() const;
 		VkExtent3D getAccumImageExtent() const;
 		VkExtent3D getRevealImageExtent() const;
+		VkExtent3D getResolveImageExtent() const;
 
-		VkImage getDrawImage() const;
-		VkImage getDepthImage() const;
-		VkImage getResolveImage() const;
-		VkImage getAccumResolveImage() const;
-		VkImage getRevealResolveImage() const;
-		VkImage getAccumImage() const;
-		VkImage getRevealImage() const;
+		VkImage getDrawImage(bool needResolve) const;
+		VkImage getDepthImage(bool needResolve) const;
+		VkImage getAccumImage(bool needResolve) const;
+		VkImage getRevealImage(bool needResolve) const;
 
-		VkImageView getDrawImageView() const;
-		VkImageView getDepthImageView() const;
-		VkImageView getResolveImageView() const;
-		VkImageView getAccumResolveImageView() const;
-		VkImageView getRevealResolveImageView() const;
-		VkImageView getAccumImageView() const;
-		VkImageView getRevealImageView() const;
+		VkImageView getDrawImageView(bool needResolve) const;
+		VkImageView getDepthImageView(bool needResolve) const;
+		VkImageView getAccumImageView(bool needResolve) const;
+		VkImageView getRevealImageView(bool needResolve) const;
 
 		void pickImageExtent();
 
@@ -106,7 +101,7 @@ namespace engine
 		VkFence getRenderFence();
 	private:
 		void increment();
-		error createSwapChain(uint32_t width, uint32_t height, graphicsPreset preset);
+		error createSwapChain(uint32_t width, uint32_t height);
 
 		frameData& getCurrentFrameData();
 
@@ -134,11 +129,14 @@ namespace engine
 
 		// For opaque geometry.
 		vulkanImage mDrawImage;
-		vulkanImage mDepthImage;
 		vulkanImage mResolveImage;
+		vulkanImage mDepthImage;
+		vulkanImage mDepthResolveImage;
 
 		uint32_t mFrameNumber;
 		uint32_t mSwapchainIndex;
+
+		graphicsPreset mPreset;
 
 		std::array<frameData, FRAME_OVERLAP> mFrames;
 		std::array<VkSemaphore, FRAME_OVERLAP> mRenderSema;

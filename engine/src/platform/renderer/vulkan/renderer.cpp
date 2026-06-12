@@ -62,7 +62,7 @@ namespace engine
 		mCtx->mAmanager->setMakeTextureFunc([&](const image& img) { return makeTexture(img); });
 		mCtx->mAmanager->setMakeTextureWithMipsFunc([&](const imageWithMipLevels& img) { return makeTextureWithMips(img); });
 
-		mErr = mUi.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain.getDrawImageFormat());
+		mErr = mUi.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain, mPreset);
 		if (mErr)
 			return;
 
@@ -116,9 +116,7 @@ namespace engine
 			.require_api_version(1, 3, 0)
 			.build();
 		if (!inst_ret)
-		{
 			return { inst_ret.error().message() };
-		}
 
 		vkb::Instance vkb_inst = inst_ret.value();
 
@@ -183,7 +181,7 @@ namespace engine
 		deviceFeatures.independentBlend = VK_TRUE;
 
 		//use vkbootstrap to select a gpu. 
-		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features
+		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features.
 		vkb::PhysicalDeviceSelector selector{ vkb_inst };
 		auto selectedRes = selector
 			.set_minimum_version(1, 3)
@@ -193,9 +191,7 @@ namespace engine
 			.set_surface(mSurface)
 			.select();
 		if (!selectedRes)
-		{
 			return selectedRes.error().message();
-		}
 
 		vkb::PhysicalDevice physicalDevice = selectedRes.value();
 
@@ -204,9 +200,7 @@ namespace engine
 
 		auto buildResult = deviceBuilder.build();
 		if (!buildResult.has_value())
-		{
 			return buildResult.error().message();
-		}
 
 		vkb::Device vkbDevice = buildResult.value();
 
@@ -221,11 +215,10 @@ namespace engine
 		allocatorInfo.device = mDevice;
 		allocatorInfo.instance = mInstance;
 		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+
 		auto vmaResult = vmaCreateAllocator(&allocatorInfo, &mAllocator);
 		if (vmaResult != VK_SUCCESS)
-		{
 			return { vkResultToStr(vmaResult) };
-		}
 
 		loadExtensions();
 
@@ -290,9 +283,9 @@ namespace engine
 
 	error vulkanRenderer::initSwapchain(uint32_t width, uint32_t height)
 	{
-		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice);
+		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice, mPreset);
 
-		error err = mSwapChain.build(width, height, mGraphicsQueueFamily, mPreset);
+		error err = mSwapChain.build(width, height, mGraphicsQueueFamily);
 		if (err)
 			return err;
 
@@ -396,8 +389,8 @@ namespace engine
 			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
 		};
 
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), mPreset.msaa <= 1 ? nullptr : mSwapChain.getResolveImageView(), getResolveMode(mPreset.msaa), &clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDrawImageView(true), getResolveMode(mPreset.msaa), &clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
 
@@ -423,16 +416,16 @@ namespace engine
 	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
 		// Draw transperent geometry.
-		transitionImage(cmd, mSwapChain.getAccumImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getRevealImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getAccumImage(false), mSwapChain.getAccumImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getRevealImage(false), mSwapChain.getRevealImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		VkClearValue clear{
 			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
 		};
 
 		VkRenderingAttachmentInfo accumAttachment = attachmentInfo(
-			mSwapChain.getAccumImageView(),
-			mPreset.msaa <= 1 ? nullptr : mSwapChain.getAccumResolveImageView(),
+			mSwapChain.getAccumImageView(false),
+			mPreset.msaa <= 1 ? nullptr : mSwapChain.getAccumImageView(true),
 			getResolveMode(mPreset.msaa),
 			&clear,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
@@ -441,8 +434,8 @@ namespace engine
 		clear.color = VkClearColorValue{ 1.0f, 0.0f, 0.0f, 0.0f };
 
 		VkRenderingAttachmentInfo revealAttachment = attachmentInfo(
-			mSwapChain.getRevealImageView(),
-			mPreset.msaa <= 1 ? nullptr : mSwapChain.getRevealResolveImageView(),
+			mSwapChain.getRevealImageView(false),
+			mPreset.msaa <= 1 ? nullptr : mSwapChain.getRevealImageView(true),
 			getResolveMode(mPreset.msaa),
 			&clear,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
@@ -450,7 +443,7 @@ namespace engine
 
 		std::vector<VkRenderingAttachmentInfo> colorAttachments = { accumAttachment, revealAttachment };
 
-		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
 
 		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
 
@@ -465,8 +458,12 @@ namespace engine
 
 	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
+		// Transition to sample them as textures in composite pass.
+		transitionImage(cmd, mSwapChain.getAccumImage(mPreset.msaa > 1), mSwapChain.getAccumImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getRevealImage(mPreset.msaa > 1), mSwapChain.getRevealImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 		// Composite opaque and transperent.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(), mPreset.msaa <= 1 ? nullptr : mSwapChain.getResolveImageView(), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
 
@@ -475,6 +472,27 @@ namespace engine
 		vkCmdBeginRendering(cmd, &renderInfo);
 
 		mMeshletRenderer.compositePass(cmd, in);
+
+		vkCmdEndRendering(cmd);
+
+		return {};
+	}
+
+	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
+	{
+		transitionImage(cmd, mSwapChain.getDepthImage(mPreset.msaa > 1), mSwapChain.getDepthImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		// Imgui can't work with msaa color attachments.
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, nullptr);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
+		// Draw UI.
+		mUi.onRender(cmd, mProfInfo);
 
 		vkCmdEndRendering(cmd);
 
@@ -520,13 +538,15 @@ namespace engine
 		}
 
 		mSwapChain.destroy();
-		auto swapChainErr = mSwapChain.build(width, height, mGraphicsQueueFamily, mPreset);
+		auto swapChainErr = mSwapChain.build(width, height, mGraphicsQueueFamily);
 		if (swapChainErr)
 			return swapChainErr;
 
 		error err = mMeshletRenderer.updateSwapchainDependentDescriptors(mSwapChain);
 		if (err)
 			return err;
+
+		mUi.updateDescriptorSets(mSwapChain);
 
 		return {};
 	}
@@ -632,9 +652,9 @@ namespace engine
 
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
-		transitionImage(cmd, mSwapChain.getDrawImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getDepthImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getDrawImage(false), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getDepthImage(false), mSwapChain.getDepthImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getDrawImage(true), mSwapChain.getResolveImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		err = mGpuProfiler.beginTimeStamp(cmd);
 		if (err)
@@ -671,18 +691,18 @@ namespace engine
 
 		mGpuProfiler.endTimestamp(cmd);
 
-		//transition the resolve image and the swapchain image into their correct transfer layouts
-		transitionImage(cmd, mPreset.msaa <= 1 ? mSwapChain.getDrawImage() : mSwapChain.getResolveImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		//transition the draw image and the swapchain image into their correct transfer layouts
+		transitionImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-		// copy from the resolve image into the swapchain
-		copyImageToImage(cmd, mPreset.msaa <= 1 ? mSwapChain.getDrawImage() : mSwapChain.getResolveImage(), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
+		// copy from the draw image into the swapchain
+		copyImageToImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
-		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		// set swapchain image layout to Present so we can draw it
-		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)
 		vkResult = vkEndCommandBuffer(cmd);
@@ -693,11 +713,11 @@ namespace engine
 		//	we want to wait on the _presentSemaphore and all semaphores that were created during resource creating, 
 		//  _presentSemaphore semaphore is signaled when the swapchain is ready.
 		// Remember when we ask GPU for image from swap chain we provide that semaphore to signal.
-		// We will signal the _renderSemaphore, to signal that rendering has finished
+		// We will signal the _renderSemaphore, to signal that rendering has finished.
 		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
 
 		std::vector<VkSemaphoreSubmitInfo> waitInfo{};
-		std::vector<VkSemaphoreSubmitInfo> signalInfo;
+		std::vector<VkSemaphoreSubmitInfo> signalInfo{};
 
 		waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getSwapchainSemaphore()));
 		signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getRenderSemaphore()));
@@ -708,7 +728,7 @@ namespace engine
 		VkSubmitInfo2 submit = submitInfo(&cmdinfo, signalInfo, waitInfo);
 
 		// submit command buffer to the queue and execute it.
-		// _renderFence will now block until the graphic commands finish execution
+		// _renderFence will now block until the graphic commands finish execution.
 		vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
 		if (vkResult != VK_SUCCESS)
 			return vkResultToStr(vkResult);
@@ -717,10 +737,10 @@ namespace engine
 		mSubmit.deleteSemaInUse(waitSema.size());
 		mSubmit.deleteSubmitedCommands(commands.size());
 
-		// prepare present
+		// prepare present.
 		// this will put the image we just rendered to into the visible window.
 		// we want to wait on the _renderSemaphore for that, 
-		// as its necessary that drawing commands have finished before the image is displayed to the user
+		// as its necessary that drawing commands have finished before the image is displayed to the user.
 		auto presentErr = mSwapChain.present(mGraphicsQueue);
 		if (presentErr)
 		{

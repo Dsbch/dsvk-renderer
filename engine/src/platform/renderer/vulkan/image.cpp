@@ -24,7 +24,7 @@ namespace engine
 		}
 	}
 
-	void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
+	void transitionImage(VkCommandBuffer cmd, VkImage image, VkFormat format, VkImageLayout currentLayout, VkImageLayout newLayout)
 	{
 		VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
 		imageBarrier.pNext = nullptr;
@@ -38,7 +38,7 @@ namespace engine
 		imageBarrier.newLayout = newLayout;
 
 		VkImageSubresourceRange subImage{};
-		subImage.aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;;
+		subImage.aspectMask = (format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D16_UNORM) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;;
 		subImage.baseMipLevel = 0;
 		subImage.levelCount = VK_REMAINING_MIP_LEVELS;
 		subImage.baseArrayLayer = 0;
@@ -210,7 +210,7 @@ namespace engine
 		error err = is.queue(
 			[&](VkCommandBuffer cmd)
 			{
-				transitionImage(cmd, newImage.value().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+				transitionImage(cmd, newImage.value().image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 				VkBufferImageCopy copyRegion = {};
 				copyRegion.bufferOffset = 0;
@@ -310,7 +310,7 @@ namespace engine
 		error err = is.queue(
 			[=](VkCommandBuffer cmd)
 			{
-				transitionImage(cmd, newImage.value().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+				transitionImage(cmd, newImage.value().image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 				VkBufferImageCopy copyRegion{};
 				copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;

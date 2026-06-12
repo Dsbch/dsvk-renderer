@@ -44,14 +44,14 @@ namespace engine
 		return mRevealImage.img.format;
 	}
 
+	VkFormat swapChain::getResolveImageFormat() const
+	{
+		return mResolveImage.img.format;
+	}
+
 	VkExtent3D swapChain::getDrawImageExtent() const
 	{
 		return mDrawImage.img.extent;
-	}
-
-	VkExtent3D swapChain::getResolveImageExtent() const
-	{
-		return mResolveImage.img.extent;
 	}
 
 	VkExtent3D swapChain::getDepthImageExtent() const
@@ -69,73 +69,72 @@ namespace engine
 		return mRevealImage.img.extent;
 	}
 
-	VkImage swapChain::getDrawImage() const
+	VkExtent3D swapChain::getResolveImageExtent() const
 	{
+		return mResolveImage.img.extent;
+	}
+
+	VkImage swapChain::getDrawImage(bool needResolve) const
+	{
+		if (needResolve)
+			return mResolveImage.img.image;
+
 		return mDrawImage.img.image;
 	}
 
-	VkImage swapChain::getDepthImage() const
+	VkImage swapChain::getDepthImage(bool needResolve) const
 	{
+		if (needResolve)
+			return mDepthResolveImage.img.image;
+
 		return mDepthImage.img.image;
 	}
 
-	VkImage swapChain::getResolveImage() const
+	VkImage swapChain::getAccumImage(bool needResolve) const
 	{
-		return mResolveImage.img.image;
-	}
+		if (needResolve)
+			return mAccumResolveImage.img.image;
 
-	VkImage swapChain::getAccumResolveImage() const
-	{
-		return mAccumResolveImage.img.image;
-	}
-
-	VkImage swapChain::getRevealResolveImage() const
-	{
-		return mRevealResolveImage.img.image;
-	}
-
-	VkImage swapChain::getAccumImage() const
-	{
 		return mAccumImage.img.image;
 	}
 
-	VkImage swapChain::getRevealImage() const
+	VkImage swapChain::getRevealImage(bool needResolve) const
 	{
+		if (needResolve)
+			return mRevealResolveImage.img.image;
+
 		return mRevealImage.img.image;
 	}
 
-	VkImageView swapChain::getDrawImageView() const
+	VkImageView swapChain::getDrawImageView(bool needResolve) const
 	{
+		if (needResolve)
+			return mResolveImage.img.view;
+
 		return mDrawImage.img.view;
 	}
 
-	VkImageView swapChain::getDepthImageView() const
+	VkImageView swapChain::getDepthImageView(bool needResolve) const
 	{
+		if (needResolve)
+			return mDepthResolveImage.img.view;
+
 		return mDepthImage.img.view;
 	}
 
-	VkImageView swapChain::getResolveImageView() const
+	VkImageView swapChain::getAccumImageView(bool needResolve) const
 	{
-		return mResolveImage.img.view;
-	}
+		if (needResolve)
+			return mAccumResolveImage.img.view;
 
-	VkImageView swapChain::getAccumResolveImageView() const
-	{
-		return mAccumResolveImage.img.view;
-	}
-
-	VkImageView swapChain::getRevealResolveImageView() const
-	{
-		return mRevealResolveImage.img.view;
-	}
-
-	VkImageView swapChain::getAccumImageView() const
-	{
 		return mAccumImage.img.view;
 	}
 
-	VkImageView swapChain::getRevealImageView() const
+	VkImageView swapChain::getRevealImageView(bool needResolve) const
 	{
+		if (needResolve)
+			return mRevealResolveImage.img.view;
+
 		return mRevealImage.img.view;
 	}
 
@@ -262,7 +261,7 @@ namespace engine
 		return mSwapchainExtent;
 	}
 
-	error swapChain::createSwapChain(uint32_t width, uint32_t height, graphicsPreset preset)
+	error swapChain::createSwapChain(uint32_t width, uint32_t height)
 	{
 		vkb::SwapchainBuilder swapchainBuilder{ mChosenGPU, mDevice, mSurface };
 
@@ -296,9 +295,13 @@ namespace engine
 		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
 		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		drawImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		error err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(preset.msaa));
+		VkImageUsageFlags depthImageUsages{};
+		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+		error err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(mPreset.msaa));
 		if (err)
 			return err;
 
@@ -306,38 +309,37 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mAccumResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT);
+		err = mDepthImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(mPreset.msaa));
 		if (err)
 			return err;
 
-		err = mRevealResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT);
-		if (err)
-			return err;
-
-		// build depth image.
-		VkImageUsageFlags depthImageUsages{};
-		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		depthImageUsages |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-		err = mDepthImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(preset.msaa));
+		err = mDepthResolveImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, VK_SAMPLE_COUNT_1_BIT);
 		if (err)
 			return err;
 
 		// Build images for OIT.
-		const VkImageUsageFlags weightedUsages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		const VkImageUsageFlags weightedUsages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		err = mAccumImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(preset.msaa));
+		err = mAccumImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa));
 		if (err)
 			return err;
 
-		err = mRevealImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(preset.msaa));
+		err = mAccumResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT);
+		if (err)
+			return err;
+
+		err = mRevealImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa));
+		if (err)
+			return err;
+
+		err = mRevealResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT);
 		if (err)
 			return err;
 
 		return {};
 	}
 
-	error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily, graphicsPreset preset)
+	error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
 	{
 		VkCommandPoolCreateInfo commandPoolInfo = commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
@@ -368,23 +370,26 @@ namespace engine
 				return { vkResultToStr(result) };
 		}
 
-		return createSwapChain(width, height, preset);
+		return createSwapChain(width, height);
 	}
 
 	void swapChain::init(
 		VmaAllocator vma, 
 		VkDevice device, 
 		VkSurfaceKHR surface, 
-		VkPhysicalDevice chosenGPU 
+		VkPhysicalDevice chosenGPU,
+		graphicsPreset preset
 	)
 	{
 		mAllocator = vma;
 		mDevice = device;
 		mSurface = surface;
 		mChosenGPU = chosenGPU;
+		mPreset = preset;
 
 		mDrawImage.init(mDevice, mAllocator);
 		mDepthImage.init(mDevice, mAllocator);
+		mDepthResolveImage.init(mDevice, mAllocator);
 		mResolveImage.init(mDevice, mAllocator);
 		mAccumImage.init(mDevice, mAllocator);
 		mRevealImage.init(mDevice, mAllocator);
@@ -405,6 +410,7 @@ namespace engine
 		}
 
 		mDepthImage.destroy();
+		mDepthResolveImage.destroy();
 		mDrawImage.destroy();
 		mResolveImage.destroy();
 		mAccumResolveImage.destroy();
