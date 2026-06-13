@@ -1,6 +1,7 @@
 ﻿#include <pch.h>
 #include "meshletRenderer.h"
 #include "renderer.h"
+#include "computeRenderer.h"
 
 namespace engine
 {

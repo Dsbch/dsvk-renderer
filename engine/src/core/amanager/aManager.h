@@ -28,6 +28,7 @@ namespace engine
 		withError<std::shared_ptr<const shader>> getDefaultMeshShader();
 		withError<std::shared_ptr<const shader>> getDefaultPixelShader();
 		withError<std::shared_ptr<const shader>> getDefaultLineVertexShader();
+		withError<std::shared_ptr<const shader>> getHzbGenShader();
 		withError<std::shared_ptr<const shader>> getDefaultLinePixelShader();
 		withError<std::shared_ptr<const shader>> loadShader(const std::string& path);
 		withError<materialTextures> loadDetaultMaterial();

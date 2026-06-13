@@ -24,6 +24,7 @@ namespace engine
 		error onEndUpdate(std::shared_ptr<registryHandle> registry);
 
 		static withError<glm::mat4> getView(std::shared_ptr<registryHandle> registry);
+		static withError<std::pair<uint32_t, uint32_t>> getWidthHeight(std::shared_ptr<registryHandle> registry);
 		static bool isDebugCameraPresent(std::shared_ptr<registryHandle> registry);
 		static withError<glm::mat4> getProjection(std::shared_ptr<registryHandle> registry);
 		static withError<glm::mat4> getDebugView(std::shared_ptr<registryHandle> registry);

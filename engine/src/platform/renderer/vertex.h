@@ -291,12 +291,22 @@ namespace engine
 
 		frustum cameraFrustum;
 		float deltaTime;
+
+		uint32_t width;
+		uint32_t height;
 	};
 
 	struct pushConstants
 	{
 		uint32_t commandBufferOffset;
 		uint32_t meshletCount;
+	};
+
+	struct computePushConstants
+	{
+		uint32_t hzbMipLevel;
+		uint32_t width;
+		uint32_t height;
 	};
 
 	struct lineVertex

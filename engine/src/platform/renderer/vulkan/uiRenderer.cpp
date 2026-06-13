@@ -1,5 +1,5 @@
 ﻿#include <pch.h>
-#include "ui.h"
+#include "uiRenderer.h"
 #include "helper.h"
 
 #include <imgui.h>
@@ -8,7 +8,7 @@
 
 namespace engine
 {
-	error vulkanUI::init(
+	error uiRenderer::init(
 		GLFWwindow* wnd,
 		VkDevice device,
 		VkPhysicalDevice physicalDevice,
@@ -51,7 +51,7 @@ namespace engine
 		initInfo.Device = device;
 		initInfo.QueueFamily = queueFamily;
 		initInfo.Queue = queue;
-		initInfo.DescriptorPoolSize = 8;
+		initInfo.DescriptorPoolSize = 100;
 		initInfo.MinImageCount = 2;
 		initInfo.ImageCount = 3;
 		initInfo.PipelineInfoMain.Subpass = 0;
@@ -68,12 +68,12 @@ namespace engine
 		if (!result)
 			return error{ "can't init UI" };
 
-		updateDescriptorSets(sChain);
+		updateSwapchainDependentDescriptors(sChain);
 
 		return error();
 	}
 
-	error vulkanUI::destroy()
+	error uiRenderer::destroy()
 	{
 		for (auto& ds : mImGuiDescroptorSets)
 			ImGui_ImplVulkan_RemoveTexture(ds);
@@ -87,7 +87,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanUI::onRender(VkCommandBuffer cmd, profilingInfo profInfo)
+	error uiRenderer::onRender(VkCommandBuffer cmd, profilingInfo profInfo)
 	{
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -98,6 +98,8 @@ namespace engine
 
 		renderAccumAndRevealImages();
 
+		renderHzbImages();
+
 		ImGui::Render();
 
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
@@ -105,7 +107,7 @@ namespace engine
 		return {};
 	}
 
-	void vulkanUI::updateDescriptorSets(swapChain sChain)
+	void uiRenderer::updateSwapchainDependentDescriptors(swapChain sChain)
 	{
 		for (auto& ds : mImGuiDescroptorSets)
 			ImGui_ImplVulkan_RemoveTexture(ds);
@@ -120,8 +122,11 @@ namespace engine
 
 		mImGuiDescroptorSets.push_back(depthDescriptorSet);
 
+		auto hzb = sChain.getHZB();
+
 		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
 			mSampler,
+			//hzb.front().img.view,
 			sChain.getRevealImageView(mPreset.msaa > 1),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
@@ -135,9 +140,22 @@ namespace engine
 		);
 
 		mImGuiDescroptorSets.push_back(depthDescriptorSet);
+
+		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
+
+		for (auto& h : hzbBuf)
+		{
+			depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
+				mSampler,
+				h.img.view,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+
+			mImGuiDescroptorSets.push_back(depthDescriptorSet);
+		}
 	}
 
-	void vulkanUI::renderProfilingInfo(profilingInfo profInfo)
+	void uiRenderer::renderProfilingInfo(profilingInfo profInfo)
 	{
 		// Style
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.08f, 1.0f));
@@ -200,7 +218,7 @@ namespace engine
 
 		// Render passes.
 		{
-			static const uint32_t passCount = 4;
+			static const uint32_t passCount = 5;
 			static float history[passCount][128] = {};
 			static int offset = 0;
 			static float lastValidMs[passCount] = {};
@@ -211,10 +229,11 @@ namespace engine
 
 			if (elapsed >= 60.0f)
 			{
-				history[0][offset] = profInfo.renderingInfo.opaquePass;
-				history[1][offset] = profInfo.renderingInfo.accumilationPass;
-				history[2][offset] = profInfo.renderingInfo.compositePass;
-				history[3][offset] = profInfo.renderingInfo.uiPass;
+				history[0][offset] = profInfo.renderingInfo.buildHZB;
+				history[1][offset] = profInfo.renderingInfo.opaquePass;
+				history[2][offset] = profInfo.renderingInfo.accumilationPass;
+				history[3][offset] = profInfo.renderingInfo.compositePass;
+				history[4][offset] = profInfo.renderingInfo.uiPass;
 				offset = (offset + 1) % 128;
 				lastUpdate = now;
 			}
@@ -224,6 +243,7 @@ namespace engine
 				ImU32 color;
 			};
 			static PassInfo passes[] = {
+				{ "Build HZB",		IM_COL32(125, 40, 80,   255) },
 				{ "Opaque Pass",      IM_COL32(255, 150, 0,   255) },
 				{ "Accumilation Pass", IM_COL32(0,   255, 128, 255) },
 				{ "Composite Pass",   IM_COL32(255, 50,  50,  255) },
@@ -400,7 +420,7 @@ namespace engine
 		ImGui::End();
 	}
 
-	void vulkanUI::renderAccumAndRevealImages()
+	void uiRenderer::renderAccumAndRevealImages()
 	{
 		// Style
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.08f, 1.0f));
@@ -415,7 +435,7 @@ namespace engine
 		snprintf(title, sizeof(title), "Color/depth attachments");
 
 		ImGui::SetNextWindowPos(ImVec2(0, 300), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
 
 		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
 
@@ -463,5 +483,56 @@ namespace engine
 
 		ImGui::PopStyleVar(3);
 		ImGui::PopStyleColor(4);
+	}
+
+	void uiRenderer::renderHzbImages()
+	{
+		const size_t baseAttachmentCount = 3;
+		if (mImGuiDescroptorSets.size() <= baseAttachmentCount)
+			return;
+
+		size_t hzbMipCount = mImGuiDescroptorSets.size() - baseAttachmentCount;
+
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.08f, 1.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 6));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+
+		ImGui::SetNextWindowPos(ImVec2(0, 600), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+
+		ImGui::Begin("HZB chain", nullptr, ImGuiWindowFlags_HorizontalScrollbar);
+
+		float itemSpacing = ImGui::GetStyle().ItemSpacing.x;
+		float textOverhead = ImGui::GetTextLineHeightWithSpacing();
+
+		float imageHeight = ImGui::GetContentRegionAvail().y - textOverhead - ImGui::GetStyle().ScrollbarSize;
+		if (imageHeight < 10.0f) imageHeight = 10.0f;
+
+		ImVec2 baseImageSize = ImVec2(imageHeight, imageHeight);
+
+		for (size_t i = 0; i < hzbMipCount; ++i)
+		{
+			size_t descriptorIndex = baseAttachmentCount + i;
+
+			ImGui::BeginGroup();
+
+			ImGui::Text("Mip %d", static_cast<int>(i));
+
+			ImGui::Image(
+				(ImTextureID)mImGuiDescroptorSets[descriptorIndex],
+				baseImageSize
+			);
+
+			ImGui::EndGroup();
+
+			if (i < hzbMipCount - 1)
+				ImGui::SameLine();
+		}
+
+		ImGui::End();
+
+		ImGui::PopStyleVar(3);
+		ImGui::PopStyleColor(1);
 	}
 }

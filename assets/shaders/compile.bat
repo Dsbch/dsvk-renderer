@@ -55,8 +55,6 @@ if %errorlevel% neq 0 (
 
 echo.
 
-echo.
-
 echo Compiling Pixel Line Shader...
 dxc -T ps_6_9 -E psmain -fspv-debug=vulkan-with-source -spirv -Fo -fvk-use-scalar-layout -Fo vkCompiled/vkLinePs.spv vkLine.hlsl
 if %errorlevel% neq 0 (
@@ -67,6 +65,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
+
 echo Compiling Accumulation Mesh Shader...
 dxc -T ms_6_9 -E msmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAccumilationMs.spv vkAccumilation.hlsl
 if %errorlevel% neq 0 (
@@ -99,6 +98,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
+
 echo Compiling Composite Mesh Shader...
 dxc -T ms_6_9 -E msmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshCompositeMs.spv vkComposite.hlsl
 if %errorlevel% neq 0 (
@@ -129,4 +129,19 @@ if %errorlevel% neq 0 (
 ) else (
     echo Task shader compiled successfully.
 )
+
+echo.
+
+echo Compiling HZB Compute Shader...
+dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkHzbCs.spv vkComputeHZB.hlsl
+if %errorlevel% neq 0 (
+    echo HZB Compute Shader compilation failed!
+    pause
+) else (
+    echo HZB Compute Shader compiled successfully.
+)
+
+echo.
+
+
 pause

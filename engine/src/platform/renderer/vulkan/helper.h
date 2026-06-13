@@ -350,4 +350,46 @@ namespace engine
 
 		return VK_RESOLVE_MODE_AVERAGE_BIT;
 	}
+
+	inline void pipelineImageBarrier(
+		VkCommandBuffer cmd,
+		VkImage image,
+		VkFormat format,
+		VkImageLayout currentLayout,
+		VkPipelineStageFlags2 srcStageMask,
+		VkAccessFlags2 srcAccessMask,
+		VkPipelineStageFlags2 dstStageMask,
+		VkAccessFlags2 dstAccessMask
+	)
+	{
+		VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+		imageBarrier.pNext = nullptr;
+
+		imageBarrier.srcStageMask = srcStageMask;
+		imageBarrier.srcAccessMask = srcAccessMask;
+		imageBarrier.dstStageMask = dstStageMask;
+		imageBarrier.dstAccessMask = dstAccessMask;
+
+		imageBarrier.oldLayout = currentLayout;
+		imageBarrier.newLayout = currentLayout;
+
+		VkImageSubresourceRange subImage{};
+		subImage.aspectMask = (format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D16_UNORM) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;;
+		subImage.baseMipLevel = 0;
+		subImage.levelCount = VK_REMAINING_MIP_LEVELS;
+		subImage.baseArrayLayer = 0;
+		subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+		imageBarrier.subresourceRange = subImage;
+		imageBarrier.image = image;
+
+		VkDependencyInfo depInfo{};
+		depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		depInfo.pNext = nullptr;
+
+		depInfo.imageMemoryBarrierCount = 1;
+		depInfo.pImageMemoryBarriers = &imageBarrier;
+
+		vkCmdPipelineBarrier2(cmd, &depInfo);
+	}
 }

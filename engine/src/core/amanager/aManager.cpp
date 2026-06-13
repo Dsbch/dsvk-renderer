@@ -293,6 +293,17 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
+	withError<std::shared_ptr<const shader>> aManager::getHzbGenShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkHzbCs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
 	withError<std::shared_ptr<const shader>> aManager::getDefaultLinePixelShader()
 	{
 #ifdef VULKAN

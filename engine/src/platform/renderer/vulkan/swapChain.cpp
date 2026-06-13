@@ -336,6 +336,32 @@ namespace engine
 		if (err)
 			return err;
 
+		// Build HZB.
+		uint32_t mip0Width = (std::max)(1u, width / 2);
+		uint32_t mip0Height = (std::max)(1u, height / 2);
+
+		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height)))) + 1; 
+		
+		mHZB.clear();
+
+		VkExtent3D mipExtent = { mip0Width, mip0Height, 1 };
+
+		for (uint32_t l = 0; l < hzbMipLevels; l++)
+		{
+			vulkanImage currentDepth{};
+
+			currentDepth.init(mDevice, mAllocator);
+
+			err = currentDepth.build(mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT);
+			if (err)
+				return err;
+
+			mHZB.push_back(std::move(currentDepth));
+		
+			mipExtent.width = (std::max)(1u, mipExtent.width / 2);
+			mipExtent.height = (std::max)(1u, mipExtent.height / 2);
+		}
+
 		return {};
 	}
 
@@ -374,9 +400,9 @@ namespace engine
 	}
 
 	void swapChain::init(
-		VmaAllocator vma, 
-		VkDevice device, 
-		VkSurfaceKHR surface, 
+		VmaAllocator vma,
+		VkDevice device,
+		VkSurfaceKHR surface,
 		VkPhysicalDevice chosenGPU,
 		graphicsPreset preset
 	)
@@ -418,11 +444,23 @@ namespace engine
 		mAccumImage.destroy();
 		mRevealImage.destroy();
 
+		for (auto& d : mHZB)
+			d.destroy();
+
 		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
 
 		mSwapchain = VK_NULL_HANDLE;
 
 		for (int i = 0; i < mSwapchainImageViews.size(); i++)
 			vkDestroyImageView(mDevice, mSwapchainImageViews[i], nullptr);
+	}
+	uint32_t swapChain::getHzbSize() const
+	{
+		return uint32_t(mHZB.size());
+	}
+
+	std::vector<vulkanImage> swapChain::getHZB() const
+	{
+		return mHZB;
 	}
 }

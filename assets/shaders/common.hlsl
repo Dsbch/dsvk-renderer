@@ -128,6 +128,8 @@ struct perDrawData
     float4x4 viewProjection;
     frustum cameraFrustum;
     float deltaTime;
+    uint width;
+    uint height;
 };
 
 struct meshOutput

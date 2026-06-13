@@ -1,0 +1,205 @@
+﻿#include <pch.h>
+#include "computeRenderer.h"
+
+namespace engine
+{
+	error computeRenderer::init(std::shared_ptr<context> ctx, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, submit& is, deviceLimits limits, graphicsPreset preset, const swapChain& sChain)
+	{
+
+		mCtx = ctx;
+
+		mBindings = computeBindings{
+			.descriptorSet = 0,
+			.totalDescriptorsCount = 2,
+
+			.orignalZBufferBinding = 0,
+			.hzbBinding = 1,
+		};
+
+		mDeletionQueue.init(device);
+
+		mPreset = preset;
+
+		error err = initDescriptors(device, physicalDevice, limits);
+		if (err)
+			return err;
+
+		err = initComputePipeline(device);
+		if (err)
+			return err;
+
+		err = updateSwapchainDependentDescriptors(sChain);
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	error computeRenderer::destroy()
+	{
+		mDeletionQueue.flushDeletonQueue();
+
+		return {};
+	}
+
+	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
+	{
+		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
+
+		transitionImage(
+			cmd,
+			sChain.getDepthImage(mPreset.msaa > 1),
+			sChain.getDepthImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT
+		);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().first);
+
+		auto set = mDescriptorSet.getDescriptorSet().first;
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mComputePipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+		for (uint32_t i = 0; i < hzbBuf.size(); i++)
+		{
+			if (i < hzbBuf.size() - 1)
+			{
+				pipelineImageBarrier(
+					cmd,
+					hzbBuf[i].img.image,
+					hzbBuf[i].img.format,
+					VK_IMAGE_LAYOUT_UNDEFINED,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_READ_BIT
+				);
+			}
+
+			uint32_t mipWidth = std::max(1u, in.width >> (i + 1));
+			uint32_t mipHeight = std::max(1u, in.height >> (i + 1));
+
+			computePushConstants pc{
+				.hzbMipLevel = i,
+				.width = mipWidth,
+				.height = mipHeight,
+			};
+
+			vkCmdPushConstants(cmd, mComputePipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
+
+			uint32_t groupCountX = (mipWidth) / 32 + 1;
+			uint32_t groupCountY = (mipHeight) / 32 + 1;
+
+			vkCmdDispatch(cmd, groupCountX, groupCountY, 1);
+		}
+
+		return {};
+	}
+
+	error computeRenderer::updateSwapchainDependentDescriptors(const swapChain& sChain)
+	{
+		std::vector<VkDescriptorImageInfo> originalZInfo{ VkDescriptorImageInfo{} };
+		originalZInfo.front().sampler = mSampler;
+		originalZInfo.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		originalZInfo.front().imageView = sChain.getDepthImageView(mPreset.msaa > 1);
+
+		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.orignalZBufferBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, originalZInfo);
+
+		mDescriptorSet.updateWrite(wSet);
+
+		std::vector<vulkanImage> hzb = sChain.getHZB();
+		std::vector<VkDescriptorImageInfo> hzbInfo{};
+
+		for (auto& h : hzb)
+		{
+			VkDescriptorImageInfo imgInfo{
+				.sampler = mSampler,
+				.imageView = h.img.view,
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+			};
+
+			hzbInfo.push_back(std::move(imgInfo));
+		}
+
+		wSet = descriptorSet::getWriteInfo(mBindings.hzbBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, hzbInfo);
+
+		mDescriptorSet.updateWrite(wSet);
+
+		return {};
+	}
+
+	error computeRenderer::initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits)
+	{
+		error err = mDescriptorSet.init(
+			device,
+			physicalDevice,
+			poolConstraints{
+				.maxImageDescriptors = limits.maxImage,
+				.maxCombinedImageDescriptors = limits.maxCombinedImageSamplers,
+			}
+			);
+		if (err)
+			return err;
+
+		const uint32_t imageStorage = 1;
+		const uint32_t combinedImageSamplers = 1;
+
+		// add bindings for hzb.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.orignalZBufferBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.hzbBinding, limits.maxImage / imageStorage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			)
+		);
+
+		err = mDescriptorSet.build(VK_SHADER_STAGE_ALL, mBindings.totalDescriptorsCount);
+		if (err)
+			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = descSet, .descSet = &mDescriptorSet });
+
+		auto samp = descriptorSet::createSampler(device, float(mPreset.anisotropicFiltering));
+		if (!samp)
+			return samp.err();
+
+		mSampler = samp.value();
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = sampler, .sampler = &mSampler });
+
+		return {};
+	}
+
+	error computeRenderer::initComputePipeline(VkDevice device)
+	{
+		VkShaderModule chHZBmodule;
+		auto csHZBShder = mCtx->mAmanager->getHzbGenShader();
+		if (!csHZBShder)
+			return csHZBShder.err();
+
+		chHZBmodule = static_cast<vulkanShader*>(const_cast<shader*>(csHZBShder.value().get()))->mShaderModule;
+
+		mComputePipeline.init(device);
+		mComputePipeline.setShader(chHZBmodule);
+
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(computePushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+		error buildErr = mComputePipeline.build(&pc, { mDescriptorSet.getDescriptorSet().second });
+		if (buildErr)
+			return buildErr;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = computePipe, .computePipe = &mComputePipeline });
+
+		return {};
+	}
+}

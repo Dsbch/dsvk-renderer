@@ -191,6 +191,19 @@ namespace engine
 		return result;
 	}
 
+	withError<std::pair<uint32_t, uint32_t>> cameraSystem::getWidthHeight(std::shared_ptr<registryHandle> registry)
+	{
+		withError<std::pair<uint32_t, uint32_t>> result = error{ "scene doesn't hold an active camera" };
+
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getWidthHeight();
+			});
+
+		return result;
+	}
+
 	bool cameraSystem::isDebugCameraPresent(std::shared_ptr<registryHandle> registry)
 	{
 		return registry->sizeHint<fpsCameraComponent, debugCameraComponent>() != 0;

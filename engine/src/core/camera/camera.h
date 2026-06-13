@@ -33,6 +33,7 @@ namespace engine
 		glm::mat4 getView() const;
 		glm::mat4 getProjection() const;
 		glm::vec3 getPosition() const;
+		std::pair<uint32_t, uint32_t> getWidthHeight() const;
 		void setPosition(glm::vec3 pos);
 		void offsetPosition(float x, float z, float y = 0.0f);
 		void offsetYaw(float yaw);

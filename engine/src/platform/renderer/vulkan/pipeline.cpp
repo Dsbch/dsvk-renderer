@@ -297,11 +297,6 @@ namespace engine
 		vkDestroyPipeline(mDevice, mPipeline, nullptr);
 	}
 
-	engine::error computePipeline::checkError()
-	{
-		return mErr;
-	}
-
 	void computePipeline::setShader(VkShaderModule computeShader)
 	{
 		mComputeShaderStage = pipelineShaderStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT, computeShader, "main");

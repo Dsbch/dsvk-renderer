@@ -1,4 +1,4 @@
-#include <pch.h>
+﻿#include <pch.h>
 #define VMA_IMPLEMENTATION
 #include "renderer.h"
 #include "deletionQueue.h"
@@ -62,15 +62,11 @@ namespace engine
 		mCtx->mAmanager->setMakeTextureFunc([&](const image& img) { return makeTexture(img); });
 		mCtx->mAmanager->setMakeTextureWithMipsFunc([&](const imageWithMipLevels& img) { return makeTextureWithMips(img); });
 
-		mErr = mUi.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain, mPreset);
+		mErr = initRenderers(window);
 		if (mErr)
 			return;
 
-		mErr = initRenderers();
-		if (mErr)
-			return;
-
-		mGpuProfiler.init(mDevice, 4, mDeviceLimits);
+		mGpuProfiler.init(mDevice, 5, mDeviceLimits);
 		mErr = mGpuProfiler.createProfiling();
 		if (mErr)
 			return;
@@ -84,9 +80,13 @@ namespace engine
 		if (result != VK_SUCCESS)
 			LOGERROR("~vulkanRenderer vkDeviceWaitIdle: {}", vkResultToStr(result));
 
-		error err = mUi.destroy();
+		error err = mUiRenderer.destroy();
 		if (err)
-			LOGERROR("~vulkanRenderer mUi.destroy: {}", err.err());
+			LOGERROR("~vulkanRenderer mUiRenderer.destroy: {}", err.err());
+
+		err = mComputeRenderer.destroy();
+		if (err)
+			LOGERROR("~vulkanRenderer mComputeRenderer.destroy: {}", err.err());
 
 		err = mMeshletRenderer.destroy();
 		if (err)
@@ -294,7 +294,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::initRenderers()
+	error vulkanRenderer::initRenderers(std::shared_ptr<window> window)
 	{
 		// Init UBO perDrawBuffer.
 		mUboPerDrawBuffer.init(mDevice, mAllocator, true);
@@ -310,6 +310,14 @@ namespace engine
 			return err;
 
 		err = mLineRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), mPreset);
+		if (err)
+			return err;
+
+		err = mUiRenderer.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain, mPreset);
+		if (err)
+			return err;
+
+		err = mComputeRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mSwapChain);
 		if (err)
 			return err;
 
@@ -329,6 +337,8 @@ namespace engine
 			.viewProjection = in.projection * in.view,
 			.cameraFrustum = in.cameraFrustum,
 			.deltaTime = in.deltaTime,
+			.width = in.width,
+			.height = in.height,
 		};
 
 		mUboPerDrawBuffer.markBytesAsDead(sizeof(preDrawData));
@@ -413,6 +423,15 @@ namespace engine
 		return {};
 	}
 
+	error vulkanRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in)
+	{
+		error err = mComputeRenderer.buildHZB(cmd, in, mSwapChain);
+		if (err)
+			return err;
+
+		return {};
+	}
+
 	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
 		// Draw transperent geometry.
@@ -429,6 +448,7 @@ namespace engine
 			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
 		);
+
 		transitionImage(
 			cmd,
 			mSwapChain.getRevealImage(false),
@@ -529,11 +549,28 @@ namespace engine
 			mSwapChain.getDepthImageFormat(),
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_SHADER_READ_BIT
 		);
+
+		std::vector<vulkanImage> hzbBuf = mSwapChain.getHZB();
+
+		for (auto& h : hzbBuf)
+		{
+			transitionImage(
+				cmd,
+				h.img.image,
+				h.img.format,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				VK_ACCESS_2_SHADER_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT
+			);
+		}
 
 		// Imgui can't work with msaa color attachments.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -545,7 +582,7 @@ namespace engine
 		vkCmdBeginRendering(cmd, &renderInfo);
 
 		// Draw UI.
-		mUi.onRender(cmd, mProfInfo);
+		mUiRenderer.onRender(cmd, mProfInfo);
 
 		vkCmdEndRendering(cmd);
 
@@ -599,7 +636,11 @@ namespace engine
 		if (err)
 			return err;
 
-		mUi.updateDescriptorSets(mSwapChain);
+		err = mComputeRenderer.updateSwapchainDependentDescriptors(mSwapChain);
+		if (err)
+			return err;
+
+		mUiRenderer.updateSwapchainDependentDescriptors(mSwapChain);
 
 		return {};
 	}
@@ -706,10 +747,10 @@ namespace engine
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
 		transitionImage(
-			cmd, 
-			mSwapChain.getDrawImage(false), 
-			mSwapChain.getDrawImageFormat(), 
-			VK_IMAGE_LAYOUT_UNDEFINED, 
+			cmd,
+			mSwapChain.getDrawImage(false),
+			mSwapChain.getDrawImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -718,28 +759,38 @@ namespace engine
 		);
 
 		transitionImage(
-			cmd, 
-			mSwapChain.getDepthImage(false), 
-			mSwapChain.getDepthImageFormat(), 
-			VK_IMAGE_LAYOUT_UNDEFINED, 
+			cmd,
+			mSwapChain.getDepthImage(false),
+			mSwapChain.getDepthImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
 		);
-		
+
 		transitionImage(
-			cmd, 
-			mSwapChain.getDrawImage(true), 
-			mSwapChain.getResolveImageFormat(), 
-			VK_IMAGE_LAYOUT_UNDEFINED, 
+			cmd,
+			mSwapChain.getDrawImage(true),
+			mSwapChain.getResolveImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
 		);
+
+		err = mGpuProfiler.beginTimeStamp(cmd);
+		if (err)
+			return err;
+
+		err = buildHZB(cmd, in);
+		if (err)
+			return err;
+
+		mGpuProfiler.endTimestamp(cmd);
 
 		err = mGpuProfiler.beginTimeStamp(cmd);
 		if (err)
@@ -778,10 +829,10 @@ namespace engine
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
 		transitionImage(
-			cmd, 
-			mSwapChain.getDrawImage(mPreset.msaa > 1), 
-			mSwapChain.getDrawImageFormat(), 
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+			cmd,
+			mSwapChain.getDrawImage(mPreset.msaa > 1),
+			mSwapChain.getDrawImageFormat(),
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -790,10 +841,10 @@ namespace engine
 		);
 
 		transitionImage(
-			cmd, 
-			mSwapChain.getCurrentSwapChainImage(), 
-			mSwapChain.getDrawImageFormat(), 
-			VK_IMAGE_LAYOUT_UNDEFINED, 
+			cmd,
+			mSwapChain.getCurrentSwapChainImage(),
+			mSwapChain.getDrawImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -806,10 +857,10 @@ namespace engine
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
 		transitionImage(
-			cmd, 
-			mSwapChain.getCurrentSwapChainImage(), 
-			mSwapChain.getDrawImageFormat(), 
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+			cmd,
+			mSwapChain.getCurrentSwapChainImage(),
+			mSwapChain.getDrawImageFormat(),
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -819,10 +870,10 @@ namespace engine
 
 		// set swapchain image layout to Present so we can draw it
 		transitionImage(
-			cmd, 
-			mSwapChain.getCurrentSwapChainImage(), 
-			mSwapChain.getDrawImageFormat(), 
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+			cmd,
+			mSwapChain.getCurrentSwapChainImage(),
+			mSwapChain.getDrawImageFormat(),
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -931,10 +982,11 @@ namespace engine
 		if (slots.size() >= 4)
 		{
 			mProfInfo.renderingInfo.deltaTime = deltaTime;
-			mProfInfo.renderingInfo.opaquePass = slots[0];
-			mProfInfo.renderingInfo.accumilationPass = slots[1];
-			mProfInfo.renderingInfo.compositePass = slots[2];
-			mProfInfo.renderingInfo.uiPass = slots[3];
+			mProfInfo.renderingInfo.buildHZB = slots[0];
+			mProfInfo.renderingInfo.opaquePass = slots[1];
+			mProfInfo.renderingInfo.accumilationPass = slots[2];
+			mProfInfo.renderingInfo.compositePass = slots[3];
+			mProfInfo.renderingInfo.uiPass = slots[4];
 		}
 	}
 

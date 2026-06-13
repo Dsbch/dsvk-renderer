@@ -9,7 +9,7 @@
 
 namespace engine
 {
-	struct vulkanUI
+	struct uiRenderer
 	{
 		error init(
 			GLFWwindow* wnd,	
@@ -23,7 +23,7 @@ namespace engine
 		);
 		error destroy();
 		error onRender(VkCommandBuffer cmd, profilingInfo profInfo);
-		void updateDescriptorSets(swapChain sChain);
+		void updateSwapchainDependentDescriptors(swapChain sChain);
 	private:
 		VkDevice mDevice;
 		std::vector<VkDescriptorSet> mImGuiDescroptorSets;
@@ -32,5 +32,6 @@ namespace engine
 		
 		void renderProfilingInfo(profilingInfo profInfo);
 		void renderAccumAndRevealImages();
+		void renderHzbImages();
 	};
 }

@@ -14,6 +14,7 @@ namespace engine
 	{
 		float fps;
 		float deltaTime;
+		float buildHZB;
 		float opaquePass;
 		float accumilationPass;
 		float compositePass;
@@ -54,6 +55,8 @@ namespace engine
 			glm::mat4 view;
 			glm::mat4 projection;
 			frustum cameraFrustum;
+			uint32_t width;
+			uint32_t height;
 		};
 
 		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mPreset(), mWindow(window), mErr() {};

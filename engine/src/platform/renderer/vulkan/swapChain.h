@@ -59,6 +59,9 @@ namespace engine
 		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
 		void destroy();
 
+		uint32_t getHzbSize() const;
+		std::vector<vulkanImage> getHZB() const;
+
 		VkFormat getDrawImageFormat() const;
 		VkFormat getDepthImageFormat() const;
 		VkFormat getAccumImageFormat() const;
@@ -132,6 +135,8 @@ namespace engine
 		vulkanImage mResolveImage;
 		vulkanImage mDepthImage;
 		vulkanImage mDepthResolveImage;
+
+		std::vector<vulkanImage> mHZB;
 
 		uint32_t mFrameNumber;
 		uint32_t mSwapchainIndex;

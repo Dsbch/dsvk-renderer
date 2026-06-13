@@ -12,11 +12,12 @@
 #include "shader.h"
 #include "texture.h"
 #include "registry.h"
-#include "ui.h"
+#include "uiRenderer.h"
 #include "deletionQueue.h"
 #include "meshletRenderer.h"
 #include "lineRenderer.h"
 #include "gpuProfiler.h"
+#include "computeRenderer.h"
 
 namespace engine
 {
@@ -66,13 +67,14 @@ namespace engine
 		// UBO generic data per drawCall.
 		vulkanBuffer mUboPerDrawBuffer;
 
-		// Imgui wrapper.
-		vulkanUI mUi;
-
 		// Geometry pass.
 		meshletRenderer mMeshletRenderer;
 		// Line renderer.
 		lineRenderer mLineRenderer;
+		// UI renderer.
+		uiRenderer mUiRenderer;
+		// Compute renderer.
+		computeRenderer mComputeRenderer;
 
 		gpuProfiler mGpuProfiler;
 
@@ -84,12 +86,13 @@ namespace engine
 		error initSwapchain(uint32_t width, uint32_t height);
 		error loadExtensions();
 
-		error initRenderers();
+		error initRenderers(std::shared_ptr<window> window);
 
 		error updatePerDrawBuffer(renderer::renderCallIn in);
 		void chooseGraphicsPreset();
 		void setViewportAndSciccors(VkCommandBuffer cmd) const;
 		error drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error drawUI(VkCommandBuffer cmd);

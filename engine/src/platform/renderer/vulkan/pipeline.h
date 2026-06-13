@@ -89,14 +89,11 @@ namespace engine
 		void init(VkDevice device);
 		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		void destroy();
-		engine::error checkError();
 
 		void setShader(VkShaderModule computeShader);
 
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline();
 	private:
-		engine::error mErr;
-
 		VkDevice mDevice;
 		VkPipeline mPipeline;
 		VkPipelineLayout mPipelineLayout;

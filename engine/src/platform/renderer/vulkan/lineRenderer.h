@@ -36,7 +36,6 @@ namespace engine
 		error addLine(glm::vec3 p1, glm::vec3 p2);
 		error updateDescriptors(VmaAllocator allocator, submit& is);
 		error drawLines(VkCommandBuffer cmd);
-		error updateGraphicsPreset();
 	private:
 		std::shared_ptr<context> mCtx;
 		graphicsPreset mPreset;

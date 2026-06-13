@@ -100,6 +100,11 @@ namespace engine
 		return mPos;
 	}
 
+	std::pair<uint32_t, uint32_t> fpsCamera::getWidthHeight() const
+	{
+		return { mWidth, mHeight };
+	}
+
 	void fpsCamera::setPosition(glm::vec3 pos)
 	{
 		mPos = pos;

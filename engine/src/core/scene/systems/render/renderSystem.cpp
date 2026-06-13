@@ -106,6 +106,13 @@ namespace engine
 
 		renderCall.cameraFrustum = cameraFrustum.value();
 
+		auto cameraWidthHeight = cameraSystem::getWidthHeight(registry);
+		if (!cameraWidthHeight)
+			return cameraWidthHeight.err();
+
+		renderCall.width = cameraWidthHeight.value().first;
+		renderCall.height = cameraWidthHeight.value().second;
+
 		if (cameraSystem::isDebugCameraPresent(registry))
 		{
 			view = cameraSystem::getDebugView(registry);

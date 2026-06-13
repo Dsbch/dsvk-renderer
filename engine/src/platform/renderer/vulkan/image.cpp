@@ -244,6 +244,18 @@ namespace engine
 				copyRegion.imageExtent = size;
 
 				vkCmdCopyBufferToImage(cmd, uploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+				transitionImage(
+					cmd,
+					newImage.value().image,
+					format,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+					VK_ACCESS_2_SHADER_READ_BIT
+				);
 			},
 			[=]()
 			{
@@ -352,6 +364,18 @@ namespace engine
 				// Upload mip levels to GPU.
 				if (mipUploadBufSize != 0)
 					vkCmdCopyBufferToImage(cmd, mipUploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, uint32_t(mipsCopyRegions.size()), mipsCopyRegions.data());
+		
+				transitionImage(
+					cmd,
+					newImage.value().image,
+					format,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+					VK_ACCESS_2_SHADER_READ_BIT
+				);
 			},
 			[=]()
 			{

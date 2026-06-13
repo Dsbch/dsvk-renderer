@@ -55,7 +55,6 @@ namespace engine
 
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getDescriptorSet();
 
-
 		static VkDescriptorSetLayoutBinding getLayoutBindingInfo(uint32_t binding, uint32_t descriptorCount, VkDescriptorType type);
 		static std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t dstBinding, VkDescriptorType descriptorType, std::vector<VkDescriptorImageInfo>& imgInfo);
 		static std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t dstBinding, std::vector<VkDescriptorBufferInfo>& bufferInfo, bool isUBO = false);
