@@ -416,8 +416,30 @@ namespace engine
 	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
 		// Draw transperent geometry.
-		transitionImage(cmd, mSwapChain.getAccumImage(false), mSwapChain.getAccumImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getRevealImage(false), mSwapChain.getRevealImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		// Transition with memmory barier.
+		transitionImage(
+			cmd,
+			mSwapChain.getAccumImage(false),
+			mSwapChain.getAccumImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
+		transitionImage(
+			cmd,
+			mSwapChain.getRevealImage(false),
+			mSwapChain.getRevealImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
 
 		VkClearValue clear{
 			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
@@ -459,8 +481,29 @@ namespace engine
 	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
 		// Transition to sample them as textures in composite pass.
-		transitionImage(cmd, mSwapChain.getAccumImage(mPreset.msaa > 1), mSwapChain.getAccumImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getRevealImage(mPreset.msaa > 1), mSwapChain.getRevealImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		transitionImage(
+			cmd,
+			mSwapChain.getAccumImage(mPreset.msaa > 1),
+			mSwapChain.getAccumImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT
+		);
+
+		transitionImage(
+			cmd,
+			mSwapChain.getRevealImage(mPreset.msaa > 1),
+			mSwapChain.getRevealImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT
+		);
 
 		// Composite opaque and transperent.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -480,7 +523,17 @@ namespace engine
 
 	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
 	{
-		transitionImage(cmd, mSwapChain.getDepthImage(mPreset.msaa > 1), mSwapChain.getDepthImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		transitionImage(
+			cmd,
+			mSwapChain.getDepthImage(mPreset.msaa > 1),
+			mSwapChain.getDepthImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT
+		);
 
 		// Imgui can't work with msaa color attachments.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -652,9 +705,41 @@ namespace engine
 
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
-		transitionImage(cmd, mSwapChain.getDrawImage(false), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getDepthImage(false), mSwapChain.getDepthImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getDrawImage(true), mSwapChain.getResolveImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(
+			cmd, 
+			mSwapChain.getDrawImage(false), 
+			mSwapChain.getDrawImageFormat(), 
+			VK_IMAGE_LAYOUT_UNDEFINED, 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
+
+		transitionImage(
+			cmd, 
+			mSwapChain.getDepthImage(false), 
+			mSwapChain.getDepthImageFormat(), 
+			VK_IMAGE_LAYOUT_UNDEFINED, 
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
+		
+		transitionImage(
+			cmd, 
+			mSwapChain.getDrawImage(true), 
+			mSwapChain.getResolveImageFormat(), 
+			VK_IMAGE_LAYOUT_UNDEFINED, 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
 
 		err = mGpuProfiler.beginTimeStamp(cmd);
 		if (err)
@@ -692,17 +777,58 @@ namespace engine
 		mGpuProfiler.endTimestamp(cmd);
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
-		transitionImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		transitionImage(
+			cmd, 
+			mSwapChain.getDrawImage(mPreset.msaa > 1), 
+			mSwapChain.getDrawImageFormat(), 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
+
+		transitionImage(
+			cmd, 
+			mSwapChain.getCurrentSwapChainImage(), 
+			mSwapChain.getDrawImageFormat(), 
+			VK_IMAGE_LAYOUT_UNDEFINED, 
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
 
 		// copy from the draw image into the swapchain
 		copyImageToImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
 
 		// set swapchain image layout to Attachment Optimal so we can draw it
-		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		transitionImage(
+			cmd, 
+			mSwapChain.getCurrentSwapChainImage(), 
+			mSwapChain.getDrawImageFormat(), 
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
 
 		// set swapchain image layout to Present so we can draw it
-		transitionImage(cmd, mSwapChain.getCurrentSwapChainImage(), mSwapChain.getDrawImageFormat(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		transitionImage(
+			cmd, 
+			mSwapChain.getCurrentSwapChainImage(), 
+			mSwapChain.getDrawImageFormat(), 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
 
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)
 		vkResult = vkEndCommandBuffer(cmd);

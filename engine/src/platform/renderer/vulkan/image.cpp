@@ -24,15 +24,25 @@ namespace engine
 		}
 	}
 
-	void transitionImage(VkCommandBuffer cmd, VkImage image, VkFormat format, VkImageLayout currentLayout, VkImageLayout newLayout)
+	void transitionImage(
+		VkCommandBuffer cmd,
+		VkImage image,
+		VkFormat format,
+		VkImageLayout currentLayout,
+		VkImageLayout newLayout,
+		VkPipelineStageFlags2 srcStageMask,
+		VkAccessFlags2 srcAccessMask,
+		VkPipelineStageFlags2 dstStageMask,
+		VkAccessFlags2 dstAccessMask
+	)
 	{
 		VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
 		imageBarrier.pNext = nullptr;
 
-		imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-		imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
-		imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-		imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+		imageBarrier.srcStageMask = srcStageMask;
+		imageBarrier.srcAccessMask = srcAccessMask;
+		imageBarrier.dstStageMask = dstStageMask;
+		imageBarrier.dstAccessMask = dstAccessMask;
 
 		imageBarrier.oldLayout = currentLayout;
 		imageBarrier.newLayout = newLayout;
@@ -210,7 +220,17 @@ namespace engine
 		error err = is.queue(
 			[&](VkCommandBuffer cmd)
 			{
-				transitionImage(cmd, newImage.value().image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+				transitionImage(
+					cmd,
+					newImage.value().image,
+					format,
+					VK_IMAGE_LAYOUT_UNDEFINED,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_PIPELINE_STAGE_2_NONE,
+					VK_ACCESS_2_NONE,
+					VK_PIPELINE_STAGE_2_NONE,
+					VK_ACCESS_2_NONE
+				);
 
 				VkBufferImageCopy copyRegion = {};
 				copyRegion.bufferOffset = 0;
@@ -310,7 +330,17 @@ namespace engine
 		error err = is.queue(
 			[=](VkCommandBuffer cmd)
 			{
-				transitionImage(cmd, newImage.value().image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+				transitionImage(
+					cmd,
+					newImage.value().image,
+					format,
+					VK_IMAGE_LAYOUT_UNDEFINED,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_PIPELINE_STAGE_2_NONE,
+					VK_ACCESS_2_NONE,
+					VK_PIPELINE_STAGE_2_NONE,
+					VK_ACCESS_2_NONE
+				);
 
 				VkBufferImageCopy copyRegion{};
 				copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
