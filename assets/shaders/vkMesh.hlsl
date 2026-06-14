@@ -11,6 +11,8 @@ struct pushConstant
 {
     uint commandBufferOffset;
     uint meshletCount;
+    uint passNumber;
+    uint hzbBufferLength;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -39,12 +41,6 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    const uint maxUint = 4294967295;
-    
-    const uint opaqueAlphaMode = 0;
-    const uint blendAlphaMode = 1;
-    const uint maskAlphaMode = 2;
-   
     float visible = false;
     
     // Not overdraw.
@@ -61,7 +57,7 @@ void asmain(
         meshlet mesh;
         perMeshAttributes meshAttr;
         
-        visible = meshletOffset != maxUint;
+        visible = meshletOffset != MAX_UINT;
         
         // Still have meshlets for that lodLevel.
         if (visible)

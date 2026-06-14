@@ -27,7 +27,7 @@ namespace engine
 
 		mBindings = meshletBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 17,
+			.totalDescriptorsCount = 18,
 
 			// Vertex attributes.
 			.positionsBinding = 0,
@@ -51,6 +51,9 @@ namespace engine
 			.materialArrayBinding = 21,
 			.accumBinding = 22,
 			.revealBinding = 23,
+
+			// Other.
+			.hzbChainBinding = 24,
 		};
 
 		mDeletionQueue.init(device);
@@ -168,7 +171,7 @@ namespace engine
 		if (err)
 			return err;
 
-		const uint32_t combinedImageSamplers = 3;
+		const uint32_t combinedImageSamplers = 4;
 		const uint32_t bufferObjects = 13;
 		const uint32_t uniformObjects = 1;
 
@@ -278,6 +281,13 @@ namespace engine
 			)
 		);
 
+		// Add other bindings.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.hzbChainBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			)
+		);
+
 		err = mDescriptorSet.build(VK_SHADER_STAGE_ALL, mBindings.totalDescriptorsCount);
 		if (err)
 			return err;
@@ -311,6 +321,24 @@ namespace engine
 		info.front().imageView = sChain.getRevealImageView(mPreset.msaa > 1);
 
 		wSet = descriptorSet::getWriteInfo(mBindings.revealBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
+
+		mDescriptorSet.updateWrite(wSet);
+
+		std::vector<vulkanImage> hzb = sChain.getHZB();
+		std::vector<VkDescriptorImageInfo> hzbInfo{};
+
+		for (auto& h : hzb)
+		{
+			VkDescriptorImageInfo imgInfo{
+				.sampler = mSampler,
+				.imageView = h.img.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			};
+
+			hzbInfo.push_back(std::move(imgInfo));
+		}
+
+		wSet = descriptorSet::getWriteInfo(mBindings.hzbChainBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, hzbInfo);
 
 		mDescriptorSet.updateWrite(wSet);
 
@@ -372,7 +400,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, meshletRenderer::opaquePassParams params)
 	{
 		auto pipelinesMappings = mPipelineRegistry.getOpaquePipelines();
 
@@ -383,6 +411,8 @@ namespace engine
 			pushConstants pc{
 				.commandBufferOffset = v.cmdPipelineStartOffset,
 				.meshletCount = v.cmdPipelineEndOffset - v.cmdPipelineStartOffset,
+				.passNumber = 1,
+				.hzbBufferLength = params.hzbBufLength,
 			};
 
 			vkCmdPushConstants(cmd, v.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);

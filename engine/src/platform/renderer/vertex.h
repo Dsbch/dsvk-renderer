@@ -57,6 +57,14 @@ namespace engine
 		float coneCutoff; /* = cos(angle/2) */
 	};
 
+	enum mehletVisibilityFlagBits : uint32_t {
+		// At the end of second pass, all meshlets must have only two flags below.
+		VISIBLE_BIT = 1 << 0,
+		NOT_VISIBLE_BIT = 1 << 1,
+		// Only between fist and second opaque pass.
+		NOT_VISIBLE_NOW_BIT = 1 << 2,
+	};
+
 	struct meshlet
 	{
 		uint32_t alphaType;
@@ -78,6 +86,8 @@ namespace engine
 
 		uint32_t perMeshBufferIndex;
 		uint32_t perMeshBufferOffset;
+
+		uint32_t visabilityBit;
 
 		meshletBounds bounds;
 	};
@@ -300,6 +310,8 @@ namespace engine
 	{
 		uint32_t commandBufferOffset;
 		uint32_t meshletCount;
+		uint32_t passNumber;
+		uint32_t hzbBufferLength;
 	};
 
 	struct computePushConstants

@@ -394,6 +394,24 @@ namespace engine
 
 	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
+		// Prepare hzb chain to read in shaders.
+		std::vector<vulkanImage> hzbBuf = mSwapChain.getHZB();
+
+		for (auto& h : hzbBuf)
+		{
+			transitionImage(
+				cmd,
+				h.img.image,
+				h.img.format,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				VK_ACCESS_2_SHADER_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+				VK_ACCESS_2_SHADER_READ_BIT
+			);
+		}
+
 		// Draw opaque geometry first.
 		VkClearValue clear{
 			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
@@ -414,7 +432,13 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mMeshletRenderer.opaquePass(cmd, in);
+		err = mMeshletRenderer.opaquePass(
+			cmd,
+			in,
+			meshletRenderer::opaquePassParams{
+				.hzbBufLength = uint32_t(hzbBuf.size()),
+			}
+		);
 		if (err)
 			return err;
 
@@ -459,6 +483,18 @@ namespace engine
 			VK_ACCESS_2_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
+
+		// Add image barier, need to wait for opaque pass to finish for early depth test in accumilation pass.
+		pipelineImageBarrier(
+			cmd,
+			mSwapChain.getDepthImage(false),
+			mSwapChain.getDepthImageFormat(),
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
 		);
 
 		VkClearValue clear{
@@ -554,23 +590,6 @@ namespace engine
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_SHADER_READ_BIT
 		);
-
-		std::vector<vulkanImage> hzbBuf = mSwapChain.getHZB();
-
-		for (auto& h : hzbBuf)
-		{
-			transitionImage(
-				cmd,
-				h.img.image,
-				h.img.format,
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-				VK_ACCESS_2_SHADER_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_SHADER_READ_BIT
-			);
-		}
 
 		// Imgui can't work with msaa color attachments.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -744,6 +763,16 @@ namespace engine
 
 		mGpuProfiler.reset(cmd);
 
+		err = mGpuProfiler.beginTimeStamp(cmd);
+		if (err)
+			return err;
+
+		err = buildHZB(cmd, in);
+		if (err)
+			return err;
+
+		mGpuProfiler.endTimestamp(cmd);
+
 		// transition our main draw image into general layout so we can write into it
 		// we will overwrite it all so we dont care about what was the older layout
 		transitionImage(
@@ -781,16 +810,6 @@ namespace engine
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
 		);
-
-		err = mGpuProfiler.beginTimeStamp(cmd);
-		if (err)
-			return err;
-
-		err = buildHZB(cmd, in);
-		if (err)
-			return err;
-
-		mGpuProfiler.endTimestamp(cmd);
 
 		err = mGpuProfiler.beginTimeStamp(cmd);
 		if (err)
@@ -1036,7 +1055,7 @@ namespace engine
 				);
 
 				normal = glm::transpose(glm::inverse(glm::mat3(perMeshAttr.meshGlobalTransform))) * normal;
-				normal = m.instanceAttributes.modelTransform.rotation * normal;
+				normal = glm::normalize(m.instanceAttributes.modelTransform.rotation * normal);
 
 				mLineRenderer.addLine(pos, pos + normal / 10.0f);
 			}

@@ -12,6 +12,16 @@
 
 #define EPSILON 0.00001f
 
+#define VISIBLE_BIT          (1 << 0)
+#define NOT_VISIBLE_NOW_BIT  (1 << 1)
+#define NOT_VISIBLE_PREV_BIT (1 << 2)
+
+#define MAX_UINT 4294967295;
+    
+#define VISIBLE_BIT          (1 << 0)
+#define NOT_VISIBLE_NOW_BIT  (1 << 1)
+#define NOT_VISIBLE_PREV_BIT (1 << 2)
+
 // INPUT START.
 
 // DescriptorSet START.
@@ -56,6 +66,8 @@ struct meshlet
     
     uint perMeshBufferIndex;
     uint perMeshBufferOffset;
+    
+    uint visabilityBit;
     
     meshletBounds bounds;
 };
@@ -183,6 +195,7 @@ Texture2D accum : register(t22, space0);
 SamplerState accumSampler : register(s22, space0);
 Texture2D reveal : register(t23, space0);
 SamplerState revealSampler : register(s23, space0);
+Texture2D<float> hzbChain[] : register(t24, space0);
 
 // MATERIALS END.
 

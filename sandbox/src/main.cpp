@@ -19,7 +19,8 @@
 		1. Add animation system, with skinning in compute shader.
 	
 	BUGS:
-		1. Something is wrong with normals or tangents, light is caclulated wrong.
+		1. Problem with flickering on new instance.
+		2. Low performance on accumilaton pass.
 
 	TODO:
 		1. Two phase HZB occlision culling.

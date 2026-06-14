@@ -486,8 +486,8 @@ namespace engine
 		{
 			mCmdOpaqueBufferNewSize = uint32_t(float(mCmdOpaqueBufferNewSize) * 1.5f);
 
-			if (cmd.size() > mCmdOpaqueBufferNewSize)
-				mCmdOpaqueBufferNewSize = uint32_t(cmd.size());
+			if (cmd.size() * sizeof(meshletShaderCMD) > mCmdOpaqueBufferNewSize)
+				mCmdOpaqueBufferNewSize = uint32_t(cmd.size()) * sizeof(meshletShaderCMD);
 
 			mCmdOpaqueBuffer.destroy();
 
@@ -533,8 +533,8 @@ namespace engine
 		{
 			mCmdAccumilationBufferNewSize = uint32_t(float(mCmdAccumilationBufferNewSize) * 1.5f);
 
-			if (cmd.size() > mCmdAccumilationBufferNewSize)
-				mCmdAccumilationBufferNewSize = uint32_t(cmd.size());
+			if (cmd.size() * sizeof(meshletShaderCMD) > mCmdAccumilationBufferNewSize)
+				mCmdAccumilationBufferNewSize = uint32_t(cmd.size()) * sizeof(meshletShaderCMD);
 
 			mCmdAccumilationBuffer.destroy();
 

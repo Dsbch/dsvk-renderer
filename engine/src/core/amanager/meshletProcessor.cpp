@@ -379,6 +379,7 @@ namespace engine
 					.triangleCount = m.triangle_count,
 					.perMeshBufferIndex = 0,
 					.perMeshBufferOffset = 0,
+					.visabilityBit = mehletVisibilityFlagBits::VISIBLE_BIT,
 					.bounds = meshletBounds{
 						.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
 						.radius = bounds.radius,

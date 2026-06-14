@@ -38,11 +38,19 @@ namespace engine
 		uint32_t materialArrayBinding;
 		uint32_t accumBinding;
 		uint32_t revealBinding;
+		
+		// Other bindings.
+		uint32_t hzbChainBinding;
 	};
 
 	struct meshletRenderer
 	{
 	public:
+		struct opaquePassParams
+		{
+			uint32_t hzbBufLength;
+		};
+
 		error init(
 			std::shared_ptr<context> ctx, 
 			PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT, 
@@ -63,7 +71,7 @@ namespace engine
 		void removeFromRender(const model& m);
 		
 		error updateDescriptors(renderer::renderCallIn in, submit& is);
-		error opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, opaquePassParams params);
 		error accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error compositePass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
