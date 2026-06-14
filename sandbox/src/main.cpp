@@ -16,19 +16,20 @@
 		7. Added simple GPU profiling window.
 	
 	IN DEVELOPMENT:
-		1. Add animation system, with skinning in compute shader.
-	
+		1. Two phase HZB occlision culling.
+		I need to do frustum + oclussion culling per models in compute shader first.
+		Then in task shader the same.
+
 	BUGS:
 		1. Problem with flickering on new instance.
-		2. Low performance on accumilaton pass.
+		2. Low performance in accumilaton pass.
 
 	TODO:
-		1. Two phase HZB occlision culling.
-		2. Figure out how to do shadows, my goal is good hard and soft shadows.
-		3. Global illumination and reflections with radiance cascades.
-		4. Add jolt CPU side physics.
-		5. Add postproccessing like bloom, focus etc.
-		6. Get your bsdf and brdf together. Should use disney.
+		1. Figure out how to do shadows, my goal is good hard and soft shadows.
+		2. Global illumination and reflections with radiance cascades.
+		3. Add jolt CPU side physics.
+		4. Add postproccessing like bloom, focus etc.
+		5. Get your bsdf and brdf together. Should use disney.
 	
 		Optional:
 			1. Own file format. Ser/Dser of whole ECS.
