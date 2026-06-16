@@ -12,15 +12,13 @@
 
 #define EPSILON 0.00001f
 
-#define VISIBLE_BIT          (1 << 0)
-#define NOT_VISIBLE_NOW_BIT  (1 << 1)
-#define NOT_VISIBLE_PREV_BIT (1 << 2)
-
 #define MAX_UINT 4294967295;
     
 #define VISIBLE_BIT          (1 << 0)
 #define NOT_VISIBLE_NOW_BIT  (1 << 1)
 #define NOT_VISIBLE_PREV_BIT (1 << 2)
+
+#define BLEND_ALPHA_MODE 1
 
 // INPUT START.
 
@@ -148,12 +146,17 @@ struct meshOutput
 {
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
+    
     nointerpolation uint albedoIndex : TEXCOORD1;
     nointerpolation uint normalIndex : TEXCOORD2;
     nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
-    float3 tangentWorldPos : TANGENT0;
-    float3 tangentCameraPos : TANGENT1;
-    nointerpolation float3 tangentCameraFront : TANGENT2;
+
+    float3 normal : TANGENT0;
+    float4 tangent : TANGENT1;
+    nointerpolation float4 rotation : TANGENT2;
+    float3 cameraPos : POSITIONT1;
+    float3 cameraFront : POSITIONT2;
+    float3 worldPos : POSITIONT3;
 };
 
 // SSBO START.

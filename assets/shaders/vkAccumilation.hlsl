@@ -146,15 +146,17 @@ void msmain(
         
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
-        float3x3 TBN = calculateTBN(instanceAttr.modelTransform.rotation, skVertex.tangent, skVertex.normal);
-        
         vertices[gtid].uv = skVertex.textureCoords;
-        vertices[gtid].tangentCameraPos = mul(drawData.cameraPos, TBN);
-        vertices[gtid].tangentWorldPos = mul(worldPos.xyz, TBN);
-        vertices[gtid].tangentCameraFront = normalize(mul(drawData.cameraFront, TBN));
         vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
         vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 1;
         vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 2;
+
+        vertices[gtid].worldPos = worldPos.xyz;
+        vertices[gtid].cameraPos = drawData.cameraPos;
+        vertices[gtid].normal = skVertex.normal;
+        vertices[gtid].tangent = skVertex.tangent;
+        vertices[gtid].rotation = instanceAttr.modelTransform.rotation;
+        vertices[gtid].cameraFront = drawData.cameraFront;
     }
 }
 
@@ -171,6 +173,12 @@ struct PSOutput
 // All calculations are made in tangent space.
 PSOutput psmain(meshOutput input)
 {
+    float3x3 TBN = calculateTBN(input.rotation, input.tangent, input.normal);
+    
+    float3 cameraPos = mul(input.cameraPos, TBN);
+    float3 cameraFront = normalize(mul(input.cameraFront, TBN));
+    float3 worldPos = mul(input.worldPos, TBN);
+    
     float4 metalicRoughnes = materials[input.metallicRoughnessIndex].Sample(materialsSampler[input.metallicRoughnessIndex], input.uv);
 
     float4 albedo = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
@@ -188,18 +196,18 @@ PSOutput psmain(meshOutput input)
     albedo = float4(toRGB(albedo.rgb), albedo.a);
     
     // render equation.
-    float3 V = normalize(input.tangentCameraPos - input.tangentWorldPos);
+    float3 V = normalize(cameraPos - worldPos);
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
     for (int i = 0; i < 1; ++i)
     {
-        float3 lightPos = input.tangentCameraPos + input.tangentCameraFront / 4.0f;
+        float3 lightPos = cameraPos + cameraFront / 4.0f;
         float3 lightColor = float3(3.0f, 3.0f, 3.0f);
 
-        float3 L = normalize(lightPos - input.tangentWorldPos);
+        float3 L = normalize(lightPos - worldPos);
         float3 H = normalize(L + V);
 
         // radiance per per light source.
-        float3 radiance = lightRadiance(lightColor, length(lightPos - input.tangentWorldPos));
+        float3 radiance = lightRadiance(lightColor, length(lightPos - worldPos));
 
         // Cook-Torrance BRDF
         float d = distributionGGX(normal, H, roughnes);

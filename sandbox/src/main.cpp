@@ -14,6 +14,7 @@
 		5. Optimized OIT.
 		6. Added concurrency library to the project libcoost.
 		7. Added simple GPU profiling window.
+		8. Added culling for animated meshlets.
 	
 	IN DEVELOPMENT:
 		1. Two phase HZB occlision culling.

@@ -159,7 +159,7 @@ namespace sandbox
 					return loadedModel.err();
 
 				// 22^3 = 10,648 models total
-				const int gridCount = 22;
+				const int gridCount = 5;
 
 				// Increase these bounds to spread the models further apart
 				const float minExtent = -10.0f;
