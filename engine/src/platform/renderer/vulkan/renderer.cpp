@@ -66,7 +66,7 @@ namespace engine
 		if (mErr)
 			return;
 
-		mGpuProfiler.init(mDevice, 5, mDeviceLimits);
+		mGpuProfiler.init(mDevice, mDeviceLimits);
 		mErr = mGpuProfiler.createProfiling();
 		if (mErr)
 			return;
@@ -394,6 +394,59 @@ namespace engine
 
 	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
+		// transition our main draw image into general layout so we can write into it
+		// we will overwrite it all so we dont care about what was the older layout
+		transitionImage(
+			cmd,
+			mSwapChain.getDrawImage(false),
+			mSwapChain.getDrawImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
+
+		transitionImage(
+			cmd,
+			mSwapChain.getDepthImage(false),
+			mSwapChain.getDepthImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
+
+		if (mPreset.msaa > 1)
+		{
+			transitionImage(
+				cmd,
+				mSwapChain.getDrawImage(true),
+				mSwapChain.getDrawImageFormat(),
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			);
+
+			transitionImage(
+				cmd,
+				mSwapChain.getDepthImage(true),
+				mSwapChain.getDepthImageFormat(),
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			);
+		}
+
 		// Prepare hzb chain to read in shaders.
 		std::vector<vulkanImage> hzbBuf = mSwapChain.getHZB();
 
@@ -438,7 +491,7 @@ namespace engine
 			meshletRenderer::opaquePassParams{
 				.hzbBufLength = uint32_t(hzbBuf.size()),
 			}
-		);
+			);
 		if (err)
 			return err;
 
@@ -484,6 +537,33 @@ namespace engine
 			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
 		);
+
+		if (mPreset.msaa > 1)
+		{
+			transitionImage(
+				cmd,
+				mSwapChain.getAccumImage(true),
+				mSwapChain.getAccumImageFormat(),
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			);
+
+			transitionImage(
+				cmd,
+				mSwapChain.getRevealImage(true),
+				mSwapChain.getRevealImageFormat(),
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			);
+		}
 
 		// Add image barier, need to wait for opaque pass to finish for early depth test in accumilation pass.
 		pipelineImageBarrier(
@@ -763,7 +843,7 @@ namespace engine
 
 		mGpuProfiler.reset(cmd);
 
-		err = mGpuProfiler.beginTimeStamp(cmd);
+		err = mGpuProfiler.beginTimeStamp(cmd, "buildHZB");
 		if (err)
 			return err;
 
@@ -771,47 +851,9 @@ namespace engine
 		if (err)
 			return err;
 
-		mGpuProfiler.endTimestamp(cmd);
+		mGpuProfiler.endTimestamp(cmd, "buildHZB");
 
-		// transition our main draw image into general layout so we can write into it
-		// we will overwrite it all so we dont care about what was the older layout
-		transitionImage(
-			cmd,
-			mSwapChain.getDrawImage(false),
-			mSwapChain.getDrawImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
-		);
-
-		transitionImage(
-			cmd,
-			mSwapChain.getDepthImage(false),
-			mSwapChain.getDepthImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
-		);
-
-		transitionImage(
-			cmd,
-			mSwapChain.getDrawImage(true),
-			mSwapChain.getResolveImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
-		);
-
-		err = mGpuProfiler.beginTimeStamp(cmd);
+		err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque");
 		if (err)
 			return err;
 
@@ -820,31 +862,31 @@ namespace engine
 		if (err)
 			return err;
 
-		mGpuProfiler.endTimestamp(cmd);
+		mGpuProfiler.endTimestamp(cmd, "drawOpaque");
 
-		err = mGpuProfiler.beginTimeStamp(cmd);
+		err = mGpuProfiler.beginTimeStamp(cmd, "drawTransperent");
 
 		err = drawTransperent(cmd, in);
 		if (err)
 			return err;
 
-		mGpuProfiler.endTimestamp(cmd);
+		mGpuProfiler.endTimestamp(cmd, "drawTransperent");
 
-		err = mGpuProfiler.beginTimeStamp(cmd);
+		err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent");
 
 		err = compositeOpaqueAndTransperent(cmd, in);
 		if (err)
 			return err;
 
-		mGpuProfiler.endTimestamp(cmd);
+		mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent");
 
-		err = mGpuProfiler.beginTimeStamp(cmd);
+		err = mGpuProfiler.beginTimeStamp(cmd, "drawUI");
 
 		err = drawUI(cmd);
 		if (err)
 			return err;
 
-		mGpuProfiler.endTimestamp(cmd);
+		mGpuProfiler.endTimestamp(cmd, "drawUI");
 
 		//transition the draw image and the swapchain image into their correct transfer layouts
 		transitionImage(
@@ -991,22 +1033,14 @@ namespace engine
 
 		if (elapsed >= 1.0f)
 		{
-			mProfInfo.renderingInfo.fps = frames / elapsed;
+			mProfInfo.globalInfo.fps = frames / elapsed;
 			frames = 0;
 			lastCall = now;
 		}
 
-		std::vector<float> slots = mGpuProfiler.getAllSlots();
+		mProfInfo.globalInfo.deltaTime = deltaTime;
 
-		if (slots.size() >= 4)
-		{
-			mProfInfo.renderingInfo.deltaTime = deltaTime;
-			mProfInfo.renderingInfo.buildHZB = slots[0];
-			mProfInfo.renderingInfo.opaquePass = slots[1];
-			mProfInfo.renderingInfo.accumilationPass = slots[2];
-			mProfInfo.renderingInfo.compositePass = slots[3];
-			mProfInfo.renderingInfo.uiPass = slots[4];
-		}
+		mProfInfo.passInfo = mGpuProfiler.getAllSlots();
 	}
 
 	void vulkanRenderer::registerSceneMetrics(const model& m, bool isDeleted)

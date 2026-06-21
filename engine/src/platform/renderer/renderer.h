@@ -10,28 +10,24 @@
 
 namespace engine
 {
-	struct renderingProfilingInfo
-	{
-		float fps;
-		float deltaTime;
-		float buildHZB;
-		float opaquePass;
-		float accumilationPass;
-		float compositePass;
-		float uiPass;
-	};
-
-	struct sceneProfilingInfo
+	struct sceneMetrics
 	{
 		uint32_t maxLodTriangles;
 		uint32_t maxLodMeshlets;
 		uint32_t entities;
 	};
 
+	struct globalMetrics
+	{
+		float fps;
+		float deltaTime;
+	};
+
 	struct profilingInfo
 	{
-		sceneProfilingInfo sceneInfo;
-		renderingProfilingInfo renderingInfo;
+		sceneMetrics sceneInfo;
+		globalMetrics globalInfo;
+		std::map<std::string, float> passInfo;
 	};
 
 	struct graphicsPreset

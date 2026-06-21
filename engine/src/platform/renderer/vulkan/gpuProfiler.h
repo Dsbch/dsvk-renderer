@@ -10,21 +10,22 @@ namespace engine
 	struct gpuProfiler
 	{
 	public:
-		void init(VkDevice device, uint32_t slotCount, deviceLimits limits);
+		void init(VkDevice device, deviceLimits limits);
 		void destroy();
 		error createProfiling();
 
-		error beginTimeStamp(VkCommandBuffer cmd);
-		void endTimestamp(VkCommandBuffer cmd);
+		error beginTimeStamp(VkCommandBuffer cmd, const std::string& slotName);
+		void endTimestamp(VkCommandBuffer cmd, const std::string& slotName);
 		void reset(VkCommandBuffer cmd);
 
-		std::vector<float> getAllSlots();
+		std::map<std::string, float> getAllSlots();
 	private:
 		VkDevice mDevice;
 		VkQueryPool mQueryPool;
 		uint32_t mPoolCount;
+		uint32_t mCurrentSlot;
 		deviceLimits mDeviceLimits;
 
-		uint32_t mCurrentSlot;
+		std::map<std::string, std::pair<uint32_t, uint32_t>> mUsedSlots;
 	};
 }

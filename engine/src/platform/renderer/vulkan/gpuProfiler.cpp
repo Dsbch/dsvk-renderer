@@ -3,12 +3,12 @@
 
 namespace engine
 {
-	void gpuProfiler::init(VkDevice device, uint32_t slotCount, deviceLimits limits)
+	void gpuProfiler::init(VkDevice device, deviceLimits limits)
 	{
 		mDevice = device;
 		mQueryPool = {};
 
-		mPoolCount = 2 * slotCount;
+		mPoolCount = 2 << 10;
 		mCurrentSlot = 0;
 
 		mDeviceLimits = limits;
@@ -34,33 +34,45 @@ namespace engine
 			vkDestroyQueryPool(mDevice, mQueryPool, nullptr);
 	}
 
-	error gpuProfiler::beginTimeStamp(VkCommandBuffer cmd)
+	error gpuProfiler::beginTimeStamp(VkCommandBuffer cmd, const std::string& slotName)
 	{
+		if (mUsedSlots.find(slotName) != mUsedSlots.end())
+			return { "slot with such name was already recorded that frame" };
+
 		if (mCurrentSlot >= mPoolCount)
 			return { "slot count is reached" };
 
 		vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, mQueryPool, mCurrentSlot);
 
-		mCurrentSlot++;
+		mUsedSlots[slotName] = { mCurrentSlot , mCurrentSlot + 1 };
+
+		mCurrentSlot += 2;
 
 		return {};
 	}
 
-	void gpuProfiler::endTimestamp(VkCommandBuffer cmd)
+	void gpuProfiler::endTimestamp(VkCommandBuffer cmd, const std::string& slotName)
 	{
-		vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, mQueryPool, mCurrentSlot);
-		mCurrentSlot++;
+		if (mUsedSlots.find(slotName) != mUsedSlots.end())
+		{
+			auto slot = mUsedSlots[slotName];
+
+			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, mQueryPool, slot.second);
+		}
 	}
 
 	void gpuProfiler::reset(VkCommandBuffer cmd)
 	{
 		mCurrentSlot = 0;
+
+		mUsedSlots.clear();
+
 		vkCmdResetQueryPool(cmd, mQueryPool, 0, mPoolCount);
 	}
 
-	std::vector<float> gpuProfiler::getAllSlots()
+	std::map<std::string, float> gpuProfiler::getAllSlots()
 	{
-		std::vector<float> result{};
+		std::map<std::string, float> result{};
 
 		struct timeStampResult {
 			uint64_t value;
@@ -80,21 +92,21 @@ namespace engine
 		if (queryRes != VK_SUCCESS && queryRes != VK_NOT_READY)
 			return result;
 
-		for (uint32_t i = 0; i < mPoolCount; i+=2)
+		for (auto& [k, v] : mUsedSlots)
 		{
-			if (results[i].isAvailable != 0 && results[i + 1].isAvailable != 0)
+			if (results[v.first].isAvailable != 0 && results[v.second].isAvailable != 0)
 			{
-				uint64_t start = results[i].value;
-				uint64_t end = results[i+1].value;
+				uint64_t start = results[v.first].value;
+				uint64_t end = results[v.second].value;
 
 				double elapsedNanoseconds = (end - start) * mDeviceLimits.timestampPeriod;
 
 				double elapsedMiliSeconds = elapsedNanoseconds / 1000000.0;
 
-				result.push_back(float(elapsedMiliSeconds));
+				result[k] = (float(elapsedMiliSeconds));
 			}
 			else
-				result.push_back(0);
+				result[k] = std::nanf("");
 		}
 
 		return result;

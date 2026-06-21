@@ -217,7 +217,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::key::r)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 

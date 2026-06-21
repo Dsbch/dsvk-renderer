@@ -65,8 +65,6 @@ struct meshlet
     uint perMeshBufferIndex;
     uint perMeshBufferOffset;
     
-    uint visabilityBit;
-    
     meshletBounds bounds;
 };
 
@@ -451,7 +449,8 @@ float distributionGGX(float3 n, float3 h, float roughness)
     
     float num = a2;
     float denom = (nDotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
+    float p = PI;
+    denom = p * denom * denom;
     
     return num / max(denom, 0.001);
 }

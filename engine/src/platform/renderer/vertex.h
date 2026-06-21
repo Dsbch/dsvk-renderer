@@ -87,8 +87,6 @@ namespace engine
 		uint32_t perMeshBufferIndex;
 		uint32_t perMeshBufferOffset;
 
-		uint32_t visabilityBit;
-
 		meshletBounds bounds;
 	};
 
