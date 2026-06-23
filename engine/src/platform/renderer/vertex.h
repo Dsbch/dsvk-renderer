@@ -26,7 +26,7 @@ namespace engine
 
 	glm::mat4 toMat4(const transform& trs);
 
-	// Task/Amplification shader buffer.
+	// Task/Amplification shader cmd buffer.
 	struct meshletShaderCMD
 	{
 		uint32_t instanceIndex;
@@ -41,8 +41,10 @@ namespace engine
 
 	struct perInstanceAttr
 	{
+		// Per instance transform + materials.
 		transform modelTransform;
 		uint32_t globalMaterialOffset;
+		// Per instance animation.
 		uint32_t jointIndex;
 		uint32_t jointOffset;
 	};

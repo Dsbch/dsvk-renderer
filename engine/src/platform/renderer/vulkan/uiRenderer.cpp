@@ -238,7 +238,7 @@ namespace engine
 			drawList->AddRectFilled(graphPos, ImVec2(graphPos.x + graphWidth, graphPos.y + graphHeight), IM_COL32(15, 15, 15, 255), 4.0f);
 
 			char scaleLabel[32];
-			snprintf(scaleLabel, sizeof(scaleLabel), "%.1f ms", smoothMax);
+			snprintf(scaleLabel, sizeof(scaleLabel), "%.2f ms", smoothMax);
 			drawList->AddText(
 				ImVec2(graphPos.x + 4, graphPos.y + 2),
 				IM_COL32(200, 200, 200, 255),
@@ -271,7 +271,7 @@ namespace engine
 			ImGui::BeginGroup();
 			for (auto const& [name, h] : mPassHistories)
 			{
-				ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(h.color), "%.1fms", h.lastValidMs);
+				ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(h.color), "%.2fms", h.lastValidMs);
 				ImGui::SameLine();
 				ImGui::TextUnformatted(name.c_str());
 			}

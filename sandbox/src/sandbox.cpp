@@ -214,10 +214,10 @@ namespace sandbox
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::newEntityComponent>();
 			}
-
+			  
 			if (event->getKey() == engine::key::r)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 
