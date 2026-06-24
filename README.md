@@ -1,4 +1,9 @@
 # 3D engine project.
 
-I'm currently working on my 3D engine using only win32 api and vulkan.
+I'm currently working on my vulkan renderer.
 
+Download lunargSDK for vulkan first https://vulkan.lunarg.com/sdk/home
+
+premake5 --mode=sandbox vs2026
+
+If you build in release you can load default model with "R", "Q" to delete instance "T" to rotate. 

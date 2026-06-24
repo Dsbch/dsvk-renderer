@@ -66,40 +66,10 @@ namespace sandbox
 
 	engine::error sandboxSystem::onEvent(std::shared_ptr<engine::registryHandle> registry, std::shared_ptr<engine::baseEvent> e)
 	{
-		if (e->getEventType() == engine::eventType::keyDown)
-		{
-			auto event = static_cast<engine::keyPressedEvent*>(e.get());
-
-			if (event->getKey() == engine::key::t)
-			{
-				entt::entity toRotate{};
-				engine::transformComponent oldTrs{ glm::vec3{}, glm::vec3{}, glm::quat{} };
-
-				registry->forEach<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>(
-					[&](entt::entity ent, engine::uidComponent&, engine::meshComponent&, engine::materialComponent&, engine::transformComponent& trs)
-					{
-						toRotate = ent;
-						oldTrs = trs;
-					}
-				);
-
-				static float angle = 0.5f;
-				
-				engine::entity ent{ mCtx, toRotate, registry };
-				if (ent)
-				{
-					oldTrs.rotation = glm::quat{ cos(glm::radians(angle)), sin(glm::radians(angle)) * glm::vec3{0.0f, 1.0f, 0.0f} };
-					ent.addOrReplaceComponent<engine::transformComponent>(oldTrs.translation, oldTrs.scale, oldTrs.rotation);
-					ent.addOrReplaceComponent<engine::updateInstanceComponent>();
-					angle += 0.5f;
-				}
-			}
-		}
-
 		if (e->getEventType() == engine::eventType::keyPressed)
 		{
 			auto event = static_cast<engine::keyPressedEvent*>(e.get());
-
+#ifdef DEBUG
 			if (event->getKey() == engine::key::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
@@ -214,7 +184,7 @@ namespace sandbox
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::newEntityComponent>();
 			}
-			  
+
 			if (event->getKey() == engine::key::r)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
@@ -260,6 +230,24 @@ namespace sandbox
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 1.0f }, tr.rotation);
 				e.addComponent<engine::newEntityComponent>();
 			}
+#endif // DEBUG
+
+#ifdef RELEASE
+			if (event->getKey() == engine::key::r)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
+				if (!loadedModel)
+					return loadedModel.err();
+
+				auto tr = generateTransform();
+				engine::entity e{ mCtx, registry };
+
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::newEntityComponent>();
+			}
+#endif // RELEASE
 
 			if (event->getKey() == engine::key::q)
 			{
@@ -275,6 +263,36 @@ namespace sandbox
 				engine::entity entity{ mCtx, toDelete, registry };
 				if (entity)
 					entity.addOrReplaceComponent<engine::deleteComponent>();
+			}
+		}
+
+		if (e->getEventType() == engine::eventType::keyDown)
+		{
+			auto event = static_cast<engine::keyPressedEvent*>(e.get());
+
+			if (event->getKey() == engine::key::t)
+			{
+				entt::entity toRotate{};
+				engine::transformComponent oldTrs{ glm::vec3{}, glm::vec3{}, glm::quat{} };
+
+				registry->forEach<engine::uidComponent, engine::meshComponent, engine::materialComponent, engine::transformComponent>(
+					[&](entt::entity ent, engine::uidComponent&, engine::meshComponent&, engine::materialComponent&, engine::transformComponent& trs)
+					{
+						toRotate = ent;
+						oldTrs = trs;
+					}
+				);
+
+				static float angle = 0.5f;
+
+				engine::entity ent{ mCtx, toRotate, registry };
+				if (ent)
+				{
+					oldTrs.rotation = glm::quat{ cos(glm::radians(angle)), sin(glm::radians(angle)) * glm::vec3{0.0f, 1.0f, 0.0f} };
+					ent.addOrReplaceComponent<engine::transformComponent>(oldTrs.translation, oldTrs.scale, oldTrs.rotation);
+					ent.addOrReplaceComponent<engine::updateInstanceComponent>();
+					angle += 0.5f;
+				}
 			}
 		}
 
