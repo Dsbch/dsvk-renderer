@@ -26,9 +26,9 @@
 		2. Low performance in accumilaton pass.
 
 	TODO:
-		1. Figure out how to do shadows, my goal is good hard and soft shadows.
-		2. Global illumination and reflections with radiance cascades.
-		3. Add jolt CPU side physics.
+		1. Add jolt CPU side physics.
+		2. Figure out how to do shadows, my goal is good hard and soft shadows.
+		3. Global illumination and reflections with radiance cascades.
 		4. Add postproccessing like bloom, focus etc.
 		5. Get your bsdf and brdf together. Should use disney.
 	
