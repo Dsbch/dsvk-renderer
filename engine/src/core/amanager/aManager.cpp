@@ -24,7 +24,6 @@ namespace engine
 		std::string line;
 		while (f)
 		{
-
 			if (std::getline(f, line))
 			{
 				s << line << std::endl;
@@ -237,7 +236,7 @@ namespace engine
 
 		return error{ "not implemented" };
 	}
-
+	  
 	withError<std::shared_ptr<const shader>> aManager::getDefaultAccumilatePixelShader()
 	{
 #ifdef VULKAN
@@ -245,7 +244,7 @@ namespace engine
 
 		return loadShader(path);
 #endif // VULKAN
-
+		 
 		return error{ "not implemented" };
 	}
 
@@ -358,7 +357,7 @@ namespace engine
 		for (int i = 0; i < meshes.value().first.size(); i++)
 		{
 			if (meshes.value().second[i].isSkinned)
-				recalculateMeshletBounds(meshes.value().first[i], animations, skins);
+				recalculateMeshletBounds(meshes.value().first[i], meshes.value().second[i], animations, skins);
 		}
 
 		result->meshData = std::make_shared<const std::vector<mesh>>(std::move(meshes.value().first));

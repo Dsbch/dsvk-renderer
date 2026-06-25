@@ -56,5 +56,5 @@ namespace engine
 	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data);
 
 	// Need to calculate conservative meshlet bounds and cones for animated meshes.
-	void recalculateMeshletBounds(mesh& m, std::vector<animation> anims, std::vector<skin> skins);
+	void recalculateMeshletBounds(mesh& m, perMeshAttributes& attrs, std::vector<animation> anims, std::vector<skin> skins);
 }

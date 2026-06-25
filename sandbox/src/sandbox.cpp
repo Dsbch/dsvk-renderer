@@ -93,6 +93,29 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
+			if (event->getKey() == engine::key::v)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/mira.glb",
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
+				if (!loadedModel)
+					return loadedModel.err();
+
+				engine::entity e{ mCtx, registry };
+
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.1f }, tr.rotation);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
+				e.addComponent<engine::newEntityComponent>();
+			}
+
 			if (event->getKey() == engine::key::k)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
