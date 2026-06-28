@@ -17,12 +17,13 @@
 		8. Added culling for animated meshlets.
 	
 	IN DEVELOPMENT:
-		1. Two phase HZB occlision culling.
+		1. Frustum culling and lod level selection should be done first in compute shader where I generate CMD buffer opaque and accumilation pass.
+		2. Two phase HZB occlision culling.
 		I need to do frustum + oclussion culling per models in compute shader first.
 		Then in task shader the same.
 
 	BUGS:
-		1. Problem with flickering on new instance.
+		1. Problem with flickering on new instance - FIXED, the problem was mapped command buffer. Now I need to move command buffer generation to GPU compute shader.
 		2. Low performance in accumilaton pass.
 
 	TODO:
