@@ -27,7 +27,7 @@ namespace engine
 
 	struct graphicsCfg
 	{
-		uint32_t msaa = 4;
+		uint32_t msaa = 1;
 		uint32_t anisotropicFiltering = 16;
 	};
 

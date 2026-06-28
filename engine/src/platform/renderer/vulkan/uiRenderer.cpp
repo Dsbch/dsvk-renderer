@@ -126,7 +126,6 @@ namespace engine
 
 		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
 			mSampler,
-			//hzb.front().img.view,
 			sChain.getRevealImageView(mPreset.msaa > 1),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
