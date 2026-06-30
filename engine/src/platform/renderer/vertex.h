@@ -17,6 +17,8 @@ namespace engine
 	typedef uint32_t meshHash;
 	typedef uint32_t textureHash;
 
+	bool hasFlag(uint32_t mask, uint32_t flag);
+
 	struct transform
 	{
 		glm::vec3 translation;
@@ -25,6 +27,14 @@ namespace engine
 	};
 
 	glm::mat4 toMat4(const transform& trs);
+
+	enum class visabilityFlagBits : uint32_t
+	{
+		VISIBLE_FLAG_BIT = 1 << 0,
+		NOT_VISIBLE_FLAG_BIT = 1 << 1,
+		VISIBLE_CURRENT_FRAME_FLAG_BIT = 1 << 2,
+		NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT = 1 << 3,
+	};
 
 	// Task/Amplification shader cmd buffer.
 	struct meshletShaderCMD
@@ -37,6 +47,7 @@ namespace engine
 		uint32_t meshletOffset2;
 		uint32_t meshletOffset3;
 		uint32_t meshletOffset4;
+		visabilityFlagBits visabilityBit;
 	};
 
 	struct perInstanceAttr

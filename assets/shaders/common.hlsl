@@ -83,6 +83,11 @@ struct perInstanceAttr
     uint jointOffset;
 };
 
+static const uint VISIBLE_FLAG_BIT = 1 << 0;
+static const uint NOT_VISIBLE_FLAG_BIT = 1 << 1;
+static const uint VISIBLE_CURRENT_FRAME_FLAG_BIT = 1 << 2;
+static const uint NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT = 1 << 3;
+
 struct command
 {
     uint instanceIndex;
@@ -93,6 +98,8 @@ struct command
     uint meshletOffset2;
     uint meshletOffset3;
     uint meshletOffset4;
+    
+    uint visabilityBit;
 };
 
 struct perMeshAttributes
@@ -260,23 +267,23 @@ float3 transformPoint(transform pointTransform, float3 p)
     return translate(pointTransform.translation, rotate(pointTransform.rotation, scale(pointTransform.scale, p)));
 }
 
-uint getMeshletOffset(StructuredBuffer<command> cmdBuffer[], uint lodLevel, uint idx, uint offset)
+uint getMeshletOffset(command cmd, uint lodLevel)
 {
     uint result;
     
     switch (lodLevel)
     {
         case 2:
-            result = cmdBuffer[idx][offset].meshletOffset2;
+            result = cmd.meshletOffset2;
             break;
         case 3:
-            result = cmdBuffer[idx][offset].meshletOffset3;
+            result = cmd.meshletOffset3;
             break;
         case 4:
-            result = cmdBuffer[idx][offset].meshletOffset4;
+            result = cmd.meshletOffset4;
             break;
         default:
-            result = cmdBuffer[idx][offset].meshletOffset1;
+            result = cmd.meshletOffset1;
             break;
     }
     
@@ -284,20 +291,11 @@ uint getMeshletOffset(StructuredBuffer<command> cmdBuffer[], uint lodLevel, uint
 }
 
 uint selectLodLevel(
-    StructuredBuffer<command> cmdBuf[],
-    StructuredBuffer<meshlet> meshletBuf[],
-    StructuredBuffer<perMeshAttributes> perMeshBuf[],
+    perMeshAttributes meshAttrs,
     perDrawData drawData,
-    transform modelTransform,
-    uint cmdBuffIdx,
-    uint cmdBufOffset,
-    uint meshletIdx
+    transform modelTransform
 )
 {
-    // Get first lod level to reference a meshlet.
-    meshlet mesh = meshletBuf[meshletIdx][getMeshletOffset(cmdBuf, 1, cmdBuffIdx, cmdBufOffset)];
-    perMeshAttributes meshAttrs = perMeshBuf[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
-    
     float uniformScale = max(length(meshAttrs.meshGlobalTransform[0].xyz), max(length(meshAttrs.meshGlobalTransform[1].xyz), length(meshAttrs.meshGlobalTransform[2].xyz)));
 
     meshAttrs.bsCenter = mul(meshAttrs.meshGlobalTransform, float4(meshAttrs.bsCenter, 1.0f)).xyz;

@@ -28,7 +28,6 @@ struct MeshShaderPayload
     uint meshletOffset[THREADS_COUNT];
     uint perInstanceIndex[THREADS_COUNT];
     uint perInstanceOffset[THREADS_COUNT];
-    uint lodLevel[THREADS_COUNT];
 };
 
 groupshared MeshShaderPayload payload;
@@ -45,23 +44,24 @@ void asmain(
     // Not overdraw.
     if (dtid < push.meshletCount)
     {
-        uint perInstanceIndex = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].instanceIndex;
-        uint perInstanceOffset = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].instanceOffset;
-        perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
+        command cmd = commandAccumilationBuffer[dtid];
         
-        uint meshletIdx = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].meshletIndex;
-        uint selectedLod = selectLodLevel(commandOpaqueBuffer, meshletBuffer, perMeshBuffer, drawData, instanceAttr.modelTransform, push.opaqueCmdBufferIndex, dtid, meshletIdx);
-        uint meshletOffset = getMeshletOffset(commandOpaqueBuffer, selectedLod, push.opaqueCmdBufferIndex, dtid);
+        perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex][cmd.instanceOffset];
+
+        // Get first lod level to reference a meshlet.
+        uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
+        meshlet mesh = meshletBuffer[cmd.meshletIndex][meshletOffsetFirstLodLevel];
+        perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+        
+        uint selectedLod = selectLodLevel(meshAttr, drawData, instanceAttr.modelTransform);
+        uint meshletOffset = getMeshletOffset(cmd, selectedLod);
     
-        meshlet mesh;
-        perMeshAttributes meshAttr;
-        
         visible = meshletOffset != MAX_UINT;
         
         // Still have meshlets for that lodLevel.
         if (visible)
         {
-            mesh = meshletBuffer[meshletIdx][meshletOffset];
+            mesh = meshletBuffer[cmd.meshletIndex][meshletOffset];
             meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
             
             visible = mesh.alphaType == BLEND_ALPHA_MODE;
@@ -91,12 +91,9 @@ void asmain(
             {
                 uint index = WavePrefixCountBits(visible);
         
-                payload.perInstanceIndex[index] = perInstanceIndex;
-                payload.perInstanceOffset[index] = perInstanceOffset;
-     
-                payload.lodLevel[index] = selectedLod;
-        
-                payload.meshletIndex[index] = meshletIdx;
+                payload.perInstanceIndex[index] = cmd.instanceIndex;
+                payload.perInstanceOffset[index] = cmd.instanceOffset;
+                payload.meshletIndex[index] = cmd.meshletIndex;
                 payload.meshletOffset[index] = meshletOffset;
             }
         }

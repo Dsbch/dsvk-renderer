@@ -203,6 +203,9 @@ namespace engine
 				if (mPassHistories.find(name) == mPassHistories.end())
 					mPassHistories[name] = { {}, 0, 0.0f, IM_COL32(rand() % 200 + 55, rand() % 200 + 55, rand() % 200 + 55, 255) };
 
+				if (std::isnan(ms))
+					continue;
+
 				auto& h = mPassHistories[name];
 				h.history[h.offset] = ms;
 				h.lastValidMs = ms;

@@ -3,6 +3,11 @@
 
 namespace engine
 {
+	bool hasFlag(uint32_t mask, uint32_t flag)
+	{
+		return false;
+	}
+
 	std::vector<glm::mat4> skin::getJointMatrices() const
 	{
 		std::vector<glm::mat4> worldMats;
