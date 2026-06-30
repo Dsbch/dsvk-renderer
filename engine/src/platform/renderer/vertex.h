@@ -308,10 +308,8 @@ namespace engine
 
 	struct pushConstants
 	{
-		uint32_t commandBufferOffset;
 		uint32_t meshletCount;
-		uint32_t passNumber;
-		uint32_t hzbBufferLength;
+		uint32_t opaqueCmdBufferIndex;
 	};
 
 	struct computePushConstants

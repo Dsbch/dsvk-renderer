@@ -17,7 +17,6 @@
 #include "meshletRenderer.h"
 #include "lineRenderer.h"
 #include "gpuProfiler.h"
-#include "computeRenderer.h"
 
 namespace engine
 {
@@ -73,8 +72,6 @@ namespace engine
 		lineRenderer mLineRenderer;
 		// UI renderer.
 		uiRenderer mUiRenderer;
-		// Compute renderer.
-		computeRenderer mComputeRenderer;
 
 		gpuProfiler mGpuProfiler;
 
@@ -92,7 +89,6 @@ namespace engine
 		void chooseGraphicsPreset();
 		void setViewportAndSciccors(VkCommandBuffer cmd) const;
 		error drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in);
-		error buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error drawUI(VkCommandBuffer cmd);

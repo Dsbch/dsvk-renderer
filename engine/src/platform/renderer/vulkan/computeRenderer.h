@@ -8,6 +8,7 @@
 #include "pipeline.h"
 #include "helper.h"
 #include "swapChain.h"
+#include "registry.h"
 #include "platform/renderer/renderer.h"
 
 namespace engine
@@ -17,9 +18,12 @@ namespace engine
 		uint32_t descriptorSet;
 		uint32_t totalDescriptorsCount;
 
-		// Buffers binding.
+		// HZB bindings.
 		uint32_t orignalZBufferBinding;
 		uint32_t hzbBinding;
+		// Buffers binding.
+		uint32_t cmdOpaqueBufferBinding;
+		uint32_t cmdAccumilationBufferBinding;
 	};
 
 	struct computeRenderer
@@ -40,6 +44,8 @@ namespace engine
 		error buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
 
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
+		error updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& cmdOpaqueInfo);
+		error updateAccumilationCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& cmdAccumilationInfo);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;

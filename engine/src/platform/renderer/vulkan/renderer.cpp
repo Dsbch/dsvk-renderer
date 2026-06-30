@@ -84,10 +84,6 @@ namespace engine
 		if (err)
 			LOGERROR("~vulkanRenderer mUiRenderer.destroy: {}", err.err());
 
-		err = mComputeRenderer.destroy();
-		if (err)
-			LOGERROR("~vulkanRenderer mComputeRenderer.destroy: {}", err.err());
-
 		err = mMeshletRenderer.destroy();
 		if (err)
 			LOGERROR("~vulkanRenderer mMeshletRenderer.destroy {}", err.err());
@@ -318,10 +314,6 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mComputeRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mSwapChain);
-		if (err)
-			return err;
-
 		return {};
 	}
 
@@ -472,22 +464,13 @@ namespace engine
 			cmd,
 			in,
 			meshletRenderer::opaquePassParams{
-				.hzbBufLength = uint32_t(mSwapChain.getHZB().size()),
+				.sChain = mSwapChain,
 			}
 			);
 		if (err)
 			return err;
 
 		vkCmdEndRendering(cmd);
-
-		return {};
-	}
-
-	error vulkanRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in)
-	{
-		error err = mComputeRenderer.buildHZB(cmd, in, mSwapChain);
-		if (err)
-			return err;
 
 		return {};
 	}
@@ -735,10 +718,6 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mComputeRenderer.updateSwapchainDependentDescriptors(mSwapChain);
-		if (err)
-			return err;
-
 		mUiRenderer.updateSwapchainDependentDescriptors(mSwapChain);
 
 		return {};
@@ -748,7 +727,7 @@ namespace engine
 	{
 		registerSceneMetrics(m);
 
-		return mMeshletRenderer.addToRender(mDevice, mSubmit, mSwapChain, m);
+		return mMeshletRenderer.addToRender(mDevice, mAllocator, mSubmit, mSwapChain, m);
 	}
 
 	error vulkanRenderer::updateInstance(const model& m)
@@ -777,7 +756,7 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mMeshletRenderer.updateDescriptors(in, mSubmit);
+		err = mMeshletRenderer.updateDescriptors(in, mSubmit, mDevice, mAllocator);
 		if (err)
 			return err;
 
@@ -842,16 +821,6 @@ namespace engine
 			return vkResultToStr(vkResult);
 
 		mGpuProfiler.reset(cmd);
-
-		err = mGpuProfiler.beginTimeStamp(cmd, "buildHZB");
-		if (err)
-			return err;
-
-		err = buildHZB(cmd, in);
-		if (err)
-			return err;
-
-		mGpuProfiler.endTimestamp(cmd, "buildHZB");
 
 		err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque");
 		if (err)

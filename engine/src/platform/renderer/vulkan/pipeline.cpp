@@ -1,6 +1,10 @@
 #include <pch.h>
 #include "pipeline.h"
+#include "shader.h"
+#include "submit.h"
 #include "helper.h"
+
+#include <vma/vk_mem_alloc.h>
 
 namespace engine
 {
@@ -283,8 +287,7 @@ namespace engine
 		mPipeline(VK_NULL_HANDLE),
 		mPipelineLayout(VK_NULL_HANDLE),
 		mComputeShaderStage()
-	{
-	}
+	{}
 
 	void computePipeline::init(VkDevice device)
 	{
@@ -336,5 +339,268 @@ namespace engine
 			return vkResultToStr(result);
 
 		return {};
+	}
+
+	error pipelineData::init(
+		VkDevice device,
+		VmaAllocator allocator,
+		submit& is,
+		std::shared_ptr<const shader> pixelShader,
+		std::shared_ptr<const shader> meshShader,
+		std::shared_ptr<const shader> taskShader,
+		const std::vector<VkDescriptorSetLayout>& descriptorSets,
+		VkFormat depthFormat,
+		const std::vector<VkFormat>& colorAttachmentFormats,
+		VkSampleCountFlagBits sampleCount,
+		pipelineType type
+	)
+	{
+		mNeedDescriptorUpdate = true;
+		// Can't use not mapped cmd buffer. Get wild exceptions.
+		// TODO: figure out where is the bug.
+		mIsBufferMapped = true;
+
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(pushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_ALL;
+
+		// init pipeline.
+		mPipeline.init(device);
+
+		//connecting the vertex and pixel shaders to the pipeline
+		mPipeline.setShaders(
+			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+		);
+
+		mPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		mPipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
+
+		// Back face culling is done in shaders.
+		mPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+
+		mPipeline.setMultisampling(sampleCount);
+
+		if (type == pipelineType::opaque)
+		{
+			mPipeline.disableBlending();
+			mPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
+
+		if (type == pipelineType::accumilation)
+		{
+			mPipeline.enableBlendingOITAccumulation();
+			mPipeline.enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
+
+		if (type == pipelineType::composite)
+		{
+			mPipeline.enableBlendingOITComposite();
+			mPipeline.disableDepthtest();
+		}
+
+		//connect the image format we will draw into, from draw image
+		mPipeline.setColorAttachmentFormats(colorAttachmentFormats);
+		mPipeline.setDepthFormat(depthFormat);
+
+		error err = mPipeline.build(&pc, descriptorSets, true);
+		if (err)
+			return err;
+
+		mCmdBufferSize = 2 << 24;
+		mCmdBuffer.init(device, allocator, mIsBufferMapped);
+
+		err = mCmdBuffer.build(is, nullptr, mCmdBufferSize, 0);
+		if (err)
+			return err;
+
+		return {};
+	}
+
+	void pipelineData::destroy()
+	{
+		mPipeline.destroy();
+
+		mCmdBuffer.destroy();
+	}
+
+	error pipelineData::addInstance(const pipelineData::addInstanceParams& params)
+	{
+		if (mEntitiesToAdd.find(params.instanceID) == mEntitiesToAdd.end() && mUploadedEntities.find(params.instanceID) == mUploadedEntities.end())
+		{
+			for (auto& m : params.meshesData)
+			{
+				mMeshCount[m.meshID]++;
+
+				uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
+
+				for (uint32_t i = 0; i < m.meshlets.second; i++)
+				{
+					mEntitiesToAdd[params.instanceID].push_back(
+						meshletShaderCMD{
+							.instanceIndex = params.perInstanceHandle.bufferIndex,
+							.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
+							.meshletIndex = m.meshletHandle.bufferIndex,
+							.meshletOffset1 = baseOffset + i,
+							.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
+							.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
+							.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max()
+						}
+					);
+				}
+			}
+		}
+
+		return {};
+	}
+
+	void pipelineData::removeInstance(const pipelineData::removeInstanceParams& params)
+	{
+		if (mEntitiesToDelete.find(params.instanceID) != mEntitiesToDelete.end())
+			return;
+
+		if (mEntitiesToAdd.find(params.instanceID) == mEntitiesToAdd.end() && mUploadedEntities.find(params.instanceID) == mUploadedEntities.end())
+			return;
+
+		mEntitiesToDelete.insert(params.instanceID);
+
+		if (auto found = mMeshCount.find(params.meshID); found != mMeshCount.end() && found->second != 0)
+			found->second--;
+	}
+
+	error pipelineData::updateCommandBuffer(const updateCommandBufferParams& params)
+	{
+		std::vector<entityHash> toRemove;
+
+		for (auto& instanceID : mEntitiesToDelete)
+		{
+			if (mEntitiesToAdd.find(instanceID) != mEntitiesToAdd.end())
+				toRemove.push_back(instanceID);
+		}
+
+		for (auto& id : toRemove)
+		{
+			mEntitiesToAdd.erase(id);
+			mEntitiesToDelete.erase(id);
+		}
+
+		for (auto& k : mEntitiesToDelete)
+		{
+			auto uploadedEnity = mUploadedEntities.find(k);
+
+			if (uploadedEnity != mUploadedEntities.end())
+			{
+				if (mCmdBuffer.getLoadedBytes() != uploadedEnity->second.second)
+				{
+					error err = mCmdBuffer.shiftData(params.is, uploadedEnity->second.first, uploadedEnity->second.second);
+					if (err)
+						return err;
+				}
+				else
+					mCmdBuffer.markBytesAsDead(uploadedEnity->second.second - uploadedEnity->second.first);
+
+				size_t deletedSize = uploadedEnity->second.second - uploadedEnity->second.first;
+
+				for (auto& [_, v] : mUploadedEntities)
+				{
+					if (v.first >= uploadedEnity->second.second)
+					{
+						v.first -= deletedSize;
+						v.second -= deletedSize;
+					}
+				}
+
+				mUploadedEntities.erase(k);
+			}
+		}
+
+		mEntitiesToDelete.clear();
+
+		for (auto& [k, v] : mEntitiesToAdd)
+		{
+			if (mUploadedEntities.find(k) == mUploadedEntities.end())
+			{
+				size_t size = v.size() * sizeof(meshletShaderCMD);
+				size_t offset = mCmdBuffer.getLoadedBytes();
+
+				error err = mCmdBuffer.updateBuffer(params.is, v.data(), size, offset);
+				if (err && err.is(errCodeBufferOverFlow))
+				{
+					mNeedDescriptorUpdate = true;
+
+					mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
+					uint32_t minSize = uint32_t(v.size() * sizeof(meshletShaderCMD) + mCmdBuffer.getLoadedBytes());
+
+					if (mCmdBufferSize < minSize)
+						mCmdBufferSize = minSize;
+
+					vulkanBuffer newBuf{};
+
+					newBuf.init(params.device, params.allocator, mIsBufferMapped);
+					err = newBuf.build(params.is, mCmdBuffer, mCmdBufferSize);
+					if (err)
+						return err;
+
+					err = newBuf.updateBuffer(params.is, v.data(), size, offset);
+					if (err)
+						return err;
+
+					mCmdBuffer.destroy();
+
+					mCmdBuffer = std::move(newBuf);
+				}
+
+				mUploadedEntities[k] = { offset, offset + size };
+			}
+		}
+
+		mEntitiesToAdd.clear();
+
+		return {};
+	}
+
+	pipelineData::pipelineRenderData pipelineData::getPipelineRenderData() const
+	{
+		auto pipe = mPipeline.getPipeline();
+
+		return pipelineData::pipelineRenderData{
+			.pipeline = pipe.first,
+			.pipelineLayout = pipe.second,
+			.meshletCount = uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD)),
+		};
+	}
+
+	bool pipelineData::meshIsUsed(uint32_t id) const
+	{
+		if (auto found = mMeshCount.find(id); found != mMeshCount.end() && found->second != 0)
+			return true;
+
+		return false;
+	}
+
+	bool pipelineData::instanceExists(uint32_t id) const
+	{
+		if (mUploadedEntities.find(id) != mUploadedEntities.end())
+			return true;
+
+		return false;
+	}
+
+
+	vulkanBuffer pipelineData::getCmdBuffer() const
+	{
+		return mCmdBuffer;
+	}
+
+	bool pipelineData::needDescriptorUpdate() const
+	{
+		return mNeedDescriptorUpdate;
+	}
+
+	void pipelineData::setUpdated()
+	{
+		mNeedDescriptorUpdate = false;
 	}
 }

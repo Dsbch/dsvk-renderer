@@ -24,7 +24,7 @@ namespace engine
 			mAllocator,
 			mDevice,
 			sizeInBytes,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 			mMapped
 		);
@@ -74,7 +74,61 @@ namespace engine
 		return {};
 	}
 
-	engine::error vulkanBuffer::buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes)
+	error vulkanBuffer::build(submit& is, vulkanBuffer& buf, size_t sizeInBytes)
+	{
+		if (mBuffer.buffer != VK_NULL_HANDLE)
+			return error{ "buffer already created" };
+
+		mLoadedBytes = buf.getLoadedBytes();
+		mByteSize = sizeInBytes;
+
+		auto createBufRes = createBuffer(
+			mAllocator,
+			mDevice,
+			sizeInBytes,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+			mMapped
+		);
+		if (!createBufRes)
+			return createBufRes.err();
+
+		mBuffer = createBufRes.value();
+
+		if (buf.getBuffer().buffer != VK_NULL_HANDLE && mLoadedBytes != 0)
+		{
+			if (mMapped && buf.mMapped)
+			{
+				VkResult res = vmaCopyMemoryToAllocation(mAllocator, buf.mBuffer.info.pMappedData, mBuffer.allocation, 0, mLoadedBytes);
+				if (res != VK_SUCCESS)
+					return { vkResultToStr(res) };
+			}
+			else
+			{
+				error err = is.queue(
+					[&](VkCommandBuffer cmd)
+					{
+						VkBufferCopy copy{};
+						copy.dstOffset = 0;
+						copy.srcOffset = 0;
+						copy.size = mLoadedBytes;
+
+						vkCmdCopyBuffer(cmd, buf.getBuffer().buffer, mBuffer.buffer, 1, &copy);
+					},
+					[]()
+					{
+					}
+				);
+				if (err)
+					return err;
+			}
+		}
+
+		return {};
+	}
+
+
+	error vulkanBuffer::buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -86,7 +140,7 @@ namespace engine
 			mAllocator,
 			mDevice,
 			sizeInBytes,
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 			mMapped
 		);
@@ -180,6 +234,51 @@ namespace engine
 		}
 
 		mLoadedBytes += sizeInBytes;
+
+		return {};
+	}
+
+	error vulkanBuffer::shiftData(submit& is, size_t dstOffset, size_t srcOffset)
+	{
+		if (mMapped)
+		{
+			VkResult res = vmaCopyMemoryToAllocation(mAllocator, (uint8_t*)mBuffer.info.pMappedData + srcOffset, mBuffer.allocation, dstOffset, mLoadedBytes - srcOffset);
+			if (res != VK_SUCCESS)
+				return { vkResultToStr(res) };
+		}
+		else
+		{
+			auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes - srcOffset, VK_BUFFER_USAGE_TRANSFER_DST_BIT| VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, false);
+			if (!stagingBuffer)
+				return stagingBuffer.err();
+
+			error err = is.queue(
+				[&](VkCommandBuffer cmd)
+				{
+					VkBufferCopy copy{};
+					copy.dstOffset = 0;
+					copy.srcOffset = srcOffset;
+					copy.size = mLoadedBytes - srcOffset;
+
+					vkCmdCopyBuffer(cmd, mBuffer.buffer, stagingBuffer.value().buffer, 1, &copy);
+
+					pipelineBufferBarier(cmd, stagingBuffer.value().buffer, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, uint32_t(copy.size), 0);
+
+					copy.dstOffset = dstOffset;
+					copy.srcOffset = 0;
+				
+					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+				},
+				[=]()
+				{
+					destroyBuffer(mAllocator, stagingBuffer.value());
+				}
+			);
+			if (err)
+				return err;
+		}
+
+		mLoadedBytes -= (srcOffset - dstOffset);
 
 		return {};
 	}

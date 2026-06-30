@@ -24,11 +24,11 @@ namespace engine
 		computePipe,
 		graphicsPipe,
 		buffRegistry,
-		pipelineReg,
 		sampler,
 		vulkanBuf,
 		gpuProf,
 		matReg,
+		pipeData,
 	};
 
 	struct destroyTask
@@ -45,9 +45,9 @@ namespace engine
 			bufferRegistry* buffRegistry;
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;
-			pipelineRegistry* pipelineReg;
 			gpuProfiler* profiler;
 			materialRegistry* matReg;
+			pipelineData* pipeData;
 		};
 	};
 

@@ -9,10 +9,8 @@
 // Push constant START.
 struct pushConstant
 {
-    uint commandBufferOffset;
     uint meshletCount;
-    uint passNumber;
-    uint hzbBufferLength;
+    uint opaqueCmdBufferIndex;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -44,15 +42,15 @@ void asmain(
     float visible = false;
     
     // Not overdraw.
-    if (dtid < push.meshletCount)
+    if (dtid < push.meshletCount) 
     {
-        uint perInstanceIndex = commandOpaqueBuffer[dtid + push.commandBufferOffset].instanceIndex;
-        uint perInstanceOffset = commandOpaqueBuffer[dtid + push.commandBufferOffset].instanceOffset;
+        uint perInstanceIndex = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].instanceIndex;
+        uint perInstanceOffset = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].instanceOffset;
         perInstanceAttr instanceAttr = perInstanceBuffer[perInstanceIndex][perInstanceOffset];
         
-        uint meshletIdx = commandOpaqueBuffer[dtid + push.commandBufferOffset].meshletIndex;
-        uint selectedLod = selectLodLevel(commandOpaqueBuffer, meshletBuffer, perMeshBuffer, drawData, instanceAttr.modelTransform, dtid + push.commandBufferOffset, meshletIdx);
-        uint meshletOffset = getMeshletOffset(commandOpaqueBuffer, selectedLod, dtid + push.commandBufferOffset);
+        uint meshletIdx = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].meshletIndex;
+        uint selectedLod = selectLodLevel(commandOpaqueBuffer, meshletBuffer, perMeshBuffer, drawData, instanceAttr.modelTransform, push.opaqueCmdBufferIndex, dtid, meshletIdx);
+        uint meshletOffset = getMeshletOffset(commandOpaqueBuffer, selectedLod, push.opaqueCmdBufferIndex, dtid);
     
         meshlet mesh;
         perMeshAttributes meshAttr;

@@ -54,10 +54,6 @@ namespace engine
 				if (it->vulkanBuf)
 					it->vulkanBuf->destroy();
 				break;
-			case pipelineReg:
-				if (it->pipelineReg)
-					it->pipelineReg->destroy();
-				break;
 			case gpuProf:
 				if (it->profiler)
 					it->profiler->destroy();
@@ -65,6 +61,10 @@ namespace engine
 			case matReg:
 				if (it->matReg)
 					it->matReg->destroy();
+				break;
+			case pipeData:
+				if (it->pipeData)
+					it->pipeData->destroy();
 				break;
 			default:
 				LOGERROR("deletionQueue.cpp unkown deletionType");

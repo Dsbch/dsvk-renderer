@@ -8,6 +8,8 @@
 #include "helper.h"
 #include "swapChain.h"
 #include "platform/renderer/renderer.h"
+#include "computeRenderer.h"
+#include "pipeline.h"
 
 namespace engine
 {
@@ -38,7 +40,7 @@ namespace engine
 		uint32_t materialArrayBinding;
 		uint32_t accumBinding;
 		uint32_t revealBinding;
-		
+
 		// Other bindings.
 		uint32_t hzbChainBinding;
 	};
@@ -48,29 +50,29 @@ namespace engine
 	public:
 		struct opaquePassParams
 		{
-			uint32_t hzbBufLength;
+			const swapChain& sChain;
 		};
 
 		error init(
-			std::shared_ptr<context> ctx, 
-			PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT, 
-			VkDevice device, 
-			VkPhysicalDevice physicalDevice, 
-			VmaAllocator allocator, 
-			submit& is, 
-			deviceLimits limits, 
+			std::shared_ptr<context> ctx,
+			PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT,
+			VkDevice device,
+			VkPhysicalDevice physicalDevice,
+			VmaAllocator allocator,
+			submit& is,
+			deviceLimits limits,
 			graphicsPreset preset,
 			VkBuffer UBObuffer,
 			const swapChain& sChain
 		);
 		error destroy();
 
-		error addToRender(VkDevice device, submit& is, const swapChain& sChain, const model& m);
+		error addToRender(VkDevice device, VmaAllocator allocator, submit& is, const swapChain& sChain, const model& m);
 		error updateInstance(const model& m, submit& is);
 		error updateAnimations(const model& m, submit& is);
 		void removeFromRender(const model& m);
-		
-		error updateDescriptors(renderer::renderCallIn in, submit& is);
+
+		error updateDescriptors(renderer::renderCallIn in, submit& is, VkDevice device, VmaAllocator allocator);
 		error opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, opaquePassParams params);
 		error accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error compositePass(VkCommandBuffer cmd, renderer::renderCallIn in);
@@ -80,7 +82,7 @@ namespace engine
 		deletionQueue mDeletionQueue;
 		meshletBindings mBindings;
 		graphicsPreset mPreset;
-		
+
 		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
 
 		VkSampler mSampler;
@@ -97,16 +99,23 @@ namespace engine
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
 		bufferRegistry mPerMeshRegistry;
-		
-		pipelineRegistry mPipelineRegistry;
+
+		std::vector<VkDescriptorBufferInfo> mOpaqueCmdBuffersInfo;
+		std::vector<VkDescriptorBufferInfo> mAccumilationCmdBufferInfo;
+		pipelineData mCompositePipeline;
+		pipelineData mAccumilationPipeline;
+		std::map<uint32_t, pipelineData> mPipelines;
 		materialRegistry mMaterialRegistry;
 
 		// Can be updated each frame, they live as MAPPED buffers.
 		bufferRegistry mPerInstanceRegistry;
 		bufferRegistry mJointRegistry;
 
+		// Compute renderer to make HZB and for culling.
+		computeRenderer mComputeRenderer;
+
 		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
 		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits, VkBuffer UBObuffer);
-		error initBlendingPipelines(VkDevice device, const swapChain& sChain);
+		error initBlendingPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is);
 	};
 }

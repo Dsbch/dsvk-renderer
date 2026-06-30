@@ -10,10 +10,13 @@ namespace engine
 
 		mBindings = computeBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 2,
+			.totalDescriptorsCount = 4,
 
 			.orignalZBufferBinding = 0,
 			.hzbBinding = 1,
+
+			.cmdOpaqueBufferBinding = 2,
+			.cmdAccumilationBufferBinding = 3,
 		};
 
 		mDeletionQueue.init(device);
@@ -131,6 +134,24 @@ namespace engine
 		return {};
 	}
 
+	error computeRenderer::updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& cmdOpaqueInfo)
+	{
+		auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, cmdOpaqueInfo);
+
+		mDescriptorSet.updateWrite(writeInfo);
+
+		return {};
+	}
+
+	error computeRenderer::updateAccumilationCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& cmdAccumilationInfo)
+	{
+		auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, cmdAccumilationInfo);
+
+		mDescriptorSet.updateWrite(writeInfo);
+
+		return {};
+	}
+
 	error computeRenderer::initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits)
 	{
 		error err = mDescriptorSet.init(
@@ -139,6 +160,7 @@ namespace engine
 			poolConstraints{
 				.maxImageDescriptors = limits.maxImage,
 				.maxCombinedImageDescriptors = limits.maxCombinedImageSamplers,
+				.maxBuffersDescriptors = limits.maxStorageBuffers,
 			}
 			);
 		if (err)
@@ -146,6 +168,7 @@ namespace engine
 
 		const uint32_t imageStorage = 1;
 		const uint32_t combinedImageSamplers = 1;
+		const uint32_t bufferObjects = 2;
 
 		// add bindings for hzb.
 		mDescriptorSet.addBinding(
@@ -157,6 +180,20 @@ namespace engine
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mBindings.hzbBinding, limits.maxImage / imageStorage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			)
+		);
+
+		// add bindings for cmd buffers.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.cmdOpaqueBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		// add bindings for cmd buffers.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.cmdAccumilationBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 

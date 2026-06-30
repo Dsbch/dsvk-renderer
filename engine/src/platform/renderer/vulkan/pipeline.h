@@ -4,6 +4,7 @@
 #include <VkBootstrap.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
+#include "registry.h"
 
 namespace engine
 {
@@ -98,5 +99,93 @@ namespace engine
 		VkPipeline mPipeline;
 		VkPipelineLayout mPipelineLayout;
 		VkPipelineShaderStageCreateInfo mComputeShaderStage;
+	};
+
+	struct pipelineData
+	{
+	public:
+		enum class pipelineType
+		{
+			opaque,
+			accumilation,
+			composite,
+		};
+
+		error init(
+			VkDevice device,
+			VmaAllocator allocator,
+			submit& is,
+			std::shared_ptr<const shader> pixelShader,
+			std::shared_ptr<const shader> meshShader,
+			std::shared_ptr<const shader> taskShader,
+			const std::vector<VkDescriptorSetLayout>& descriptorSets,
+			VkFormat depthFormat,
+			const std::vector<VkFormat>& colorAttachmentFormats,
+			VkSampleCountFlagBits sampleCount,
+			pipelineType type = pipelineType::opaque
+		);
+		void destroy();
+
+		struct meshes
+		{
+			uint32_t meshID;
+			bufferHandle meshletHandle;
+			const dataWithLodLevels<meshlet>& meshlets;
+		};
+
+		struct addInstanceParams
+		{
+			uint32_t pixelShaderID;
+			uint32_t instanceID;
+			bufferHandle perInstanceHandle;
+			std::vector<meshes> meshesData;
+			bool isBlendGeometry;
+		};
+
+		struct removeInstanceParams
+		{
+			uint32_t pixelShaderID;
+			uint32_t instanceID;
+			uint32_t meshID;
+		};
+
+		struct updateCommandBufferParams
+		{
+			VkDevice device;
+			VmaAllocator allocator;
+			submit& is;
+		};
+
+		error addInstance(const addInstanceParams& params);
+		void removeInstance(const removeInstanceParams& params);
+		error updateCommandBuffer(const updateCommandBufferParams& params);
+
+		struct pipelineRenderData
+		{
+			VkPipeline pipeline;
+			VkPipelineLayout pipelineLayout;
+			uint32_t meshletCount;
+		};
+
+		pipelineRenderData getPipelineRenderData() const;
+		bool meshIsUsed(uint32_t id) const;
+		bool instanceExists(uint32_t id) const;
+		vulkanBuffer getCmdBuffer() const;
+		bool needDescriptorUpdate() const;
+		void setUpdated();
+	private:
+		classicGraphicPipeline mPipeline;
+
+		bool mNeedDescriptorUpdate;
+
+		std::set<entityHash> mEntitiesToDelete;
+		std::map<entityHash, std::vector<meshletShaderCMD>> mEntitiesToAdd;
+		std::map<entityHash, std::pair<size_t, size_t>> mUploadedEntities;
+
+		std::map<meshHash, uint32_t> mMeshCount;
+
+		bool mIsBufferMapped;
+		uint32_t mCmdBufferSize;
+		vulkanBuffer mCmdBuffer;
 	};
 }

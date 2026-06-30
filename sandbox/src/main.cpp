@@ -18,9 +18,8 @@
 	
 	IN DEVELOPMENT:
 		1. Frustum culling and lod level selection should be done first in compute shader where I generate CMD buffer opaque and accumilation pass.
-		2. Two phase HZB occlision culling.
-		I need to do frustum + oclussion culling per models in compute shader first.
-		Then in task shader the same.
+		2. Two phase HZB occlision culling for opaque pass and accunilation pass.
+		3. Prefix sum algoritm for higher amplification rate.
 
 	BUGS:
 		1. Problem with flickering on new instance - FIXED, the problem was mapped command buffer. Now I need to move command buffer generation to GPU compute shader.

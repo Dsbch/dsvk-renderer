@@ -392,4 +392,37 @@ namespace engine
 
 		vkCmdPipelineBarrier2(cmd, &depInfo);
 	}
+
+	inline void pipelineBufferBarier(
+		VkCommandBuffer cmd,
+		VkBuffer buffer,
+		VkPipelineStageFlags2 srcStageMask,
+		VkAccessFlags2 srcAccessMask,
+		VkPipelineStageFlags2 dstStageMask,
+		VkAccessFlags2 dstAccessMask,
+		uint32_t size,
+		uint32_t offset
+	)
+	{
+		VkBufferMemoryBarrier2 bufferBarier{ .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2 };
+		bufferBarier.pNext = nullptr;
+
+		bufferBarier.srcStageMask = srcStageMask;
+		bufferBarier.srcAccessMask = srcAccessMask;
+		bufferBarier.dstStageMask = dstStageMask;
+		bufferBarier.dstAccessMask = dstAccessMask;
+
+		bufferBarier.size = size;
+		bufferBarier.offset = offset;
+		bufferBarier.buffer = buffer;
+
+		VkDependencyInfo depInfo{};
+		depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		depInfo.pNext = nullptr;
+
+		depInfo.bufferMemoryBarrierCount = 1;
+		depInfo.pBufferMemoryBarriers = &bufferBarier;
+
+		vkCmdPipelineBarrier2(cmd, &depInfo);
+	}
 }

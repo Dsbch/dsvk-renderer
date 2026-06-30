@@ -68,7 +68,11 @@ namespace engine
 		if (err)
 			return err;
 
-		err = initBlendingPipelines(device, sChain);
+		err = initBlendingPipelines(device, sChain, allocator, is);
+		if (err)
+			return err;
+
+		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, sChain);
 		if (err)
 			return err;
 
@@ -82,6 +86,8 @@ namespace engine
 	error meshletRenderer::destroy()
 	{
 		mDeletionQueue.flushDeletonQueue();
+
+		mComputeRenderer.destroy();
 
 		return {};
 	}
@@ -102,23 +108,19 @@ namespace engine
 
 		mPerMeshRegistry.init(device, allocator);
 
-		error err = mPipelineRegistry.init(device, allocator, is);
-		if (err)
-			return err;
-
 		// Updated each frame used as MAPPED.
 		mPerInstanceRegistry.init(device, allocator, true);
 
 		mJointRegistry.init(device, allocator, true);
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPositionRegistry});
-		
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPositionRegistry });
+
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mNormalRegistry });
-		
+
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mTangentRegistry });
-		
+
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mJointIndexRegistry });
-		
+
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mWeightRegistry });
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
@@ -133,8 +135,6 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerMeshRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipelineReg, .pipelineReg = &mPipelineRegistry });
-
 		auto samp = descriptorSet::createSampler(device, float(mPreset.anisotropicFiltering));
 		if (!samp)
 			return samp.err();
@@ -147,7 +147,7 @@ namespace engine
 		if (!defaultMat)
 			return defaultMat.err();
 
-		err = mMaterialRegistry.init(mSampler, defaultMat.value());
+		error err = mMaterialRegistry.init(mSampler, defaultMat.value());
 		if (err)
 			return err;
 
@@ -342,10 +342,10 @@ namespace engine
 
 		mDescriptorSet.updateWrite(wSet);
 
-		return {};
+		return mComputeRenderer.updateSwapchainDependentDescriptors(sChain);
 	}
 
-	error meshletRenderer::initBlendingPipelines(VkDevice device, const swapChain& sChain)
+	error meshletRenderer::initBlendingPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is)
 	{
 		auto meshlets = mCtx->mAmanager->getDefaultAccumilateMeshShader();
 		if (!meshlets)
@@ -359,18 +359,23 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		error err = mPipelineRegistry.initAccumilatePipeline(
+		error err = mAccumilationPipeline.init(
 			device,
+			allocator,
+			is,
 			pixel.value(),
 			meshlets.value(),
 			task.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
 			{ sChain.getAccumImageFormat(), sChain.getRevealImageFormat() },
-			mPreset
+			sampleCounts(mPreset.msaa),
+			pipelineData::pipelineType::accumilation
 		);
 		if (err)
 			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipeData, .pipeData = &mAccumilationPipeline });
 
 		meshlets = mCtx->mAmanager->getDefaultCompositeMeshShader();
 		if (!meshlets)
@@ -384,44 +389,54 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		err = mPipelineRegistry.initCompositePipeline(
+		err = mCompositePipeline.init(
 			device,
+			allocator,
+			is,
 			pixel.value(),
 			meshlets.value(),
 			task.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
 			{ sChain.getDrawImageFormat() },
-			mPreset
+			sampleCounts(mPreset.msaa),
+			pipelineData::pipelineType::composite
 		);
 		if (err)
 			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipeData, .pipeData = &mCompositePipeline });
 
 		return {};
 	}
 
 	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, meshletRenderer::opaquePassParams params)
 	{
-		auto pipelinesMappings = mPipelineRegistry.getOpaquePipelines();
-
-		for (auto& v : pipelinesMappings)
+		uint32_t cmdBufferIndex = 0;
+		for (auto& [_, v] : mPipelines)
 		{
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.pipeline);
+			auto pipeline = v.getPipelineRenderData();
 
-			pushConstants pc{
-				.commandBufferOffset = v.cmdPipelineStartOffset,
-				.meshletCount = v.cmdPipelineEndOffset - v.cmdPipelineStartOffset,
-				.passNumber = 1,
-				.hzbBufferLength = params.hzbBufLength,
-			};
+			// Nothing to render.
+			if (pipeline.meshletCount > 0)
+			{
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 
-			vkCmdPushConstants(cmd, v.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+				pushConstants pc{
+					.meshletCount = pipeline.meshletCount,
+					.opaqueCmdBufferIndex = cmdBufferIndex,
+				};
 
-			// bind the descriptor set.
-			auto set = mDescriptorSet.getDescriptorSet().first;
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, v.layout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+				vkCmdPushConstants(cmd, pipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
-			mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+				// bind the descriptor set.
+				auto set = mDescriptorSet.getDescriptorSet().first;
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+				mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+			}
+
+			cmdBufferIndex++;
 		}
 
 		return {};
@@ -429,24 +444,23 @@ namespace engine
 
 	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		auto blendingPipeline = mPipelineRegistry.getAccumilationPipeline();
+		auto blendingPipeline = mAccumilationPipeline.getPipelineRenderData();
 
 		// Nothing to render.
-		if (blendingPipeline.cmdPipelineEndOffset == 0)
+		if (blendingPipeline.meshletCount == 0)
 			return {};
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
 
 		pushConstants pc{
-			.commandBufferOffset = blendingPipeline.cmdPipelineStartOffset,
-			.meshletCount = blendingPipeline.cmdPipelineEndOffset - blendingPipeline.cmdPipelineStartOffset,
+			.meshletCount = blendingPipeline.meshletCount,
 		};
 
-		vkCmdPushConstants(cmd, blendingPipeline.layout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+		vkCmdPushConstants(cmd, blendingPipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.layout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 
@@ -455,20 +469,20 @@ namespace engine
 
 	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		auto blendingPipeline = mPipelineRegistry.getCompositePipeline();
+		auto blendingPipeline = mCompositePipeline.getPipelineRenderData();
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.getPipeline().first);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
 
 		return {};
 	}
 
-	error meshletRenderer::addToRender(VkDevice device, submit& is, const swapChain& sChain, const model& m)
+	error meshletRenderer::addToRender(VkDevice device, VmaAllocator allocator, submit& is, const swapChain& sChain, const model& m)
 	{
 		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
 		if (!meshShader)
@@ -478,20 +492,32 @@ namespace engine
 		if (!taskShader)
 			return taskShader.err();
 
-		error err = mPipelineRegistry.createPipeline(
-			device,
-			m.mat.pixelShader,
-			meshShader.value(),
-			taskShader.value(),
-			{ mDescriptorSet.getDescriptorSet().second },
-			sChain.getDepthImageFormat(),
-			{ sChain.getDrawImageFormat() },
-			mPreset
-		);
-		if (err)
-			return err;
+		if (mPipelines.find(m.mat.pixelShader->hash()) == mPipelines.end())
+		{
+			pipelineData pipeline{};
 
-		if (mPipelineRegistry.instanceExists(m.id))
+			error err = pipeline.init(
+				device,
+				allocator,
+				is,
+				m.mat.pixelShader,
+				meshShader.value(),
+				taskShader.value(),
+				{ mDescriptorSet.getDescriptorSet().second },
+				sChain.getDepthImageFormat(),
+				{ sChain.getDrawImageFormat() },
+				sampleCounts(mPreset.msaa),
+				pipelineData::pipelineType::opaque
+			);
+			if (err)
+				return err;
+
+			mPipelines[m.mat.pixelShader->hash()] = pipeline;
+
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = pipeData, .pipeData = &mPipelines[m.mat.pixelShader->hash()] });
+		}
+
+		if (mPipelines[m.mat.pixelShader->hash()].instanceExists(m.id))
 			return {};
 
 		// Upload material.
@@ -525,7 +551,7 @@ namespace engine
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();
 
-		pipelineRegistry::addInstanceParams addParams{
+		pipelineData::addInstanceParams addParams{
 			.pixelShaderID = m.mat.pixelShader->hash(),
 			.instanceID = m.id,
 			.perInstanceHandle = perInstanceHandle.value(),
@@ -566,7 +592,7 @@ namespace engine
 			);
 			if (!handle)
 				return handle.err();
-			
+
 			vertexHandle = handle.value();
 
 			bufferHandle weightHandle{};
@@ -651,7 +677,7 @@ namespace engine
 				return handle.err();
 
 			addParams.meshesData.push_back(
-				pipelineRegistry::meshes{
+				pipelineData::meshes{
 					.meshID = crntMesh.meshHash,
 					.meshletHandle = handle.value(),
 					.meshlets = crntMesh.meshlets,
@@ -659,7 +685,14 @@ namespace engine
 				);
 		}
 
-		err = mPipelineRegistry.addInstance(addParams);
+		if (addParams.isBlendGeometry)
+		{
+			error err = mAccumilationPipeline.addInstance(addParams);
+			if (err)
+				return err;
+		}
+
+		error err = mPipelines[m.mat.pixelShader->hash()].addInstance(addParams);
 		if (err)
 			return err;
 
@@ -699,6 +732,11 @@ namespace engine
 
 	void meshletRenderer::removeFromRender(const model& m)
 	{
+		auto pipeline = mPipelines.find(m.mat.pixelShader->hash());
+
+		if (pipeline == mPipelines.end())
+			return;
+
 		mPerInstanceRegistry.deleteBlock(m.id);
 
 		for (int i = 0; i < m.meshData->size(); i++)
@@ -707,20 +745,34 @@ namespace engine
 			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
 
 			// Remove instance.
-			mPipelineRegistry.removeInstance(m.mat.pixelShader->hash(), m.id, crntMesh.meshHash);
+			pipeline->second.removeInstance(
+				pipelineData::removeInstanceParams{
+					.pixelShaderID = m.mat.pixelShader->hash(),
+					.instanceID = m.id,
+					.meshID = crntMesh.meshHash,
+				}
+				);
+
+			mAccumilationPipeline.removeInstance(
+				pipelineData::removeInstanceParams{
+					.pixelShaderID = m.mat.pixelShader->hash(),
+					.instanceID = m.id,
+					.meshID = crntMesh.meshHash,
+				}
+				);
 
 			// Remove animation data.
 			mJointRegistry.deleteBlock(m.id);
 
 			// Mesh isn't used.
-			if (!mPipelineRegistry.meshIsUsed(crntMesh.meshHash))
+			if (!pipeline->second.meshIsUsed(crntMesh.meshHash))
 			{
 				mPositionRegistry.deleteBlock(crntMesh.meshHash);
-				
+
 				mNormalRegistry.deleteBlock(crntMesh.meshHash);
-				
+
 				mTangentRegistry.deleteBlock(crntMesh.meshHash);
-				
+
 				if (crntMeshAttrs.isSkinned)
 				{
 					mJointIndexRegistry.deleteBlock(crntMesh.meshHash);
@@ -740,31 +792,74 @@ namespace engine
 		}
 	}
 
-	error meshletRenderer::updateDescriptors(renderer::renderCallIn in, submit& is)
+	error meshletRenderer::updateDescriptors(renderer::renderCallIn in, submit& is, VkDevice device, VmaAllocator allocator)
 	{
 		// Update command buffer for mesh pipeline.
-		error err = mPipelineRegistry.updateOpaqueCmdBuffer(is);
+		for (auto& [_, p] : mPipelines)
+		{
+			error err = p.updateCommandBuffer(
+				pipelineData::updateCommandBufferParams{
+					.device = device,
+					.allocator = allocator,
+					.is = is,
+				}
+				);
+			if (err)
+				return err;
+		}
+
+		error err = mAccumilationPipeline.updateCommandBuffer(
+			pipelineData::updateCommandBufferParams{
+				.device = device,
+				.allocator = allocator,
+				.is = is,
+			}
+			);
 		if (err)
 			return err;
 
-		err = mPipelineRegistry.updateAccumilationCmdBuffer(is);
-		if (err)
-			return err;
+
+		bool needUpdate = false;
+
+		for (auto& [_, p] : mPipelines)
+			needUpdate |= p.needDescriptorUpdate();
 
 		// update cmd opaque buffer.
-		if (mPipelineRegistry.needOpaqueDescriptorUpdate())
+		if (needUpdate)
 		{
-			auto writeInfo = mPipelineRegistry.getOpaqueCmdBufferWriteInfo(mBindings.cmdOpaqueBufferBinding);
+			mOpaqueCmdBuffersInfo.clear();
+
+			for (auto& [_, p] : mPipelines)
+				mOpaqueCmdBuffersInfo.push_back(VkDescriptorBufferInfo{ .buffer = p.getCmdBuffer().getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, mOpaqueCmdBuffersInfo);
+
+			error err = mComputeRenderer.updateOpaqueCmdBufferDescriptors(mOpaqueCmdBuffersInfo);
+			if (err)
+				return err;
+
 			mDescriptorSet.updateWrite(writeInfo);
-			mPipelineRegistry.setOpaqueUpdated();
+
+			for (auto& [_, p] : mPipelines)
+				p.setUpdated();
 		}
 
 		// update cmd accumilation buffer.
-		if (mPipelineRegistry.needAccumilationDescriptorUpdate())
+		if (mAccumilationPipeline.needDescriptorUpdate())
 		{
-			auto writeInfo = mPipelineRegistry.getAccumilationCmdBufferWriteInfo(mBindings.cmdAccumilationBufferBinding);
+			mAccumilationCmdBufferInfo.clear();
+
+			mAccumilationCmdBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = mAccumilationPipeline.getCmdBuffer().getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, mAccumilationCmdBufferInfo);
+
+			error err = mComputeRenderer.updateAccumilationCmdBufferDescriptors(mAccumilationCmdBufferInfo);
+			if (err)
+				return err;
+
 			mDescriptorSet.updateWrite(writeInfo);
-			mPipelineRegistry.setAccumilationUpdated();
+
+			mAccumilationPipeline.setUpdated();
 		}
 
 		if (mPositionRegistry.needDescriptorUpdate())
