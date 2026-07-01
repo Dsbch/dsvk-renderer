@@ -87,8 +87,46 @@ namespace engine
 		return {};
 	}
 
-	error uiRenderer::onRender(VkCommandBuffer cmd, profilingInfo profInfo)
+	error uiRenderer::onRender(VkCommandBuffer cmd, const swapChain& sChain, profilingInfo profInfo)
 	{
+		transitionImage(
+			cmd,
+			sChain.getDepthImage(mPreset.msaa > 1),
+			sChain.getDepthImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT
+		);
+
+		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
+
+		for (auto& h : hzbBuf)
+		{
+			transitionImage(
+				cmd,
+				h.img.image,
+				h.img.format,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				VK_ACCESS_2_SHADER_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+				VK_ACCESS_2_SHADER_READ_BIT
+			);
+		}
+
+		// Imgui can't work with msaa color attachments.
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, nullptr);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -103,6 +141,8 @@ namespace engine
 		ImGui::Render();
 
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+
+		vkCmdEndRendering(cmd);
 
 		return {};
 	}

@@ -47,6 +47,7 @@ namespace engine
 		bool needDescriptorUpdate() const;
 
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
+		std::vector<VkDescriptorBufferInfo> getBufferInfo();
 	private:
 		bool mUseMappedBuffers;
 		std::vector<bufferWithHandles> mBuffers;
@@ -67,6 +68,7 @@ namespace engine
 		bool needDescriptorUpdate() const;
 
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
+		std::vector<VkDescriptorImageInfo> getImagesInfo();
 
 		withError<uint32_t> addMaterials(const materials& materials);
 		withError<uint32_t> getMaterialsOffset(const materials& materials);

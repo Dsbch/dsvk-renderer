@@ -1,42 +1,6 @@
 //  dxc -T vs_6_9 -E vsmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkLineVs.spv vkLine.hlsl
 //  dxc -T ps_6_9 -E psmain -spirv -Fo -fvk-use-scalar-layout -Fo vkCompiled/vkLinePs.spv vkLine.hlsl
-#ifdef __spirv__
-#define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
-#else
-#define DEFINE_AS_PUSH_CONSTANT
-#endif
-
-struct frustum
-{
-    float3 worldFrontN;
-    float frontDistance;
-    float3 worldBackN;
-    float backDistance;
-    float3 worldRightN;
-    float rightDistance;
-    float3 worldLeftN;
-    float leftDistance;
-    float3 worldTopN;
-    float topDistance;
-    float3 worldBottomN;
-    float bottomDistance;
-};
-
-struct perDrawData
-{
-    float4x4 debugViewProjection;
-    uint useDebugCamera;
-    float3 cameraFront;
-    float3 cameraPos;
-    float3 cameraUp;
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
-    frustum cameraFrustum;
-    float deltaTime;
-    uint width;
-    uint height;
-};
+#include "common.hlsl"
 
 // INPUT START.
 

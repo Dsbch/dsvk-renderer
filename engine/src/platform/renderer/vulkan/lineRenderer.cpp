@@ -99,8 +99,24 @@ namespace engine
 		return {};
 	}
 
-	error lineRenderer::drawLines(VkCommandBuffer cmd)
+	error lineRenderer::drawLines(VkCommandBuffer cmd, const swapChain& sChain)
 	{
+		sChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		sChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		VkClearValue clear{
+			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
+		};
+
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), &clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.getPipeline().first);
 
 		// bind the descriptor set.
@@ -108,6 +124,8 @@ namespace engine
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		vkCmdDraw(cmd, uint32_t(mVertexData.size()), 1, 0, 0);
+
+		vkCmdEndRendering(cmd);
 
 		return {};
 	}

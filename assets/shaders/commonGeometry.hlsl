@@ -1,5 +1,3 @@
-#pragma once
-
 #ifdef __spirv__
 #define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
 #else
@@ -14,7 +12,7 @@
 
 #define EPSILON 0.00001f
 
-#define MAX_UINT 4294967295
+#define MAX_UINT 4294967295;
     
 #define VISIBLE_FLAG_BIT                    (1 << 0)
 #define NOT_VISIBLE_FLAG_BIT                (1 << 1)
@@ -326,26 +324,6 @@ float3 transformPoint(transform pointTransform, float3 p)
     return translate(pointTransform.translation, rotate(pointTransform.rotation, scale(pointTransform.scale, p)));
 }
 
-meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTransform, perMeshAttributes meshAttr)
-{
-    meshletBounds result = bounds;
-   
-    result.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, result.coneAxis));
-    result.coneAxis = normalize(rotate(modelTransform.rotation, result.coneAxis));
-    
-    float uniformScale = max(length(meshAttr.meshGlobalTransform[0].xyz), max(length(meshAttr.meshGlobalTransform[1].xyz), length(meshAttr.meshGlobalTransform[2].xyz)));
-    
-    result.center = mul(meshAttr.meshGlobalTransform, float4(result.center, 1.0f)).xyz;
-    result.radius *= uniformScale;
-                    
-    uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
-    
-    result.center = transformPoint(modelTransform, result.center);
-    result.radius *= uniformScale;
-    
-    return result;
-}
-
 uint getMeshletOffset(command cmd, uint lodLevel)
 {
     uint result;
@@ -370,26 +348,26 @@ uint getMeshletOffset(command cmd, uint lodLevel)
 }
 
 uint selectLodLevel(
-    perMeshAttributes meshAttr,
+    perMeshAttributes meshAttrs,
     perDrawData drawData,
     transform modelTransform
 )
 {
-    float uniformScale = max(length(meshAttr.meshGlobalTransform[0].xyz), max(length(meshAttr.meshGlobalTransform[1].xyz), length(meshAttr.meshGlobalTransform[2].xyz)));
+    float uniformScale = max(length(meshAttrs.meshGlobalTransform[0].xyz), max(length(meshAttrs.meshGlobalTransform[1].xyz), length(meshAttrs.meshGlobalTransform[2].xyz)));
 
-    meshAttr.bsCenter = mul(meshAttr.meshGlobalTransform, float4(meshAttr.bsCenter, 1.0f)).xyz;
-    meshAttr.bsRadius *= uniformScale;
+    meshAttrs.bsCenter = mul(meshAttrs.meshGlobalTransform, float4(meshAttrs.bsCenter, 1.0f)).xyz;
+    meshAttrs.bsRadius *= uniformScale;
     
     uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
     
-    meshAttr.bsCenter = transformPoint(modelTransform, meshAttr.bsCenter);
-    meshAttr.bsRadius *= uniformScale;
+    meshAttrs.bsCenter = transformPoint(modelTransform, meshAttrs.bsCenter);
+    meshAttrs.bsRadius *= uniformScale;
     
     // Get viewSpace of the center.
-    float4 vsCenter = mul(drawData.view, float4(meshAttr.bsCenter, 1.0f));
+    float4 vsCenter = mul(drawData.view, float4(meshAttrs.bsCenter, 1.0f));
     
     // Calculate view space for second point that is at the sphere border on y axis.
-    float4 vsBorder = float4(vsCenter.x, vsCenter.y + meshAttr.bsRadius, vsCenter.zw);
+    float4 vsBorder = float4(vsCenter.x, vsCenter.y + meshAttrs.bsRadius, vsCenter.zw);
 
     // To NDC for both.
     float4 clipCenter = mul(drawData.projection, vsCenter);
@@ -413,30 +391,41 @@ uint selectLodLevel(
 }
 
 // Back face cone culling.
-bool isFrontfaceMeshlet(perDrawData drawData, meshletBounds bounds)
+bool isFrontfaceMeshlet(perDrawData drawData, transform modelTransform, float3 coneAxis, float3 coneApex, float coneCutoff)
 {
-    if (bounds.coneAxis.x == 0 && bounds.coneAxis.y == 0 && bounds.coneAxis.z == 0)
+    if (coneAxis.x == 0 && coneAxis.y == 0 && coneAxis.z == 0)
         return true;
     
-    if (bounds.coneCutoff == 1.0f)
+    if (coneCutoff == 1.0f)
         return true;
     
-    float3 viewDir = normalize(bounds.center- drawData.cameraPos);
+    float3 worldConeApex = transformPoint(modelTransform, coneApex);
+    float3 worldConeAxis = normalize(rotate(modelTransform.rotation, coneAxis));
+    float3 viewDir = normalize(worldConeApex - drawData.cameraPos);
     
-    return dot(viewDir, bounds.coneAxis) < bounds.coneCutoff;
+    return dot(viewDir, worldConeAxis) < coneCutoff;
 }
 
-bool isInFrustum(perDrawData drawData, meshletBounds bounds)
+bool isInFrustum(perDrawData drawData, transform modelTransform, float3 bsCenter, float bsRadius)
 {
-    bool front = dot(bounds.radius * drawData.cameraFrustum.worldFrontN + bounds.center, drawData.cameraFrustum.worldFrontN) - drawData.cameraFrustum.frontDistance > 0;
-    bool back = dot(bounds.radius * drawData.cameraFrustum.worldBackN + bounds.center, drawData.cameraFrustum.worldBackN) - drawData.cameraFrustum.backDistance > 0;
-    bool right = dot(bounds.radius * drawData.cameraFrustum.worldRightN + bounds.center, drawData.cameraFrustum.worldRightN) - drawData.cameraFrustum.rightDistance > 0;
-    bool left = dot(bounds.radius * drawData.cameraFrustum.worldLeftN + bounds.center, drawData.cameraFrustum.worldLeftN) - drawData.cameraFrustum.leftDistance > 0;
-    bool top = dot(bounds.radius * drawData.cameraFrustum.worldTopN + bounds.center, drawData.cameraFrustum.worldTopN) - drawData.cameraFrustum.topDistance > 0;
-    bool bottom = dot(bounds.radius * drawData.cameraFrustum.worldBottomN + bounds.center, drawData.cameraFrustum.worldBottomN) - drawData.cameraFrustum.bottomDistance > 0;
+    float3 worldCenter = transformPoint(modelTransform, bsCenter);
+    
+    float scale = max(0.001f, modelTransform.scale.x);
+    scale = max(scale, modelTransform.scale.y);
+    scale = max(scale, modelTransform.scale.z);
+
+    float worldRadius = scale * bsRadius;
+    
+    bool front = dot(worldRadius * drawData.cameraFrustum.worldFrontN + worldCenter, drawData.cameraFrustum.worldFrontN) - drawData.cameraFrustum.frontDistance > 0;
+    bool back = dot(worldRadius * drawData.cameraFrustum.worldBackN + worldCenter, drawData.cameraFrustum.worldBackN) - drawData.cameraFrustum.backDistance > 0;
+    bool right = dot(worldRadius * drawData.cameraFrustum.worldRightN + worldCenter, drawData.cameraFrustum.worldRightN) - drawData.cameraFrustum.rightDistance > 0;
+    bool left = dot(worldRadius * drawData.cameraFrustum.worldLeftN + worldCenter, drawData.cameraFrustum.worldLeftN) - drawData.cameraFrustum.leftDistance > 0;
+    bool top = dot(worldRadius * drawData.cameraFrustum.worldTopN + worldCenter, drawData.cameraFrustum.worldTopN) - drawData.cameraFrustum.topDistance > 0;
+    bool bottom = dot(worldRadius * drawData.cameraFrustum.worldBottomN + worldCenter, drawData.cameraFrustum.worldBottomN) - drawData.cameraFrustum.bottomDistance > 0;
     
     return front && back && right && left && top && bottom;
 }
+
 
 // meshopt stores the triangle offset in bytes since it stores the
 // triangle indices as 3 consecutive bytes. 

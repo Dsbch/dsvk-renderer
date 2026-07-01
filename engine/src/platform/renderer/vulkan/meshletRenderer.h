@@ -48,11 +48,6 @@ namespace engine
 	struct meshletRenderer
 	{
 	public:
-		struct opaquePassParams
-		{
-			const swapChain& sChain;
-		};
-
 		error init(
 			std::shared_ptr<context> ctx,
 			PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT,
@@ -73,10 +68,11 @@ namespace engine
 		void removeFromRender(const model& m);
 
 		error updateDescriptors(renderer::renderCallIn in, submit& is, VkDevice device, VmaAllocator allocator);
-		error opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, opaquePassParams params);
-		error accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in);
-		error compositePass(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
+		
+		error opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
+		error accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
+		error compositePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
@@ -100,8 +96,6 @@ namespace engine
 		bufferRegistry mMeshletRegistry;
 		bufferRegistry mPerMeshRegistry;
 
-		std::vector<VkDescriptorBufferInfo> mOpaqueCmdBuffersInfo;
-		std::vector<VkDescriptorBufferInfo> mAccumilationCmdBufferInfo;
 		pipelineData mCompositePipeline;
 		pipelineData mAccumilationPipeline;
 		std::map<uint32_t, pipelineData> mPipelines;

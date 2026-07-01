@@ -447,9 +447,10 @@ namespace engine
 							.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
 							.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
 							.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max(),
-							.visabilityBit = visabilityFlagBits::VISIBLE_FLAG_BIT,
+							.visabilityBit = VISIBLE_FLAG_BIT,
+							.selectedLod = 1,
 						}
-					);
+						);
 				}
 			}
 		}
@@ -589,10 +590,20 @@ namespace engine
 		return false;
 	}
 
-
-	vulkanBuffer pipelineData::getCmdBuffer() const
+	std::vector<VkWriteDescriptorSet> pipelineData::getWriteInfo(uint32_t binding)
 	{
-		return mCmdBuffer;
+ 		getBufferInfo();
+
+		return descriptorSet::getWriteInfo(binding, { mBufferInfo });
+	}
+
+	std::vector<VkDescriptorBufferInfo> pipelineData::getBufferInfo()
+	{
+		mBufferInfo.clear();
+
+		mBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = mCmdBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+
+		return mBufferInfo;
 	}
 
 	bool pipelineData::needDescriptorUpdate() const
@@ -603,5 +614,10 @@ namespace engine
 	void pipelineData::setUpdated()
 	{
 		mNeedDescriptorUpdate = false;
+	}
+
+	vulkanBuffer pipelineData::getBuffer() const
+	{
+		return mCmdBuffer;
 	}
 }

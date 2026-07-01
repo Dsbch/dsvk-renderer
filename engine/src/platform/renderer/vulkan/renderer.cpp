@@ -364,311 +364,40 @@ namespace engine
 		renderer::setGraphicsPreset(preset);
 	}
 
-	void vulkanRenderer::setViewportAndSciccors(VkCommandBuffer cmd) const
-	{
-		VkViewport viewport = {};
-		viewport.x = 0;
-		viewport.y = 0;
-		viewport.width = float(mSwapChain.getDrawImageExtent().width);
-		viewport.height = float(mSwapChain.getDrawImageExtent().height);
-		viewport.minDepth = 0.f;
-		viewport.maxDepth = 1.f;
-
-		vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-		VkRect2D scissor = {};
-		scissor.offset.x = 0;
-		scissor.offset.y = 0;
-		scissor.extent.width = (mSwapChain.getDrawImageExtent().width);
-		scissor.extent.height = (mSwapChain.getDrawImageExtent().height);
-
-		vkCmdSetScissor(cmd, 0, 1, &scissor);
-	}
-
 	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		// transition our main draw image into general layout so we can write into it
-		// we will overwrite it all so we dont care about what was the older layout
-		transitionImage(
+		error err = mLineRenderer.drawLines(
 			cmd,
-			mSwapChain.getDrawImage(false),
-			mSwapChain.getDrawImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			mSwapChain
 		);
-
-		transitionImage(
-			cmd,
-			mSwapChain.getDepthImage(false),
-			mSwapChain.getDepthImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
-		);
-
-		if (mPreset.msaa > 1)
-		{
-			transitionImage(
-				cmd,
-				mSwapChain.getDrawImage(true),
-				mSwapChain.getDrawImageFormat(),
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
-			);
-
-			transitionImage(
-				cmd,
-				mSwapChain.getDepthImage(true),
-				mSwapChain.getDepthImageFormat(),
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
-			);
-		}
-
-		// Draw opaque geometry first.
-		VkClearValue clear{
-			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
-		};
-
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDrawImageView(true), getResolveMode(mPreset.msaa), &clear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
-		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
-
-		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
-		setViewportAndSciccors(cmd);
-
-		error err = mLineRenderer.drawLines(cmd);
 		if (err)
 			return err;
 
 		err = mMeshletRenderer.opaquePass(
 			cmd,
 			in,
-			meshletRenderer::opaquePassParams{
-				.sChain = mSwapChain,
-			}
-			);
+			mSwapChain
+		);
 		if (err)
 			return err;
-
-		vkCmdEndRendering(cmd);
 
 		return {};
 	}
 
 	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		// Draw transperent geometry.
-
-		// Transition with memmory barier.
-		transitionImage(
-			cmd,
-			mSwapChain.getAccumImage(false),
-			mSwapChain.getAccumImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-		);
-
-		transitionImage(
-			cmd,
-			mSwapChain.getRevealImage(false),
-			mSwapChain.getRevealImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-		);
-
-		if (mPreset.msaa > 1)
-		{
-			transitionImage(
-				cmd,
-				mSwapChain.getAccumImage(true),
-				mSwapChain.getAccumImageFormat(),
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-			);
-
-			transitionImage(
-				cmd,
-				mSwapChain.getRevealImage(true),
-				mSwapChain.getRevealImageFormat(),
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-			);
-		}
-
-		// Add image barier, need to wait for opaque pass to finish for early depth test in accumilation pass.
-		pipelineImageBarrier(
-			cmd,
-			mSwapChain.getDepthImage(false),
-			mSwapChain.getDepthImageFormat(),
-			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
-		);
-
-		VkClearValue clear{
-			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
-		};
-
-		VkRenderingAttachmentInfo accumAttachment = attachmentInfo(
-			mSwapChain.getAccumImageView(false),
-			mPreset.msaa <= 1 ? nullptr : mSwapChain.getAccumImageView(true),
-			getResolveMode(mPreset.msaa),
-			&clear,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-		);
-
-		clear.color = VkClearColorValue{ 1.0f, 0.0f, 0.0f, 1.0f };
-
-		VkRenderingAttachmentInfo revealAttachment = attachmentInfo(
-			mSwapChain.getRevealImageView(false),
-			mPreset.msaa <= 1 ? nullptr : mSwapChain.getRevealImageView(true),
-			getResolveMode(mPreset.msaa),
-			&clear,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-		);
-
-		std::vector<VkRenderingAttachmentInfo> colorAttachments = { accumAttachment, revealAttachment };
-
-		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(mSwapChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
-
-		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
-		mMeshletRenderer.accumilationPass(cmd, in);
-
-		vkCmdEndRendering(cmd);
-
-		return {};
+		return mMeshletRenderer.accumilationPass(cmd, in, mSwapChain);
 	}
 
 	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
 	{
-		// Transition to sample them as textures in composite pass.
-		transitionImage(
-			cmd,
-			mSwapChain.getAccumImage(mPreset.msaa > 1),
-			mSwapChain.getAccumImageFormat(),
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT
-		);
-
-		transitionImage(
-			cmd,
-			mSwapChain.getRevealImage(mPreset.msaa > 1),
-			mSwapChain.getRevealImageFormat(),
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT
-		);
-
-		// Composite opaque and transperent.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : mSwapChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
-
-		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, nullptr);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
-		mMeshletRenderer.compositePass(cmd, in);
-
-		vkCmdEndRendering(cmd);
-
-		return {};
+		return mMeshletRenderer.compositePass(cmd, in, mSwapChain);
 	}
 
 	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
 	{
-		transitionImage(
-			cmd,
-			mSwapChain.getDepthImage(mPreset.msaa > 1),
-			mSwapChain.getDepthImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT
-		);
-
-		std::vector<vulkanImage> hzbBuf = mSwapChain.getHZB();
-
-		for (auto& h : hzbBuf)
-		{
-			transitionImage(
-				cmd,
-				h.img.image,
-				h.img.format,
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-				VK_ACCESS_2_SHADER_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
-				VK_ACCESS_2_SHADER_READ_BIT
-			);
-		}
-
-		// Imgui can't work with msaa color attachments.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(mSwapChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
-
-		VkRenderingInfo renderInfo = renderingInfo(mSwapChain.getDrawImageExtent(), colorAttachments, nullptr);
-
-		vkCmdBeginRendering(cmd, &renderInfo);
-
 		// Draw UI.
-		mUiRenderer.onRender(cmd, mProfInfo);
-
-		vkCmdEndRendering(cmd);
-
-		return {};
+		return mUiRenderer.onRender(cmd, mSwapChain, mProfInfo);
 	}
 
 	std::string vulkanRenderer::getVersion() const
@@ -819,6 +548,8 @@ namespace engine
 		vkResult = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
 		if (vkResult != VK_SUCCESS)
 			return vkResultToStr(vkResult);
+
+		setViewportAndSciccors(cmd, mSwapChain.getDrawImageExtent());
 
 		mGpuProfiler.reset(cmd);
 

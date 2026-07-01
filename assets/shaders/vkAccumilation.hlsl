@@ -2,6 +2,7 @@
 //  dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshAccumilationPs.spv vkAccumilation.hlsl
 //  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAccumilationAs.spv vkAccumilation.hlsl
 //  add -fspv-debug=vulkan-with-source flag only for debug.
+#define NEED_BINDINGS
 #include "common.hlsl"
 
 // DescriptorSets END.
@@ -45,57 +46,18 @@ void asmain(
     if (dtid < push.meshletCount)
     {
         command cmd = commandAccumilationBuffer[dtid];
-        
-        perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex][cmd.instanceOffset];
-
-        // Get first lod level to reference a meshlet.
-        uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
-        meshlet mesh = meshletBuffer[cmd.meshletIndex][meshletOffsetFirstLodLevel];
-        perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
-        
-        uint selectedLod = selectLodLevel(meshAttr, drawData, instanceAttr.modelTransform);
-        uint meshletOffset = getMeshletOffset(cmd, selectedLod);
+        uint meshletOffset = getMeshletOffset(cmd, cmd.selectedLod);
     
-        visible = meshletOffset != MAX_UINT;
-        
-        // Still have meshlets for that lodLevel.
+        visible = hasFlag(cmd.visabilityBit, VISIBLE_FLAG_BIT);
+            
         if (visible)
         {
-            mesh = meshletBuffer[cmd.meshletIndex][meshletOffset];
-            meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
-            
-            visible = mesh.alphaType == BLEND_ALPHA_MODE;
-            
-            if (visible)
-            {
-                mesh.bounds.center = mul(meshAttr.meshGlobalTransform, float4(mesh.bounds.center, 1.0f)).xyz;
-                
-                float3 sx = meshAttr.meshGlobalTransform[0].xyz;
-                float3 sy = meshAttr.meshGlobalTransform[1].xyz;
-                float3 sz = meshAttr.meshGlobalTransform[2].xyz;
-
-                float scaleX = length(sx);
-                float scaleY = length(sy);
-                float scaleZ = length(sz);
-
-                float maxScale = max(scaleX, max(scaleY, scaleZ));
-
-                mesh.bounds.radius = mesh.bounds.radius * maxScale;
-                
-                mesh.bounds.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, mesh.bounds.coneAxis));
-                
-                visible = isInFrustum(drawData, instanceAttr.modelTransform, mesh.bounds.center, mesh.bounds.radius);
-            }
-            
-            if (visible)
-            {
-                uint index = WavePrefixCountBits(visible);
+            uint index = WavePrefixCountBits(visible);
         
-                payload.perInstanceIndex[index] = cmd.instanceIndex;
-                payload.perInstanceOffset[index] = cmd.instanceOffset;
-                payload.meshletIndex[index] = cmd.meshletIndex;
-                payload.meshletOffset[index] = meshletOffset;
-            }
+            payload.perInstanceIndex[index] = cmd.instanceIndex;
+            payload.perInstanceOffset[index] = cmd.instanceOffset;
+            payload.meshletIndex[index] = cmd.meshletIndex;
+            payload.meshletOffset[index] = meshletOffset;
         }
     }
     

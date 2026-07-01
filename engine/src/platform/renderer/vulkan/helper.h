@@ -61,6 +61,27 @@ namespace engine
 		}
 	}
 
+	inline void setViewportAndSciccors(VkCommandBuffer cmd, VkExtent3D drawImageExtent)
+	{
+		VkViewport viewport = {};
+		viewport.x = 0;
+		viewport.y = 0;
+		viewport.width = float(drawImageExtent.width);
+		viewport.height = float(drawImageExtent.height);
+		viewport.minDepth = 0.f;
+		viewport.maxDepth = 1.f;
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+		VkRect2D scissor = {};
+		scissor.offset.x = 0;
+		scissor.offset.y = 0;
+		scissor.extent.width = (drawImageExtent.width);
+		scissor.extent.height = (drawImageExtent.height);
+
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+	}
+
 	inline VkCommandPoolCreateInfo commandPoolCreateInfo(uint32_t queueFamilyIndex,
 		VkCommandPoolCreateFlags flags /*= 0*/)
 	{

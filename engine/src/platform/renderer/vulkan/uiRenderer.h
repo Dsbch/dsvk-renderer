@@ -24,7 +24,7 @@ namespace engine
 			graphicsPreset preset
 		);
 		error destroy();
-		error onRender(VkCommandBuffer cmd, profilingInfo profInfo);
+		error onRender(VkCommandBuffer cmd, const swapChain& sChain, profilingInfo profInfo);
 		void updateSwapchainDependentDescriptors(swapChain sChain);
 	private:
 		VkDevice mDevice;

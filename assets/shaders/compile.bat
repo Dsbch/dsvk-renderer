@@ -143,5 +143,15 @@ if %errorlevel% neq 0 (
 
 echo.
 
+echo Compiling Compute Culling Shader...
+dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -fspv-debug=vulkan-with-source -Fo vkCompiled/vkComputeCulling.spv vkComputeCulling.hlsl
+if %errorlevel% neq 0 (
+    echo Compute Culling Shader compilation failed!
+    pause
+) else (
+    echo Compute Culling Shader compiled successfully.
+)
+
+echo.
 
 pause

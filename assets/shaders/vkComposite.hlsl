@@ -2,6 +2,7 @@
 //  dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshCompositePs.spv vkComposite.hlsl
 //  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshCompositeAs.spv vkComposite.hlsl
 //  add -fspv-debug=vulkan-with-source flag only for debug.
+#define NEED_BINDINGS
 #include "common.hlsl"
 
 // TS START.

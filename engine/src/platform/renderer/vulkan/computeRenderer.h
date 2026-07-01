@@ -24,6 +24,10 @@ namespace engine
 		// Buffers binding.
 		uint32_t cmdOpaqueBufferBinding;
 		uint32_t cmdAccumilationBufferBinding;
+		uint32_t perMeshBufferBinding;
+		uint32_t meshletBufferBinding;
+		uint32_t perInstanceBufferBinding;
+		uint32_t perDrawDataBufferBinding;
 	};
 
 	struct computeRenderer
@@ -37,27 +41,41 @@ namespace engine
 			submit& is,
 			deviceLimits limits,
 			graphicsPreset preset,
+			VkBuffer UBObuffer,
 			const swapChain& sChain
 		);
 		error destroy();
 
 		error buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
 
+		struct cullMeshletsParams
+		{
+			uint32_t meshletCount;
+			uint32_t cullStage;
+			uint32_t opaqueCmdBufferIndex;
+		};
+
+		error cullMeshlets(VkCommandBuffer cmd, renderer::renderCallIn in, cullMeshletsParams params);
+
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
-		error updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& cmdOpaqueInfo);
-		error updateAccumilationCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& cmdAccumilationInfo);
+		error updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
+		error updateAccumilationCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
+		error updatePerMeshBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
+		error updateMeshletBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
+		error updatePerInstancetBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
 		computeBindings mBindings;
 		graphicsPreset mPreset;
 
-		computePipeline mComputePipeline;
+		computePipeline mBuildHzbPipeline;
+		computePipeline mCullingPipeline;
 
 		VkSampler mSampler;
 		descriptorSet mDescriptorSet;
 
-		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits);
+		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer UBObuffer, deviceLimits limits);
 		error initComputePipeline(VkDevice device);
 	};
 }

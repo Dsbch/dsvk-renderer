@@ -1,17 +1,19 @@
 //  dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkHzbCs.spv vkComputeHZB.hlsl
-#ifdef __spirv__
-#define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
-#else
-#define DEFINE_AS_PUSH_CONSTANT
-#endif
+//  add -fspv-debug=vulkan-with-source flag only for debug.
+#include "common.hlsl"
 
-#define THREADS_COUNT 32
+#define FIRST_OPAQUE_PASS_FLAG_BIT              (1 << 0)
+#define SECOND_OPAQUE_PASS_FLAG_BIT             (1 << 1)
+#define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
 
 struct pushConstant
 {
     uint hzbMipLevel;
-    uint width;
-    uint height;
+    uint mipWidth;
+    uint mipHeight;
+    uint cullingPassFlagBit;
+    uint opaqueCmdBufferIndex;
+    uint meshletCount;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -19,11 +21,17 @@ pushConstant push;
 
 Texture2D<float> originalZbuffer : register(t0, space0);
 RWTexture2D<float> hzbChain[] : register(u1, space0);
+StructuredBuffer<command> commandOpaqueBuffer[] : register(t2, space0);
+StructuredBuffer<command> commandAccumilationBuffer : register(t3, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t4, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t6, space0);
+ConstantBuffer<perDrawData> drawData : register(b7, space0);
 
 [numthreads(THREADS_COUNT, THREADS_COUNT, 1)]
 void main(uint2 dtid : SV_DispatchThreadID)
 {
-    if (dtid.x >= push.width || dtid.y >= push.height)
+    if (dtid.x >= push.mipWidth || dtid.y >= push.mipHeight)
         return;
 
     float depth;

@@ -303,6 +303,17 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
+	withError<std::shared_ptr<const shader>> aManager::getCullingShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkComputeCulling.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
 	withError<std::shared_ptr<const shader>> aManager::getDefaultLinePixelShader()
 	{
 #ifdef VULKAN

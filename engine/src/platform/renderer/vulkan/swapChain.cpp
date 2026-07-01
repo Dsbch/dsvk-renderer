@@ -340,8 +340,8 @@ namespace engine
 		uint32_t mip0Width = (std::max)(1u, width / 2);
 		uint32_t mip0Height = (std::max)(1u, height / 2);
 
-		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height)))) + 1; 
-		
+		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height)))) + 1;
+
 		mHZB.clear();
 
 		VkExtent3D mipExtent = { mip0Width, mip0Height, 1 };
@@ -357,7 +357,7 @@ namespace engine
 				return err;
 
 			mHZB.push_back(std::move(currentDepth));
-		
+
 			mipExtent.width = (std::max)(1u, mipExtent.width / 2);
 			mipExtent.height = (std::max)(1u, mipExtent.height / 2);
 		}
@@ -462,5 +462,124 @@ namespace engine
 	std::vector<vulkanImage> swapChain::getHZB() const
 	{
 		return mHZB;
+	}
+
+	void swapChain::transitionDrawImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	{
+		transitionImage(
+			cmd,
+			getDrawImage(false),
+			getDrawImageFormat(),
+			current,
+			newLayout,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
+
+		if (mPreset.msaa > 1)
+		{
+			transitionImage(
+				cmd,
+				getDrawImage(true),
+				getDrawImageFormat(),
+				current,
+				newLayout,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			);
+		}
+	}
+
+	void swapChain::transitionDepthImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	{
+		transitionImage(
+			cmd,
+			getDepthImage(false),
+			getDepthImageFormat(),
+			current,
+			newLayout,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		);
+
+		if (mPreset.msaa > 1)
+		{
+			transitionImage(
+				cmd,
+				getDepthImage(true),
+				getDepthImageFormat(),
+				current,
+				newLayout,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			);
+		}
+	}
+	void swapChain::transitionAccumImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	{
+		transitionImage(
+			cmd,
+			getAccumImage(false),
+			getAccumImageFormat(),
+			current,
+			newLayout,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
+
+		if (mPreset.msaa > 1)
+		{
+			transitionImage(
+				cmd,
+				getAccumImage(true),
+				getAccumImageFormat(),
+				current,
+				newLayout,
+				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			);
+		}
+	}
+
+	void swapChain::transitionRevealImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	{
+		transitionImage(
+			cmd,
+			getRevealImage(false),
+			getRevealImageFormat(),
+			current,
+			newLayout,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
+
+		if (mPreset.msaa > 1)
+		{
+			transitionImage(
+				cmd,
+				getRevealImage(true),
+				getRevealImageFormat(),
+				current,
+				newLayout,
+				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			);
+		}
 	}
 }

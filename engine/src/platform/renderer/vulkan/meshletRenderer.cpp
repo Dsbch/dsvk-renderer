@@ -72,7 +72,7 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, sChain);
+		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, UBObuffer, sChain);
 		if (err)
 			return err;
 
@@ -410,30 +410,155 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, meshletRenderer::opaquePassParams params)
+	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
 	{
 		uint32_t cmdBufferIndex = 0;
 		for (auto& [_, v] : mPipelines)
 		{
 			auto pipeline = v.getPipelineRenderData();
 
-			// Nothing to render.
+			// Has to render.
 			if (pipeline.meshletCount > 0)
 			{
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+				// FIRST PASS.
+				{
+					// Dispatch compute call for culling and lod level selection.
+					// For now it's only going to set falgs for each cmd buffer entry.
+					// Later I will need to implement prefix sum on GPU to increase amplification rate.
+					error err = mComputeRenderer.cullMeshlets(
+						cmd,
+						in,
+						computeRenderer::cullMeshletsParams{
+							.meshletCount = pipeline.meshletCount,
+							.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
+							.opaqueCmdBufferIndex = cmdBufferIndex,
+						}
+						);
+					if (err)
+						return err;
 
-				pushConstants pc{
-					.meshletCount = pipeline.meshletCount,
-					.opaqueCmdBufferIndex = cmdBufferIndex,
-				};
+					VkBuffer cmdBuf = v.getBuffer().getBuffer().buffer;
+					uint32_t cmdBufSize = uint32_t(v.getBuffer().getLoadedBytes());
 
-				vkCmdPushConstants(cmd, pipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+					// Wait for compute call to finish it writes.
+					pipelineBufferBarier(
+						cmd,
+						cmdBuf,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+						VK_ACCESS_2_SHADER_WRITE_BIT,
+						VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_ACCESS_2_SHADER_READ_BIT,
+						cmdBufSize,
+						0
+					);
 
-				// bind the descriptor set.
-				auto set = mDescriptorSet.getDescriptorSet().first;
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
 
-				mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+					std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+					VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+
+					vkCmdBeginRendering(cmd, &renderInfo);
+
+					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+
+					pushConstants pc{
+						.meshletCount = pipeline.meshletCount,
+						.opaqueCmdBufferIndex = cmdBufferIndex,
+					};
+
+					vkCmdPushConstants(cmd, pipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+
+					// bind the descriptor set.
+					auto set = mDescriptorSet.getDescriptorSet().first;
+					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+					mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+
+					vkCmdEndRendering(cmd);
+				}
+
+				// SECOND PASS.
+				//{
+				//	// Build HZB.
+				//	error err = mComputeRenderer.buildHZB(cmd, in, sChain);
+				//	if (err)
+				//		return err;
+
+				//	for (auto& hzb : sChain.getHZB())
+				//	{
+				//		pipelineImageBarrier(
+				//			cmd,
+				//			hzb.img.image,
+				//			hzb.img.format,
+				//			VK_IMAGE_LAYOUT_UNDEFINED,
+				//			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				//			VK_ACCESS_2_SHADER_WRITE_BIT,
+				//			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				//			VK_ACCESS_2_SHADER_READ_BIT
+				//		);
+				//	}
+
+				//	// Dispatch compute call for culling and lod level selection.
+				//	// For now it's only going to set falgs for each cmd buffer entry.
+				//	// Later I will need to implement prefix sum on GPU to increase amplification rate.
+				//	err = mComputeRenderer.cullMeshlets(
+				//		cmd,
+				//		in,
+				//		computeRenderer::cullMeshletsParams{
+				//			.meshletCount = pipeline.meshletCount,
+				//			.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
+				//			.opaqueCmdBufferIndex = cmdBufferIndex,
+				//		}
+				//		);
+				//	if (err)
+				//		return err;
+
+				//	VkBuffer cmdBuf = v.getBuffer().getBuffer().buffer;
+				//	uint32_t cmdBufSize = uint32_t(v.getBuffer().getLoadedBytes());
+
+				//	// Wait for compute call to finish its writes.
+				//	pipelineBufferBarier(
+				//		cmd,
+				//		cmdBuf,
+				//		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				//		VK_ACCESS_2_SHADER_WRITE_BIT,
+				//		VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+				//		VK_ACCESS_2_SHADER_READ_BIT,
+				//		cmdBufSize,
+				//		0
+				//	);
+
+				//	// Transition depth after build HZB.
+				//	sChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+				//	VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+				//	VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
+
+				//	std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+				//	VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+
+				//	vkCmdBeginRendering(cmd, &renderInfo);
+
+				//	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+
+				//	pushConstants pc{
+				//		.meshletCount = pipeline.meshletCount,
+				//		.opaqueCmdBufferIndex = cmdBufferIndex,
+				//	};
+
+				//	vkCmdPushConstants(cmd, pipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+
+				//	// bind the descriptor set.
+				//	auto set = mDescriptorSet.getDescriptorSet().first;
+				//	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+				//	mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+
+				//	vkCmdEndRendering(cmd);
+				//}
 			}
 
 			cmdBufferIndex++;
@@ -442,13 +567,88 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
 	{
 		auto blendingPipeline = mAccumilationPipeline.getPipelineRenderData();
 
 		// Nothing to render.
 		if (blendingPipeline.meshletCount == 0)
 			return {};
+
+		sChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		sChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		// Add image barier, need to wait for opaque pass to finish for early depth test in accumilation pass.
+		pipelineImageBarrier(
+			cmd,
+			sChain.getDepthImage(false),
+			sChain.getDepthImageFormat(),
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+		);
+
+		VkClearValue clear{
+			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
+		};
+
+		VkRenderingAttachmentInfo accumAttachment = attachmentInfo(
+			sChain.getAccumImageView(false),
+			mPreset.msaa <= 1 ? nullptr : sChain.getAccumImageView(true),
+			getResolveMode(mPreset.msaa),
+			&clear,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		);
+
+		clear.color = VkClearColorValue{ 1.0f, 0.0f, 0.0f, 1.0f };
+
+		VkRenderingAttachmentInfo revealAttachment = attachmentInfo(
+			sChain.getRevealImageView(false),
+			mPreset.msaa <= 1 ? nullptr : sChain.getRevealImageView(true),
+			getResolveMode(mPreset.msaa),
+			&clear,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { accumAttachment, revealAttachment };
+
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
+
+		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+
+
+		// Dispatch compute call for culling and lod level selection.
+		// For now it's only going to set falgs for each cmd buffer entry.
+		// Later I will need to implement prefix sum on GPU to increase amplification rate.
+		error err = mComputeRenderer.cullMeshlets(
+			cmd,
+			in,
+			computeRenderer::cullMeshletsParams{
+				.meshletCount = blendingPipeline.meshletCount,
+				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
+			}
+			);
+		if (err)
+			return err;
+
+		VkBuffer cmdBuf = mAccumilationPipeline.getBuffer().getBuffer().buffer;
+		uint32_t cmdBufSize = uint32_t(mAccumilationPipeline.getBuffer().getLoadedBytes());
+
+		// Wait for compute call to finish it writes.
+		pipelineBufferBarier(
+			cmd,
+			cmdBuf,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+			VK_ACCESS_2_SHADER_READ_BIT,
+			cmdBufSize,
+			0
+		);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
 
@@ -464,11 +664,47 @@ namespace engine
 
 		mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 
+		vkCmdEndRendering(cmd);
+
 		return {};
 	}
 
-	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
 	{
+		// Transition to sample them as textures in composite pass.
+		transitionImage(
+			cmd,
+			sChain.getAccumImage(mPreset.msaa > 1),
+			sChain.getAccumImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT
+		);
+
+		transitionImage(
+			cmd,
+			sChain.getRevealImage(mPreset.msaa > 1),
+			sChain.getRevealImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT
+		);
+
+		// Composite opaque and transperent.
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, nullptr);
+
+		vkCmdBeginRendering(cmd, &renderInfo);
+
 		auto blendingPipeline = mCompositePipeline.getPipelineRenderData();
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
@@ -478,6 +714,8 @@ namespace engine
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
+
+		vkCmdEndRendering(cmd);
 
 		return {};
 	}
@@ -827,18 +1065,20 @@ namespace engine
 		// update cmd opaque buffer.
 		if (needUpdate)
 		{
-			mOpaqueCmdBuffersInfo.clear();
-
+			std::vector<VkDescriptorBufferInfo> buffersInfo{};
 			for (auto& [_, p] : mPipelines)
-				mOpaqueCmdBuffersInfo.push_back(VkDescriptorBufferInfo{ .buffer = p.getCmdBuffer().getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+			{
+				auto info = p.getBufferInfo();
+				buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
+			}
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, mOpaqueCmdBuffersInfo);
-
-			error err = mComputeRenderer.updateOpaqueCmdBufferDescriptors(mOpaqueCmdBuffersInfo);
-			if (err)
-				return err;
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, buffersInfo);
 
 			mDescriptorSet.updateWrite(writeInfo);
+
+			error err = mComputeRenderer.updateOpaqueCmdBufferDescriptors(buffersInfo);
+			if (err)
+				return err;
 
 			for (auto& [_, p] : mPipelines)
 				p.setUpdated();
@@ -847,17 +1087,18 @@ namespace engine
 		// update cmd accumilation buffer.
 		if (mAccumilationPipeline.needDescriptorUpdate())
 		{
-			mAccumilationCmdBufferInfo.clear();
+			std::vector<VkDescriptorBufferInfo> buffersInfo{};
 
-			mAccumilationCmdBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = mAccumilationPipeline.getCmdBuffer().getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+			auto info = mAccumilationPipeline.getBufferInfo();
+			buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, mAccumilationCmdBufferInfo);
-
-			error err = mComputeRenderer.updateAccumilationCmdBufferDescriptors(mAccumilationCmdBufferInfo);
-			if (err)
-				return err;
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, buffersInfo);
 
 			mDescriptorSet.updateWrite(writeInfo);
+
+			error err = mComputeRenderer.updateAccumilationCmdBufferDescriptors(buffersInfo);
+			if (err)
+				return err;
 
 			mAccumilationPipeline.setUpdated();
 		}
@@ -913,6 +1154,12 @@ namespace engine
 
 		if (mMeshletRegistry.needDescriptorUpdate())
 		{
+			auto bufInfo = mMeshletRegistry.getBufferInfo();
+
+			error err = mComputeRenderer.updateMeshletBufferDescriptors(bufInfo);
+			if (err)
+				return err;
+
 			auto writeInfo = mMeshletRegistry.getWriteInfo(mBindings.meshletBinding);
 			mDescriptorSet.updateWrite(writeInfo);
 			mMeshletRegistry.setUpdated();
@@ -920,6 +1167,12 @@ namespace engine
 
 		if (mPerInstanceRegistry.needDescriptorUpdate())
 		{
+			auto bufInfo = mPerInstanceRegistry.getBufferInfo();
+
+			error err = mComputeRenderer.updatePerInstancetBufferDescriptors(bufInfo);
+			if (err)
+				return err;
+
 			auto writeInfo = mPerInstanceRegistry.getWriteInfo(mBindings.perInstanceBinding);
 			mDescriptorSet.updateWrite(writeInfo);
 			mPerInstanceRegistry.setUpdated();
@@ -934,6 +1187,12 @@ namespace engine
 
 		if (mPerMeshRegistry.needDescriptorUpdate())
 		{
+			auto bufInfo = mPerMeshRegistry.getBufferInfo();
+
+			error err = mComputeRenderer.updatePerMeshBufferDescriptors(bufInfo);
+			if (err)
+				return err;
+
 			auto writeInfo = mPerMeshRegistry.getWriteInfo(mBindings.perMeshBinding);
 			mDescriptorSet.updateWrite(writeInfo);
 			mPerMeshRegistry.setUpdated();

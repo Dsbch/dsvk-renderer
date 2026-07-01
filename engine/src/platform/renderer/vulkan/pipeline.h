@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 #include "registry.h"
+#include "descriptorSet.h"
 
 namespace engine
 {
@@ -170,9 +171,11 @@ namespace engine
 		pipelineRenderData getPipelineRenderData() const;
 		bool meshIsUsed(uint32_t id) const;
 		bool instanceExists(uint32_t id) const;
-		vulkanBuffer getCmdBuffer() const;
+		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
+		std::vector<VkDescriptorBufferInfo> getBufferInfo();
 		bool needDescriptorUpdate() const;
 		void setUpdated();
+		vulkanBuffer getBuffer() const;
 	private:
 		classicGraphicPipeline mPipeline;
 
@@ -187,5 +190,6 @@ namespace engine
 		bool mIsBufferMapped;
 		uint32_t mCmdBufferSize;
 		vulkanBuffer mCmdBuffer;
+		std::vector<VkDescriptorBufferInfo> mBufferInfo;
 	};
 }

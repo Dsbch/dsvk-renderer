@@ -62,6 +62,11 @@ namespace engine
 		uint32_t getHzbSize() const;
 		std::vector<vulkanImage> getHZB() const;
 
+		void transitionDrawImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
+		void transitionDepthImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
+		void transitionAccumImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
+		void transitionRevealImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
+
 		VkFormat getDrawImageFormat() const;
 		VkFormat getDepthImageFormat() const;
 		VkFormat getAccumImageFormat() const;

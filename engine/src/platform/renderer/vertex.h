@@ -28,13 +28,10 @@ namespace engine
 
 	glm::mat4 toMat4(const transform& trs);
 
-	enum class visabilityFlagBits : uint32_t
-	{
-		VISIBLE_FLAG_BIT = 1 << 0,
-		NOT_VISIBLE_FLAG_BIT = 1 << 1,
-		VISIBLE_CURRENT_FRAME_FLAG_BIT = 1 << 2,
-		NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT = 1 << 3,
-	};
+#define VISIBLE_FLAG_BIT                    (1 << 0)
+#define NOT_VISIBLE_FLAG_BIT                (1 << 1)
+#define VISIBLE_CURRENT_FRAME_FLAG_BIT      (1 << 2)
+#define NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT  (1 << 3)
 
 	// Task/Amplification shader cmd buffer.
 	struct meshletShaderCMD
@@ -47,7 +44,10 @@ namespace engine
 		uint32_t meshletOffset2;
 		uint32_t meshletOffset3;
 		uint32_t meshletOffset4;
-		visabilityFlagBits visabilityBit;
+
+		// Setted by GPU in compute.
+		uint32_t visabilityBit;
+		uint32_t selectedLod;
 	};
 
 	struct perInstanceAttr
@@ -68,14 +68,6 @@ namespace engine
 		/* normal cone, useful for backface culling */
 		glm::vec3 coneAxis;
 		float coneCutoff; /* = cos(angle/2) */
-	};
-
-	enum mehletVisibilityFlagBits : uint32_t {
-		// At the end of second pass, all meshlets must have only two flags below.
-		VISIBLE_BIT = 1 << 0,
-		NOT_VISIBLE_BIT = 1 << 1,
-		// Only between fist and second opaque pass.
-		NOT_VISIBLE_NOW_BIT = 1 << 2,
 	};
 
 	struct meshlet
@@ -122,7 +114,7 @@ namespace engine
 		std::vector<glm::vec4> tangent;
 		std::vector<glm::uvec4> jointIndices;
 		std::vector<glm::vec4> weights;
-		
+
 		// Meshlets data.
 		dataWithLodLevels<uint32_t> indices;
 		dataWithLodLevels<uint32_t> primitives;
@@ -141,10 +133,10 @@ namespace engine
 			uint32_t jointsIndicesHash = crc32(reinterpret_cast<const uint8_t*>(jointIndices.data()), jointIndices.size() * sizeof(glm::uvec4) / sizeof(uint8_t));
 			uint32_t weightsHash = crc32(reinterpret_cast<const uint8_t*>(weights.data()), weights.size() * sizeof(glm::vec4) / sizeof(uint8_t));
 
-			uint32_t vertexHash = mergeCrc32( {posHash, normalHash, tangentHash, jointsIndicesHash, weightsHash } );
+			uint32_t vertexHash = mergeCrc32({ posHash, normalHash, tangentHash, jointsIndicesHash, weightsHash });
 
 			uint32_t indexHash = crc32(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
-			
+
 			uint32_t primitiveHash = crc32(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
 
 			uint32_t meshletHash = crc32(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
@@ -323,11 +315,18 @@ namespace engine
 		uint32_t opaqueCmdBufferIndex;
 	};
 
+#define FIRST_OPAQUE_PASS_FLAG_BIT              (1 << 0)
+#define SECOND_OPAQUE_PASS_FLAG_BIT             (1 << 1)
+#define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
+
 	struct computePushConstants
 	{
 		uint32_t hzbMipLevel;
-		uint32_t width;
-		uint32_t height;
+		uint32_t mipWidth;
+		uint32_t mipHeight;
+		uint32_t cullingPassFlagBit;
+		uint32_t opaqueCmdBufferIndex;
+		uint32_t meshletCount;
 	};
 
 	struct lineVertex

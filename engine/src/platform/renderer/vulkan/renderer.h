@@ -87,7 +87,6 @@ namespace engine
 
 		error updatePerDrawBuffer(renderer::renderCallIn in);
 		void chooseGraphicsPreset();
-		void setViewportAndSciccors(VkCommandBuffer cmd) const;
 		error drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
 		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
