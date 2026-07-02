@@ -16,9 +16,10 @@ DONE:
 
 IN DEVELOPMENT:
 	1. Frustum culling and lod level selection should be done first in compute shader where I generate CMD buffer opaque and accumilation pass, right now amplification rate is too low, I get now performance boost from frustum culling.
-		1.1. Have to use prefix-sum on GPU algoritm after compute culling to optimize amplification rate.
-	2. Two phase HZB occlision culling for opaque pass and accunilation pass.
-	3. Prefix sum algoritm for higher amplification rate.
+		1.1. Have to use prefix-sum on GPU algoritm after compute culling to optimize amplification rate. - DONE
+	2. Two phase HZB occlision culling for opaque pass and accunilation pass. - DONE
+	3. Prefix sum algoritm for higher amplification rate. - IN DEVELOPMENT.
+	4. Figure out how to solve a problem with debug camera ovewriting depth buffer :(.
 
 BUGS:
 	1. Problem with flickering on new instance - FIXED, the problem was mapped command buffer. Now I need to move command buffer generation to GPU compute shader.

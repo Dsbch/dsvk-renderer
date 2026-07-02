@@ -217,8 +217,9 @@ void main(uint dtid : SV_DispatchThreadID)
                     neededChain = min(push.hzbLength - 1, neededChain);
                     
                     // drawData.width >> neededChain => divide by 2 in power of neededChain.
-                    int mipWidth = max(1, int(drawData.width) >> neededChain);
-                    int mipHeight = max(1, int(drawData.height) >> neededChain);
+                    // drawData.width / 2 because zero mip starts with drawData.width / 2.
+                    int mipWidth = max(1, int(drawData.width / 2) >> (neededChain));
+                    int mipHeight = max(1, int(drawData.height / 2) >> (neededChain));
 
                     float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
 
@@ -230,10 +231,11 @@ void main(uint dtid : SV_DispatchThreadID)
                     float d11 = hzbChain[neededChain][topLeftTexel + int2(1, 1)];
 
                     float minDepth = min(min(d00, d10), min(d01, d11));
-
-                    printf("meshlet: %d, center: %f, %f; pixelLength: %f; closest depth: %f; selectedHZB: %d; mipTexelCoords: %f, %f; minDepth: %f\n", int(dtid), occData.sphereCenterUV.x, occData.sphereCenterUV.y, occData.pixelLength, occData.closestDepth, int(neededChain), mipTexelCoords.x, mipTexelCoords.y, minDepth);
                     
                     visible = (occData.closestDepth >= minDepth) || occData.closestDepth < 0.0f;
+                    
+                    if (!visible)
+                        printf("meshlet: %d culled!\n", int(dtid));
                 }
                 
                 commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].selectedLod = selectedLod;

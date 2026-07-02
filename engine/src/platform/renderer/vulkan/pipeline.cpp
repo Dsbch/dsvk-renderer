@@ -450,7 +450,7 @@ namespace engine
 							.visabilityBit = NOT_VISIBLE_FLAG_BIT,
 							.selectedLod = 1,
 						}
-						);
+					);
 				}
 			}
 		}

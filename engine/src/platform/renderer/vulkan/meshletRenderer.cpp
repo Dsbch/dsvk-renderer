@@ -453,7 +453,17 @@ namespace engine
 
 				// SECOND PASS.
 				{
-					// Build HZB.
+					// Build HZB.					
+					sChain.transitionDepthImage(
+						cmd,
+						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+						VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+						VK_ACCESS_2_SHADER_READ_BIT
+					);
+
 					error err = mComputeRenderer.buildHZB(cmd, in, sChain);
 					if (err)
 						return err;
@@ -490,7 +500,15 @@ namespace engine
 					);
 
 					// Transition depth after build HZB.
-					sChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+					sChain.transitionDepthImage(
+						cmd, 
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+						VK_ACCESS_2_SHADER_READ_BIT,
+						VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+						VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+					);
 
 					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);

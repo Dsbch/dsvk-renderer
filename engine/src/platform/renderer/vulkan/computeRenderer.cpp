@@ -63,16 +63,6 @@ namespace engine
 
 	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
 	{
-		sChain.transitionDepthImage(
-			cmd,
-			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT
-		);
-
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mBuildHzbPipeline.getPipeline().first);
 
 		auto set = mDescriptorSet.getDescriptorSet().first;
@@ -81,12 +71,12 @@ namespace engine
 		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
 		for (uint32_t i = 0; i < hzbBuf.size(); i++)
 		{
-			if (i < hzbBuf.size() - 1)
+			if (i > 0)
 			{
 				pipelineImageBarrier(
 					cmd,
-					hzbBuf[i].img.image,
-					hzbBuf[i].img.format,
+					hzbBuf[i - 1].img.image,
+					hzbBuf[i - 1].img.format,
 					VK_IMAGE_LAYOUT_GENERAL,
 					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 					VK_ACCESS_2_SHADER_WRITE_BIT,
@@ -132,7 +122,7 @@ namespace engine
 		vkCmdPushConstants(cmd, mCullingPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
 
 		vkCmdDispatch(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
-		
+
 		return {};
 	}
 

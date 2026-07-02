@@ -337,10 +337,10 @@ namespace engine
 			return err;
 
 		// Build HZB.
-		uint32_t mip0Width = (std::max)(1u, width / 2);
-		uint32_t mip0Height = (std::max)(1u, height / 2);
+		uint32_t mip0Width = (std::max)(1u, width >> 1);
+		uint32_t mip0Height = (std::max)(1u, height >> 1);
 
-		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height)))) + 1;
+		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height))));
 
 		mHZB.clear();
 
@@ -348,18 +348,21 @@ namespace engine
 
 		for (uint32_t l = 0; l < hzbMipLevels; l++)
 		{
+			const uint32_t mipWidth = (std::max)(1u, width >> (l + 1));
+			const uint32_t mipHeight = (std::max)(1u, height >> (l + 1));
+
 			vulkanImage currentDepth{};
 
 			currentDepth.init(mDevice, mAllocator);
+
+			mipExtent.width = mipWidth;
+			mipExtent.height = mipHeight;
 
 			err = currentDepth.build(is, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
 			if (err)
 				return err;
 
 			mHZB.push_back(std::move(currentDepth));
-
-			mipExtent.width = (std::max)(1u, mipExtent.width / 2);
-			mipExtent.height = (std::max)(1u, mipExtent.height / 2);
 		}
 
 		return {};
