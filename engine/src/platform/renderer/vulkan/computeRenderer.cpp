@@ -63,6 +63,9 @@ namespace engine
 
 	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
 	{
+		if (in.useDebugCamera)
+			return {};
+
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mBuildHzbPipeline.getPipeline().first);
 
 		auto set = mDescriptorSet.getDescriptorSet().first;
