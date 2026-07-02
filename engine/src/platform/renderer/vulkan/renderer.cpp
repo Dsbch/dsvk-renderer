@@ -280,9 +280,9 @@ namespace engine
 
 	error vulkanRenderer::initSwapchain(uint32_t width, uint32_t height)
 	{
-		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice, mPreset);
+		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice, mSubmit, mPreset);
 
-		error err = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		error err = mSwapChain.build(mSubmit, width, height, mGraphicsQueueFamily);
 		if (err)
 			return err;
 
@@ -439,7 +439,7 @@ namespace engine
 		}
 
 		mSwapChain.destroy();
-		auto swapChainErr = mSwapChain.build(width, height, mGraphicsQueueFamily);
+		auto swapChainErr = mSwapChain.build(mSubmit, width, height, mGraphicsQueueFamily);
 		if (swapChainErr)
 			return swapChainErr;
 
@@ -572,6 +572,10 @@ namespace engine
 
 		mGpuProfiler.endTimestamp(cmd, "drawTransperent");
 
+		// Transition to sample them as textures in composite pass.
+		mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 		err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent");
 
 		err = compositeOpaqueAndTransperent(cmd, in);
@@ -580,6 +584,10 @@ namespace engine
 
 		mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent");
 
+		// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
+		mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		
 		err = mGpuProfiler.beginTimeStamp(cmd, "drawUI");
 
 		err = drawUI(cmd);
@@ -588,58 +596,39 @@ namespace engine
 
 		mGpuProfiler.endTimestamp(cmd, "drawUI");
 
-		//transition the draw image and the swapchain image into their correct transfer layouts
-		transitionImage(
-			cmd,
-			mSwapChain.getDrawImage(mPreset.msaa > 1),
-			mSwapChain.getDrawImageFormat(),
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
-		);
+		// Prepare for next frame.
+		mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-		transitionImage(
+		//transition the draw image and the swapchain image into their correct transfer layouts
+		mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+		mSwapChain.transitionCurrentSwapChainImage(
 			cmd,
-			mSwapChain.getCurrentSwapChainImage(),
-			mSwapChain.getDrawImageFormat(),
 			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 		);
 
 		// copy from the draw image into the swapchain
 		copyImageToImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
 
+		// Transition image back to it's format.
+		mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
 		// set swapchain image layout to Attachment Optimal so we can draw it
-		transitionImage(
+		mSwapChain.transitionCurrentSwapChainImage(
 			cmd,
-			mSwapChain.getCurrentSwapChainImage(),
-			mSwapChain.getDrawImageFormat(),
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 		);
 
 		// set swapchain image layout to Present so we can draw it
-		transitionImage(
+		mSwapChain.transitionCurrentSwapChainImage(
 			cmd,
-			mSwapChain.getCurrentSwapChainImage(),
-			mSwapChain.getDrawImageFormat(),
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 		);
 
 		//finalize the command buffer (we can no longer add commands, but it can now be executed)

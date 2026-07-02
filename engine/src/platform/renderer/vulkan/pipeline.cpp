@@ -447,7 +447,7 @@ namespace engine
 							.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
 							.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
 							.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max(),
-							.visabilityBit = VISIBLE_FLAG_BIT,
+							.visabilityBit = NOT_VISIBLE_FLAG_BIT,
 							.selectedLod = 1,
 						}
 						);

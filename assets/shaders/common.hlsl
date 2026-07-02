@@ -204,7 +204,6 @@ Texture2D accum : register(t22, space0);
 SamplerState accumSampler : register(s22, space0);
 Texture2D reveal : register(t23, space0);
 SamplerState revealSampler : register(s23, space0);
-Texture2D<float> hzbChain[] : register(t24, space0);
 
 // MATERIALS END.
 

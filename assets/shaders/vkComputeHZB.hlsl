@@ -14,6 +14,7 @@ struct pushConstant
     uint cullingPassFlagBit;
     uint opaqueCmdBufferIndex;
     uint meshletCount;
+    uint hzbLength;
 };
 
 DEFINE_AS_PUSH_CONSTANT

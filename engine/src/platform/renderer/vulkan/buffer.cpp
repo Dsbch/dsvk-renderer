@@ -114,9 +114,6 @@ namespace engine
 						copy.size = mLoadedBytes;
 
 						vkCmdCopyBuffer(cmd, buf.getBuffer().buffer, mBuffer.buffer, 1, &copy);
-					},
-					[]()
-					{
 					}
 				);
 				if (err)

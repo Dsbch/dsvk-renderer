@@ -261,7 +261,7 @@ namespace engine
 		return mSwapchainExtent;
 	}
 
-	error swapChain::createSwapChain(uint32_t width, uint32_t height)
+	error swapChain::createSwapChain(submit& is, uint32_t width, uint32_t height)
 	{
 		vkb::SwapchainBuilder swapchainBuilder{ mChosenGPU, mDevice, mSurface };
 
@@ -301,38 +301,38 @@ namespace engine
 		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		error err = mDrawImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(mPreset.msaa));
+		error err = mDrawImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, VK_SAMPLE_COUNT_1_BIT);
+		err = mResolveImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mDepthImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(mPreset.msaa));
+		err = mDepthImage.build(is, drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mDepthResolveImage.build(drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, VK_SAMPLE_COUNT_1_BIT);
+		err = mDepthResolveImage.build(is, drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
 		// Build images for OIT.
 		const VkImageUsageFlags weightedUsages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		err = mAccumImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa));
+		err = mAccumImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mAccumResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT);
+		err = mAccumResolveImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mRevealImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa));
+		err = mRevealImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mRevealResolveImage.build(drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT);
+		err = mRevealResolveImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
@@ -352,7 +352,7 @@ namespace engine
 
 			currentDepth.init(mDevice, mAllocator);
 
-			err = currentDepth.build(mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT);
+			err = currentDepth.build(is, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
 			if (err)
 				return err;
 
@@ -365,7 +365,7 @@ namespace engine
 		return {};
 	}
 
-	error swapChain::build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
+	error swapChain::build(submit& is, uint32_t width, uint32_t height, uint32_t graphicsQueueFamily)
 	{
 		VkCommandPoolCreateInfo commandPoolInfo = commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
@@ -396,7 +396,7 @@ namespace engine
 				return { vkResultToStr(result) };
 		}
 
-		return createSwapChain(width, height);
+		return createSwapChain(is, width, height);
 	}
 
 	void swapChain::init(
@@ -404,6 +404,7 @@ namespace engine
 		VkDevice device,
 		VkSurfaceKHR surface,
 		VkPhysicalDevice chosenGPU,
+		submit& is,
 		graphicsPreset preset
 	)
 	{
@@ -464,7 +465,30 @@ namespace engine
 		return mHZB;
 	}
 
-	void swapChain::transitionDrawImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	void swapChain::transitionCurrentSwapChainImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) const
+	{
+		transitionImage(
+			cmd,
+			getCurrentSwapChainImage(),
+			getDrawImageFormat(),
+			current,
+			newLayout,
+			srcStageMask,
+			srcAccessMask,
+			dstStageMask,
+			dstAccessMask
+		);
+	}
+
+	void swapChain::transitionDrawImage(
+		VkCommandBuffer cmd,
+		VkImageLayout current,
+		VkImageLayout newLayout,
+		VkPipelineStageFlags2 srcStageMask,
+		VkAccessFlags2 srcAccessMask,
+		VkPipelineStageFlags2 dstStageMask,
+		VkAccessFlags2 dstAccessMask
+	) const
 	{
 		transitionImage(
 			cmd,
@@ -472,10 +496,10 @@ namespace engine
 			getDrawImageFormat(),
 			current,
 			newLayout,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			srcStageMask,
+			srcAccessMask,
+			dstStageMask,
+			dstAccessMask
 		);
 
 		if (mPreset.msaa > 1)
@@ -486,15 +510,23 @@ namespace engine
 				getDrawImageFormat(),
 				current,
 				newLayout,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+				srcStageMask,
+				srcAccessMask,
+				dstStageMask,
+				dstAccessMask
 			);
 		}
 	}
 
-	void swapChain::transitionDepthImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	void swapChain::transitionDepthImage(
+		VkCommandBuffer cmd,
+		VkImageLayout current,
+		VkImageLayout newLayout,
+		VkPipelineStageFlags2 srcStageMask,
+		VkAccessFlags2 srcAccessMask,
+		VkPipelineStageFlags2 dstStageMask,
+		VkAccessFlags2 dstAccessMask
+	) const
 	{
 		transitionImage(
 			cmd,
@@ -502,10 +534,10 @@ namespace engine
 			getDepthImageFormat(),
 			current,
 			newLayout,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+			srcStageMask,
+			srcAccessMask,
+			dstStageMask,
+			dstAccessMask
 		);
 
 		if (mPreset.msaa > 1)
@@ -516,14 +548,22 @@ namespace engine
 				getDepthImageFormat(),
 				current,
 				newLayout,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-				VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+				srcStageMask,
+				srcAccessMask,
+				dstStageMask,
+				dstAccessMask
 			);
 		}
 	}
-	void swapChain::transitionAccumImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	void swapChain::transitionAccumImage(
+		VkCommandBuffer cmd,
+		VkImageLayout current,
+		VkImageLayout newLayout,
+		VkPipelineStageFlags2 srcStageMask,
+		VkAccessFlags2 srcAccessMask,
+		VkPipelineStageFlags2 dstStageMask,
+		VkAccessFlags2 dstAccessMask
+	) const
 	{
 		transitionImage(
 			cmd,
@@ -531,10 +571,10 @@ namespace engine
 			getAccumImageFormat(),
 			current,
 			newLayout,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			srcStageMask,
+			srcAccessMask,
+			dstStageMask,
+			dstAccessMask
 		);
 
 		if (mPreset.msaa > 1)
@@ -545,15 +585,23 @@ namespace engine
 				getAccumImageFormat(),
 				current,
 				newLayout,
-				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+				srcStageMask,
+				srcAccessMask,
+				dstStageMask,
+				dstAccessMask
 			);
 		}
 	}
 
-	void swapChain::transitionRevealImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const
+	void swapChain::transitionRevealImage(
+		VkCommandBuffer cmd,
+		VkImageLayout current,
+		VkImageLayout newLayout,
+		VkPipelineStageFlags2 srcStageMask,
+		VkAccessFlags2 srcAccessMask,
+		VkPipelineStageFlags2 dstStageMask,
+		VkAccessFlags2 dstAccessMask
+	) const
 	{
 		transitionImage(
 			cmd,
@@ -561,10 +609,10 @@ namespace engine
 			getRevealImageFormat(),
 			current,
 			newLayout,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			srcStageMask,
+			srcAccessMask,
+			dstStageMask,
+			dstAccessMask
 		);
 
 		if (mPreset.msaa > 1)
@@ -575,10 +623,28 @@ namespace engine
 				getRevealImageFormat(),
 				current,
 				newLayout,
-				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+				srcStageMask,
+				srcAccessMask,
+				dstStageMask,
+				dstAccessMask
+			);
+		}
+	}
+
+	void swapChain::transitionHzbChainImages(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) const
+	{
+		for (auto& hzb : getHZB())
+		{
+			transitionImage(
+				cmd,
+				hzb.img.image,
+				hzb.img.format,
+				current,
+				newLayout,
+				srcStageMask,
+				srcAccessMask,
+				dstStageMask,
+				dstAccessMask
 			);
 		}
 	}

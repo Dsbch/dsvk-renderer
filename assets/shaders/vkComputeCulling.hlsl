@@ -14,6 +14,7 @@ struct pushConstant
     uint cullingPassFlagBit;
     uint opaqueCmdBufferIndex;
     uint meshletCount;
+    uint hzbLength;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -47,10 +48,14 @@ occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perD
     float4 vsBorder = float4(vsCenter.x, vsCenter.y + worldSpaceSphere.w, vsCenter.zw);
     float4 vsClosestToCamera = float4(vsCenter.x, vsCenter.y, vsCenter.z + worldSpaceSphere.w, vsCenter.w);
     
+    printf("viewSpaceCenter: %f, %f\n", vsCenter.z, vsCenter.w);
+    
     // Clip space.
     float4 clipToCamera = mul(drawData.projection, vsClosestToCamera);
     float4 clipCenter = mul(drawData.projection, vsCenter);
     float4 clipBorder = mul(drawData.projection, vsBorder);
+    
+    printf("clipCenter: %f, %f\n", clipCenter.z, clipCenter.w);
     
     // NDC space.
     float2 ndcToCamera = clipToCamera.xy / clipToCamera.w;
@@ -66,7 +71,7 @@ occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perD
     uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(drawData.width)), uint(ndcNormalizedCenter.y * float(drawData.height)));
     uint2 ndcBorderPixel = uint2(uint(ndcNormalizedBorder.x * float(drawData.width)), uint(ndcNormalizedBorder.y * float(drawData.height)));
     
-    result.pixelLength = 2.0f * length(ndcCenterPixel - ndcBorderPixel);
+    result.pixelLength = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixel));
     result.sphereCenterUV = ndcNormalizedCenter.xy;
     
     return result;
@@ -115,9 +120,8 @@ void main(uint dtid : SV_DispatchThreadID)
             command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid];
             
             // Meshlet was visible prev frame so we process it.
-            //if (hasFlag(cmd.visabilityBit, VISIBLE_FLAG_BIT) || hasFlag(cmd.visabilityBit, VISIBLE_CURRENT_FRAME_FLAG_BIT))
-            //{
-        
+            if (hasFlag(cmd.visabilityBit, VISIBLE_FLAG_BIT) || hasFlag(cmd.visabilityBit, VISIBLE_CURRENT_FRAME_FLAG_BIT))
+            {
                 perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex][cmd.instanceOffset];
 
                 // Get first lod level to reference a meshlet.
@@ -148,7 +152,7 @@ void main(uint dtid : SV_DispatchThreadID)
             
                 commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].selectedLod = selectedLod;
                 commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = visible ? VISIBLE_CURRENT_FRAME_FLAG_BIT : NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT;
-           // }
+            }
             
             return;
         }
@@ -198,33 +202,40 @@ void main(uint dtid : SV_DispatchThreadID)
                 meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
             
                 // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
-            
+               
                 bool visible = isFrontfaceMeshlet(drawData, worldBounds) &&
                     isInFrustum(drawData, worldBounds);
             
                 // Oclussion culling.
-                occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), drawData);
+                if (visible)
+                {
+                    occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), drawData);
             
-                // Floor, because we will sample 2x2 texels for that sphere.
-                uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
-            
-                // drawData.width >> neededChain => divide by 2 in power of neededChain.
-                int mipWidth = max(1, int(drawData.width) >> neededChain);
-                int mipHeight = max(1, int(drawData.height) >> neededChain);
+                    // Floor, because we will sample 2x2 texels for that sphere.
+                    uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
+                    
+                    neededChain = min(push.hzbLength - 1, neededChain);
+                    
+                    // drawData.width >> neededChain => divide by 2 in power of neededChain.
+                    int mipWidth = max(1, int(drawData.width) >> neededChain);
+                    int mipHeight = max(1, int(drawData.height) >> neededChain);
 
-                float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
+                    float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
 
-                int2 topLeftTexel = clamp(int2(floor(mipTexelCoords)), int2(0, 0), int2(mipWidth - 2, mipHeight - 2));
+                    int2 topLeftTexel = clamp(int2(floor(mipTexelCoords)), int2(0, 0), int2(mipWidth - 2, mipHeight - 2));
 
-                float d00 = hzbChain[neededChain][topLeftTexel + int2(0, 0)];
-                float d10 = hzbChain[neededChain][topLeftTexel + int2(1, 0)];
-                float d01 = hzbChain[neededChain][topLeftTexel + int2(0, 1)];
-                float d11 = hzbChain[neededChain][topLeftTexel + int2(1, 1)];
+                    float d00 = hzbChain[neededChain][topLeftTexel + int2(0, 0)];
+                    float d10 = hzbChain[neededChain][topLeftTexel + int2(1, 0)];
+                    float d01 = hzbChain[neededChain][topLeftTexel + int2(0, 1)];
+                    float d11 = hzbChain[neededChain][topLeftTexel + int2(1, 1)];
 
-                float maxDepth = max(max(d00, d10), max(d01, d11));
+                    float minDepth = min(min(d00, d10), min(d01, d11));
 
-                visible &= (occData.closestDepth >= maxDepth);
-            
+                    printf("meshlet: %d, center: %f, %f; pixelLength: %f; closest depth: %f; selectedHZB: %d; mipTexelCoords: %f, %f; minDepth: %f\n", int(dtid), occData.sphereCenterUV.x, occData.sphereCenterUV.y, occData.pixelLength, occData.closestDepth, int(neededChain), mipTexelCoords.x, mipTexelCoords.y, minDepth);
+                    
+                    visible = (occData.closestDepth >= minDepth) || occData.closestDepth < 0.0f;
+                }
+                
                 commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].selectedLod = selectedLod;
                 commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = visible ? VISIBLE_CURRENT_FRAME_FLAG_BIT : NOT_VISIBLE_FLAG_BIT;
             }

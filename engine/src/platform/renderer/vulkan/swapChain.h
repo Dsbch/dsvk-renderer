@@ -46,26 +46,75 @@ namespace engine
 					VK_NULL_HANDLE,
 					VK_NULL_HANDLE,
 				}
-			),
+				),
 			mDepthImage(),
 			mDrawImage(),
 			mSwapchainExtent(),
 			mSwapchainIndex(0),
 			mFrameNumber(0)
-		{
-		}
+		{}
 
-		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU, graphicsPreset preset);
-		error build(uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
+		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU, submit& is, graphicsPreset preset);
+		error build(submit& is, uint32_t width, uint32_t height, uint32_t graphicsQueueFamily);
 		void destroy();
 
 		uint32_t getHzbSize() const;
 		std::vector<vulkanImage> getHZB() const;
 
-		void transitionDrawImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
-		void transitionDepthImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
-		void transitionAccumImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
-		void transitionRevealImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout) const;
+		void transitionCurrentSwapChainImage(
+			VkCommandBuffer cmd,
+			VkImageLayout current,
+			VkImageLayout newLayout,
+			VkPipelineStageFlags2 srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		) const;
+		void transitionDrawImage(
+			VkCommandBuffer cmd,
+			VkImageLayout current,
+			VkImageLayout newLayout,
+			VkPipelineStageFlags2 srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		) const;
+		void transitionDepthImage(
+			VkCommandBuffer cmd,
+			VkImageLayout current,
+			VkImageLayout newLayout,
+			VkPipelineStageFlags2 srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		) const;
+		void transitionAccumImage(
+			VkCommandBuffer cmd,
+			VkImageLayout current,
+			VkImageLayout newLayout,
+			VkPipelineStageFlags2 srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		) const;
+		void transitionRevealImage(
+			VkCommandBuffer cmd,
+			VkImageLayout current,
+			VkImageLayout newLayout,
+			VkPipelineStageFlags2 srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		) const;
+		void transitionHzbChainImages(
+			VkCommandBuffer cmd,
+			VkImageLayout current,
+			VkImageLayout newLayout,
+			VkPipelineStageFlags2 srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		) const;
 
 		VkFormat getDrawImageFormat() const;
 		VkFormat getDepthImageFormat() const;
@@ -109,7 +158,7 @@ namespace engine
 		VkFence getRenderFence();
 	private:
 		void increment();
-		error createSwapChain(uint32_t width, uint32_t height);
+		error createSwapChain(submit& is, uint32_t width, uint32_t height);
 
 		frameData& getCurrentFrameData();
 

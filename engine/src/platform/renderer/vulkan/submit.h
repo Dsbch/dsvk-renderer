@@ -23,8 +23,9 @@ namespace engine
 		engine::error init(std::shared_ptr<context> ctx, VkDevice mDevice, VkQueue queue, uint32_t queueFamily);
 		void destroy();
 
-		engine::error immediate(const std::function<void(VkCommandBuffer cmd)>&& function);
-		engine::error queue(const std::function<void(VkCommandBuffer cmd)>&& function, std::function<void()>&& cleanUp);
+		engine::error immediate(const std::function<void(VkCommandBuffer cmd)>& function);
+		engine::error queue(const std::function<void(VkCommandBuffer cmd)>& function,const  std::function<void()>& cleanUp);
+		engine::error queue(const std::function<void(VkCommandBuffer cmd)>& function);
 
 		std::vector<VkSubmitInfo2> getSumbitedCommands();
 		void deleteSubmitedCommands(size_t idx);
@@ -46,5 +47,13 @@ namespace engine
 		co::mutex mu;
 		std::vector<std::pair<VkSemaphore, std::function<void()>>> semaInUse;
 		std::vector<std::pair<VkSemaphore, std::function<void()>>> semaToDelete;
+		
+		struct queuedCommand
+		{
+			VkSemaphore sema;
+			VkCommandBuffer cmd;
+		};
+
+		withError<queuedCommand> queueCommand(const std::function<void(VkCommandBuffer cmd)>& function);
 	};
 }

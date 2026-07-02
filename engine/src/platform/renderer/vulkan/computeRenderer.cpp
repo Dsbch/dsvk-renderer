@@ -63,13 +63,9 @@ namespace engine
 
 	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
 	{
-		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
-
-		transitionImage(
+		sChain.transitionDepthImage(
 			cmd,
-			sChain.getDepthImage(mPreset.msaa > 1),
-			sChain.getDepthImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
@@ -82,6 +78,7 @@ namespace engine
 		auto set = mDescriptorSet.getDescriptorSet().first;
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mBuildHzbPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
+		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
 		for (uint32_t i = 0; i < hzbBuf.size(); i++)
 		{
 			if (i < hzbBuf.size() - 1)
@@ -90,7 +87,7 @@ namespace engine
 					cmd,
 					hzbBuf[i].img.image,
 					hzbBuf[i].img.format,
-					VK_IMAGE_LAYOUT_UNDEFINED,
+					VK_IMAGE_LAYOUT_GENERAL,
 					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 					VK_ACCESS_2_SHADER_WRITE_BIT,
 					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -129,6 +126,7 @@ namespace engine
 			.cullingPassFlagBit = params.cullStage,
 			.opaqueCmdBufferIndex = params.opaqueCmdBufferIndex,
 			.meshletCount = params.meshletCount,
+			.hzbLength = params.hzbLength,
 		};
 
 		vkCmdPushConstants(cmd, mCullingPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);

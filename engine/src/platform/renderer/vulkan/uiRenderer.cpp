@@ -21,6 +21,7 @@ namespace engine
 	{
 		mDevice = device;
 		mPreset = preset;
+		mGlobalOffset = 0;
 
 		auto samp = descriptorSet::createSampler(mDevice, float(mPreset.anisotropicFiltering));
 		if (!samp)
@@ -89,35 +90,6 @@ namespace engine
 
 	error uiRenderer::onRender(VkCommandBuffer cmd, const swapChain& sChain, profilingInfo profInfo)
 	{
-		transitionImage(
-			cmd,
-			sChain.getDepthImage(mPreset.msaa > 1),
-			sChain.getDepthImageFormat(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT
-		);
-
-		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
-
-		for (auto& h : hzbBuf)
-		{
-			transitionImage(
-				cmd,
-				h.img.image,
-				h.img.format,
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-				VK_ACCESS_2_SHADER_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
-				VK_ACCESS_2_SHADER_READ_BIT
-			);
-		}
-
 		// Imgui can't work with msaa color attachments.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -210,7 +182,7 @@ namespace engine
 
 		ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(550, 300), ImGuiCond_Once);
-		
+
 		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
 
 		// 1.FPS.
@@ -237,22 +209,24 @@ namespace engine
 
 		// 2. Render passes.
 		{
-			// 2.1 Update history.
-			for (auto const& [name, ms] : profInfo.passInfo) 
+			mGlobalOffset = (mGlobalOffset + 1) % 128;
+
+			for (auto& [name, h] : mPassHistories)
+				h.history[mGlobalOffset] = 0.0f;
+
+			for (auto const& [name, ms] : profInfo.passInfo)
 			{
 				if (mPassHistories.find(name) == mPassHistories.end())
-					mPassHistories[name] = { {}, 0, 0.0f, IM_COL32(rand() % 200 + 55, rand() % 200 + 55, rand() % 200 + 55, 255) };
+					mPassHistories[name] = { {}, 0.0f, IM_COL32(rand() % 200 + 55, rand() % 200 + 55, rand() % 200 + 55, 255) };
 
 				if (std::isnan(ms))
 					continue;
 
 				auto& h = mPassHistories[name];
-				h.history[h.offset] = ms;
+				h.history[mGlobalOffset] = ms;
 				h.lastValidMs = ms;
-				h.offset = (h.offset + 1) % 128;
 			}
 
-			// Calculate dynamic max for scaling.
 			float maxMs = 1.0f;
 			for (int f = 0; f < 128; f++)
 			{
@@ -260,11 +234,14 @@ namespace engine
 				for (auto const& [name, h] : mPassHistories) total += h.history[f];
 				maxMs = std::max(maxMs, total);
 			}
+
+			maxMs = std::max(maxMs, 1.0f);
+
 			static float smoothMax = 1.0f;
 			smoothMax += (maxMs - smoothMax) * 0.05f;
 
 			// 2.2 Rendering.
-			float graphHeight = 100.0f; 
+			float graphHeight = 100.0f;
 			ImGui::BeginChild("ProfilerGraphArea", ImVec2(0, graphHeight), false, ImGuiWindowFlags_NoScrollbar);
 
 			float legendWidth = 270.0f;
@@ -291,20 +268,22 @@ namespace engine
 			float barWidth = graphWidth / 128.0f;
 			for (int f = 0; f < 128; f++)
 			{
-				// Use the defined graphHeight
 				float y = graphPos.y + graphHeight;
+
+				int idx = (mGlobalOffset + 1 + f) % 128;
+
 				for (auto const& [name, h] : mPassHistories)
 				{
-					int idx = (h.offset - 128 + f) % 128;
-					if (idx < 0) idx += 128;
-
-					// Scale by maxMs and graphHeight
 					float h_val = std::min((h.history[idx] / smoothMax) * graphHeight, y - graphPos.y);
 
-					drawList->AddRectFilled(ImVec2(graphPos.x + f * barWidth, y - h_val),
-						ImVec2(graphPos.x + (f + 1) * barWidth - 1, y),
-						h.color);
-					y -= h_val;
+					float x1 = graphPos.x + f * barWidth;
+					float x2 = graphPos.x + (f + 1) * barWidth - 1.0f;
+
+					if (h_val > 0.0f)
+					{
+						drawList->AddRectFilled(ImVec2(x1, y - h_val), ImVec2(x2, y), h.color);
+						y -= h_val;
+					}
 				}
 			}
 

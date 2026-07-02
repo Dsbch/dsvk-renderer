@@ -101,9 +101,6 @@ namespace engine
 
 	error lineRenderer::drawLines(VkCommandBuffer cmd, const swapChain& sChain)
 	{
-		sChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-		sChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
 		VkClearValue clear{
 			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
 		};

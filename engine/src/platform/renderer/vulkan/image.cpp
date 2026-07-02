@@ -183,7 +183,7 @@ namespace engine
 		mAllocator = allocator;
 	}
 
-	engine::error vulkanImage::build(submit& is, const image& rawImage)
+	engine::error vulkanImage::build(submit& is, const image& rawImage, VkImageLayout neededLayout)
 	{
 		size_t dataSize = rawImage.getSize();
 
@@ -250,11 +250,11 @@ namespace engine
 					newImage.value().image,
 					format,
 					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					neededLayout,
 					VK_PIPELINE_STAGE_2_TRANSFER_BIT,
 					VK_ACCESS_2_TRANSFER_WRITE_BIT,
-					VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-					VK_ACCESS_2_SHADER_READ_BIT
+					VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+					VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT
 				);
 			},
 			[=]()
@@ -270,7 +270,7 @@ namespace engine
 		return {};
 	}
 
-	engine::error vulkanImage::build(submit& is, const imageWithMipLevels& rawImage)
+	engine::error vulkanImage::build(submit& is, const imageWithMipLevels& rawImage, VkImageLayout neededLayout)
 	{
 		size_t dataSize = rawImage.main.getSize();
 
@@ -364,17 +364,17 @@ namespace engine
 				// Upload mip levels to GPU.
 				if (mipUploadBufSize != 0)
 					vkCmdCopyBufferToImage(cmd, mipUploadbuffer.value().buffer, newImage.value().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, uint32_t(mipsCopyRegions.size()), mipsCopyRegions.data());
-		
+
 				transitionImage(
 					cmd,
 					newImage.value().image,
 					format,
 					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					neededLayout,
 					VK_PIPELINE_STAGE_2_TRANSFER_BIT,
 					VK_ACCESS_2_TRANSFER_WRITE_BIT,
-					VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-					VK_ACCESS_2_SHADER_READ_BIT
+					VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+					VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT
 				);
 			},
 			[=]()
@@ -391,13 +391,32 @@ namespace engine
 		return {};
 	}
 
-	engine::error vulkanImage::build(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples)
+	engine::error vulkanImage::build(submit& is, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples, VkImageLayout neededLayout)
 	{
 		auto newImage = createImage(size, format, usage, mipmapped, samples);
 		if (!newImage)
 			return newImage.err();
 
 		img = newImage.value();
+
+		error err = is.queue(
+			[=](VkCommandBuffer cmd)
+			{
+				transitionImage(
+					cmd,
+					newImage.value().image,
+					format,
+					VK_IMAGE_LAYOUT_UNDEFINED,
+					neededLayout,
+					VK_PIPELINE_STAGE_2_NONE,
+					VK_ACCESS_2_NONE,
+					VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+					VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT
+				);
+			}
+		);
+		if (err)
+			return err;
 
 		return {};
 	}

@@ -59,7 +59,7 @@ namespace sandbox
 		result.scale = glm::vec3{ 1.0f };
 		result.translation = glm::vec3{ 0.0f, 0.0f, zPos };
 
-		zPos -= 0.5f;
+		zPos -= 2.0f;
 
 		return result;
 	}
@@ -208,6 +208,27 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
+			if (event->getKey() == engine::key::c)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/cube.glb",
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
+				if (!loadedModel)
+					return loadedModel.err();
+
+				auto tr = generateTransform();
+				engine::entity e{ mCtx, registry };
+
+				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::newEntityComponent>();
+			}
+
 			if (event->getKey() == engine::key::r)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
@@ -225,7 +246,7 @@ namespace sandbox
 
 			if (event->getKey() == engine::key::o)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/facial_animation.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/AlphaBlendModeTest.glb");
 				if (!loadedModel)
 					return loadedModel.err();
 

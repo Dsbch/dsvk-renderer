@@ -34,11 +34,11 @@ namespace engine
 
 		struct passHistory {
 			float history[128] = {};
-			int offset = 0;
 			float lastValidMs = 0.0f;
 			ImColor color;
 		};
 		std::map<std::string, passHistory> mPassHistories;
+		int mGlobalOffset;
 		
 		void renderProfilingInfo(profilingInfo profInfo);
 		void renderAccumAndRevealImages();

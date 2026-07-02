@@ -40,9 +40,6 @@ namespace engine
 		uint32_t materialArrayBinding;
 		uint32_t accumBinding;
 		uint32_t revealBinding;
-
-		// Other bindings.
-		uint32_t hzbChainBinding;
 	};
 
 	struct meshletRenderer

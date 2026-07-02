@@ -53,6 +53,7 @@ namespace engine
 			uint32_t meshletCount;
 			uint32_t cullStage;
 			uint32_t opaqueCmdBufferIndex;
+			uint32_t hzbLength;
 		};
 
 		error cullMeshlets(VkCommandBuffer cmd, renderer::renderCallIn in, cullMeshletsParams params);

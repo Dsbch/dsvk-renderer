@@ -327,6 +327,7 @@ namespace engine
 		uint32_t cullingPassFlagBit;
 		uint32_t opaqueCmdBufferIndex;
 		uint32_t meshletCount;
+		uint32_t hzbLength;
 	};
 
 	struct lineVertex
