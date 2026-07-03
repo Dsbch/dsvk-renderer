@@ -18,13 +18,15 @@
             1.1. Have to use prefix-sum on GPU algoritm after compute culling to optimize amplification rate. - DONE
         2. Two phase HZB occlision culling for opaque pass and accunilation pass. - DONE
         3. Prefix sum algoritm for higher amplification rate. - IN DEVELOPMENT.
-        4. Figure out how to solve a problem with debug camera ovewriting depth buffer :(.
+        4. Figure out how to solve a problem with debug camera ovewriting depth buffer :(. - DONE.
 
     BUGS:
         1. Problem with flickering on new instance - FIXED, the problem was mapped command buffer. Now I need to move command buffer generation to GPU compute shader.
         2. Low performance in accumilaton pass.
 
     TODO:
+		1. For each frame in flight I need to make separate animation, perInstance, draw buffers.
+			1.1. Updates should be scheduled separetly. How do update them (with staging buffer or use mapped memmory???).
         1. Add jolt CPU side physics.
         2. Figure out how to do shadows, my goal is good hard and soft shadows.
         3. Global illumination and reflections with radiance cascades.

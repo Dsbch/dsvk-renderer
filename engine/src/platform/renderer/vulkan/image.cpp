@@ -391,7 +391,7 @@ namespace engine
 		return {};
 	}
 
-	engine::error vulkanImage::build(submit& is, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples, VkImageLayout neededLayout)
+	engine::error vulkanImage::build(submit& is, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples, VkImageLayout neededLayout, bool queue)
 	{
 		auto newImage = createImage(size, format, usage, mipmapped, samples);
 		if (!newImage)
@@ -399,24 +399,48 @@ namespace engine
 
 		img = newImage.value();
 
-		error err = is.queue(
-			[=](VkCommandBuffer cmd)
-			{
-				transitionImage(
-					cmd,
-					newImage.value().image,
-					format,
-					VK_IMAGE_LAYOUT_UNDEFINED,
-					neededLayout,
-					VK_PIPELINE_STAGE_2_NONE,
-					VK_ACCESS_2_NONE,
-					VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-					VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT
-				);
-			}
-		);
-		if (err)
-			return err;
+		if (queue)
+		{
+			error err = is.queue(
+				[=](VkCommandBuffer cmd)
+				{
+					transitionImage(
+						cmd,
+						newImage.value().image,
+						format,
+						VK_IMAGE_LAYOUT_UNDEFINED,
+						neededLayout,
+						VK_PIPELINE_STAGE_2_NONE,
+						VK_ACCESS_2_NONE,
+						VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+						VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT
+					);
+				}
+			);
+			if (err)
+				return err;
+		}
+		else
+		{
+			error err = is.immediate(
+				[=](VkCommandBuffer cmd)
+				{
+					transitionImage(
+						cmd,
+						newImage.value().image,
+						format,
+						VK_IMAGE_LAYOUT_UNDEFINED,
+						neededLayout,
+						VK_PIPELINE_STAGE_2_NONE,
+						VK_ACCESS_2_NONE,
+						VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+						VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT
+					);
+				}
+			);
+			if (err)
+				return err;
+		}
 
 		return {};
 	}

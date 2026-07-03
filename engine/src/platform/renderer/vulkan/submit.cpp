@@ -95,15 +95,11 @@ namespace engine
 
 		VkResult vkres = vkCreateFence(mDevice, &fenceInfo, nullptr, &fence);
 		if (vkres != VK_SUCCESS)
-		{
 			return error{ vkResultToStr(vkres) };
-		}
 
 		vkres = vkResetFences(mDevice, 1, &fence);
 		if (vkres != VK_SUCCESS)
-		{
 			return error{ vkResultToStr(vkres) };
-		}
 
 		vkres = vkResetCommandBuffer(mCommandBufferImmediate, 0);
 		if (vkres != VK_SUCCESS)

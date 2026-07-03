@@ -7,8 +7,7 @@ namespace engine
 {
 	cameraSystem::cameraSystem(std::shared_ptr<context> ctx)
 		: system(ctx), mLastFramePosition(0.0f)
-	{
-	}
+	{}
 
 	error cameraSystem::onAttach(std::shared_ptr<registryHandle> registry)
 	{
@@ -18,8 +17,7 @@ namespace engine
 	}
 
 	void cameraSystem::onDetach(std::shared_ptr<registryHandle> registry)
-	{
-	}
+	{}
 
 	error cameraSystem::checkError()
 	{
@@ -318,19 +316,17 @@ namespace engine
 
 	void cameraSystem::spawnDebugCamera(std::shared_ptr<registryHandle> registry) const
 	{
+		std::unique_ptr<fpsCamera> debugCamera{ nullptr };
+
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				debugCamera = std::make_unique<fpsCamera>(*camera.camera.get());
+			});
+
 		entity e{ mCtx, registry };
 
-		e.addComponent<fpsCameraComponent>(
-			std::make_unique<fpsCamera>(
-				mCtx,
-				mCtx->config.inner.camera.fov,
-				mCtx->config.inner.camera.nearPlane,
-				mCtx->config.inner.camera.farPlane,
-				mCtx->config.inner.wnd.width,
-				mCtx->config.inner.wnd.height
-			)
-		);
-
+		e.addComponent<fpsCameraComponent>(std::move(debugCamera));
 		e.addComponent<inputListenerComponent>(std::vector<key>{key::b}, std::vector<key>{key::w, key::a, key::s, key::d}, true);
 		e.addComponent<debugCameraComponent>();
 	}

@@ -46,7 +46,7 @@ namespace engine
 		void init(VkDevice device, VmaAllocator allocator);
 		engine::error build(submit& is, const image& img, VkImageLayout neededLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		engine::error build(submit& is, const imageWithMipLevels& img, VkImageLayout neededLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		engine::error build(submit& is, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageLayout neededLayout = VK_IMAGE_LAYOUT_GENERAL);
+		engine::error build(submit& is, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageLayout neededLayout = VK_IMAGE_LAYOUT_GENERAL, bool queue = false);
 		void destroy();
 	private:
 		engine::withError<allocatedImage> createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
