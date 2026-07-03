@@ -30,12 +30,17 @@ namespace engine
 				),
 			mAllocator(VK_NULL_HANDLE),
 			mLoadedBytes(0),
-			mByteSize(0),
-			mMapped(false)
+			mByteSize(0)
 		{
 		}
 
-		void init(VkDevice device, VmaAllocator allocator, bool mapped = false);
+		struct mapFlags
+		{
+			bool mapped;
+			bool cpuReadBack;
+		};
+
+		void init(VkDevice device, VmaAllocator allocator, mapFlags flags = {false, false});
 		error build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
 		error build(submit& is, vulkanBuffer& buf, size_t sizeInBytes);
 		error buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
@@ -49,13 +54,13 @@ namespace engine
 		size_t getSize() const;
 		size_t getLoadedBytes() const;
 
-		static withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, bool useMemmoryMap = false);
+		static withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, mapFlags flags = {false, false});
 		static void destroyBuffer(VmaAllocator allocator, allocatedBuffer buf);
 	private:
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
 		allocatedBuffer mBuffer;
-		bool mMapped;
+		mapFlags mMapFlags;
 
 		size_t mLoadedBytes;
 		size_t mByteSize;

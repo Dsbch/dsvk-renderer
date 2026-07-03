@@ -187,7 +187,7 @@ namespace engine
 
 		std::map<meshHash, uint32_t> mMeshCount;
 
-		bool mIsBufferMapped;
+		vulkanBuffer::mapFlags mBufferMapFlags;
 		uint32_t mCmdBufferSize;
 		vulkanBuffer mCmdBuffer;
 		std::vector<VkDescriptorBufferInfo> mBufferInfo;

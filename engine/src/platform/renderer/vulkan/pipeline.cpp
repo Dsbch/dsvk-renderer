@@ -356,9 +356,9 @@ namespace engine
 	)
 	{
 		mNeedDescriptorUpdate = true;
-		// Can't use not mapped cmd buffer. Get wild exceptions.
-		// TODO: figure out where is the bug.
-		mIsBufferMapped = true;
+
+		// Buffer is mapped and we need CPU readback.
+		mBufferMapFlags = {true, true};
 
 		VkPushConstantRange pc{};
 		pc.offset = 0;
@@ -410,7 +410,7 @@ namespace engine
 			return err;
 
 		mCmdBufferSize = 2 << 24;
-		mCmdBuffer.init(device, allocator, mIsBufferMapped);
+		mCmdBuffer.init(device, allocator, mBufferMapFlags);
 
 		err = mCmdBuffer.build(is, nullptr, mCmdBufferSize, 0);
 		if (err)
@@ -540,7 +540,7 @@ namespace engine
 
 					vulkanBuffer newBuf{};
 
-					newBuf.init(params.device, params.allocator, mIsBufferMapped);
+					newBuf.init(params.device, params.allocator, mBufferMapFlags);
 					err = newBuf.build(params.is, mCmdBuffer, mCmdBufferSize);
 					if (err)
 						return err;

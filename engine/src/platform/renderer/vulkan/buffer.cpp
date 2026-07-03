@@ -5,9 +5,9 @@
 
 namespace engine
 {
-	void vulkanBuffer::init(VkDevice device, VmaAllocator allocator, bool mapped)
+	void vulkanBuffer::init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags)
 	{
-		mMapped = mapped;
+		mMapFlags = flags;
 		mDevice = device;
 		mAllocator = allocator;
 	}
@@ -26,7 +26,7 @@ namespace engine
 			sizeInBytes,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-			mMapped
+			mMapFlags
 		);
 		if (!createBufRes)
 			return createBufRes.err();
@@ -35,7 +35,7 @@ namespace engine
 
 		if (data && mLoadedBytes != 0)
 		{
-			if (mMapped)
+			if (mMapFlags.mapped)
 			{
 				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, 0, mLoadedBytes);
 				if (res != VK_SUCCESS)
@@ -43,7 +43,7 @@ namespace engine
 			}
 			else
 			{
-				auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, true);
+				auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, { true, false });
 				if (!stagingBuffer)
 					return stagingBuffer.err();
 
@@ -88,7 +88,7 @@ namespace engine
 			sizeInBytes,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-			mMapped
+			mMapFlags
 		);
 		if (!createBufRes)
 			return createBufRes.err();
@@ -97,7 +97,7 @@ namespace engine
 
 		if (buf.getBuffer().buffer != VK_NULL_HANDLE && mLoadedBytes != 0)
 		{
-			if (mMapped && buf.mMapped)
+			if (mMapFlags.mapped && mMapFlags.cpuReadBack && buf.mMapFlags.mapped && buf.mMapFlags.cpuReadBack)
 			{
 				VkResult res = vmaCopyMemoryToAllocation(mAllocator, buf.mBuffer.info.pMappedData, mBuffer.allocation, 0, mLoadedBytes);
 				if (res != VK_SUCCESS)
@@ -139,7 +139,7 @@ namespace engine
 			sizeInBytes,
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-			mMapped
+			mMapFlags
 		);
 		if (!createBufRes)
 			return createBufRes.err();
@@ -148,7 +148,7 @@ namespace engine
 
 		if (data && mLoadedBytes != 0)
 		{
-			if (mMapped)
+			if (mMapFlags.mapped)
 			{
 				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, 0, mLoadedBytes);
 				if (res != VK_SUCCESS)
@@ -156,7 +156,7 @@ namespace engine
 			}
 			else
 			{
-				auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, true);
+				auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, { true, false });
 				if (!stagingBuffer)
 					return stagingBuffer.err();
 
@@ -195,7 +195,7 @@ namespace engine
 		if (sizeInBytes + mLoadedBytes > mByteSize)
 			return error{ errCodeBufferOverFlow, "buffer overflow" };
 
-		if (mMapped)
+		if (mMapFlags.mapped)
 		{
 			VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, offset, sizeInBytes);
 			if (res != VK_SUCCESS)
@@ -203,7 +203,7 @@ namespace engine
 		}
 		else
 		{
-			auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, true);
+			auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, { true, false });
 			if (!stagingBuffer)
 				return stagingBuffer.err();
 
@@ -237,7 +237,7 @@ namespace engine
 
 	error vulkanBuffer::shiftData(submit& is, size_t dstOffset, size_t srcOffset)
 	{
-		if (mMapped)
+		if (mMapFlags.mapped && mMapFlags.cpuReadBack)
 		{
 			VkResult res = vmaCopyMemoryToAllocation(mAllocator, (uint8_t*)mBuffer.info.pMappedData + srcOffset, mBuffer.allocation, dstOffset, mLoadedBytes - srcOffset);
 			if (res != VK_SUCCESS)
@@ -245,7 +245,7 @@ namespace engine
 		}
 		else
 		{
-			auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes - srcOffset, VK_BUFFER_USAGE_TRANSFER_DST_BIT| VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, false);
+			auto stagingBuffer = createBuffer(mAllocator, mDevice, mLoadedBytes - srcOffset, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, { true, false });
 			if (!stagingBuffer)
 				return stagingBuffer.err();
 
@@ -263,7 +263,7 @@ namespace engine
 
 					copy.dstOffset = dstOffset;
 					copy.srcOffset = 0;
-				
+
 					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
 				},
 				[=]()
@@ -297,7 +297,7 @@ namespace engine
 		return mBuffer;
 	}
 
-	withError<allocatedBuffer> vulkanBuffer::createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, bool useMemmoryMap)
+	withError<allocatedBuffer> vulkanBuffer::createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, vulkanBuffer::mapFlags flags)
 	{
 		VkBufferCreateInfo bufferInfo = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 		bufferInfo.pNext = nullptr;
@@ -308,8 +308,16 @@ namespace engine
 		VmaAllocationCreateInfo vmaallocInfo = {};
 		vmaallocInfo.usage = memoryUsage;
 
-		if (useMemmoryMap)
-			vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+		if (flags.mapped)
+		{
+			vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+			if (flags.cpuReadBack)
+				vmaallocInfo.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+			else
+				vmaallocInfo.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+		}
+
 
 		allocatedBuffer newBuffer;
 

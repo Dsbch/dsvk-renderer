@@ -106,9 +106,9 @@ namespace engine
 		mPerMeshRegistry.init(device, allocator);
 
 		// Updated each frame used as MAPPED.
-		mPerInstanceRegistry.init(device, allocator, true);
+		mPerInstanceRegistry.init(device, allocator, {true, false});
 
-		mJointRegistry.init(device, allocator, true);
+		mJointRegistry.init(device, allocator, { true, false });
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPositionRegistry });
 

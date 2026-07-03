@@ -188,7 +188,7 @@ namespace engine
 		size_t dataSize = rawImage.getSize();
 
 		// Main buffer.
-		auto uploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+		auto uploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, {true, false});
 		if (!uploadbuffer)
 			return uploadbuffer.err();
 
@@ -275,7 +275,7 @@ namespace engine
 		size_t dataSize = rawImage.main.getSize();
 
 		// Main buffer.
-		auto uploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+		auto uploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, {true, false});
 		if (!uploadbuffer)
 			return uploadbuffer.err();
 
@@ -312,7 +312,7 @@ namespace engine
 
 		if (mipUploadBufSize != 0)
 		{
-			mipUploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, mipUploadBufSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+			mipUploadbuffer = vulkanBuffer::createBuffer(mAllocator, mDevice, mipUploadBufSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_ONLY, { true, false });
 			if (!mipUploadbuffer)
 				return mipUploadbuffer.err();
 		}

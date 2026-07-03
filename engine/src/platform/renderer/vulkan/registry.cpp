@@ -7,12 +7,12 @@
 
 namespace engine
 {
-	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, bool mapped)
+	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags)
 	{
 		mDevice = device;
 		mAllocator = allocator;
 		mNeedUpdate = false;
-		mUseMappedBuffers = mapped;
+		mBufferMapFlags = flags;
 	}
 
 	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize)
@@ -52,7 +52,7 @@ namespace engine
 		}
 
 		vulkanBuffer newBuffer{};
-		newBuffer.init(mDevice, mAllocator, mUseMappedBuffers);
+		newBuffer.init(mDevice, mAllocator, mBufferMapFlags);
 
 		if (sizeInBytes > newSize)
 		{

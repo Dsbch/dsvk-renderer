@@ -294,7 +294,7 @@ namespace engine
 	error vulkanRenderer::initRenderers(std::shared_ptr<window> window)
 	{
 		// Init UBO perDrawBuffer.
-		mUboPerDrawBuffer.init(mDevice, mAllocator, true);
+		mUboPerDrawBuffer.init(mDevice, mAllocator, {true, false});
 
 		error err = mUboPerDrawBuffer.buildAsUBO(mSubmit, nullptr, sizeof(preDrawData), 0);
 		if (err)
