@@ -39,11 +39,19 @@ namespace engine
 				while (mRunning || !semaToDelete.empty())
 				{
 					{
-						co::mutex_guard m{ mu };
-
-						while (!semaToDelete.empty())
+						while (true)
 						{
-							auto sema = semaToDelete.back();
+							{
+								co::mutex_guard m{ mu };
+								if (semaToDelete.empty())
+									break;
+							}
+
+							std::pair<VkSemaphore, std::function<void()>> semaAndCleanUp{};
+							{
+								co::mutex_guard m{ mu };
+								semaAndCleanUp = semaToDelete.back();
+							}
 
 							VkSemaphoreWaitInfo waitInfo;
 							uint64_t waitVal = 1;
@@ -52,17 +60,20 @@ namespace engine
 							waitInfo.pNext = NULL;
 							waitInfo.flags = 0;
 							waitInfo.semaphoreCount = 1;
-							waitInfo.pSemaphores = &sema.first;
+							waitInfo.pSemaphores = &semaAndCleanUp.first;
 							waitInfo.pValues = &waitVal;
 
 							VkResult result = vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
 							if (result != VK_SUCCESS)
 								LOGERROR("error from cleanUp thread on vkWaitSemaphores: {}", vkResultToStr(result));
 
-							if (sema.second != nullptr)
-								sema.second();
+							if (semaAndCleanUp.second != nullptr)
+								semaAndCleanUp.second();
 
-							semaToDelete.pop_back();
+							{
+								co::mutex_guard m{ mu };
+								semaToDelete.pop_back();
+							}
 
 							LOGDEBUG("cleanup submit thread");
 						}

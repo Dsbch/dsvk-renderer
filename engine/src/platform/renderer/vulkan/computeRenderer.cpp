@@ -71,7 +71,7 @@ namespace engine
 		auto set = mDescriptorSet.getDescriptorSet().first;
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mBuildHzbPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
-		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
+		auto hzbBuf = sChain.getHZB();
 		for (uint32_t i = 0; i < hzbBuf.size(); i++)
 		{
 			if (i > 0)

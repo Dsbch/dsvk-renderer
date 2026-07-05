@@ -541,15 +541,13 @@ namespace engine
 					vulkanBuffer newBuf{};
 
 					newBuf.init(params.device, params.allocator, mBufferMapFlags);
-					err = newBuf.build(params.is, mCmdBuffer, mCmdBufferSize);
+					err = newBuf.build(params.is, mCmdBuffer, mCmdBufferSize, true);
 					if (err)
 						return err;
 
 					err = newBuf.updateBuffer(params.is, v.data(), size, offset);
 					if (err)
 						return err;
-
-					mCmdBuffer.destroy();
 
 					mCmdBuffer = std::move(newBuf);
 				}

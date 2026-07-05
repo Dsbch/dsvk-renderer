@@ -59,7 +59,7 @@ namespace engine
 		void destroy();
 
 		uint32_t getHzbSize() const;
-		std::vector<vulkanImage> getHZB() const;
+		const std::vector<vulkanImage>& getHZB() const;
 
 		void transitionCurrentSwapChainImage(
 			VkCommandBuffer cmd,

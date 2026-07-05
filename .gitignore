@@ -17,6 +17,7 @@ assets/skybox
 assets/textures
 
 *.fatal
+*.pdf
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

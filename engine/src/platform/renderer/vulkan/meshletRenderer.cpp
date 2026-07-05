@@ -468,6 +468,21 @@ namespace engine
 					if (err)
 						return err;
 
+					// Wait for HZB to generate.
+					for (auto& hzb : sChain.getHZB())
+					{
+						pipelineImageBarrier(
+							cmd,
+							hzb.img.image,
+							hzb.img.format,
+							VK_IMAGE_LAYOUT_GENERAL,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_READ_BIT
+						);
+					}
+
 					// Dispatch compute call for culling and lod level selection.
 					// For now it's only going to set falgs for each cmd buffer entry.
 					// Later I will need to implement prefix sum on GPU to increase amplification rate.

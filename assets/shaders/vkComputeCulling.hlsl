@@ -133,7 +133,7 @@ void main(uint dtid : SV_DispatchThreadID)
                 // Overdraw for current lod level.
                 if (meshletOffset == MAX_UINT)
                 {
-                    commandAccumilationBuffer[dtid].visabilityBit = NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT;
+                    commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT;
                     return;
                 }
             
@@ -179,7 +179,7 @@ void main(uint dtid : SV_DispatchThreadID)
                 // Overdraw for current lod level.
                 if (meshletOffset == MAX_UINT)
                 {
-                    commandAccumilationBuffer[dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+                    commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
                     return;
                 }
             
@@ -234,7 +234,7 @@ void main(uint dtid : SV_DispatchThreadID)
                 // Overdraw for current lod level.
                 if (meshletOffset == MAX_UINT)
                 {
-                    commandAccumilationBuffer[dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+                    commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
                     return;
                 }
             

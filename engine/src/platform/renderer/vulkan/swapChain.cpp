@@ -463,7 +463,7 @@ namespace engine
 		return uint32_t(mHZB.size());
 	}
 
-	std::vector<vulkanImage> swapChain::getHZB() const
+	const std::vector<vulkanImage>& swapChain::getHZB() const
 	{
 		return mHZB;
 	}

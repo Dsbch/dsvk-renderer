@@ -74,7 +74,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanBuffer::build(submit& is, vulkanBuffer& buf, size_t sizeInBytes)
+	error vulkanBuffer::build(submit& is, vulkanBuffer& buf, size_t sizeInBytes, bool destroyBuffer)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -102,18 +102,26 @@ namespace engine
 				VkResult res = vmaCopyMemoryToAllocation(mAllocator, buf.mBuffer.info.pMappedData, mBuffer.allocation, 0, mLoadedBytes);
 				if (res != VK_SUCCESS)
 					return { vkResultToStr(res) };
+
+				if (destroyBuffer)
+					buf.destroy();
 			}
 			else
 			{
 				error err = is.queue(
-					[&](VkCommandBuffer cmd)
+					[oldBuf = buf, crntBuf = mBuffer, loadedBytes = mLoadedBytes](VkCommandBuffer cmd) mutable
 					{
 						VkBufferCopy copy{};
 						copy.dstOffset = 0;
 						copy.srcOffset = 0;
-						copy.size = mLoadedBytes;
+						copy.size = loadedBytes;
 
-						vkCmdCopyBuffer(cmd, buf.getBuffer().buffer, mBuffer.buffer, 1, &copy);
+						vkCmdCopyBuffer(cmd, oldBuf.getBuffer().buffer, crntBuf.buffer, 1, &copy);
+					},
+					[oldBuf = buf, destroyBuffer = destroyBuffer]() mutable
+					{
+						if (destroyBuffer)
+							oldBuf.destroy();
 					}
 				);
 				if (err)
@@ -212,7 +220,7 @@ namespace engine
 				return { vkResultToStr(res) };
 
 			error err = is.queue(
-				[&](VkCommandBuffer cmd)
+				[=](VkCommandBuffer cmd)
 				{
 					VkBufferCopy copy{};
 					copy.dstOffset = offset;
@@ -250,7 +258,7 @@ namespace engine
 				return stagingBuffer.err();
 
 			error err = is.queue(
-				[&](VkCommandBuffer cmd)
+				[=](VkCommandBuffer cmd)
 				{
 					VkBufferCopy copy{};
 					copy.dstOffset = 0;

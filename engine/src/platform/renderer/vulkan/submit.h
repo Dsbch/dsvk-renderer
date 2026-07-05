@@ -47,7 +47,7 @@ namespace engine
 		co::mutex mu;
 		std::vector<std::pair<VkSemaphore, std::function<void()>>> semaInUse;
 		std::vector<std::pair<VkSemaphore, std::function<void()>>> semaToDelete;
-		
+
 		struct queuedCommand
 		{
 			VkSemaphore sema;
