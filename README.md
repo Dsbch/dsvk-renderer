@@ -24,6 +24,7 @@
         1. Problem with flickering on new instance - FIXED, the problem was mapped command buffer. Now I need to move command buffer generation to GPU compute shader.
         2. Low performance in accumilaton pass.
 		3. Semaphore is not deleting in submit.cpp. I can't delete it because it's still used in second submit as wait sema! When separating all data to per frame data. I need to delete them when I wait on renderFence for each frame.
+4. Occlusion culling breaks for animated meshes. fixing frame in flight (separate buffers for each unique per frame data) should fix it.
 
     TODO:
 		1. For each frame in flight I need to make separate animation, perInstance, draw buffers.
