@@ -21,14 +21,16 @@
         4. Figure out how to solve a problem with debug camera ovewriting depth buffer :(. - DONE.
 
     BUGS:
-        1. Problem with flickering on new instance - FIXED, the problem was mapped command buffer. Now I need to move command buffer generation to GPU compute shader.
-        2. Low performance in accumilaton pass.
-		3. Semaphore is not deleting in submit.cpp. I can't delete it because it's still used in second submit as wait sema! When separating all data to per frame data. I need to delete them when I wait on renderFence for each frame.
-4. Occlusion culling breaks for animated meshes. fixing frame in flight (separate buffers for each unique per frame data) should fix it.
+        1. Problem with flickering on new instance.
+	2. Semaphore is not deleting in submit.cpp. I can't delete it because it's still used in second submit as wait sema! When separating all data to per frame data. I need to delete them when I wait on renderFence for each frame.
+	3. Occlusion culling breaks for animated meshes. fixing frame in flight (separate buffers for each unique per frame data) should fix it.
+	4. Low performance in accumilaton pass.
 
     TODO:
-		1. For each frame in flight I need to make separate animation, perInstance, draw buffers.
-			1.1. Updates should be scheduled separetly. How do update them (with staging buffer or use mapped memmory???).
+	1. For each frame in flight I need to make separate animation, perInstance, draw buffers.
+		1.1. Updates should be scheduled separetly. How do update them (with staging buffer or use mapped memmory???).
+		1.2. Need to separate renderThread and gameThread.
+		1.3. If implemented 1, 1.1, 1.2 should fix bugs 1-3.
         1. Add jolt CPU side physics.
         2. Figure out how to do shadows, my goal is good hard and soft shadows.
         3. Global illumination and reflections with radiance cascades.
