@@ -1,54 +1,65 @@
-# 3D engine project.
+3D renderer written from scratch with C++20 and Vulkan 1.3.
+Task shader pipeline is used. For now I only implemented a working, somewhat scalable opaque pass and an accumulation pass with OIT. The goal is to render a big open-world scene with a lot of topology. Because the task shader pipeline is used, I have three types of culling: frustum, occlusion and backface (frustum + occlusion in the compute shader, and backface in the task + mesh shader). The renderer supports simple skeletal animations (for now it just loops each animation).
 
-    DONE:
-        1. Full mesh shader geometry pass with instancing, and simple culling.
-            Added culling types:
-                1.1. Backface culling first in task shader next in mesh shader.
-                1.2. Frustum culling in task shader.
-        2. Integraion with ECS.
-        3. Added material proccessing for PBR metallic workflow.
-        4. Added OIT algoritm.
-        5. Optimized OIT.
-        6. Added concurrency library to the project libcoost.
-        7. Added simple GPU profiling window.
-        8. Added culling for animated meshlets.
+See the [roadmap](#roadmap).
 
-    IN DEVELOPMENT:
-        1. Frustum culling and lod level selection should be done first in compute shader where I generate CMD buffer opaque and accumilation pass, right now amplification rate is too low, I get now performance boost from frustum culling.
-            1.1. Have to use prefix-sum on GPU algoritm after compute culling to optimize amplification rate. - DONE
-        2. Two phase HZB occlision culling for opaque pass and accunilation pass. - DONE
-        3. Prefix sum algoritm for higher amplification rate. - IN DEVELOPMENT.
-        4. Figure out how to solve a problem with debug camera ovewriting depth buffer :(. - DONE.
+![Meshlet culling](docs/culling.gif)
+![blending](docs/oit.png)
 
-    BUGS:
-        1. Problem with flickering on new instance.
-	2. Semaphore is not deleting in submit.cpp. I can't delete it because it's still used in second submit as wait sema! When separating all data to per frame data. I need to delete them when I wait on renderFence for each frame.
-	3. Occlusion culling breaks for animated meshes. fixing frame in flight (separate buffers for each unique per frame data) should fix it.
-	4. Low performance in accumilaton pass.
+## Features
 
-    TODO:
-	1. For each frame in flight I need to make separate animation, perInstance, draw buffers.
-		1.1. Updates should be scheduled separetly. How do update them (with staging buffer or use mapped memmory???).
-		1.2. Need to separate renderThread and gameThread.
-		1.3. If implemented 1, 1.1, 1.2 should fix bugs 1-3.
-        1. Add jolt CPU side physics.
-        2. Figure out how to do shadows, my goal is good hard and soft shadows.
-        3. Global illumination and reflections with radiance cascades.
-        4. Add postproccessing like bloom, focus etc.
-        5. Get your bsdf and brdf together. Should use disney.
+- **Task shader pipeline.** Instanced rendering with LOD level selection in the compute shader.
+- **Two-phase HZB occlusion culling** runs in compute. I need to implement a GPU prefix-sum algorithm to make the rendering truly GPU-driven.
+- **Order-independent transparency**.
+- **PBR**, metallic-roughness material workflow.
+- **Skeletal animation** with per-meshlet culling for animated geometry (has bugs, see [roadmap](#roadmap)).
+- **ECS architecture.** The scene is built on an ECS (EnTT).
+- **In-app GPU profiler**, query-based profiling window.
 
-        Optional:
-            1. Own file format. Ser/Dser of whole ECS.
-            2. Own save files.
-            3. Add guismos.
+## Stack
 
-I'm currently working on my vulkan renderer.
+- **Language / API:** C++20, Vulkan, HLSL shaders
+- **Vulkan setup:** [vk-bootstrap](https://github.com/charles-lunarg/vk-bootstrap), VMA
+- **Assets:** [cgltf](https://github.com/jkuhlmann/cgltf), [meshoptimizer](https://github.com/zeux/meshoptimizer), [basis_universal](https://github.com/BinomialLLC/basis_universal), stb_image
+- **Core libs:** [EnTT](https://github.com/skypjack/entt), [GLFW](https://github.com/glfw/glfw), [GLM](https://github.com/g-truc/glm), [Dear ImGui](https://github.com/ocornut/imgui), [coost](https://github.com/idealvin/coost), [spdlog](https://github.com/gabime/spdlog), [nlohmann/json](https://github.com/nlohmann/json)
 
-Download lunargSDK for vulkan first https://vulkan.lunarg.com/sdk/home
+## Building
 
-premake5 --mode=sandbox vs2026
+Windows / x64 only for now.
 
-If you build in release you can load default model with "R", "Q" to delete instance "T" to rotate. 
-Press "B" to enable debug camera to test culling.
+1. Install the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home).
+2. Generate the Visual Studio 2026 solution with [premake5](https://premake.github.io/):
 
-Renderer isn't yet finished.
+   ```
+    premake5 --mode=sandbox vs2026
+   ```
+
+3. Open the generated solution and build in `Release`.
+
+## Controls
+
+Run a **Release** build of the sandbox:
+
+| Key | Action |
+| --- | --- |
+| `WASD`  | Controls |
+| `M`  | Toggle cursor |
+| `B` | Toggle debug camera to test culling |
+
+## Roadmap
+
+**In progress**
+- **Fully GPU-driven indirect rendering.** GPU prefix-sum algorithm for the command buffer after culling and LOD level selection. This will boost performance because the amplification rate becomes higher.
+- **Per-frame-in-flight resource buffering.** Need to separate joint matrices/per-instance/draw buffers for each frame in flight.
+- **Separate main thread into render thread and game thread.** This will solve a lot of problems and bugs.
+
+**Planned**
+- Hard and soft shadows.
+- Global illumination and reflections with radiance cascades.
+- Post-processing.
+- CPU-side Jolt physics.
+- Optional: custom scene format with full ECS serialization, and gizmos.
+
+**Known bugs**
+- Low amplification rate, need to implement GPU prefix-sum after compute culling.
+- Flickering of meshlets because I have 3 frames in flight and they rewrite CMD buffers, need to implement per-frame-in-flight resource buffering.

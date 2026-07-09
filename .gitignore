@@ -22,9 +22,12 @@ assets/textures
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+# Assets for preview.
+!AlphaBlendModeTest.glb
+!marble.glb
+
 # Mono auto generated files
 mono_crash.*
-*.glb
 # Build results
 bin
 # Visual Studio 2015/2017 cache/options directory

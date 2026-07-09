@@ -11,6 +11,7 @@ namespace engine
 	renderSystem::renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
 		:
 		system(ctx),
+		mWnd(wnd),
 		mRenderer(makeRenderer(ctx, wnd))
 	{
 	}
@@ -138,6 +139,13 @@ namespace engine
 			auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
 
 			return mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+		}
+
+		if (e->getEventType() == engine::eventType::keyPressed)
+		{
+			auto event = static_cast<engine::keyPressedEvent*>(e.get());
+			if (event->getKey() == engine::key::m)
+				mWnd->toggleCursor();
 		}
 
 		return {};

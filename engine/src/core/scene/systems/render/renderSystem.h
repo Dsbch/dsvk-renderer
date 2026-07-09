@@ -30,5 +30,6 @@ namespace engine
 		error handleAnimatedEntities(std::shared_ptr<registryHandle> registry);
 
 		std::shared_ptr<renderer> mRenderer;
+		std::shared_ptr<window> mWnd;
 	};
 }

@@ -56,7 +56,11 @@ namespace engine
 		uint32_t width = 1600;
 		uint32_t height = 900;
 		bool fullScreen = false;
+#ifdef RELEASE
+		bool showCursor = false;
+#else
 		bool showCursor = true;
+#endif // RELEASE
 		std::string name = "engine";
 	};
 
@@ -131,6 +135,5 @@ namespace engine
 
 	template<class T>
 	inline cfg<T>::~cfg()
-	{
-	}
+	{}
 }

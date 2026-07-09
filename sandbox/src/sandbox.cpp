@@ -8,8 +8,7 @@ namespace sandbox
 {
 	sandboxSystem::sandboxSystem(std::shared_ptr<engine::context> ctx)
 		: engine::system(ctx)
-	{
-	}
+	{}
 
 	engine::error sandboxSystem::checkError()
 	{
@@ -18,12 +17,67 @@ namespace sandbox
 
 	engine::error sandboxSystem::onAttach(std::shared_ptr<engine::registryHandle> registry)
 	{
+#ifdef RELEASE
+		auto marble = mCtx->mAmanager->loadModelGLTF("../assets/marble.glb");
+		if (!marble)
+			return marble.err();
+
+		const glm::vec3 marbleScale{ 3.0f };
+		const int       gridCount = 4;
+		const float     spacing = 1.0f;
+		const glm::vec3 boxCenter{ 0.0f, 0.0f, -10.0f };
+
+		const float halfExtent = (gridCount - 1) * spacing * 0.5f;
+
+		for (int x = 0; x < gridCount; ++x)
+		{
+			for (int y = 0; y < gridCount; ++y)
+			{
+				for (int z = 0; z < gridCount; ++z)
+				{
+					glm::vec3 pos = boxCenter + glm::vec3{
+						x * spacing - halfExtent,
+						y * spacing - halfExtent,
+						z * spacing - halfExtent
+					};
+
+					engine::entity e{ mCtx, registry };
+
+					e.addComponent<engine::transformComponent>(pos, marbleScale, glm::quat{});
+					e.addComponent<engine::materialComponent>(marble.value()->mat);
+					e.addComponent<engine::meshComponent>(marble.value()->meshData, marble.value()->perMeshData);
+					e.addComponent<engine::newEntityComponent>();
+				}
+			}
+		}
+
+		const glm::vec3 occluderScale = marbleScale * 2.0f;
+		const glm::vec3 occluderPos{ 0.0f, 0.0f, -4.0f };
+
+		engine::entity occluder{ mCtx, registry };
+
+		occluder.addComponent<engine::transformComponent>(occluderPos, occluderScale, glm::quat{});
+		occluder.addComponent<engine::materialComponent>(marble.value()->mat);
+		occluder.addComponent<engine::meshComponent>(marble.value()->meshData, marble.value()->perMeshData);
+		occluder.addComponent<engine::newEntityComponent>();
+
+		auto alphaTest = mCtx->mAmanager->loadModelGLTF("../assets/AlphaBlendModeTest.glb");
+		if (!alphaTest)
+			return alphaTest.err();
+
+		engine::entity alphaTestEnt{ mCtx, registry };
+
+		alphaTestEnt.addComponent<engine::transformComponent>(glm::vec3{}, glm::vec3{1.0f}, glm::quat{});
+		alphaTestEnt.addComponent<engine::materialComponent>(alphaTest.value()->mat);
+		alphaTestEnt.addComponent<engine::meshComponent>(alphaTest.value()->meshData, alphaTest.value()->perMeshData);
+		alphaTestEnt.addComponent<engine::newEntityComponent>();
+#endif // RELEASE
+
 		return {};
 	}
 
 	void sandboxSystem::onDetach(std::shared_ptr<engine::registryHandle> registry)
-	{
-	}
+	{}
 
 	engine::error sandboxSystem::onUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
 	{
@@ -48,20 +102,6 @@ namespace sandbox
 	engine::error sandboxSystem::onRender(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
 	{
 		return {};
-	}
-
-	engine::transform generateTransform()
-	{
-		static float zPos = -1.0f;
-
-		engine::transform result{};
-
-		result.scale = glm::vec3{ 1.0f };
-		result.translation = glm::vec3{ 0.0f, 0.0f, zPos };
-
-		zPos -= 2.0f;
-
-		return result;
 	}
 
 	engine::error sandboxSystem::onEvent(std::shared_ptr<engine::registryHandle> registry, std::shared_ptr<engine::baseEvent> e)
@@ -274,24 +314,6 @@ namespace sandbox
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 1.0f }, tr.rotation);
 				e.addComponent<engine::newEntityComponent>();
 			}
-#endif // DEBUG
-
-#ifdef RELEASE
-			if (event->getKey() == engine::key::r)
-			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/backpack.glb");
-				if (!loadedModel)
-					return loadedModel.err();
-
-				auto tr = generateTransform();
-				engine::entity e{ mCtx, registry };
-
-				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.001f }, tr.rotation);
-				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
-				e.addComponent<engine::newEntityComponent>();
-			}
-#endif // RELEASE
 
 			if (event->getKey() == engine::key::q)
 			{
@@ -308,6 +330,7 @@ namespace sandbox
 				if (entity)
 					entity.addOrReplaceComponent<engine::deleteComponent>();
 			}
+#endif // DEBUG
 		}
 
 		if (e->getEventType() == engine::eventType::keyDown)
