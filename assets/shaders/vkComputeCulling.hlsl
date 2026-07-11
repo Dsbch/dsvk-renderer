@@ -2,10 +2,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-#define FIRST_OPAQUE_PASS_FLAG_BIT              (1 << 0)
-#define SECOND_OPAQUE_PASS_FLAG_BIT             (1 << 1)
-#define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
-
 struct pushConstant
 {
     uint hzbMipLevel;
@@ -13,7 +9,7 @@ struct pushConstant
     uint mipHeight;
     uint cullingPassFlagBit;
     uint opaqueCmdBufferIndex;
-    uint meshletCount;
+    uint cmdBufferCount;
     uint hzbLength;
 };
 
@@ -76,7 +72,7 @@ occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perD
 [numthreads(THREADS_COUNT, 1, 1)]
 void main(uint dtid : SV_DispatchThreadID)
 {
-    if (dtid < push.meshletCount)
+    if (dtid < push.cmdBufferCount)
     {
         if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
         {
@@ -95,7 +91,7 @@ void main(uint dtid : SV_DispatchThreadID)
             // Overdraw for current lod level.
             if (meshletOffset == MAX_UINT)
             {
-                commandAccumilationBuffer[dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+                commandAccumilationBuffer[dtid].visabilityBit = NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT;
                 return;
             }
             
@@ -103,10 +99,33 @@ void main(uint dtid : SV_DispatchThreadID)
             
             meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
             
-            bool visible = mesh.alphaType == BLEND_ALPHA_MODE && isInFrustum(drawData, worldBounds);
+            occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), drawData);
+            
+            // Floor, because we will sample 2x2 texels for that sphere.
+            uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
+                    
+            neededChain = min(push.hzbLength - 1, neededChain);
+                    
+            // drawData.width >> neededChain => divide by 2 in power of neededChain.
+            // drawData.width / 2 because zero mip starts with drawData.width / 2.
+            int mipWidth = max(1, int(drawData.width / 2) >> (neededChain));
+            int mipHeight = max(1, int(drawData.height / 2) >> (neededChain));
+
+            float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
+
+            int2 topLeftTexel = clamp(int2(floor(mipTexelCoords)), int2(0, 0), int2(mipWidth - 2, mipHeight - 2));
+
+            float d00 = hzbChain[neededChain][topLeftTexel + int2(0, 0)];
+            float d10 = hzbChain[neededChain][topLeftTexel + int2(1, 0)];
+            float d01 = hzbChain[neededChain][topLeftTexel + int2(0, 1)];
+            float d11 = hzbChain[neededChain][topLeftTexel + int2(1, 1)];
+
+            float minDepth = min(min(d00, d10), min(d01, d11));
+            
+            bool visible = mesh.alphaType == BLEND_ALPHA_MODE && isInFrustum(drawData, worldBounds) && ((occData.closestDepth >= minDepth) || occData.closestDepth < 0.0f);
             
             commandAccumilationBuffer[dtid].selectedLod = selectedLod;
-            commandAccumilationBuffer[dtid].visabilityBit = visible ? VISIBLE_FLAG_BIT : NOT_VISIBLE_FLAG_BIT;
+            commandAccumilationBuffer[dtid].visabilityBit = visible ? VISIBLE_CURRENT_FRAME_FLAG_BIT : NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT;
             
             return;
         }

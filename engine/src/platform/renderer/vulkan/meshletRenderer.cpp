@@ -8,6 +8,7 @@ namespace engine
 	error meshletRenderer::init(
 		std::shared_ptr<context> ctx,
 		PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT,
+		PFN_vkCmdDrawMeshTasksIndirectEXT vkCmdDrawMeshTasksIndirectEXT,
 		VkDevice device,
 		VkPhysicalDevice physicalDevice,
 		VmaAllocator allocator,
@@ -22,12 +23,13 @@ namespace engine
 			return { "vkCmdDrawMeshTasksEXT nullptr" };
 
 		mVkCmdDrawMeshTasksEXT = vkCmdDrawMeshTasksEXT;
+		mVkCmdDrawMeshTasksIndirectEXT = vkCmdDrawMeshTasksIndirectEXT;
 
 		mCtx = ctx;
 
 		mBindings = meshletBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 17,
+			.totalDescriptorsCount = 19,
 
 			// Vertex attributes.
 			.positionsBinding = 0,
@@ -45,13 +47,17 @@ namespace engine
 			.meshletBinding = 16,
 			.jointsBinding = 17,
 			.perMeshBinding = 18,
-			.perDrawBufferUboBinding = 19,
+			.visabilityBuffer = 19,
+			.visibleDispatch = 20,
+			.perDrawBufferUboBinding = 21,
 
 			// Materials.
-			.materialArrayBinding = 21,
-			.accumBinding = 22,
-			.revealBinding = 23,
+			.materialArrayBinding = 51,
+			.accumBinding = 52,
+			.revealBinding = 53,
 		};
+
+		mVisabilityBufferSize = 2 << 24;
 
 		mDeletionQueue.init(device);
 
@@ -69,7 +75,7 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, UBObuffer, sChain);
+		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, UBObuffer, mVisabilityBuffer.getBuffer().buffer, mVisableDispatchBuffer.getBuffer().buffer, sChain);
 		if (err)
 			return err;
 
@@ -106,7 +112,7 @@ namespace engine
 		mPerMeshRegistry.init(device, allocator);
 
 		// Updated each frame used as MAPPED.
-		mPerInstanceRegistry.init(device, allocator, {true, false});
+		mPerInstanceRegistry.init(device, allocator, { true, false });
 
 		mJointRegistry.init(device, allocator, { true, false });
 
@@ -150,6 +156,23 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = matReg, .matReg = &mMaterialRegistry });
 
+		// Init visability buffers.
+		mVisabilityBuffer.init(device, allocator);
+		mVisableDispatchBuffer.init(device, allocator);
+
+		err = mVisabilityBuffer.build(is, nullptr, mVisabilityBufferSize, 0);
+		if (err)
+			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mVisabilityBuffer });
+
+		std::vector<uint32_t> visDispatchBuf{ 0, 0, 1, 1 };
+		err = mVisableDispatchBuffer.build(is, visDispatchBuf.data(), sizeof(uint32_t) * 4, sizeof(uint32_t) * 4, true);
+		if (err)
+			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mVisableDispatchBuffer });
+
 		return {};
 	}
 
@@ -169,7 +192,7 @@ namespace engine
 			return err;
 
 		const uint32_t combinedImageSamplers = 3;
-		const uint32_t bufferObjects = 13;
+		const uint32_t bufferObjects = 15;
 		const uint32_t uniformObjects = 1;
 
 		// add bindings for blending stage.
@@ -274,6 +297,18 @@ namespace engine
 
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
+				mBindings.visabilityBuffer, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.visibleDispatch, limits.maxUniformBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
 				mBindings.perDrawBufferUboBinding, limits.maxUniformBuffers / uniformObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
 			)
 		);
@@ -288,6 +323,21 @@ namespace engine
 		};
 
 		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perDrawBufferUboBinding, bufferInfo, true);
+		mDescriptorSet.updateWrite(writeInfo);
+
+		// Set descriptor for visabilityBuffers right away.
+		bufferInfo = {
+			VkDescriptorBufferInfo{.buffer = mVisabilityBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE}
+		};
+
+		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
+		mDescriptorSet.updateWrite(writeInfo);
+
+		bufferInfo = {
+			VkDescriptorBufferInfo{.buffer = mVisableDispatchBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE}
+		};
+
+		writeInfo = descriptorSet::getWriteInfo(mBindings.visibleDispatch, bufferInfo);
 		mDescriptorSet.updateWrite(writeInfo);
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = descSet, .descSet = &mDescriptorSet });
@@ -382,6 +432,15 @@ namespace engine
 		return {};
 	}
 
+	uint32_t meshletRenderer::getMaxCmdBufferSize() const
+	{
+		uint32_t opaque{};
+		for (auto& [_, v] : mPipelines)
+			opaque += v.getCommandBufferLoadedSize();
+
+		return std::max(opaque, mAccumilationPipeline.getCommandBufferLoadedSize());
+	}
+
 	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
 	{
 		uint32_t cmdBufferIndex = 0;
@@ -390,8 +449,28 @@ namespace engine
 			auto pipeline = v.getPipelineRenderData();
 
 			// Has to render.
-			if (pipeline.meshletCount > 0)
+			if (pipeline.cmdBufferCount > 0)
 			{
+				pipelineBufferBarier(
+					cmd, mVisableDispatchBuffer.getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+					VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_CLEAR_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					uint32_t(mVisableDispatchBuffer.getSize()), 0
+				);
+
+				vkCmdFillBuffer(cmd, mVisableDispatchBuffer.getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+				pipelineBufferBarier(
+					cmd, mVisableDispatchBuffer.getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_CLEAR_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+					uint32_t(mVisableDispatchBuffer.getSize()), 0
+				);
+
 				// FIRST PASS.
 				{
 					// Dispatch compute call for culling and lod level selection.
@@ -401,7 +480,7 @@ namespace engine
 						cmd,
 						in,
 						computeRenderer::cullMeshletsParams{
-							.meshletCount = pipeline.meshletCount,
+							.cmdBufferCount = pipeline.cmdBufferCount,
 							.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
 							.opaqueCmdBufferIndex = cmdBufferIndex,
 						}
@@ -418,9 +497,44 @@ namespace engine
 						cmdBuf,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_READ_BIT,
 						cmdBufSize,
+						0
+					);
+
+					// Compact cmd buffer to visability buffer.
+					err = mComputeRenderer.compactCommandBuffer(
+						cmd,
+						in,
+						computeRenderer::compactCommandBufferParams{
+							.cmdBufferCount = pipeline.cmdBufferCount,
+							.opaqueCmdBufferIndex = cmdBufferIndex,
+							.stage = FIRST_OPAQUE_PASS_FLAG_BIT
+						}
+					);
+					if (err)
+						return err;
+
+					pipelineBufferBarier(
+						cmd,
+						mVisabilityBuffer.getBuffer().buffer,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+						VK_ACCESS_2_SHADER_WRITE_BIT,
+						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+						uint32_t(mVisabilityBuffer.getSize()),
+						0
+					);
+
+					pipelineBufferBarier(
+						cmd,
+						mVisableDispatchBuffer.getBuffer().buffer,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+						VK_ACCESS_2_SHADER_WRITE_BIT,
+						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+						uint32_t(mVisableDispatchBuffer.getSize()),
 						0
 					);
 
@@ -436,7 +550,7 @@ namespace engine
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 
 					pushConstants pc{
-						.meshletCount = pipeline.meshletCount,
+						.cmdBufferCount = pipeline.cmdBufferCount,
 						.opaqueCmdBufferIndex = cmdBufferIndex,
 					};
 
@@ -446,10 +560,36 @@ namespace engine
 					auto set = mDescriptorSet.getDescriptorSet().first;
 					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
-					mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+					mVkCmdDrawMeshTasksIndirectEXT(
+						cmd,
+						mVisableDispatchBuffer.getBuffer().buffer,
+						4,
+						1,
+						12
+					);
 
 					vkCmdEndRendering(cmd);
 				}
+
+				pipelineBufferBarier(
+					cmd, mVisableDispatchBuffer.getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+					VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+					VK_PIPELINE_STAGE_2_CLEAR_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					uint32_t(mVisableDispatchBuffer.getSize()), 0
+				);
+
+				vkCmdFillBuffer(cmd, mVisableDispatchBuffer.getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+				pipelineBufferBarier(
+					cmd, mVisableDispatchBuffer.getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_CLEAR_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+					uint32_t(mVisableDispatchBuffer.getSize()), 0
+				);
 
 				// SECOND PASS.
 				{
@@ -490,7 +630,7 @@ namespace engine
 						cmd,
 						in,
 						computeRenderer::cullMeshletsParams{
-							.meshletCount = pipeline.meshletCount,
+							.cmdBufferCount = pipeline.cmdBufferCount,
 							.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
 							.opaqueCmdBufferIndex = cmdBufferIndex,
 							.hzbLength = uint32_t(sChain.getHzbSize()),
@@ -508,7 +648,7 @@ namespace engine
 						cmdBuf,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_READ_BIT,
 						cmdBufSize,
 						0
@@ -516,13 +656,48 @@ namespace engine
 
 					// Transition depth after build HZB.
 					sChain.transitionDepthImage(
-						cmd, 
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+						cmd,
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_READ_BIT,
 						VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 						VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+					);
+
+					// Compact cmd buffer to visability buffer.
+					err = mComputeRenderer.compactCommandBuffer(
+						cmd, 
+						in, 
+						computeRenderer::compactCommandBufferParams{ 
+							.cmdBufferCount = pipeline.cmdBufferCount, 
+							.opaqueCmdBufferIndex = cmdBufferIndex,
+							.stage = SECOND_OPAQUE_PASS_FLAG_BIT
+						}
+					);
+					if (err)
+						return err;
+
+					pipelineBufferBarier(
+						cmd,
+						mVisabilityBuffer.getBuffer().buffer,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+						VK_ACCESS_2_SHADER_WRITE_BIT,
+						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+						uint32_t(mVisabilityBuffer.getSize()),
+						0
+					);
+
+					pipelineBufferBarier(
+						cmd,
+						mVisableDispatchBuffer.getBuffer().buffer,
+						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+						VK_ACCESS_2_SHADER_WRITE_BIT,
+						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+						uint32_t(mVisableDispatchBuffer.getSize()),
+						0
 					);
 
 					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -537,7 +712,7 @@ namespace engine
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 
 					pushConstants pc{
-						.meshletCount = pipeline.meshletCount,
+						.cmdBufferCount = pipeline.cmdBufferCount,
 						.opaqueCmdBufferIndex = cmdBufferIndex,
 					};
 
@@ -546,9 +721,15 @@ namespace engine
 					// bind the descriptor set.
 					auto set = mDescriptorSet.getDescriptorSet().first;
 					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
-
-					mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
-
+					
+					mVkCmdDrawMeshTasksIndirectEXT(
+						cmd,
+						mVisableDispatchBuffer.getBuffer().buffer,
+						4,
+						1,
+						12
+					);
+					
 					vkCmdEndRendering(cmd);
 				}
 			}
@@ -604,7 +785,7 @@ namespace engine
 		auto blendingPipeline = mAccumilationPipeline.getPipelineRenderData();
 
 		// Nothing to render.
-		if (blendingPipeline.meshletCount == 0)
+		if (blendingPipeline.cmdBufferCount == 0)
 		{
 			vkCmdBeginRendering(cmd, &renderInfo);
 			vkCmdEndRendering(cmd);
@@ -619,7 +800,7 @@ namespace engine
 			cmd,
 			in,
 			computeRenderer::cullMeshletsParams{
-				.meshletCount = blendingPipeline.meshletCount,
+				.cmdBufferCount = blendingPipeline.cmdBufferCount,
 				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
 			}
 			);
@@ -635,9 +816,63 @@ namespace engine
 			cmdBuf,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_READ_BIT,
 			cmdBufSize,
+			0
+		);
+
+		pipelineBufferBarier(
+			cmd, mVisableDispatchBuffer.getBuffer().buffer,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_CLEAR_BIT,
+			VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			uint32_t(mVisableDispatchBuffer.getSize()), 0
+		);
+
+		vkCmdFillBuffer(cmd, mVisableDispatchBuffer.getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+		pipelineBufferBarier(
+			cmd, mVisableDispatchBuffer.getBuffer().buffer,
+			VK_PIPELINE_STAGE_2_CLEAR_BIT,
+			VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+			uint32_t(mVisableDispatchBuffer.getSize()), 0
+		);
+
+		// Compact cmd buffer to visability buffer.
+		err = mComputeRenderer.compactCommandBuffer(
+			cmd,
+			in,
+			computeRenderer::compactCommandBufferParams{
+				.cmdBufferCount = blendingPipeline.cmdBufferCount,
+				.stage = ACCUMILATION_PASS_FLAG_BIT,
+			}
+		);
+		if (err)
+			return err;
+
+		pipelineBufferBarier(
+			cmd,
+			mVisabilityBuffer.getBuffer().buffer,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+			uint32_t(mVisabilityBuffer.getSize()),
+			0
+		);
+
+		pipelineBufferBarier(
+			cmd,
+			mVisableDispatchBuffer.getBuffer().buffer,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+			uint32_t(mVisableDispatchBuffer.getSize()),
 			0
 		);
 
@@ -646,7 +881,7 @@ namespace engine
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
 
 		pushConstants pc{
-			.meshletCount = blendingPipeline.meshletCount,
+			.cmdBufferCount = blendingPipeline.cmdBufferCount,
 		};
 
 		vkCmdPushConstants(cmd, blendingPipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -655,7 +890,13 @@ namespace engine
 		auto set = mDescriptorSet.getDescriptorSet().first;
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
-		mVkCmdDrawMeshTasksEXT(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+		mVkCmdDrawMeshTasksIndirectEXT(
+			cmd,
+			mVisableDispatchBuffer.getBuffer().buffer,
+			4,
+			1,
+			12
+		);
 
 		vkCmdEndRendering(cmd);
 
@@ -1172,6 +1413,29 @@ namespace engine
 			auto writeInfo = mMaterialRegistry.getWriteInfo(mBindings.materialArrayBinding);
 			mDescriptorSet.updateWrite(writeInfo);
 			mMaterialRegistry.setUpdated();
+		}
+
+		// Resize visability buffer if needed.
+		if (uint32_t max = getMaxCmdBufferSize(); max > mVisabilityBufferSize)
+		{
+			mVisabilityBuffer.destroy();
+
+			mVisabilityBufferSize = max;
+
+			error err = mVisabilityBuffer.build(is, nullptr, mVisabilityBufferSize, 0);
+			if (err)
+				return err;
+
+			std::vector<VkDescriptorBufferInfo> bufferInfo = {
+					VkDescriptorBufferInfo{.buffer = mVisabilityBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE}
+			};
+
+			err = mComputeRenderer.updateVisabilityBufferDescriptors(bufferInfo);
+			if (err)
+				return err;
+
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
+			mDescriptorSet.updateWrite(writeInfo);
 		}
 
 		return {};

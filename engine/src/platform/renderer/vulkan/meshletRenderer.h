@@ -34,6 +34,8 @@ namespace engine
 		uint32_t meshletBinding;
 		uint32_t jointsBinding;
 		uint32_t perMeshBinding;
+		uint32_t visabilityBuffer;
+		uint32_t visibleDispatch;
 		uint32_t perDrawBufferUboBinding;
 
 		// Materil binding.
@@ -48,6 +50,7 @@ namespace engine
 		error init(
 			std::shared_ptr<context> ctx,
 			PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT,
+			PFN_vkCmdDrawMeshTasksIndirectEXT vkCmdDrawMeshTasksIndirectEXT,
 			VkDevice device,
 			VkPhysicalDevice physicalDevice,
 			VmaAllocator allocator,
@@ -77,6 +80,7 @@ namespace engine
 		graphicsPreset mPreset;
 
 		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
+		PFN_vkCmdDrawMeshTasksIndirectEXT mVkCmdDrawMeshTasksIndirectEXT;
 
 		VkSampler mSampler;
 		descriptorSet mDescriptorSet;
@@ -105,8 +109,15 @@ namespace engine
 		// Compute renderer to make HZB and for culling.
 		computeRenderer mComputeRenderer;
 
+		// Visability buffers for indirect calls.
+		uint32_t mVisabilityBufferSize;
+		vulkanBuffer mVisabilityBuffer;
+		vulkanBuffer mVisableDispatchBuffer;
+
 		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
 		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits, VkBuffer UBObuffer);
 		error initBlendingPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is);
+		
+		uint32_t getMaxCmdBufferSize() const;
 	};
 }

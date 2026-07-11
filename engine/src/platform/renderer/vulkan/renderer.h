@@ -76,6 +76,7 @@ namespace engine
 		gpuProfiler mGpuProfiler;
 
 		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
+		PFN_vkCmdDrawMeshTasksIndirectEXT mVkCmdDrawMeshTasksIndirectEXT;
 		
 		error initVulkan();
 		error setLimits();

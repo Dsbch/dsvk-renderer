@@ -21,6 +21,10 @@
 #define VISIBLE_CURRENT_FRAME_FLAG_BIT      (1 << 2)
 #define NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT  (1 << 3)
 
+#define FIRST_OPAQUE_PASS_FLAG_BIT              (1 << 0)
+#define SECOND_OPAQUE_PASS_FLAG_BIT             (1 << 1)
+#define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
+
 #define BLEND_ALPHA_MODE 1
 
 // INPUT START.
@@ -178,7 +182,7 @@ StructuredBuffer<uint4> jointIndexBuffer[] : register(t3, space0);
 StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
 
 // Buffers.
-// 11 - 20.
+// 11 - 50.
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t11, space0);
 StructuredBuffer<command> commandOpaqueBuffer[] : register(t12, space0);
 StructuredBuffer<command> commandAccumilationBuffer : register(t13, space0);
@@ -187,23 +191,27 @@ StructuredBuffer<uint> primitiveBuffer[] : register(t15, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t16, space0);
 StructuredBuffer<float4x4> jointBuffer[] : register(t17, space0);
 StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t18, space0);
+StructuredBuffer<uint> visibleIndices : register(t19, space0);
+// [0] = visibleCount                                  
+// [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
+StructuredBuffer<uint> visibleDispatch : register(t20, space0);
 
 // SSBO END.
 
 // UBO START.
 
-ConstantBuffer<perDrawData> drawData : register(b19, space0);
+ConstantBuffer<perDrawData> drawData : register(b21, space0);
 
 // UBO END.
 
 // MATERIALS START.
-// 21 - 30.                               
-Texture2D materials[] : register(t21, space0);
-SamplerState materialsSampler[] : register(s21, space0);
-Texture2D accum : register(t22, space0);
-SamplerState accumSampler : register(s22, space0);
-Texture2D reveal : register(t23, space0);
-SamplerState revealSampler : register(s23, space0);
+// 51 - 100.                               
+Texture2D materials[] : register(t51, space0);
+SamplerState materialsSampler[] : register(s51, space0);
+Texture2D accum : register(t52, space0);
+SamplerState accumSampler : register(s52, space0);
+Texture2D reveal : register(t53, space0);
+SamplerState revealSampler : register(s53, space0);
 
 // MATERIALS END.
 

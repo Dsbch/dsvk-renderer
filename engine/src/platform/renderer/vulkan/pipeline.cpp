@@ -568,7 +568,7 @@ namespace engine
 		return pipelineData::pipelineRenderData{
 			.pipeline = pipe.first,
 			.pipelineLayout = pipe.second,
-			.meshletCount = uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD)),
+			.cmdBufferCount = uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD)),
 		};
 	}
 
@@ -617,5 +617,10 @@ namespace engine
 	vulkanBuffer pipelineData::getBuffer() const
 	{
 		return mCmdBuffer;
+	}
+
+	uint32_t pipelineData::getCommandBufferLoadedSize() const
+	{
+		return uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD));
 	}
 }

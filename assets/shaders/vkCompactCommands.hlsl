@@ -1,0 +1,82 @@
+//  dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkCompactCommands.spv vkCompactCommands.hlsl
+//  add -fspv-debug=vulkan-with-source flag only for debug.
+#include "common.hlsl"
+
+#define COMPACT_THREADS 256
+
+struct pushConstant
+{
+    uint hzbMipLevel;
+    uint mipWidth;
+    uint mipHeight;
+    uint cullingPassFlagBit;
+    uint opaqueCmdBufferIndex;
+    uint meshletCount;
+    uint hzbLength;
+};
+
+DEFINE_AS_PUSH_CONSTANT
+pushConstant push;
+
+Texture2D<float> originalZbuffer : register(t0, space0);
+RWTexture2D<float> hzbChain[] : register(u1, space0);
+RWStructuredBuffer<command> commandOpaqueBuffer[] : register(u2, space0);
+RWStructuredBuffer<command> commandAccumilationBuffer : register(u3, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t4, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t6, space0);
+ConstantBuffer<perDrawData> drawData : register(b7, space0);
+RWStructuredBuffer<uint> visibleIndices : register(u8, space0);
+// [0] = visibleCount                                  
+// [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
+RWStructuredBuffer<uint> visibleDispatch : register(u9, space0);
+
+groupshared uint groupVisibleCount;
+groupshared uint groupBase;
+
+[numthreads(COMPACT_THREADS, 1, 1)]
+void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
+{
+    if (gtid == 0)
+    {
+        groupVisibleCount = 0;
+        groupBase = 0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+
+    bool visible = false;
+
+    if (dtid < push.meshletCount)
+    {
+        command cmd;
+        if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
+            cmd = commandAccumilationBuffer[dtid];
+        else
+            cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid];
+
+        visible = hasFlag(cmd.visabilityBit, VISIBLE_CURRENT_FRAME_FLAG_BIT);
+    }
+
+    uint laneSlot = WavePrefixCountBits(visible);
+    uint waveVisibleCount = WaveActiveCountBits(visible);
+
+    uint waveBaseInGroup = 0;
+    if (WaveIsFirstLane() && waveVisibleCount > 0)
+        InterlockedAdd(groupVisibleCount, waveVisibleCount, waveBaseInGroup);
+    waveBaseInGroup = WaveReadLaneFirst(waveBaseInGroup);
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (gtid == 0 && groupVisibleCount > 0)
+    {
+        InterlockedAdd(visibleDispatch[0], groupVisibleCount, groupBase);
+
+        uint groupsNeeded = (groupBase + groupVisibleCount + THREADS_COUNT - 1) / THREADS_COUNT;
+        InterlockedMax(visibleDispatch[1], groupsNeeded);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (visible)
+        visibleIndices[groupBase + waveBaseInGroup + laneSlot] = dtid;
+}

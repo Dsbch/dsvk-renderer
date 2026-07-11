@@ -165,7 +165,7 @@ namespace engine
 		{
 			VkPipeline pipeline;
 			VkPipelineLayout pipelineLayout;
-			uint32_t meshletCount;
+			uint32_t cmdBufferCount;
 		};
 
 		pipelineRenderData getPipelineRenderData() const;
@@ -176,6 +176,7 @@ namespace engine
 		bool needDescriptorUpdate() const;
 		void setUpdated();
 		vulkanBuffer getBuffer() const;
+		uint32_t getCommandBufferLoadedSize() const;
 	private:
 		classicGraphicPipeline mPipeline;
 

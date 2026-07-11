@@ -13,7 +13,7 @@ struct pushConstant
     uint mipHeight;
     uint cullingPassFlagBit;
     uint opaqueCmdBufferIndex;
-    uint meshletCount;
+    uint cmdBufferCount;
     uint hzbLength;
 };
 

@@ -28,6 +28,8 @@ namespace engine
 		uint32_t meshletBufferBinding;
 		uint32_t perInstanceBufferBinding;
 		uint32_t perDrawDataBufferBinding;
+		uint32_t visabilityBuffer;
+		uint32_t visibleDispatch;
 	};
 
 	struct computeRenderer
@@ -42,6 +44,8 @@ namespace engine
 			deviceLimits limits,
 			graphicsPreset preset,
 			VkBuffer UBObuffer,
+			VkBuffer visabilityBuffer,
+			VkBuffer visabilityDispatchBuffer,
 			const swapChain& sChain
 		);
 		error destroy();
@@ -50,7 +54,7 @@ namespace engine
 
 		struct cullMeshletsParams
 		{
-			uint32_t meshletCount;
+			uint32_t cmdBufferCount;
 			uint32_t cullStage;
 			uint32_t opaqueCmdBufferIndex;
 			uint32_t hzbLength;
@@ -58,12 +62,22 @@ namespace engine
 
 		error cullMeshlets(VkCommandBuffer cmd, renderer::renderCallIn in, cullMeshletsParams params);
 
+		struct compactCommandBufferParams
+		{
+			uint32_t cmdBufferCount;
+			uint32_t opaqueCmdBufferIndex;
+			uint32_t stage;
+		};
+
+		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderCallIn in, compactCommandBufferParams params);
+
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
 		error updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
 		error updateAccumilationCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
 		error updatePerMeshBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
 		error updateMeshletBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
 		error updatePerInstancetBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
+		error updateVisabilityBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
@@ -72,11 +86,19 @@ namespace engine
 
 		computePipeline mBuildHzbPipeline;
 		computePipeline mCullingPipeline;
+		computePipeline mCompactCommandsPipeline;
 
 		VkSampler mSampler;
 		descriptorSet mDescriptorSet;
 
-		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer UBObuffer, deviceLimits limits);
+		error initDescriptors(
+			VkDevice device, 
+			VkPhysicalDevice physicalDevice, 
+			VkBuffer UBObuffer,
+			VkBuffer visabilityBuffer,
+			VkBuffer visabilityDispatchBuffer,
+			deviceLimits limits
+		);
 		error initComputePipeline(VkDevice device);
 	};
 }

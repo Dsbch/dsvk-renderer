@@ -12,15 +12,16 @@ namespace engine
 		deviceLimits limits,
 		graphicsPreset preset,
 		VkBuffer UBObuffer,
+		VkBuffer visabilityBuffer,
+		VkBuffer visabilityDispatchBuffer,
 		const swapChain& sChain
 	)
 	{
-
 		mCtx = ctx;
 
 		mBindings = computeBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 8,
+			.totalDescriptorsCount = 10,
 
 			.orignalZBufferBinding = 0,
 			.hzbBinding = 1,
@@ -33,13 +34,16 @@ namespace engine
 			.perInstanceBufferBinding = 6,
 
 			.perDrawDataBufferBinding = 7,
+
+			.visabilityBuffer = 8,
+			.visibleDispatch = 9,
 		};
 
 		mDeletionQueue.init(device);
 
 		mPreset = preset;
 
-		error err = initDescriptors(device, physicalDevice, UBObuffer, limits);
+		error err = initDescriptors(device, physicalDevice, UBObuffer, visabilityBuffer, visabilityDispatchBuffer, limits);
 		if (err)
 			return err;
 
@@ -118,13 +122,33 @@ namespace engine
 		computePushConstants pc{
 			.cullingPassFlagBit = params.cullStage,
 			.opaqueCmdBufferIndex = params.opaqueCmdBufferIndex,
-			.meshletCount = params.meshletCount,
+			.cmdBufferCount = params.cmdBufferCount,
 			.hzbLength = params.hzbLength,
 		};
 
 		vkCmdPushConstants(cmd, mCullingPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
 
-		vkCmdDispatch(cmd, uint32_t(pc.meshletCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+
+		return {};
+	}
+
+	error computeRenderer::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderCallIn in, compactCommandBufferParams params)
+	{
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().first);
+
+		auto set = mDescriptorSet.getDescriptorSet().first;
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+		computePushConstants pc{
+			.cullingPassFlagBit = params.stage,
+			.opaqueCmdBufferIndex = params.opaqueCmdBufferIndex,
+			.cmdBufferCount = params.cmdBufferCount,
+		};
+
+		vkCmdPushConstants(cmd, mCompactCommandsPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
+
+		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / 256 + 1, 1, 1);
 
 		return {};
 	}
@@ -206,7 +230,23 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer UBObuffer, deviceLimits limits)
+	error computeRenderer::updateVisabilityBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info)
+	{
+		auto writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, info);
+
+		mDescriptorSet.updateWrite(writeInfo);
+
+		return {};
+	}
+
+	error computeRenderer::initDescriptors(
+		VkDevice device,
+		VkPhysicalDevice physicalDevice,
+		VkBuffer UBObuffer,
+		VkBuffer visabilityBuffer,
+		VkBuffer visabilityDispatchBuffer,
+		deviceLimits limits
+	)
 	{
 		error err = mDescriptorSet.init(
 			device,
@@ -223,7 +263,7 @@ namespace engine
 
 		const uint32_t imageStorage = 1;
 		const uint32_t combinedImageSamplers = 1;
-		const uint32_t bufferObjects = 5;
+		const uint32_t bufferObjects = 7;
 		const uint32_t uniformBufferObjects = 1;
 
 		// add bindings for hzb.
@@ -273,7 +313,20 @@ namespace engine
 
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.perDrawDataBufferBinding, limits.maxStorageBuffers / uniformBufferObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+				mBindings.perDrawDataBufferBinding, limits.maxUniformBuffers / uniformBufferObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+			)
+		);
+
+		// For indirect calls.
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.visabilityBuffer, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.visibleDispatch, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
@@ -287,6 +340,21 @@ namespace engine
 		};
 
 		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perDrawDataBufferBinding, bufferInfo, true);
+		mDescriptorSet.updateWrite(writeInfo);
+
+		// Set descriptor for visabilityBuffers right away.
+		bufferInfo = {
+			VkDescriptorBufferInfo{.buffer = visabilityBuffer, .offset = 0, .range = VK_WHOLE_SIZE }
+		};
+
+		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
+		mDescriptorSet.updateWrite(writeInfo);
+
+		bufferInfo = {
+			VkDescriptorBufferInfo{.buffer = visabilityDispatchBuffer, .offset = 0, .range = VK_WHOLE_SIZE }
+		};
+
+		writeInfo = descriptorSet::getWriteInfo(mBindings.visibleDispatch, bufferInfo);
 		mDescriptorSet.updateWrite(writeInfo);
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = descSet, .descSet = &mDescriptorSet });
@@ -346,6 +414,27 @@ namespace engine
 			return buildErr;
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = computePipe, .computePipe = &mCullingPipeline });
+
+		// Init compact pipeline.
+		VkShaderModule compactModule;
+		auto compactShader = mCtx->mAmanager->getDefaultComputeCompactShader();
+		if (!compactShader)
+			return compactShader.err();
+
+		compactModule = static_cast<vulkanShader*>(const_cast<shader*>(compactShader.value().get()))->mShaderModule;
+
+		mCompactCommandsPipeline.init(device);
+		mCompactCommandsPipeline.setShader(compactModule);
+
+		pc.offset = 0;
+		pc.size = sizeof(computePushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+		buildErr = mCompactCommandsPipeline.build(&pc, { mDescriptorSet.getDescriptorSet().second });
+		if (buildErr)
+			return buildErr;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = computePipe, .computePipe = &mCompactCommandsPipeline });
 
 		return {};
 	}

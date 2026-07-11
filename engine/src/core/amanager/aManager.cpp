@@ -248,6 +248,17 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
+	withError<std::shared_ptr<const shader>> aManager::getDefaultComputeCompactShader()
+	{
+#ifdef VULKAN
+			const std::string path = "../assets/shaders/vkCompiled/vkCompactCommands.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
 	withError<std::shared_ptr<const shader>> aManager::getDefaultTaskShader()
 	{
 #ifdef VULKAN

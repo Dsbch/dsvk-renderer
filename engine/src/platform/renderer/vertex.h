@@ -311,7 +311,7 @@ namespace engine
 
 	struct pushConstants
 	{
-		uint32_t meshletCount;
+		uint32_t cmdBufferCount;
 		uint32_t opaqueCmdBufferIndex;
 	};
 
@@ -326,7 +326,7 @@ namespace engine
 		uint32_t mipHeight;
 		uint32_t cullingPassFlagBit;
 		uint32_t opaqueCmdBufferIndex;
-		uint32_t meshletCount;
+		uint32_t cmdBufferCount;
 		uint32_t hzbLength;
 	};
 

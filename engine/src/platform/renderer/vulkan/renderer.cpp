@@ -275,6 +275,10 @@ namespace engine
 		if (!mVkCmdDrawMeshTasksEXT)
 			return { "can't load extensions" };
 
+		mVkCmdDrawMeshTasksIndirectEXT = (PFN_vkCmdDrawMeshTasksIndirectEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksIndirectEXT");
+		if (!mVkCmdDrawMeshTasksIndirectEXT)
+			return { "can't load extensions" };
+
 		return {};
 	}
 
@@ -302,7 +306,7 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer });
 
-		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain);
+		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mVkCmdDrawMeshTasksIndirectEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain);
 		if (err)
 			return err;
 

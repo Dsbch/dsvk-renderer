@@ -154,4 +154,15 @@ if %errorlevel% neq 0 (
 
 echo.
 
+echo Compiling Compute compactCommands Shader...
+dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkCompactCommands.spv vkCompactCommands.hlsl
+if %errorlevel% neq 0 (
+    echo Compute compactCommands Shader compilation failed!
+    pause
+) else (
+    echo Compute compactCommands Shader compiled successfully.
+)
+
+echo.
+
 pause

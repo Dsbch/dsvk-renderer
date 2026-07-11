@@ -12,7 +12,7 @@ namespace engine
 		mAllocator = allocator;
 	}
 
-	error vulkanBuffer::build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes)
+	error vulkanBuffer::build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, bool dispatchBuffer)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -20,11 +20,16 @@ namespace engine
 		mLoadedBytes = validBytes;
 		mByteSize = sizeInBytes;
 
+		VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+		if (dispatchBuffer)
+			usage |= VK_BUFFER_USAGE_2_INDIRECT_BUFFER_BIT;
+
 		auto createBufRes = createBuffer(
 			mAllocator,
 			mDevice,
 			sizeInBytes,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			usage,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 			mMapFlags
 		);

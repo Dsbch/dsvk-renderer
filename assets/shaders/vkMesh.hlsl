@@ -10,7 +10,7 @@
 // Push constant START.
 struct pushConstant
 {
-    uint meshletCount;
+    uint cmdBufferCount;
     uint opaqueCmdBufferIndex;
 };
 
@@ -43,9 +43,9 @@ void asmain(
     float visible = false;
     
     // Not overdraw.
-    if (dtid < push.meshletCount)
+    if (dtid < visibleDispatch[0])
     {
-        command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid];
+        command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][visibleIndices[dtid]];
         uint meshletOffset = getMeshletOffset(cmd, cmd.selectedLod);
     
         visible = hasFlag(cmd.visabilityBit, VISIBLE_CURRENT_FRAME_FLAG_BIT);

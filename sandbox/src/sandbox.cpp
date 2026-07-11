@@ -6,6 +6,20 @@
 
 namespace sandbox
 {
+	static engine::transform generateTransform()
+	{
+		static float zPos = -1.0f;
+
+		engine::transform result{};
+
+		result.scale = glm::vec3{ 1.0f };
+		result.translation = glm::vec3{ 0.0f, 0.0f, zPos };
+
+		zPos -= 2.0f;
+
+		return result;
+	}
+
 	sandboxSystem::sandboxSystem(std::shared_ptr<engine::context> ctx)
 		: engine::system(ctx)
 	{}
