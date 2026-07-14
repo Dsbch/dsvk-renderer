@@ -13,7 +13,6 @@ namespace engine
 		graphicsPreset preset,
 		VkBuffer UBObuffer,
 		VkBuffer visabilityBuffer,
-		VkBuffer visabilityDispatchBuffer,
 		const swapChain& sChain
 	)
 	{
@@ -21,7 +20,7 @@ namespace engine
 
 		mBindings = computeBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 10,
+			.totalDescriptorsCount = 9,
 
 			.orignalZBufferBinding = 0,
 			.hzbBinding = 1,
@@ -36,14 +35,13 @@ namespace engine
 			.perDrawDataBufferBinding = 7,
 
 			.visabilityBuffer = 8,
-			.visibleDispatch = 9,
 		};
 
 		mDeletionQueue.init(device);
 
 		mPreset = preset;
 
-		error err = initDescriptors(device, physicalDevice, UBObuffer, visabilityBuffer, visabilityDispatchBuffer, limits);
+		error err = initDescriptors(device, physicalDevice, UBObuffer, visabilityBuffer, limits);
 		if (err)
 			return err;
 
@@ -128,6 +126,7 @@ namespace engine
 
 		vkCmdPushConstants(cmd, mCullingPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
 
+		// For accumilation pass we do not use indirect for culling.
 		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
 
 		return {};
@@ -144,11 +143,12 @@ namespace engine
 			.cullingPassFlagBit = params.stage,
 			.opaqueCmdBufferIndex = params.opaqueCmdBufferIndex,
 			.cmdBufferCount = params.cmdBufferCount,
+			.compactRule = params.compactRule,
 		};
 
 		vkCmdPushConstants(cmd, mCompactCommandsPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
 
-		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / 256 + 1, 1, 1);
+		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / mCtx->config.inner.render.compactWorkGroup + 1, 1, 1);
 
 		return {};
 	}
@@ -244,7 +244,6 @@ namespace engine
 		VkPhysicalDevice physicalDevice,
 		VkBuffer UBObuffer,
 		VkBuffer visabilityBuffer,
-		VkBuffer visabilityDispatchBuffer,
 		deviceLimits limits
 	)
 	{
@@ -263,7 +262,7 @@ namespace engine
 
 		const uint32_t imageStorage = 1;
 		const uint32_t combinedImageSamplers = 1;
-		const uint32_t bufferObjects = 7;
+		const uint32_t bufferObjects = 6;
 		const uint32_t uniformBufferObjects = 1;
 
 		// add bindings for hzb.
@@ -324,12 +323,6 @@ namespace engine
 			)
 		);
 
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.visibleDispatch, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
 		err = mDescriptorSet.build(VK_SHADER_STAGE_ALL, mBindings.totalDescriptorsCount);
 		if (err)
 			return err;
@@ -348,13 +341,6 @@ namespace engine
 		};
 
 		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
-		mDescriptorSet.updateWrite(writeInfo);
-
-		bufferInfo = {
-			VkDescriptorBufferInfo{.buffer = visabilityDispatchBuffer, .offset = 0, .range = VK_WHOLE_SIZE }
-		};
-
-		writeInfo = descriptorSet::getWriteInfo(mBindings.visibleDispatch, bufferInfo);
 		mDescriptorSet.updateWrite(writeInfo);
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = descSet, .descSet = &mDescriptorSet });

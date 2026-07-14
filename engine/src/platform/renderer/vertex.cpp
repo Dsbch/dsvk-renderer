@@ -5,7 +5,7 @@ namespace engine
 {
 	bool hasFlag(uint32_t mask, uint32_t flag)
 	{
-		return false;
+		return (mask & flag) != 0;
 	}
 
 	std::vector<glm::mat4> skin::getJointMatrices() const

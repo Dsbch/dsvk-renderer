@@ -52,7 +52,7 @@ Run a **Release** build of the sandbox:
 
 **In progress**
 - **Per-frame-in-flight resource buffering.** Need to separate joint matrices/per-instance/draw buffers for each frame in flight.
-- **Separate main thread into render thread and game thread.** This will solve a lot of problems and bugs.
+- **Separate main thread into render thread and game thread.** This will solve a lot of problems and bugs. Also this will remove a lot of barriers for images and buffers.
 
 **Planned**
 - Hard and soft shadows.
@@ -62,5 +62,5 @@ Run a **Release** build of the sandbox:
 - Optional: custom scene format with full ECS serialization, and gizmos.
 
 **Known bugs**
-- Low amplification rate, need to implement GPU prefix-sum after compute culling.
+- Low performance even when 90 percent of a scene is culled. Need to profile it.
 - Flickering of meshlets because I have 3 frames in flight and they rewrite CMD buffers, need to implement per-frame-in-flight resource buffering.

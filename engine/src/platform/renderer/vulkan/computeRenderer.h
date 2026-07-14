@@ -29,7 +29,6 @@ namespace engine
 		uint32_t perInstanceBufferBinding;
 		uint32_t perDrawDataBufferBinding;
 		uint32_t visabilityBuffer;
-		uint32_t visibleDispatch;
 	};
 
 	struct computeRenderer
@@ -45,7 +44,6 @@ namespace engine
 			graphicsPreset preset,
 			VkBuffer UBObuffer,
 			VkBuffer visabilityBuffer,
-			VkBuffer visabilityDispatchBuffer,
 			const swapChain& sChain
 		);
 		error destroy();
@@ -67,6 +65,7 @@ namespace engine
 			uint32_t cmdBufferCount;
 			uint32_t opaqueCmdBufferIndex;
 			uint32_t stage;
+			uint32_t compactRule;
 		};
 
 		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderCallIn in, compactCommandBufferParams params);
@@ -92,11 +91,10 @@ namespace engine
 		descriptorSet mDescriptorSet;
 
 		error initDescriptors(
-			VkDevice device, 
-			VkPhysicalDevice physicalDevice, 
+			VkDevice device,
+			VkPhysicalDevice physicalDevice,
 			VkBuffer UBObuffer,
 			VkBuffer visabilityBuffer,
-			VkBuffer visabilityDispatchBuffer,
 			deviceLimits limits
 		);
 		error initComputePipeline(VkDevice device);

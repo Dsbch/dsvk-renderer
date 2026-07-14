@@ -28,10 +28,9 @@ namespace engine
 
 	glm::mat4 toMat4(const transform& trs);
 
-#define VISIBLE_FLAG_BIT                    (1 << 0)
-#define NOT_VISIBLE_FLAG_BIT                (1 << 1)
-#define VISIBLE_CURRENT_FRAME_FLAG_BIT      (1 << 2)
-#define NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT  (1 << 3)
+#define VISIBLE_FIRST_PASS_FLAG_BIT         (1 << 0)
+#define VISIBLE_SECOND_PASS_FLAG_BIT        (1 << 1)
+#define NOT_VISIBLE_FLAG_BIT                (1 << 2)
 
 	// Task/Amplification shader cmd buffer.
 	struct meshletShaderCMD
@@ -44,6 +43,9 @@ namespace engine
 		uint32_t meshletOffset2;
 		uint32_t meshletOffset3;
 		uint32_t meshletOffset4;
+
+		uint32_t meshIndex;
+		uint32_t meshOffset;
 
 		// Setted by GPU in compute.
 		uint32_t visabilityBit;
@@ -315,8 +317,8 @@ namespace engine
 		uint32_t opaqueCmdBufferIndex;
 	};
 
-#define FIRST_OPAQUE_PASS_FLAG_BIT              (1 << 0)
-#define SECOND_OPAQUE_PASS_FLAG_BIT             (1 << 1)
+#define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
+#define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
 #define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
 
 	struct computePushConstants
@@ -328,6 +330,7 @@ namespace engine
 		uint32_t opaqueCmdBufferIndex;
 		uint32_t cmdBufferCount;
 		uint32_t hzbLength;
+		uint32_t compactRule;
 	};
 
 	struct lineVertex

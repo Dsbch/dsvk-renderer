@@ -113,12 +113,14 @@ namespace engine
 	void from_json(const nlohmann::json& j, renderCfg& p)
 	{
 		j.at("shaderWorkGroup").get_to(p.shaderWorkGroup);
+		j.at("compactWorkGroup").get_to(p.compactWorkGroup);
 	}
 
 	void to_json(nlohmann::json& j, const renderCfg& p)
 	{
 		j = nlohmann::json{
 			{"shaderWorkGroup", p.shaderWorkGroup},
+			{"compactWorkGroup", p.compactWorkGroup},
 		};
 	}
 

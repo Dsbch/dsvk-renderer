@@ -358,7 +358,7 @@ namespace engine
 		mNeedDescriptorUpdate = true;
 
 		// Buffer is mapped and we need CPU readback.
-		mBufferMapFlags = {true, true};
+		mBufferMapFlags = {true, false};
 
 		VkPushConstantRange pc{};
 		pc.offset = 0;
@@ -447,6 +447,8 @@ namespace engine
 							.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
 							.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
 							.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max(),
+							.meshIndex = m.meshHandle.bufferIndex,
+							.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
 							.visabilityBit = NOT_VISIBLE_FLAG_BIT,
 							.selectedLod = 1,
 						}
@@ -488,38 +490,6 @@ namespace engine
 			mEntitiesToDelete.erase(id);
 		}
 
-		for (auto& k : mEntitiesToDelete)
-		{
-			auto uploadedEnity = mUploadedEntities.find(k);
-
-			if (uploadedEnity != mUploadedEntities.end())
-			{
-				if (mCmdBuffer.getLoadedBytes() != uploadedEnity->second.second)
-				{
-					error err = mCmdBuffer.shiftData(params.is, uploadedEnity->second.first, uploadedEnity->second.second);
-					if (err)
-						return err;
-				}
-				else
-					mCmdBuffer.markBytesAsDead(uploadedEnity->second.second - uploadedEnity->second.first);
-
-				size_t deletedSize = uploadedEnity->second.second - uploadedEnity->second.first;
-
-				for (auto& [_, v] : mUploadedEntities)
-				{
-					if (v.first >= uploadedEnity->second.second)
-					{
-						v.first -= deletedSize;
-						v.second -= deletedSize;
-					}
-				}
-
-				mUploadedEntities.erase(k);
-			}
-		}
-
-		mEntitiesToDelete.clear();
-
 		for (auto& [k, v] : mEntitiesToAdd)
 		{
 			if (mUploadedEntities.find(k) == mUploadedEntities.end())
@@ -557,6 +527,38 @@ namespace engine
 		}
 
 		mEntitiesToAdd.clear();
+
+		for (auto& k : mEntitiesToDelete)
+		{
+			auto uploadedEnity = mUploadedEntities.find(k);
+
+			if (uploadedEnity != mUploadedEntities.end())
+			{
+				if (mCmdBuffer.getLoadedBytes() != uploadedEnity->second.second)
+				{
+					error err = mCmdBuffer.shiftData(params.is, uploadedEnity->second.first, uploadedEnity->second.second);
+					if (err)
+						return err;
+				}
+				else
+					mCmdBuffer.markBytesAsDead(uploadedEnity->second.second - uploadedEnity->second.first);
+
+				size_t deletedSize = uploadedEnity->second.second - uploadedEnity->second.first;
+
+				for (auto& [_, v] : mUploadedEntities)
+				{
+					if (v.first >= uploadedEnity->second.second)
+					{
+						v.first -= deletedSize;
+						v.second -= deletedSize;
+					}
+				}
+
+				mUploadedEntities.erase(k);
+			}
+		}
+
+		mEntitiesToDelete.clear();
 
 		return {};
 	}
@@ -621,6 +623,6 @@ namespace engine
 
 	uint32_t pipelineData::getCommandBufferLoadedSize() const
 	{
-		return uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD));
+		return uint32_t(mCmdBuffer.getLoadedBytes());
 	}
 }

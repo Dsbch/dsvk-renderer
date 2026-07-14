@@ -35,7 +35,6 @@ namespace engine
 		uint32_t jointsBinding;
 		uint32_t perMeshBinding;
 		uint32_t visabilityBuffer;
-		uint32_t visibleDispatch;
 		uint32_t perDrawBufferUboBinding;
 
 		// Materil binding.
@@ -112,7 +111,6 @@ namespace engine
 		// Visability buffers for indirect calls.
 		uint32_t mVisabilityBufferSize;
 		vulkanBuffer mVisabilityBuffer;
-		vulkanBuffer mVisableDispatchBuffer;
 
 		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
 		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits, VkBuffer UBObuffer);

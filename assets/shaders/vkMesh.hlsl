@@ -40,25 +40,20 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    float visible = false;
+    bool visible = dtid < visabilityBuffer[0];
     
     // Not overdraw.
-    if (dtid < visibleDispatch[0])
+    if (visible)
     {
-        command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][visibleIndices[dtid]];
+        command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][visabilityBuffer[dtid + 4]];
         uint meshletOffset = getMeshletOffset(cmd, cmd.selectedLod);
     
-        visible = hasFlag(cmd.visabilityBit, VISIBLE_CURRENT_FRAME_FLAG_BIT);
-            
-        if (visible)
-        {
-            uint index = WavePrefixCountBits(visible);
+        uint index = WavePrefixCountBits(visible);
         
-            payload.perInstanceIndex[index] = cmd.instanceIndex;
-            payload.perInstanceOffset[index] = cmd.instanceOffset;
-            payload.meshletIndex[index] = cmd.meshletIndex;
-            payload.meshletOffset[index] = meshletOffset;
-        }
+        payload.perInstanceIndex[index] = cmd.instanceIndex;
+        payload.perInstanceOffset[index] = cmd.instanceOffset;
+        payload.meshletIndex[index] = cmd.meshletIndex;
+        payload.meshletOffset[index] = meshletOffset;
     }
     
     uint visibleCount = WaveActiveCountBits(visible);
@@ -105,16 +100,10 @@ void msmain(
         vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
         
         vertices[gtid].uv = skVertex.textureCoords;
-        vertices[gtid].albedoIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
-        vertices[gtid].normalIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 1;
-        vertices[gtid].metallicRoughnessIndex = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3 + 2;
-
+        vertices[gtid].materialBase = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
         vertices[gtid].worldPos = worldPos.xyz;
-        vertices[gtid].cameraPos = drawData.cameraPos;
-        vertices[gtid].normal = skVertex.normal;
-        vertices[gtid].tangent = skVertex.tangent;
-        vertices[gtid].rotation = instanceAttr.modelTransform.rotation;
-        vertices[gtid].cameraFront = drawData.cameraFront;
+        vertices[gtid].normal = rotate(instanceAttr.modelTransform.rotation, skVertex.normal);
+        vertices[gtid].tangent = float4(rotate(instanceAttr.modelTransform.rotation, skVertex.tangent.xyz), skVertex.tangent.w);
     }
     
     GroupMemoryBarrierWithGroupSync();
@@ -152,16 +141,17 @@ void msmain(
 // All calculations are made in tangent space.
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    float3x3 TBN = calculateTBN(input.rotation, input.tangent, input.normal);
+    // Model rotation is already baked into tangent and normal.
+    float3x3 TBN = calculateTBN(float4(0, 0, 0, 1), input.tangent, input.normal);
     
-    float3 cameraPos = mul(input.cameraPos, TBN);
-    float3 cameraFront = normalize(mul(input.cameraFront, TBN));
+    float3 cameraPos = mul(drawData.cameraPos, TBN);
     float3 worldPos = mul(input.worldPos, TBN);
+    float3 cameraFront = normalize(mul(drawData.cameraFront, TBN));
     
-    float4 metalicRoughnes = materials[input.metallicRoughnessIndex].Sample(materialsSampler[input.metallicRoughnessIndex], input.uv);
+    float4 metalicRoughnes = materials[input.materialBase + 2].Sample(materialsSampler[input.materialBase + 2], input.uv);
 
-    float4 albedo = materials[input.albedoIndex].Sample(materialsSampler[input.albedoIndex], input.uv);
-    float4 normalTexture = materials[input.normalIndex].Sample(materialsSampler[input.normalIndex], input.uv);
+    float4 albedo = materials[input.materialBase].Sample(materialsSampler[input.materialBase], input.uv);
+    float4 normalTexture = materials[input.materialBase + 1].Sample(materialsSampler[input.materialBase + 1], input.uv);
     float3 normal = normalTexture.rgb * 2.0f - 1.0f;
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;

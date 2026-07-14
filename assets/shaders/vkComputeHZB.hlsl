@@ -2,10 +2,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-#define FIRST_OPAQUE_PASS_FLAG_BIT              (1 << 0)
-#define SECOND_OPAQUE_PASS_FLAG_BIT             (1 << 1)
-#define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
-
 struct pushConstant
 {
     uint hzbMipLevel;
@@ -15,6 +11,7 @@ struct pushConstant
     uint opaqueCmdBufferIndex;
     uint cmdBufferCount;
     uint hzbLength;
+    uint compactRule;
 };
 
 DEFINE_AS_PUSH_CONSTANT

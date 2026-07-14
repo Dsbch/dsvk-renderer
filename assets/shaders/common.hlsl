@@ -16,13 +16,12 @@
 
 #define MAX_UINT 4294967295
     
-#define VISIBLE_FLAG_BIT                    (1 << 0)
-#define NOT_VISIBLE_FLAG_BIT                (1 << 1)
-#define VISIBLE_CURRENT_FRAME_FLAG_BIT      (1 << 2)
-#define NOT_VISIBLE_CURRENT_FRAME_FLAG_BIT  (1 << 3)
+#define VISIBLE_FIRST_PASS_FLAG_BIT         (1 << 0)
+#define VISIBLE_SECOND_PASS_FLAG_BIT        (1 << 1)
+#define NOT_VISIBLE_FLAG_BIT                (1 << 2)
 
-#define FIRST_OPAQUE_PASS_FLAG_BIT              (1 << 0)
-#define SECOND_OPAQUE_PASS_FLAG_BIT             (1 << 1)
+#define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
+#define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
 #define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
 
 #define BLEND_ALPHA_MODE 1
@@ -101,6 +100,9 @@ struct command
     uint meshletOffset3;
     uint meshletOffset4;
     
+    uint meshIndex;
+    uint meshOffset;
+    
     uint visabilityBit;
     uint selectedLod;
 };
@@ -154,17 +156,12 @@ struct meshOutput
 {
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
-    
-    nointerpolation uint albedoIndex : TEXCOORD1;
-    nointerpolation uint normalIndex : TEXCOORD2;
-    nointerpolation uint metallicRoughnessIndex : TEXCOORD3;
+    nointerpolation uint materialBase : TEXCOORD1;
 
+    float3 worldPos : POSITIONT0;
+    
     float3 normal : TANGENT0;
     float4 tangent : TANGENT1;
-    nointerpolation float4 rotation : TANGENT2;
-    float3 cameraPos : POSITIONT1;
-    float3 cameraFront : POSITIONT2;
-    float3 worldPos : POSITIONT3;
 };
 
 #ifdef NEED_BINDINGS
@@ -191,16 +188,15 @@ StructuredBuffer<uint> primitiveBuffer[] : register(t15, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t16, space0);
 StructuredBuffer<float4x4> jointBuffer[] : register(t17, space0);
 StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t18, space0);
-StructuredBuffer<uint> visibleIndices : register(t19, space0);
 // [0] = visibleCount                                  
-// [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
-StructuredBuffer<uint> visibleDispatch : register(t20, space0);
+// [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ     
+StructuredBuffer<uint> visabilityBuffer : register(t19, space0);
 
 // SSBO END.
 
 // UBO START.
 
-ConstantBuffer<perDrawData> drawData : register(b21, space0);
+ConstantBuffer<perDrawData> drawData : register(b20, space0);
 
 // UBO END.
 
@@ -565,5 +561,5 @@ float3 toSRGB(float3 color)
 
 bool hasFlag(uint mask, uint flag)
 {
-    return (mask & flag) == flag;
+    return (mask & flag) != 0;
 }

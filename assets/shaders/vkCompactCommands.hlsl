@@ -13,6 +13,7 @@ struct pushConstant
     uint opaqueCmdBufferIndex;
     uint meshletCount;
     uint hzbLength;
+    uint compactRule;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -26,10 +27,9 @@ StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t4, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t6, space0);
 ConstantBuffer<perDrawData> drawData : register(b7, space0);
-RWStructuredBuffer<uint> visibleIndices : register(u8, space0);
 // [0] = visibleCount                                  
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
-RWStructuredBuffer<uint> visibleDispatch : register(u9, space0);
+RWStructuredBuffer<uint> visabilityBuffer : register(u8, space0);
 
 groupshared uint groupVisibleCount;
 groupshared uint groupBase;
@@ -54,7 +54,7 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
         else
             cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid];
 
-        visible = hasFlag(cmd.visabilityBit, VISIBLE_CURRENT_FRAME_FLAG_BIT);
+        visible = hasFlag(cmd.visabilityBit, push.compactRule);
     }
 
     uint laneSlot = WavePrefixCountBits(visible);
@@ -69,14 +69,14 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
 
     if (gtid == 0 && groupVisibleCount > 0)
     {
-        InterlockedAdd(visibleDispatch[0], groupVisibleCount, groupBase);
+        InterlockedAdd(visabilityBuffer[0], groupVisibleCount, groupBase);
 
         uint groupsNeeded = (groupBase + groupVisibleCount + THREADS_COUNT - 1) / THREADS_COUNT;
-        InterlockedMax(visibleDispatch[1], groupsNeeded);
+        InterlockedMax(visabilityBuffer[1], groupsNeeded);
     }
 
     GroupMemoryBarrierWithGroupSync();
 
     if (visible)
-        visibleIndices[groupBase + waveBaseInGroup + laneSlot] = dtid;
+        visabilityBuffer[4 + groupBase + waveBaseInGroup + laneSlot] = dtid;
 }

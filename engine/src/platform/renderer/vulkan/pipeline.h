@@ -130,6 +130,7 @@ namespace engine
 		struct meshes
 		{
 			uint32_t meshID;
+			bufferHandle meshHandle;
 			bufferHandle meshletHandle;
 			const dataWithLodLevels<meshlet>& meshlets;
 		};
