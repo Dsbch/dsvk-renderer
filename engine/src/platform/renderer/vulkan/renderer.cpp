@@ -298,7 +298,7 @@ namespace engine
 	error vulkanRenderer::initRenderers(std::shared_ptr<window> window)
 	{
 		// Init UBO perDrawBuffer.
-		mUboPerDrawBuffer.init(mDevice, mAllocator, {true, false});
+		mUboPerDrawBuffer.init(mDevice, mAllocator, { true, false });
 
 		error err = mUboPerDrawBuffer.buildAsUBO(mSubmit, nullptr, sizeof(preDrawData), 0);
 		if (err)
@@ -510,7 +510,7 @@ namespace engine
 		if (waitResult)
 			return waitResult.err();
 
-		static float firstFrame = true;
+		static bool firstFrame = true;
 
 		if (!firstFrame)
 			updateProfInfo(in.deltaTime);
@@ -557,6 +557,48 @@ namespace engine
 
 		mGpuProfiler.reset(cmd);
 
+		// Cross frame barriers.
+		mSwapChain.transitionDepthImage(
+			cmd,
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+		);
+
+		mSwapChain.transitionDrawImage(
+			cmd,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
+		
+		mSwapChain.transitionAccumImage(
+			cmd,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
+		
+		mSwapChain.transitionRevealImage(
+			cmd,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+		);
+		
+		mSwapChain.transitionHzbChainImages(
+			cmd,
+			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_2_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+			VK_ACCESS_2_SHADER_WRITE_BIT
+		);
+
 		err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque");
 		if (err)
 			return err;
@@ -591,7 +633,7 @@ namespace engine
 		// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
 		mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		
+
 		err = mGpuProfiler.beginTimeStamp(cmd, "drawUI");
 
 		err = drawUI(cmd);
@@ -674,16 +716,7 @@ namespace engine
 		// as its necessary that drawing commands have finished before the image is displayed to the user.
 		auto presentErr = mSwapChain.present(mGraphicsQueue);
 		if (presentErr)
-		{
-			if (presentErr.err() == "VK_ERROR_OUT_OF_DATE_KHR")
-			{
-				mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(mWindow->getFbWidth(), mWindow->getFbHeight()));
-
-				return {};
-			}
-
 			return presentErr;
-		}
 
 		return {};
 	}

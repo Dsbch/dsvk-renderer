@@ -67,12 +67,11 @@ namespace engine
 			if (keyCode == key::unknown)
 				return;
 
-			co::mutex_guard m(wndPtr->mEvenetQueueMu);
 			if (action == GLFW_PRESS || action == GLFW_REPEAT)
 			{
 				if (wndPtr->mKeyDown.find(keyCode) == wndPtr->mKeyDown.end())
 				{
-					wndPtr->mEventQueue.push(std::make_shared<keyPressedEvent>(keyCode));
+					wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<keyPressedEvent>(keyCode));
 
 					wndPtr->mKeyDown[keyCode] = std::make_shared<keyDownEvent>(keyCode);
 				}
@@ -85,7 +84,7 @@ namespace engine
 					wndPtr->mKeyDown.erase(keyCode);
 				}
 
-				wndPtr->mEventQueue.push(std::make_shared<keyUpEvent>(keyCode));
+				wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<keyUpEvent>(keyCode));
 			}
 
 		}
@@ -116,11 +115,7 @@ namespace engine
 		lastY = ypos;
 
 		if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
-		{
-			co::mutex_guard m(wndPtr->mEvenetQueueMu);
-
-			wndPtr->mEventQueue.push(std::make_shared<mouseMoveEvent>(mouseOffset{ int(dx), int(dy) }));
-		}
+			wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<mouseMoveEvent>(mouseOffset{ int(dx), int(dy) }));
 	}
 
 	void window::windowCloseCallback(GLFWwindow* wnd)
@@ -150,17 +145,20 @@ namespace engine
 	window::window(std::shared_ptr<context> ctx)
 		: mCtx(ctx), mWnd(nullptr)
 	{
-		std::call_once(initFlag, [&] {
-			if (glfwInit() != GLFW_TRUE)
+		std::call_once(
+			initFlag,
+			[this]()
 			{
-				mErr = { "can't init gflw" };
+				if (glfwInit() != GLFW_TRUE)
+				{
+					mErr = { "can't init gflw" };
+				}
+
+				glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+				glfwSetErrorCallback(glfwErrorCallback);
 			}
-
-			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-			glfwSetErrorCallback(glfwErrorCallback);
-			});
-
+		);
 		if (mErr)
 			return;
 
@@ -216,16 +214,13 @@ namespace engine
 		VkSurfaceKHR surface;
 		VkResult err = glfwCreateWindowSurface(instance, mWnd, NULL, &surface);
 		if (err)
-		{
 			return error{ "can't create vulkan surface" };
-		}
 
 		return surface;
 	}
 
 	void window::swapBuffers() const
-	{
-	}
+	{}
 
 	void window::toggleCursor()
 	{
@@ -245,15 +240,6 @@ namespace engine
 	void window::pollInput()
 	{
 		glfwPollEvents();
-
-		co::mutex_guard l(mEvenetQueueMu);
-
-		// Queue keyDown events.
-		for (int i = 0; i < mEventQueue.size(); i++)
-		{
-			mCtx->mEventDispatcher->queueEvent(mEventQueue.front());
-			mEventQueue.pop();
-		}
 
 		// Queue still pressed keys.
 		for (auto& [key, val] : mKeyDown)

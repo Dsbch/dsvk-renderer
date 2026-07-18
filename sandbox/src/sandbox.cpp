@@ -120,10 +120,10 @@ namespace sandbox
 
 	engine::error sandboxSystem::onEvent(std::shared_ptr<engine::registryHandle> registry, std::shared_ptr<engine::baseEvent> e)
 	{
+#ifdef DEBUG
 		if (e->getEventType() == engine::eventType::keyPressed)
 		{
 			auto event = static_cast<engine::keyPressedEvent*>(e.get());
-#ifdef DEBUG
 			if (event->getKey() == engine::key::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
@@ -344,8 +344,8 @@ namespace sandbox
 				if (entity)
 					entity.addOrReplaceComponent<engine::deleteComponent>();
 			}
-#endif // DEBUG
 		}
+#endif // DEBUG
 
 		if (e->getEventType() == engine::eventType::keyDown)
 		{

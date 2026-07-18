@@ -3,44 +3,37 @@ Task shader pipeline is used. For now I only implemented a working, somewhat sca
 The goal is to render a big open-world scene with a lot of topology. Because the task shader pipeline is used, I have three types of culling: frustum, occlusion and backface (frustum + occlusion in the compute shader, and backface in the task + mesh shader). 
 The renderer supports simple skeletal animations (for now it just loops each animation).
 
-See the [roadmap](#roadmap).
+See the todo.
 
 ![Meshlet culling](docs/culling.gif)
 ![blending](docs/oit.png)
 
 ## Features
 
-- **Task shader pipeline** Instanced rendering with LOD level selection in the compute shader.
-- **Two-phase HZB occlusion culling** runs in compute.
-- **Order-independent transparency**
-- **PBR** metallic-roughness material workflow.
-- **Skeletal animation** with per-meshlet culling for animated geometry (has bugs, see [roadmap](#roadmap)).
-- **ECS architecture** The scene is built on an ECS (EnTT).
-- **In-app GPU profiler** query-based profiling window.
+- Task shader pipeline Instanced rendering with LOD level selection in the compute shader.
+- Two-phase HZB occlusion culling runs in compute.
+- Order-independent transparency
+- PBR metallic-roughness material workflow.
+- Skeletal animation with per-meshlet culling for animated geometry (has bugs, see TODO).
+- ECS architecture The scene is built on an ECS (EnTT).
+- In-app GPU profiler query-based profiling window.
 
-## Stack
+## Used libraries
 
-- **Language / API:** C++20, Vulkan, HLSL shaders
-- **Vulkan setup:** [vk-bootstrap](https://github.com/charles-lunarg/vk-bootstrap), VMA
-- **Assets:** [cgltf](https://github.com/jkuhlmann/cgltf), [meshoptimizer](https://github.com/zeux/meshoptimizer), [basis_universal](https://github.com/BinomialLLC/basis_universal), stb_image
-- **Core libs:** [EnTT](https://github.com/skypjack/entt), [GLFW](https://github.com/glfw/glfw), [GLM](https://github.com/g-truc/glm), [Dear ImGui](https://github.com/ocornut/imgui), [coost](https://github.com/idealvin/coost), [spdlog](https://github.com/gabime/spdlog), [nlohmann/json](https://github.com/nlohmann/json)
+[vk-bootstrap](https://github.com/charles-lunarg/vk-bootstrap), VMA, [cgltf](https://github.com/jkuhlmann/cgltf), [meshoptimizer](https://github.com/zeux/meshoptimizer), [basis_universal](https://github.com/BinomialLLC/basis_universal), stb_image, [EnTT](https://github.com/skypjack/entt), [GLFW](https://github.com/glfw/glfw), [GLM](https://github.com/g-truc/glm), [Dear ImGui](https://github.com/ocornut/imgui), [coost](https://github.com/idealvin/coost), [spdlog](https://github.com/gabime/spdlog), [nlohmann/json](https://github.com/nlohmann/json)
 
 ## Building
 
-Windows / x64 only for now.
+Windows only for now.
 
-1. Install the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home).
+1. Install the [Vulkan SDK](https://vulkan.lunarg.com).
 2. Generate the Visual Studio 2026 solution with [premake5](https://premake.github.io/):
 
    ```
     premake5 --mode=sandbox vs2026
    ```
 
-3. Open the generated solution and build in `Release`.
-
-## Controls
-
-Run a **Release** build of the sandbox:
+3. Open the generated solution and build in Release.
 
 | Key | Action |
 | --- | --- |
@@ -48,11 +41,11 @@ Run a **Release** build of the sandbox:
 | `M`  | Toggle cursor |
 | `B` | Toggle debug camera to test culling |
 
-## Roadmap
+## TODO
 
 **In progress**
-- **Per-frame-in-flight resource buffering.** Need to separate joint matrices/per-instance/draw buffers for each frame in flight.
-- **Separate main thread into render thread and game thread.** This will solve a lot of problems and bugs. Also this will remove a lot of barriers for images and buffers.
+- Per-frame-in-flight resource buffering. Need to separate joint matrices/per-instance/draw buffers for each frame in flight.
+- Separate main thread into render thread and game thread. This will solve a lot of problems and bugs. Also this will remove a lot of barriers for images and buffers.
 
 **Planned**
 - Hard and soft shadows.

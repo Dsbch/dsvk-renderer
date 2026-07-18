@@ -46,9 +46,7 @@ namespace engine
 
 		std::shared_ptr<context> mCtx;
 
-		co::mutex mEvenetQueueMu;
 		std::map<key, std::shared_ptr<baseEvent>> mKeyDown;
-		std::queue<std::shared_ptr<baseEvent>> mEventQueue;
 
 		GLFWwindow* mWnd;
 		bool mIsCursorPresent;
