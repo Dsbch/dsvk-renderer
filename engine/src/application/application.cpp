@@ -147,6 +147,9 @@ namespace engine
 		if (mErr = mScene->checkError(); mErr)
 			return;
 
+		mRenderer = makeRenderer(mCtx, mWindow);
+		mGameThreadDispather = std::make_shared<eventDispatcher>();
+
 		app = this;
 	}
 

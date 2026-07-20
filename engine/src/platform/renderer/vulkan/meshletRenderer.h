@@ -66,12 +66,12 @@ namespace engine
 		error updateAnimations(const model& m, submit& is);
 		void removeFromRender(const model& m);
 
-		error updateDescriptors(renderer::renderCallIn in, submit& is, VkDevice device, VmaAllocator allocator);
+		error updateDescriptors(renderer::renderParams in, submit& is, VkDevice device, VmaAllocator allocator);
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
 		
-		error opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
-		error accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
-		error compositePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
+		error opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
+		error accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
+		error compositePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;

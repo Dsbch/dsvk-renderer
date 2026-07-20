@@ -321,7 +321,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::updatePerDrawBuffer(renderer::renderCallIn in)
+	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in)
 	{
 		preDrawData data{
 			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
@@ -368,7 +368,7 @@ namespace engine
 		renderer::setGraphicsPreset(preset);
 	}
 
-	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderParams in)
 	{
 		error err = mLineRenderer.drawLines(
 			cmd,
@@ -388,12 +388,12 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderParams in)
 	{
 		return mMeshletRenderer.accumilationPass(cmd, in, mSwapChain);
 	}
 
-	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in)
+	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in)
 	{
 		return mMeshletRenderer.compositePass(cmd, in, mSwapChain);
 	}
@@ -480,7 +480,7 @@ namespace engine
 		mMeshletRenderer.removeFromRender(m);
 	}
 
-	error vulkanRenderer::render(renderer::renderCallIn in)
+	error vulkanRenderer::render(renderer::renderParams in)
 	{
 		if (mWindowMinimized)
 			return {};

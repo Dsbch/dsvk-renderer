@@ -421,7 +421,7 @@ namespace engine
 		return std::max(opaque, mAccumilationPipeline.getCommandBufferLoadedSize());
 	}
 
-	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
+	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain)
 	{
 		uint32_t cmdBufferIndex = 0;
 		for (auto& [_, v] : mPipelines)
@@ -697,7 +697,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
+	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain)
 	{
 		// Add image barier, need to wait for opaque pass to finish for early depth test in accumilation pass.
 		pipelineImageBarrier(
@@ -864,7 +864,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
+	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain)
 	{
 		// Composite opaque and transperent.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1201,7 +1201,7 @@ namespace engine
 		}
 	}
 
-	error meshletRenderer::updateDescriptors(renderer::renderCallIn in, submit& is, VkDevice device, VmaAllocator allocator)
+	error meshletRenderer::updateDescriptors(renderer::renderParams in, submit& is, VkDevice device, VmaAllocator allocator)
 	{
 		// Update command buffer for mesh pipeline.
 		for (auto& [_, p] : mPipelines)

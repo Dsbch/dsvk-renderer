@@ -35,7 +35,7 @@ namespace engine
 		error updateAnimations(const model& m);
 		void removeFromRender(const model& m);
 
-		error render(renderer::renderCallIn in);
+		error render(renderer::renderParams in);
 
 		profilingInfo getProfilingInfo();
 
@@ -86,11 +86,11 @@ namespace engine
 
 		error initRenderers(std::shared_ptr<window> window);
 
-		error updatePerDrawBuffer(renderer::renderCallIn in);
+		error updatePerDrawBuffer(renderer::renderParams in);
 		void chooseGraphicsPreset();
-		error drawOpaque(VkCommandBuffer cmd, renderer::renderCallIn in);
-		error drawTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
-		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderCallIn in);
+		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in);
+		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in);
+		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in);
 		error drawUI(VkCommandBuffer cmd);
 
 		void updateProfInfo(float deltaTime);

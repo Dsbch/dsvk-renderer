@@ -127,39 +127,10 @@ namespace engine
 		co::mutex mMutex;
 	};
 
-	class userSystemHandle
-	{
-	public:
-		userSystemHandle(std::shared_ptr<context> mCtx, std::shared_ptr<system> mUserSystem, std::shared_ptr<registryHandle> sceneRegistry);
-		~userSystemHandle();
-
-		error checkError() const;
-
-		void onRender(float deltaTime);
-		void onEvent(std::shared_ptr<baseEvent> e);
-		void onFixedUpdate(float deltaTime);
-		void onUpdate(float deltaTime);
-		void onBeginUpdate();
-		void onEndUpdate();
-	private:
-		std::shared_ptr<context> mCtx;
-		std::shared_ptr<system> mUserSystem;
-		std::shared_ptr<registryHandle> mSceneRegistry;
-
-		ringBuffer<float, 100> mRenderBuffer;
-		ringBuffer<float, 100> mUpdateBuffer;
-		ringBuffer<float, 100> mFixedUpdateBuffer;
-		ringBuffer<std::shared_ptr<baseEvent>, 100> mEventBuffer;
-		ringBuffer<empty, 100> mBeginUpdateBuffer;
-		ringBuffer<empty, 100> mEndUpdateBuffer;
-
-		co::wait_group mWg;
-	};
-
 	class scene
 	{
 	public:
-		scene(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
+		scene(std::shared_ptr<context> ctx, std::shared_ptr<eventDispatcher> gameThreadEventDispatcher);
 		~scene();
 
 		error onRender(float deltaTime);
@@ -168,19 +139,14 @@ namespace engine
 		error onUpdate(float deltaTime);
 		error onBeginUpdate();
 		error onEndUpdate();
-
-		error checkError() const;
-
-		void addUserSystem(std::shared_ptr<system>);
-	protected:
-		std::shared_ptr<context> mCtx;
-
-	private:
-		std::vector<std::unique_ptr<system>> mSystems;
-		std::vector<std::unique_ptr<userSystemHandle>> mUserSystems;
-		std::shared_ptr<registryHandle> mSceneRegistry;
-
 		void addSystem(std::unique_ptr<system>&&);
+		error checkError() const;
+	private:
+		std::shared_ptr<context> mCtx;
+		std::vector<std::unique_ptr<system>> mSystems;
+		std::shared_ptr<registryHandle> mSceneRegistry;
+		std::shared_ptr<eventDispatcher> mGameThreadEventDispatcher;
+
 	};
 }
 

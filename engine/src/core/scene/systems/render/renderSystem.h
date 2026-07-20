@@ -11,7 +11,7 @@ namespace engine
 		public system
 	{
 	public:
-		renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd);
+		renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<eventDispatcher> gameThreadEventDispathcer);
 	
 		error onAttach(std::shared_ptr<registryHandle> registry);
 		void onDetach(std::shared_ptr<registryHandle> registry);
@@ -29,7 +29,6 @@ namespace engine
 		error handleUpdatedEntities(std::shared_ptr<registryHandle> registry);
 		error handleAnimatedEntities(std::shared_ptr<registryHandle> registry);
 
-		std::shared_ptr<renderer> mRenderer;
-		std::shared_ptr<window> mWnd;
+		std::shared_ptr<eventDispatcher> mGameThreadEventDispathcer;
 	};
 }

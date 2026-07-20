@@ -63,7 +63,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain)
+	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain)
 	{
 		if (in.useDebugCamera)
 			return {};
@@ -110,7 +110,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::cullMeshlets(VkCommandBuffer cmd, renderer::renderCallIn in, computeRenderer::cullMeshletsParams params)
+	error computeRenderer::cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, computeRenderer::cullMeshletsParams params)
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingPipeline.getPipeline().first);
 
@@ -132,7 +132,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderCallIn in, compactCommandBufferParams params)
+	error computeRenderer::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params)
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().first);
 

@@ -48,7 +48,7 @@ namespace engine
 		);
 		error destroy();
 
-		error buildHZB(VkCommandBuffer cmd, renderer::renderCallIn in, const swapChain& sChain);
+		error buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
 
 		struct cullMeshletsParams
 		{
@@ -58,7 +58,7 @@ namespace engine
 			uint32_t hzbLength;
 		};
 
-		error cullMeshlets(VkCommandBuffer cmd, renderer::renderCallIn in, cullMeshletsParams params);
+		error cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params);
 
 		struct compactCommandBufferParams
 		{
@@ -68,7 +68,7 @@ namespace engine
 			uint32_t compactRule;
 		};
 
-		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderCallIn in, compactCommandBufferParams params);
+		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params);
 
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
 		error updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);

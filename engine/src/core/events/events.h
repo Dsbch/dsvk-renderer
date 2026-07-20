@@ -11,6 +11,7 @@ namespace engine
 		keyDown,
 		mouseMove,
 		windowResize,
+		frameBufferReisze,
 		close,
 	};
 
@@ -64,7 +65,7 @@ namespace engine
 	private:
 		uint32_t mWidth, mHeight;
 	public:
-		windowFrameBufferResizeEvent(uint32_t width, uint32_t height) : baseEvent(eventType::windowResize), mWidth(width), mHeight(height) {};
+		windowFrameBufferResizeEvent(uint32_t width, uint32_t height) : baseEvent(eventType::frameBufferReisze), mWidth(width), mHeight(height) {};
 		uint32_t getWidth() const { return mWidth; };
 		uint32_t getHeight() const { return mHeight; };
 	};

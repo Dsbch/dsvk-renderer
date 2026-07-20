@@ -8,11 +8,10 @@
 
 namespace engine
 {
-	renderSystem::renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<window> wnd)
+	renderSystem::renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<eventDispatcher> gameThreadEventDispathcer)
 		:
 		system(ctx),
-		mWnd(wnd),
-		mRenderer(makeRenderer(ctx, wnd))
+		mGameThreadEventDispathcer(gameThreadEventDispathcer)
 	{
 	}
 
@@ -44,7 +43,7 @@ namespace engine
 
 	error renderSystem::checkError()
 	{
-		return mRenderer->checkError();
+		return {};
 	}
 
 	error renderSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
@@ -67,7 +66,7 @@ namespace engine
 
 	error renderSystem::onRender(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
-		renderer::renderCallIn renderCall{
+		renderer::renderParams renderCall{
 			.deltaTime = deltaTime,
 		};
 
@@ -129,12 +128,14 @@ namespace engine
 			renderCall.debugCameraProjection = projection.value();
 		}
 
-		return mRenderer->render(renderCall);
+		mGameThreadEventDispathcer->queueEvent(std::make_shared<renderer::renderEvent>(renderCall));
+
+		return {};
 	}
 
 	error renderSystem::onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e)
 	{
-		if (e->getEventType() == eventType::windowResize)
+		if (e->getEventType() == eventType::frameBufferReisze)
 		{
 			auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
 

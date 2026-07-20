@@ -143,7 +143,7 @@ namespace engine
 			}
 		}
 
-		if (e->getEventType() == eventType::windowResize)
+		if (e->getEventType() == eventType::frameBufferReisze)
 		{
 			auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
 

@@ -39,7 +39,7 @@ namespace engine
 	class renderer
 	{
 	public:
-		struct renderCallIn
+		struct renderParams
 		{
 			float deltaTime;
 			glm::mat4 debugCameraView;
@@ -55,6 +55,16 @@ namespace engine
 			uint32_t height;
 		};
 
+		struct sceneState
+		{
+			bool needViewPortUpdate;
+			renderParams renderCallParams;
+			std::vector<model> addedEntities;
+			std::set<uint32_t> deletedEntities;
+			std::vector<model> updateInstanceAttributes;
+			std::vector<model> updateAnimations;
+		};
+
 		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mPreset(), mWindow(window), mErr() {};
 		virtual ~renderer() = default;
 		virtual graphicsPreset getGraphicsPreset() const;
@@ -67,7 +77,7 @@ namespace engine
 		virtual error updateInstance(const model& m) = 0;
 		virtual error updateAnimations(const model& m) = 0;
 		virtual void removeFromRender(const model& m) = 0;
-		virtual error render(renderCallIn in) = 0;
+		virtual error render(renderParams in) = 0;
 
 		virtual profilingInfo getProfilingInfo() = 0;
 
