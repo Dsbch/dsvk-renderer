@@ -53,42 +53,57 @@ namespace engine
 			frustum cameraFrustum;
 			uint32_t width;
 			uint32_t height;
+			bool needViewPortResize;
 		};
 
 		struct sceneState
 		{
-			bool needViewPortUpdate;
-			renderParams renderCallParams;
 			std::vector<model> addedEntities;
 			std::set<uint32_t> deletedEntities;
 			std::vector<model> updateInstanceAttributes;
 			std::vector<model> updateAnimations;
 		};
 
+		struct renderPackage
+		{
+		public:
+			void setRenderParams(renderParams params);
+			void addEntity(const model& m);
+			void deleteEntity(uint32_t id);
+			void updateInstanceAttributes(const model& m);
+			void updateAnimations(const model& m);
+			void swapSceneState();
+
+			sceneState& getStateToRender();
+		private:
+			renderParams mRenderCallParams;
+
+			sceneState mPrevSceneState;
+			sceneState mCurrentSceneState;
+
+			co::mutex mMu;
+		};
+
 		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mPreset(), mWindow(window), mErr() {};
 		virtual ~renderer() = default;
-		virtual graphicsPreset getGraphicsPreset() const;
-		virtual void setGraphicsPreset(graphicsPreset);
 		virtual std::string getVersion() const = 0;
 		virtual std::string getGpuName() const = 0;
 		virtual error checkError() const = 0;
-		virtual error changeViewPort(uint32_t width, uint32_t height) = 0;
-		virtual error addToRender(const model& m) = 0;
-		virtual error updateInstance(const model& m) = 0;
-		virtual error updateAnimations(const model& m) = 0;
-		virtual void removeFromRender(const model& m) = 0;
-		virtual error render(renderParams in) = 0;
-
-		virtual profilingInfo getProfilingInfo() = 0;
+	
+		virtual error render() = 0;
 
 		virtual withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src) = 0;
 		virtual withError<std::shared_ptr<const texture>> makeTexture(const image& img) = 0;
 		virtual withError<std::shared_ptr<const texture>> makeTextureWithMips(const imageWithMipLevels& img) = 0;
+
+		std::shared_ptr<renderPackage> getRenderPackage() const;
 	protected:
 		error mErr;
 		graphicsPreset mPreset;
 		std::shared_ptr<context> mCtx;
 		std::shared_ptr<window> mWindow;
+
+		std::shared_ptr<renderPackage> mPackage;
 	};
 
 	std::shared_ptr<renderer> makeRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window);

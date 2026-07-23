@@ -8,17 +8,17 @@
 
 namespace engine
 {
-	scene::scene(std::shared_ptr<context> ctx, std::shared_ptr<eventDispatcher> gameThreadEventDispatcher)
+	scene::scene(std::shared_ptr<context> ctx, std::shared_ptr<renderer::renderPackage> package)
 		:
 		mSceneRegistry(std::make_shared<registryHandle>()),
 		mCtx(ctx),
 		mSystems(),
-		mGameThreadEventDispatcher(gameThreadEventDispatcher)
+		mRenderPackage(package)
 	{
 		// Add all systems.
 		// Systems are run on a separate thread.
 		// Systems are allowed to create additional threads, they just need to schedule them.
-		addSystem(std::make_unique<renderSystem>(mCtx, gameThreadEventDispatcher));
+		addSystem(std::make_unique<renderSystem>(mCtx, package));
 		addSystem(std::make_unique<cameraSystem>(mCtx));
 		addSystem(std::make_unique<animationSystem>(mCtx));
 	}

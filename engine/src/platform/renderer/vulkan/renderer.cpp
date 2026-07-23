@@ -456,6 +456,12 @@ namespace engine
 		return {};
 	}
 
+	error vulkanRenderer::render()
+	{
+
+		return {};
+	}
+
 	error vulkanRenderer::addToRender(const model& m)
 	{
 		registerSceneMetrics(m);
@@ -825,5 +831,56 @@ namespace engine
 	profilingInfo vulkanRenderer::getProfilingInfo()
 	{
 		return mProfInfo;
+	}
+
+	std::shared_ptr<renderer::renderPackage> renderer::getRenderPackage() const
+	{
+		return mPackage;
+	}
+
+	void renderer::renderPackage::setRenderParams(renderParams params)
+	{
+		std::lock_guard l{ mMu };
+
+		mRenderCallParams = params;
+	}
+
+	void renderer::renderPackage::addEntity(const model & m)
+	{
+		std::lock_guard l{ mMu };
+
+		mCurrentSceneState.addedEntities.push_back(m);
+	}
+
+	void renderer::renderPackage::deleteEntity(uint32_t id)
+	{
+		std::lock_guard l{ mMu };
+
+		mCurrentSceneState.deletedEntities.insert(id);
+	}
+
+	void renderer::renderPackage::updateInstanceAttributes(const model & m)
+	{
+		std::lock_guard l{ mMu };
+
+		mCurrentSceneState.updateInstanceAttributes.push_back(m);
+	}
+
+	void renderer::renderPackage::updateAnimations(const model & m)
+	{
+		std::lock_guard l{ mMu };
+
+		mCurrentSceneState.updateAnimations.push_back(m);
+	}
+
+	renderer::sceneState& renderer::renderPackage::getStateToRender()
+	{
+		std::lock_guard l{ mMu };
+
+		mPrevSceneState = {};
+
+		std::swap(mPrevSceneState, mCurrentSceneState);
+
+		return mPrevSceneState;
 	}
 }

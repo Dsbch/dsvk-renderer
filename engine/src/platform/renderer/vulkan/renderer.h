@@ -25,19 +25,12 @@ namespace engine
 	public:
 		vulkanRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window);
 		~vulkanRenderer();
+		error checkError() const;
 		std::string getVersion() const;
 		std::string getGpuName() const;
-		error checkError() const;
 		error changeViewPort(uint32_t width, uint32_t height);
 
-		error addToRender(const model& m);
-		error updateInstance(const model& m);
-		error updateAnimations(const model& m);
-		void removeFromRender(const model& m);
-
-		error render(renderer::renderParams in);
-
-		profilingInfo getProfilingInfo();
+		error runRenderLoop();
 
 		withError<std::shared_ptr<const texture>> makeTexture(const image& img);
 		withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src);

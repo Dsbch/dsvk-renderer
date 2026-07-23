@@ -48,8 +48,5 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// Wait for all background threads to finish.
-	waitDone();
-
 	return 0;
 }

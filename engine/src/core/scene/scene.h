@@ -1,12 +1,12 @@
 #pragma once
 
 #include <pch.h>
-#include "base/context/context.h"
-#include "core/events/events.h"
-#include "base/concurrency/ringBuffer.h"
 #include <entt/entt.hpp>
 
+#include "base/context/context.h"
+#include "core/events/events.h"
 #include "components.h"
+#include "platform/renderer/renderer.h"
 
 namespace engine
 {
@@ -130,7 +130,7 @@ namespace engine
 	class scene
 	{
 	public:
-		scene(std::shared_ptr<context> ctx, std::shared_ptr<eventDispatcher> gameThreadEventDispatcher);
+		scene(std::shared_ptr<context> ctx, std::shared_ptr<renderer::renderPackage> package);
 		~scene();
 
 		error onRender(float deltaTime);
@@ -145,8 +145,7 @@ namespace engine
 		std::shared_ptr<context> mCtx;
 		std::vector<std::unique_ptr<system>> mSystems;
 		std::shared_ptr<registryHandle> mSceneRegistry;
-		std::shared_ptr<eventDispatcher> mGameThreadEventDispatcher;
-
+		std::shared_ptr<renderer::renderPackage> mRenderPackage;
 	};
 }
 
