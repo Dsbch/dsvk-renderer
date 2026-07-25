@@ -13,6 +13,7 @@ namespace engine
 		windowResize,
 		frameBufferReisze,
 		close,
+		toggleCursor,
 	};
 
 	enum class key
@@ -49,6 +50,15 @@ namespace engine
 		baseEvent(eventType type) : mType(type) {};
 		eventType getEventType() const { return mType; };
 	};
+
+	template<class T>
+	inline T* tryCastToEventType(std::shared_ptr<baseEvent> base, eventType type)
+	{
+		if (base->getEventType() != type)
+			return nullptr;
+
+		return static_cast<T*>(base.get());
+	}
 
 	class windowResizeEvent : public baseEvent
 	{
@@ -114,5 +124,11 @@ namespace engine
 		mouseOffset getMouseOffset() const { return mOffset; };
 	private:
 		mouseOffset mOffset;
+	};
+
+	class toggleCursorEvent : public baseEvent
+	{
+	public:
+		toggleCursorEvent() : baseEvent(eventType::toggleCursor) {};
 	};
 }

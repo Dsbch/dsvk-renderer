@@ -41,7 +41,6 @@ namespace engine
 	public:
 		struct renderParams
 		{
-			float deltaTime;
 			glm::mat4 debugCameraView;
 			glm::mat4 debugCameraProjection;
 			uint32_t useDebugCamera;
@@ -53,13 +52,12 @@ namespace engine
 			frustum cameraFrustum;
 			uint32_t width;
 			uint32_t height;
-			bool needViewPortResize;
 		};
 
 		struct sceneState
 		{
 			std::vector<model> addedEntities;
-			std::set<uint32_t> deletedEntities;
+			std::vector<model> deletedEntities;
 			std::vector<model> updateInstanceAttributes;
 			std::vector<model> updateAnimations;
 		};
@@ -69,12 +67,13 @@ namespace engine
 		public:
 			void setRenderParams(renderParams params);
 			void addEntity(const model& m);
-			void deleteEntity(uint32_t id);
+			void deleteEntity(const model& m);
 			void updateInstanceAttributes(const model& m);
 			void updateAnimations(const model& m);
 			void swapSceneState();
 
 			sceneState& getStateToRender();
+			renderParams getRenderParams();
 		private:
 			renderParams mRenderCallParams;
 
@@ -84,7 +83,7 @@ namespace engine
 			co::mutex mMu;
 		};
 
-		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mPreset(), mWindow(window), mErr() {};
+		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mPreset(), mWindow(window), mPackage(std::make_shared<renderPackage>()), mErr() {};
 		virtual ~renderer() = default;
 		virtual std::string getVersion() const = 0;
 		virtual std::string getGpuName() const = 0;

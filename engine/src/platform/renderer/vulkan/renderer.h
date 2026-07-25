@@ -30,7 +30,7 @@ namespace engine
 		std::string getGpuName() const;
 		error changeViewPort(uint32_t width, uint32_t height);
 
-		error runRenderLoop();
+		error render();
 
 		withError<std::shared_ptr<const texture>> makeTexture(const image& img);
 		withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src);
@@ -79,7 +79,7 @@ namespace engine
 
 		error initRenderers(std::shared_ptr<window> window);
 
-		error updatePerDrawBuffer(renderer::renderParams in);
+		error updatePerDrawBuffer(renderer::renderParams in, float deltaTime);
 		void chooseGraphicsPreset();
 		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in);
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in);
@@ -89,5 +89,11 @@ namespace engine
 		void updateProfInfo(float deltaTime);
 		void registerSceneMetrics(const model& m, bool isDeleted = false);
 		void visualizeNormals(const model& m);
+
+		error handleEvents();
+		error addToRender(const std::vector<model>& addedEntities);
+		error updateInstance(const std::vector<model>& updatedEntities);
+		error updateAnimations(const std::vector<model>& animationUpdatedEntities);
+		void removeFromRender(const std::vector<model>& deletedEntities);
 	};
 }

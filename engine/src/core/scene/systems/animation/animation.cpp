@@ -22,11 +22,6 @@ namespace engine
 
 	error animationSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
 	{
-		return {};
-	}
-
-	error animationSystem::onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
-	{
 		std::vector<entity> needAnimUpd{};
 
 		registry->forEach<uidComponent, animationComponent>(
@@ -81,12 +76,7 @@ namespace engine
 	{
 		return {};
 	}
-
-	error animationSystem::onRender(std::shared_ptr<registryHandle> registry, float deltaTime)
-	{
-		return {};
-	}
-
+	
 	error animationSystem::onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e)
 	{
 		return {};

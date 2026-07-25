@@ -71,7 +71,7 @@ namespace engine
 			{
 				if (wndPtr->mKeyDown.find(keyCode) == wndPtr->mKeyDown.end())
 				{
-					wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<keyPressedEvent>(keyCode));
+					wndPtr->mCtx->mGameEventQueue->queueEvent(std::make_shared<keyPressedEvent>(keyCode));
 
 					wndPtr->mKeyDown[keyCode] = std::make_shared<keyDownEvent>(keyCode);
 				}
@@ -84,7 +84,7 @@ namespace engine
 					wndPtr->mKeyDown.erase(keyCode);
 				}
 
-				wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<keyUpEvent>(keyCode));
+				wndPtr->mCtx->mGameEventQueue->queueEvent(std::make_shared<keyUpEvent>(keyCode));
 			}
 
 		}
@@ -115,14 +115,18 @@ namespace engine
 		lastY = ypos;
 
 		if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
-			wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<mouseMoveEvent>(mouseOffset{ int(dx), int(dy) }));
+			wndPtr->mCtx->mGameEventQueue->queueEvent(std::make_shared<mouseMoveEvent>(mouseOffset{ int(dx), int(dy) }));
 	}
 
 	void window::windowCloseCallback(GLFWwindow* wnd)
 	{
 		if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
 		{
-			wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<closeEvent>());
+			auto cEvent = std::make_shared<closeEvent>();
+
+			wndPtr->mCtx->mGameEventQueue->queueEvent(cEvent);
+			wndPtr->mCtx->mRenderEventQueue->queueEvent(cEvent);
+			wndPtr->mCtx->mApplicationEventQueue->queueEvent(cEvent);
 		}
 	}
 
@@ -130,7 +134,11 @@ namespace engine
 	{
 		if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
 		{
-			wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(width, height));
+			auto resizeEvent = std::make_shared<windowFrameBufferResizeEvent>(width, height);
+
+			wndPtr->mCtx->mGameEventQueue->queueEvent(resizeEvent);
+			wndPtr->mCtx->mRenderEventQueue->queueEvent(resizeEvent);
+			wndPtr->mCtx->mApplicationEventQueue->queueEvent(resizeEvent);
 		}
 	}
 
@@ -138,7 +146,11 @@ namespace engine
 	{
 		if (window* wndPtr = static_cast<window*>(glfwGetWindowUserPointer(wnd)); wndPtr)
 		{
-			wndPtr->mCtx->mEventDispatcher->queueEvent(std::make_shared<windowResizeEvent>(width, height));
+			auto resizeEvent = std::make_shared<windowResizeEvent>(width, height);
+
+			wndPtr->mCtx->mGameEventQueue->queueEvent(resizeEvent);
+			wndPtr->mCtx->mRenderEventQueue->queueEvent(resizeEvent);
+			wndPtr->mCtx->mApplicationEventQueue->queueEvent(resizeEvent);
 		}
 	}
 
@@ -243,9 +255,7 @@ namespace engine
 
 		// Queue still pressed keys.
 		for (auto& [key, val] : mKeyDown)
-		{
-			mCtx->mEventDispatcher->queueEvent(val);
-		}
+			mCtx->mGameEventQueue->queueEvent(val);
 	}
 
 	bool window::isKeyPressed(key keyCode)

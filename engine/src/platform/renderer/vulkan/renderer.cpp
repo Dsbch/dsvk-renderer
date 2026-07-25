@@ -92,6 +92,8 @@ namespace engine
 		if (err)
 			LOGERROR("~vulkanRenderer mLineRenderer.destroy {}", err.err());
 
+		mPackage.reset();
+
 		mDeletionQueue.flushDeletonQueue();
 	}
 
@@ -321,7 +323,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in)
+	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in, float deltaTime)
 	{
 		preDrawData data{
 			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
@@ -333,7 +335,7 @@ namespace engine
 			.projection = in.projection,
 			.viewProjection = in.projection * in.view,
 			.cameraFrustum = in.cameraFrustum,
-			.deltaTime = in.deltaTime,
+			.deltaTime = deltaTime,
 			.width = in.width,
 			.height = in.height,
 		};
@@ -354,18 +356,16 @@ namespace engine
 
 	void vulkanRenderer::chooseGraphicsPreset()
 	{
-		graphicsPreset preset{
+		mPreset = graphicsPreset{
 			.msaa = mCtx->config.inner.graphics.msaa,
 			.anisotropicFiltering = mCtx->config.inner.graphics.anisotropicFiltering,
 		};
 
-		if (preset.anisotropicFiltering > uint32_t(mDeviceLimits.maxFiltering))
-			preset.anisotropicFiltering = uint32_t(mDeviceLimits.maxFiltering);
+		if (mPreset.anisotropicFiltering > uint32_t(mDeviceLimits.maxFiltering))
+			mPreset.anisotropicFiltering = uint32_t(mDeviceLimits.maxFiltering);
 
-		if (preset.msaa > sampleCountsAsUint(mDeviceLimits.maxMultiSampling))
-			preset.msaa = sampleCountsAsUint(mDeviceLimits.maxMultiSampling);
-
-		renderer::setGraphicsPreset(preset);
+		if (mPreset.msaa > sampleCountsAsUint(mDeviceLimits.maxMultiSampling))
+			mPreset.msaa = sampleCountsAsUint(mDeviceLimits.maxMultiSampling);
 	}
 
 	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderParams in)
@@ -458,271 +458,283 @@ namespace engine
 
 	error vulkanRenderer::render()
 	{
-
-		return {};
-	}
-
-	error vulkanRenderer::addToRender(const model& m)
-	{
-		registerSceneMetrics(m);
-
-		return mMeshletRenderer.addToRender(mDevice, mAllocator, mSubmit, mSwapChain, m);
-	}
-
-	error vulkanRenderer::updateInstance(const model& m)
-	{
-		return mMeshletRenderer.updateInstance(m, mSubmit);
-	}
-
-	error vulkanRenderer::updateAnimations(const model& m)
-	{
-		return mMeshletRenderer.updateAnimations(m, mSubmit);
-	}
-
-	void vulkanRenderer::removeFromRender(const model& m)
-	{
-		registerSceneMetrics(m, true);
-
-		mMeshletRenderer.removeFromRender(m);
-	}
-
-	error vulkanRenderer::render(renderer::renderParams in)
-	{
-		if (mWindowMinimized)
-			return {};
-
-		error err = mLineRenderer.updateDescriptors(mAllocator, mSubmit);
+		error err = handleEvents();
 		if (err)
 			return err;
 
-		err = mMeshletRenderer.updateDescriptors(in, mSubmit, mDevice, mAllocator);
-		if (err)
-			return err;
+		const renderer::sceneState& renderState = mPackage->getStateToRender();
 
-		// Update global UBO.
-		err = updatePerDrawBuffer(in);
-		if (err)
-			return err;
-
-		// Register all queued events from submit, get semaphores to wait upon before render.
-		auto waitSema = mSubmit.getCurrentSemaInUse();
-		std::vector<VkSubmitInfo2> commands = mSubmit.getSumbitedCommands();
-
-		auto vkResult = vkQueueSubmit2(mGraphicsQueue, uint32_t(commands.size()), commands.data(), nullptr);
-		if (vkResult != VK_SUCCESS)
-			return vkResultToStr(vkResult);
-
-		auto waitResult = mSwapChain.waitOnRenderFence();
-		if (waitResult)
-			return waitResult.err();
-
-		static bool firstFrame = true;
-
-		if (!firstFrame)
-			updateProfInfo(in.deltaTime);
-
-		firstFrame = false;
-
-		// request image from the swapchain.
-		// keep in mind that we use swapChain semaphore as signaling here.
-		err = mSwapChain.acquireImageIndex();
-		if (err)
+		// Prepare to render, add/remove/update entities.
 		{
-			if (err.is(errCodeOutOfDateKHR))
-			{
-				mCtx->mEventDispatcher->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(mWindow->getFbWidth(), mWindow->getFbHeight()));
+			err = addToRender(renderState.addedEntities);
+			if (err)
+				return err;
 
-				return {};
-			}
+			err = updateAnimations(renderState.updateAnimations);
+			if (err)
+				return err;
 
-			return err;
+			err = updateInstance(renderState.updateInstanceAttributes);
+			if (err)
+				return err;
+
+			removeFromRender(renderState.deletedEntities);
+
 		}
 
-		mSwapChain.pickImageExtent();
-
-		auto resetResult = mSwapChain.resetRenderFence();
-		if (resetResult)
-			return resetResult.err();
-
-		resetResult = mSwapChain.resetCommandBuffer();
-		if (resetResult)
-			return resetResult.err();
-
-		//naming it cmd for shorter writing
-		VkCommandBuffer cmd = mSwapChain.getCommandBuffer();
-
-		//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
-		VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-		// start recording.
-		vkResult = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
-		if (vkResult != VK_SUCCESS)
-			return vkResultToStr(vkResult);
-
-		setViewportAndSciccors(cmd, mSwapChain.getDrawImageExtent());
-
-		mGpuProfiler.reset(cmd);
-
-		// Cross frame barriers.
-		mSwapChain.transitionDepthImage(
-			cmd,
-			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
-		);
-
-		mSwapChain.transitionDrawImage(
-			cmd,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-		);
+		// Render.
+		static auto nextRender = std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart());
+		static auto renderShift = std::chrono::nanoseconds(std::chrono::seconds(1)) / mCtx->config.inner.gameLoop.fps;
 		
-		mSwapChain.transitionAccumImage(
-			cmd,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-		);
-		
-		mSwapChain.transitionRevealImage(
-			cmd,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-		);
-		
-		mSwapChain.transitionHzbChainImages(
-			cmd,
-			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
-			VK_ACCESS_2_SHADER_WRITE_BIT
-		);
+		static auto last = std::chrono::steady_clock::now();
 
-		err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque");
-		if (err)
-			return err;
+		auto now = std::chrono::steady_clock::now();
+		auto deltaTime = std::chrono::duration<float>(now - last).count();
 
-		// Begin a render pass connected to our draw image and depth buffer.
-		err = drawOpaque(cmd, in);
-		if (err)
-			return err;
+		if (std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
+		{
+			if (mWindowMinimized)
+				return {};
 
-		mGpuProfiler.endTimestamp(cmd, "drawOpaque");
+			renderer::renderParams params = mPackage->getRenderParams();
 
-		err = mGpuProfiler.beginTimeStamp(cmd, "drawTransperent");
+			error err = mLineRenderer.updateDescriptors(mAllocator, mSubmit);
+			if (err)
+				return err;
 
-		err = drawTransperent(cmd, in);
-		if (err)
-			return err;
+			err = mMeshletRenderer.updateDescriptors(params, mSubmit, mDevice, mAllocator);
+			if (err)
+				return err;
 
-		mGpuProfiler.endTimestamp(cmd, "drawTransperent");
+			// Update global UBO.
+			err = updatePerDrawBuffer(params, deltaTime);
+			if (err)
+				return err;
 
-		// Transition to sample them as textures in composite pass.
-		mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			// Register all queued events from submit, get semaphores to wait upon before render.
+			auto waitSema = mSubmit.getCurrentSemaInUse();
+			std::vector<VkSubmitInfo2> commands = mSubmit.getSumbitedCommands();
 
-		err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent");
+			auto vkResult = vkQueueSubmit2(mGraphicsQueue, uint32_t(commands.size()), commands.data(), nullptr);
+			if (vkResult != VK_SUCCESS)
+				return vkResultToStr(vkResult);
 
-		err = compositeOpaqueAndTransperent(cmd, in);
-		if (err)
-			return err;
+			auto waitResult = mSwapChain.waitOnRenderFence();
+			if (waitResult)
+				return waitResult.err();
 
-		mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent");
+			static bool firstFrame = true;
 
-		// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
-		mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			if (!firstFrame)
+				updateProfInfo(deltaTime);
 
-		err = mGpuProfiler.beginTimeStamp(cmd, "drawUI");
+			firstFrame = false;
 
-		err = drawUI(cmd);
-		if (err)
-			return err;
+			// request image from the swapchain.
+			// keep in mind that we use swapChain semaphore as signaling here.
+			err = mSwapChain.acquireImageIndex();
+			if (err)
+			{
+				if (err.is(errCodeOutOfDateKHR))
+				{
+					mCtx->mGameEventQueue->queueEvent(std::make_shared<windowFrameBufferResizeEvent>(mWindow->getFbWidth(), mWindow->getFbHeight()));
 
-		mGpuProfiler.endTimestamp(cmd, "drawUI");
+					return {};
+				}
 
-		// Prepare for next frame.
-		mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+				return err;
+			}
 
-		//transition the draw image and the swapchain image into their correct transfer layouts
-		mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			mSwapChain.pickImageExtent();
 
-		mSwapChain.transitionCurrentSwapChainImage(
-			cmd,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-		);
+			auto resetResult = mSwapChain.resetRenderFence();
+			if (resetResult)
+				return resetResult.err();
 
-		// copy from the draw image into the swapchain
-		copyImageToImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
+			resetResult = mSwapChain.resetCommandBuffer();
+			if (resetResult)
+				return resetResult.err();
 
-		// Transition image back to it's format.
-		mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			//naming it cmd for shorter writing
+			VkCommandBuffer cmd = mSwapChain.getCommandBuffer();
 
-		// set swapchain image layout to Attachment Optimal so we can draw it
-		mSwapChain.transitionCurrentSwapChainImage(
-			cmd,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-		);
+			//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
+			VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-		// set swapchain image layout to Present so we can draw it
-		mSwapChain.transitionCurrentSwapChainImage(
-			cmd,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-		);
+			// start recording.
+			vkResult = vkBeginCommandBuffer(cmd, &cmdBeginInfo);
+			if (vkResult != VK_SUCCESS)
+				return vkResultToStr(vkResult);
 
-		//finalize the command buffer (we can no longer add commands, but it can now be executed)
-		vkResult = vkEndCommandBuffer(cmd);
-		if (vkResult != VK_SUCCESS)
-			return vkResultToStr(vkResult);
+			setViewportAndSciccors(cmd, mSwapChain.getDrawImageExtent());
 
-		// Prepare the submission to the queue. 
-		//	we want to wait on the _presentSemaphore and all semaphores that were created during resource creating, 
-		//  _presentSemaphore semaphore is signaled when the swapchain is ready.
-		// Remember when we ask GPU for image from swap chain we provide that semaphore to signal.
-		// We will signal the _renderSemaphore, to signal that rendering has finished.
-		VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
+			mGpuProfiler.reset(cmd);
 
-		std::vector<VkSemaphoreSubmitInfo> waitInfo{};
-		std::vector<VkSemaphoreSubmitInfo> signalInfo{};
+			// Cross frame barriers.
+			mSwapChain.transitionDepthImage(
+				cmd,
+				VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+				VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+			);
 
-		waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getSwapchainSemaphore()));
-		signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getRenderSemaphore()));
+			mSwapChain.transitionDrawImage(
+				cmd,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			);
 
-		for (auto& sema : waitSema)
-			waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT, sema));
+			mSwapChain.transitionAccumImage(
+				cmd,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			);
 
-		VkSubmitInfo2 submit = submitInfo(&cmdinfo, signalInfo, waitInfo);
+			mSwapChain.transitionRevealImage(
+				cmd,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+			);
 
-		// submit command buffer to the queue and execute it.
-		// _renderFence will now block until the graphic commands finish execution.
-		vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
-		if (vkResult != VK_SUCCESS)
-			return vkResultToStr(vkResult);
+			mSwapChain.transitionHzbChainImages(
+				cmd,
+				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				VK_ACCESS_2_SHADER_WRITE_BIT
+			);
 
-		// Delete all submitted commands and semaphores.
-		mSubmit.deleteSemaInUse(waitSema.size());
-		mSubmit.deleteSubmitedCommands(commands.size());
+			err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque");
+			if (err)
+				return err;
 
-		// prepare present.
-		// this will put the image we just rendered to into the visible window.
-		// we want to wait on the _renderSemaphore for that, 
-		// as its necessary that drawing commands have finished before the image is displayed to the user.
-		auto presentErr = mSwapChain.present(mGraphicsQueue);
-		if (presentErr)
-			return presentErr;
+			// Begin a render pass connected to our draw image and depth buffer.
+			err = drawOpaque(cmd, params);
+			if (err)
+				return err;
+
+			mGpuProfiler.endTimestamp(cmd, "drawOpaque");
+
+			err = mGpuProfiler.beginTimeStamp(cmd, "drawTransperent");
+
+			err = drawTransperent(cmd, params);
+			if (err)
+				return err;
+
+			mGpuProfiler.endTimestamp(cmd, "drawTransperent");
+
+			// Transition to sample them as textures in composite pass.
+			mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+			err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent");
+
+			err = compositeOpaqueAndTransperent(cmd, params);
+			if (err)
+				return err;
+
+			mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent");
+
+			// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
+			mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+			err = mGpuProfiler.beginTimeStamp(cmd, "drawUI");
+
+			err = drawUI(cmd);
+			if (err)
+				return err;
+
+			mGpuProfiler.endTimestamp(cmd, "drawUI");
+
+			// Prepare for next frame.
+			mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+			//transition the draw image and the swapchain image into their correct transfer layouts
+			mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+			mSwapChain.transitionCurrentSwapChainImage(
+				cmd,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+			);
+
+			// copy from the draw image into the swapchain
+			copyImageToImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
+
+			// Transition image back to it's format.
+			mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+			// set swapchain image layout to Attachment Optimal so we can draw it
+			mSwapChain.transitionCurrentSwapChainImage(
+				cmd,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+			);
+
+			// set swapchain image layout to Present so we can draw it
+			mSwapChain.transitionCurrentSwapChainImage(
+				cmd,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+			);
+
+			//finalize the command buffer (we can no longer add commands, but it can now be executed)
+			vkResult = vkEndCommandBuffer(cmd);
+			if (vkResult != VK_SUCCESS)
+				return vkResultToStr(vkResult);
+
+			// Prepare the submission to the queue. 
+			//	we want to wait on the _presentSemaphore and all semaphores that were created during resource creating, 
+			//  _presentSemaphore semaphore is signaled when the swapchain is ready.
+			// Remember when we ask GPU for image from swap chain we provide that semaphore to signal.
+			// We will signal the _renderSemaphore, to signal that rendering has finished.
+			VkCommandBufferSubmitInfo cmdinfo = commandBufferSubmitInfo(cmd);
+
+			std::vector<VkSemaphoreSubmitInfo> waitInfo{};
+			std::vector<VkSemaphoreSubmitInfo> signalInfo{};
+
+			waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getSwapchainSemaphore()));
+			signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getRenderSemaphore()));
+
+			for (auto& sema : waitSema)
+				waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT, sema));
+
+			VkSubmitInfo2 submit = submitInfo(&cmdinfo, signalInfo, waitInfo);
+
+			// submit command buffer to the queue and execute it.
+			// _renderFence will now block until the graphic commands finish execution.
+			vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
+			if (vkResult != VK_SUCCESS)
+				return vkResultToStr(vkResult);
+
+			// Delete all submitted commands and semaphores.
+			mSubmit.deleteSemaInUse(waitSema.size());
+			mSubmit.deleteSubmitedCommands(commands.size());
+
+			// prepare present.
+			// this will put the image we just rendered to into the visible window.
+			// we want to wait on the _renderSemaphore for that, 
+			// as its necessary that drawing commands have finished before the image is displayed to the user.
+			auto presentErr = mSwapChain.present(mGraphicsQueue);
+			if (presentErr)
+				return presentErr;
+
+			last = now;
+
+			nextRender += renderShift;
+		}
 
 		return {};
 	}
@@ -828,59 +840,78 @@ namespace engine
 		}
 	}
 
-	profilingInfo vulkanRenderer::getProfilingInfo()
+	error vulkanRenderer::handleEvents()
 	{
-		return mProfInfo;
+		error err = {};
+
+		auto events = mCtx->mRenderEventQueue->purgeAndGet();
+
+		while (!events.empty())
+		{
+			auto event = events.front();
+			events.pop();
+
+			if (event->getEventType() == eventType::frameBufferReisze)
+			{
+				auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(event.get());
+
+				err = changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+				if (err)
+					return err;
+			}
+		}
+
+		return err;
 	}
 
-	std::shared_ptr<renderer::renderPackage> renderer::getRenderPackage() const
+	error vulkanRenderer::addToRender(const std::vector<model>& addedEntities)
 	{
-		return mPackage;
+		error err = {};
+		for (auto& m : addedEntities)
+		{
+			registerSceneMetrics(m);
+
+			err = mMeshletRenderer.addToRender(mDevice, mAllocator, mSubmit, mSwapChain, m);
+			if (err)
+				return err;
+		}
+		
+		return err;
 	}
-
-	void renderer::renderPackage::setRenderParams(renderParams params)
+	
+	error vulkanRenderer::updateInstance(const std::vector<model>& updatedEntities)
 	{
-		std::lock_guard l{ mMu };
+		error err = {};
+		for (auto& m : updatedEntities)
+		{
+			err = mMeshletRenderer.updateInstance(m, mSubmit);
+			if (err)
+				return err;
+		}
 
-		mRenderCallParams = params;
+		return err;
 	}
-
-	void renderer::renderPackage::addEntity(const model & m)
+	
+	error vulkanRenderer::updateAnimations(const std::vector<model>& animationUpdatedEntities)
 	{
-		std::lock_guard l{ mMu };
+		error err = {};
+		for (auto& m : animationUpdatedEntities)
+		{
+			err = mMeshletRenderer.updateAnimations(m, mSubmit);
+			if (err)
+				return err;
+		}
 
-		mCurrentSceneState.addedEntities.push_back(m);
+		return err;
 	}
-
-	void renderer::renderPackage::deleteEntity(uint32_t id)
+	
+	void vulkanRenderer::removeFromRender(const std::vector<model>& deletedEntities)
 	{
-		std::lock_guard l{ mMu };
+		for (auto& m : deletedEntities)
+		{
+			registerSceneMetrics(m, true);
 
-		mCurrentSceneState.deletedEntities.insert(id);
-	}
-
-	void renderer::renderPackage::updateInstanceAttributes(const model & m)
-	{
-		std::lock_guard l{ mMu };
-
-		mCurrentSceneState.updateInstanceAttributes.push_back(m);
-	}
-
-	void renderer::renderPackage::updateAnimations(const model & m)
-	{
-		std::lock_guard l{ mMu };
-
-		mCurrentSceneState.updateAnimations.push_back(m);
-	}
-
-	renderer::sceneState& renderer::renderPackage::getStateToRender()
-	{
-		std::lock_guard l{ mMu };
-
-		mPrevSceneState = {};
-
-		std::swap(mPrevSceneState, mCurrentSceneState);
-
-		return mPrevSceneState;
+			mMeshletRenderer.removeFromRender(m);
+		}
 	}
 }

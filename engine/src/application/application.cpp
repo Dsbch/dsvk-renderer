@@ -80,20 +80,48 @@ namespace engine
 
 	application::~application()
 	{
+		mScene.reset();
+
+		mRenderer.reset();
+
 		// Wait for all threads to finish.
 		waitDone();
 	}
 
 	void application::run()
 	{
+		// Start game logic.
+		mScene->runGameThraed();
+
+		static auto nextPollInput = std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart());
+		static auto pollInputShift = std::chrono::nanoseconds(std::chrono::seconds(1)) / mCtx->config.inner.gameLoop.gups;
+
 		while (true)
 		{
-			// Queue events in main dispatcher.
-			mWindow->pollInput();
+			// Queue events in event queues.
+			if (std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextPollInput)
+			{
+				mWindow->pollInput();
+				nextPollInput += pollInputShift;
+			}
 
-			// TODO: figure out how to prob events on close.
-			if (mCtx->mEventDispatcher->hasEvent(eventType::close))
-				break;
+			auto events = mCtx->mApplicationEventQueue->purgeAndGet();
+
+			while (!events.empty())
+			{
+				auto event = events.front();
+				events.pop();
+
+				auto toggleCursor = tryCastToEventType<engine::toggleCursorEvent>(event, engine::eventType::toggleCursor);
+
+				if (toggleCursor)
+					mWindow->toggleCursor();
+
+				auto closeEvent = tryCastToEventType<engine::closeEvent>(event, engine::eventType::close);
+
+				if (closeEvent)
+					return;
+			}
 
 			mErr = mRenderer->render();
 			if (mErr)
@@ -102,7 +130,6 @@ namespace engine
 
 		return;
 	}
-
 
 	std::shared_ptr<context> application::getAppContext()
 	{

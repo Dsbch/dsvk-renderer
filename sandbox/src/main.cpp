@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 
 	// On main thread only app.Run.
 	{
-		engine::application app;
+		engine::application app{};
 
 		engine::error err = app.checkError();
 		if (err)
@@ -28,9 +28,7 @@ int main(int argc, char* argv[])
 			return 0;
 		}
 
-		auto ss = std::make_shared<sandbox::sandboxSystem>(app.getAppContext());
-
-		app.addUserSystem(ss);
+		app.addUserSystem(std::make_unique<sandbox::sandboxSystem>(app.getAppContext()));
 		err = app.checkError();
 		if (err)
 		{

@@ -11,24 +11,25 @@ namespace engine
 		public system
 	{
 	public:
-		renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<eventDispatcher> gameThreadEventDispathcer);
+		renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<renderer::renderPackage> renderPackage);
+
+		error checkError();
 	
 		error onAttach(std::shared_ptr<registryHandle> registry);
 		void onDetach(std::shared_ptr<registryHandle> registry);
-		error checkError();
-		error onFixedUpdate(std::shared_ptr<registryHandle> registry, float deltaTime);
-		error onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime);
-		error onRender(std::shared_ptr<registryHandle> registry, float deltaTime);
+
 		error onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e);
 
 		error onBeginUpdate(std::shared_ptr<registryHandle> registry);
+		error onFixedUpdate(std::shared_ptr<registryHandle> registry, float deltaTime);
 		error onEndUpdate(std::shared_ptr<registryHandle> registry);
 	private:
 		error handleNewEntities(std::shared_ptr<registryHandle> registry);
 		error handleDeletedEntities(std::shared_ptr<registryHandle> registry);
 		error handleUpdatedEntities(std::shared_ptr<registryHandle> registry);
 		error handleAnimatedEntities(std::shared_ptr<registryHandle> registry);
+		error setRenderParams(std::shared_ptr<registryHandle> registry);
 
-		std::shared_ptr<eventDispatcher> mGameThreadEventDispathcer;
+		std::shared_ptr<renderer::renderPackage> mRenderPackage;
 	};
 }

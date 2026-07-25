@@ -24,7 +24,7 @@
 #include <base/errors/errors.h>
 #include <base/hash/hash.h>
 
-template<typename F>
+template<class F>
 inline void measure(const std::string& name, F&& func)
 {
 	auto start = std::chrono::high_resolution_clock::now();
@@ -40,7 +40,7 @@ inline void waitDone()
 	gWG.wait();
 }
 
-template<typename F>
+template<class F>
 inline void goCatch(F&& f)
 {
 	gWG.add(1);
@@ -56,7 +56,7 @@ inline void goCatch(F&& f)
 	);
 }
 
-template<typename F>
+template<class F>
 inline void goCatchMeasure(const std::string& name, F&& f)
 {
 	goCatch([name, f]() {measure(name, f); });

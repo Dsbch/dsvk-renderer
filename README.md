@@ -16,7 +16,6 @@ See the todo.
 - PBR metallic-roughness material workflow.
 - Skeletal animation with per-meshlet culling for animated geometry (has bugs, see TODO).
 - ECS architecture The scene is built on an ECS (EnTT).
-- In-app GPU profiler query-based profiling window.
 
 ## Used libraries
 
@@ -44,8 +43,7 @@ Windows only for now.
 ## TODO
 
 **In progress**
-- Per-frame-in-flight resource buffering. Need to separate joint matrices/per-instance/draw buffers for each frame in flight.
-- Separate main thread into render thread and game thread. This will solve a lot of problems and bugs. Also this will remove a lot of barriers for images and buffers.
+- Per-frame-in-flight resource buffering. Need to separate joint matrices/per-instance/draw buffers for each frame in flight. This will solve a lot of problems and bugs. Also this will remove a lot of barriers for images and buffers.
 
 **Planned**
 - Hard and soft shadows.

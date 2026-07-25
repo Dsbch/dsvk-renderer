@@ -132,20 +132,22 @@ namespace engine
 	public:
 		scene(std::shared_ptr<context> ctx, std::shared_ptr<renderer::renderPackage> package);
 		~scene();
-
-		error onRender(float deltaTime);
-		error onEvent(std::shared_ptr<baseEvent> e);
-		error onFixedUpdate(float deltaTime);
-		error onUpdate(float deltaTime);
-		error onBeginUpdate();
-		error onEndUpdate();
-		void addSystem(std::unique_ptr<system>&&);
 		error checkError() const;
+
+		void runGameThraed();
+		void addSystem(std::unique_ptr<system>&&);
 	private:
+		error onEvent(std::shared_ptr<baseEvent> e);
+
+		error onBeginUpdate();
+		error onFixedUpdate(float deltaTime);
+		error onEndUpdate();
+
 		std::shared_ptr<context> mCtx;
 		std::vector<std::unique_ptr<system>> mSystems;
 		std::shared_ptr<registryHandle> mSceneRegistry;
-		std::shared_ptr<renderer::renderPackage> mRenderPackage;
+		co::wait_group mWg;
+		std::atomic<bool> mRunning;
 	};
 }
 

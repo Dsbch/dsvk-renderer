@@ -34,8 +34,8 @@ namespace engine
 
 	struct gameLoopCfg
 	{
-		uint32_t fps = 120;
-		uint32_t gups = 30;
+		uint32_t fps = 144;
+		uint32_t gups = 100;
 		uint32_t minimumFps = 5;
 	};
 

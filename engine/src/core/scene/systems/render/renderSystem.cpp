@@ -8,12 +8,11 @@
 
 namespace engine
 {
-	renderSystem::renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<eventDispatcher> gameThreadEventDispathcer)
+	renderSystem::renderSystem(std::shared_ptr<context> ctx, std::shared_ptr<renderer::renderPackage> renderPackage)
 		:
 		system(ctx),
-		mGameThreadEventDispathcer(gameThreadEventDispathcer)
-	{
-	}
+		mRenderPackage(renderPackage)
+	{}
 
 	error renderSystem::onAttach(std::shared_ptr<registryHandle> registry)
 	{
@@ -55,20 +54,212 @@ namespace engine
 		err = handleAnimatedEntities(registry);
 		if (err)
 			return err;
-
-		return {};
+		
+		return setRenderParams(registry);
 	}
 
-	error renderSystem::onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
+	error renderSystem::onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e)
 	{
 		return {};
 	}
 
-	error renderSystem::onRender(std::shared_ptr<registryHandle> registry, float deltaTime)
+	error renderSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
 	{
-		renderer::renderParams renderCall{
-			.deltaTime = deltaTime,
-		};
+		return handleNewEntities(registry);;
+	}
+
+	error renderSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return handleDeletedEntities(registry);
+	}
+
+	error renderSystem::handleNewEntities(std::shared_ptr<registryHandle> registry)
+	{
+		error err{};
+
+		std::vector<entity> newEntites{};
+		std::vector<model> newModels{};
+
+		// Animated.
+		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>(
+			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs, animationComponent& anim)
+			{
+				if (err)
+					return;
+
+				newModels.push_back({
+					.id = uid.uid,
+					.instanceAttributes = perInstanceAttr{
+						.modelTransform = transform{
+							.translation = trs.translation,
+							.scale = trs.scale,
+							.rotation = trs.rotation,
+						},
+					},
+					.meshData = mesh.meshData,
+					.perMeshData = mesh.meshAttributes,
+					.mat = material.mat,
+					.anims = animations{
+						.jointMatrices = anim.jointMatrices,
+					},
+					});
+
+				newEntites.push_back({ mCtx, e, registry });
+			}
+		);
+		if (err)
+			return err;
+
+		// Not animated.
+		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>(
+			entt::exclude<animationComponent>,
+			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
+			{
+				if (err)
+					return;
+
+				newModels.push_back({
+					.id = uid.uid,
+					.instanceAttributes = perInstanceAttr{
+						.modelTransform = transform{
+							.translation = trs.translation,
+							.scale = trs.scale,
+							.rotation = trs.rotation,
+						},
+					},
+					.meshData = mesh.meshData,
+					.perMeshData = mesh.meshAttributes,
+					.mat = material.mat,
+					});
+
+				newEntites.push_back({ mCtx, e, registry });
+			}
+		);
+		if (err)
+			return err;
+
+		for (auto& m : newModels)
+			mRenderPackage->addEntity(m);
+
+		for (auto& e : newEntites)
+			e.removeComponent<newEntityComponent>();
+
+		return {};
+	}
+
+	error renderSystem::handleDeletedEntities(std::shared_ptr<registryHandle> registry)
+	{
+		std::vector<model> toDestroy;
+		std::vector<entt::entity> destroyed;
+
+		registry->forEach<uidComponent, meshComponent, materialComponent, deleteComponent>(
+			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material)
+			{
+				toDestroy.push_back(
+					model{
+						.id = uid.uid,
+						.meshData = mesh.meshData,
+						.perMeshData = mesh.meshAttributes,
+						.mat = material.mat,
+					}
+					);
+
+				destroyed.push_back(e);
+			}
+		);
+
+		for (auto& m : toDestroy)
+			mRenderPackage->deleteEntity(m);
+
+		for (auto& e : destroyed)
+		{
+			entity ent{ mCtx, e, registry };
+
+			ent.detroy();
+		}
+
+		return {};
+	}
+
+	error renderSystem::handleUpdatedEntities(std::shared_ptr<registryHandle> registry)
+	{
+		error err{};
+
+		std::vector<model> toUpdate{};
+		std::vector<entity> updatedEntites{};
+
+		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>(
+			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
+			{
+				toUpdate.push_back({
+					.id = uid.uid,
+					.instanceAttributes = perInstanceAttr{
+						.modelTransform = transform{
+							.translation = trs.translation,
+							.scale = trs.scale,
+							.rotation = trs.rotation,
+						},
+					},
+					.meshData = mesh.meshData,
+					.mat = material.mat,
+					});
+
+				updatedEntites.push_back({ mCtx, e, registry });
+			}
+		);
+		if (err)
+			return err;
+
+		for (auto& m : toUpdate)
+			mRenderPackage->updateInstanceAttributes(m);
+
+		for (auto& e : updatedEntites)
+			e.removeComponent<updateInstanceComponent>();
+
+		return {};
+	}
+
+	error renderSystem::handleAnimatedEntities(std::shared_ptr<registryHandle> registry)
+	{
+		error err{};
+
+		std::vector<entity> animatedEntites{};
+		std::vector<model> toUpdateAnim{};
+
+		registry->forEach<uidComponent, meshComponent, materialComponent, animationComponent, updateAnimationComponent>(
+			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, animationComponent& anim)
+			{
+				if (err)
+					return;
+
+				toUpdateAnim.push_back({
+						.id = uid.uid,
+						.meshData = mesh.meshData,
+						.mat = material.mat,
+						.anims = animations{
+							.jointMatrices = anim.jointMatrices,
+						}
+					}
+				);
+
+				animatedEntites.push_back({ mCtx, e, registry });
+			}
+		);
+		if (err)
+			return err;
+
+		for (auto& m : toUpdateAnim)
+			mRenderPackage->updateAnimations(m);
+
+		for (auto& e : animatedEntites)
+			e.removeComponent<updateAnimationComponent>();
+
+		return {};
+	}
+
+	error renderSystem::setRenderParams(std::shared_ptr<registryHandle> registry)
+	{
+		renderer::renderParams renderCall{};
 
 		auto view = cameraSystem::getView(registry);
 		if (!view)
@@ -128,227 +319,7 @@ namespace engine
 			renderCall.debugCameraProjection = projection.value();
 		}
 
-		mGameThreadEventDispathcer->queueEvent(std::make_shared<renderer::renderEvent>(renderCall));
-
-		return {};
-	}
-
-	error renderSystem::onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e)
-	{
-		if (e->getEventType() == eventType::frameBufferReisze)
-		{
-			auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
-
-			return mRenderer->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
-		}
-
-		if (e->getEventType() == engine::eventType::keyPressed)
-		{
-			auto event = static_cast<engine::keyPressedEvent*>(e.get());
-			if (event->getKey() == engine::key::m)
-				mWnd->toggleCursor();
-		}
-
-		return {};
-	}
-
-	error renderSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
-	{
-		return handleNewEntities(registry);;
-	}
-
-	error renderSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
-	{
-		return handleDeletedEntities(registry);
-	}
-
-	error renderSystem::handleNewEntities(std::shared_ptr<registryHandle> registry)
-	{
-		error err{};
-
-		std::vector<entity> newEntites{};
-		std::vector<model> newModels{};
-
-		// Animated.
-		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>(
-			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs, animationComponent& anim)
-			{
-				if (err)
-					return;
-
-				newModels.push_back({
-					.id = uid.uid,
-					.instanceAttributes = perInstanceAttr{
-						.modelTransform = transform{
-							.translation = trs.translation,
-							.scale = trs.scale,
-							.rotation = trs.rotation,
-						},
-					},
-					.meshData = mesh.meshData,
-					.perMeshData = mesh.meshAttributes,
-					.mat = material.mat,
-					.anims = animations{
-						.jointMatrices = anim.jointMatrices,
-					},
-				});
-				
-				newEntites.push_back({ mCtx, e, registry });
-			}
-		);
-		if (err)
-			return err;
-
-		// Not animated.
-		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>(
-			entt::exclude<animationComponent>,
-			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
-			{
-				if (err)
-					return;
-
-				newModels.push_back({
-					.id = uid.uid,
-					.instanceAttributes = perInstanceAttr{
-						.modelTransform = transform{
-							.translation = trs.translation,
-							.scale = trs.scale,
-							.rotation = trs.rotation,
-						},
-					},
-					.meshData = mesh.meshData,
-					.perMeshData = mesh.meshAttributes,
-					.mat = material.mat,
-				});
-				
-				newEntites.push_back({ mCtx, e, registry });
-			}
-		);
-		if (err)
-			return err;
-
-		for (auto& m : newModels)
-		{
-			err = mRenderer->addToRender(m);
-			if (err)
-				return {};
-		}
-
-		for (auto& e : newEntites)
-			e.removeComponent<newEntityComponent>();
-
-		return {};
-	}
-
-	error renderSystem::handleDeletedEntities(std::shared_ptr<registryHandle> registry)
-	{
-		std::vector<entt::entity> toDestroy;
-
-		registry->forEach<uidComponent, meshComponent, materialComponent, deleteComponent>(
-			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material)
-			{
-				toDestroy.push_back(e);
-			
-				model m{
-					.id = uid.uid,
-					.meshData = mesh.meshData,
-					.perMeshData = mesh.meshAttributes,
-					.mat = material.mat,
-				};
-
-				mRenderer->removeFromRender(m);
-			}
-		);
-
-		for (auto& e : toDestroy)
-		{
-			entity ent{ mCtx, e, registry };
-
-			ent.detroy();
-		}
-
-		return {};
-	}
-
-	error renderSystem::handleUpdatedEntities(std::shared_ptr<registryHandle> registry)
-	{
-		error err{};
-
-		std::vector<entity> updatedEntites{};
-		std::vector<model> toUpdate{};
-
-		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>(
-			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
-			{
-				toUpdate.push_back({
-					.id = uid.uid,
-					.instanceAttributes = perInstanceAttr{
-						.modelTransform = transform{
-							.translation = trs.translation,
-							.scale = trs.scale,
-							.rotation = trs.rotation,
-						},
-					},
-					.meshData = mesh.meshData,
-					.mat = material.mat,
-				});
-				
-				updatedEntites.push_back({ mCtx, e, registry });
-			}
-		);
-		if (err)
-			return err;
-
-		for (auto& m : toUpdate)
-		{
-			err = mRenderer->updateInstance(m);
-			if (err)
-				return {};
-		}
-
-		for (auto& e : updatedEntites)
-			e.removeComponent<updateInstanceComponent>();
-
-		return {};
-	}
-
-	error renderSystem::handleAnimatedEntities(std::shared_ptr<registryHandle> registry)
-	{
-		error err{};
-
-		std::vector<entity> animatedEntites{};
-		std::vector<model> toUpdateAnim{};
-
-		registry->forEach<uidComponent, meshComponent, materialComponent, animationComponent, updateAnimationComponent>(
-			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, animationComponent& anim)
-			{
-				if (err)
-					return;
-
-				toUpdateAnim.push_back({
-					.id = uid.uid,
-					.meshData = mesh.meshData,
-					.mat = material.mat,
-					.anims = animations{
-						.jointMatrices = anim.jointMatrices,
-					}
-				});
-
-				animatedEntites.push_back({ mCtx, e, registry });
-			}
-		);
-		if (err)
-			return err;
-
-		for (auto& m : toUpdateAnim)
-		{
-			err = mRenderer->updateAnimations(m);
-			if (err)
-				return err;
-		}
-
-		for (auto& e : animatedEntites)
-			e.removeComponent<updateAnimationComponent>();
+		mRenderPackage->setRenderParams(renderCall);
 
 		return {};
 	}

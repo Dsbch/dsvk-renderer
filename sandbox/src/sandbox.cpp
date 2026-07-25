@@ -93,11 +93,6 @@ namespace sandbox
 	void sandboxSystem::onDetach(std::shared_ptr<engine::registryHandle> registry)
 	{}
 
-	engine::error sandboxSystem::onUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
-	{
-		return {};
-	}
-
 	engine::error sandboxSystem::onBeginUpdate(std::shared_ptr<engine::registryHandle> registry)
 	{
 		return {};
@@ -113,18 +108,17 @@ namespace sandbox
 		return {};
 	}
 
-	engine::error sandboxSystem::onRender(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
-	{
-		return {};
-	}
-
 	engine::error sandboxSystem::onEvent(std::shared_ptr<engine::registryHandle> registry, std::shared_ptr<engine::baseEvent> e)
 	{
+		auto keyPressedEvent = tryCastToEventType<engine::keyPressedEvent>(e, engine::eventType::keyPressed);
+
+		if (keyPressedEvent && keyPressedEvent->getKey() == engine::key::m)
+			mCtx->mApplicationEventQueue->queueEvent(std::make_shared<engine::toggleCursorEvent>());
+
 #ifdef DEBUG
-		if (e->getEventType() == engine::eventType::keyPressed)
+		if (keyPressedEvent)
 		{
-			auto event = static_cast<engine::keyPressedEvent*>(e.get());
-			if (event->getKey() == engine::key::e)
+			if (keyPressedEvent->getKey() == engine::key::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/catapult.glb",
@@ -147,7 +141,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::key::v)
+			if (keyPressedEvent->getKey() == engine::key::v)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/mira.glb",
@@ -170,7 +164,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::key::k)
+			if (keyPressedEvent->getKey() == engine::key::k)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/black_rat.glb",
@@ -193,7 +187,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::key::h)
+			if (keyPressedEvent->getKey() == engine::key::h)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/marble.glb",
@@ -241,7 +235,7 @@ namespace sandbox
 				}
 			}
 
-			if (event->getKey() == engine::key::f)
+			if (keyPressedEvent->getKey() == engine::key::f)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/magnifying_glass.glb",
@@ -262,7 +256,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::key::c)
+			if (keyPressedEvent->getKey() == engine::key::c)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/cube.glb",
@@ -283,7 +277,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::key::r)
+			if (keyPressedEvent->getKey() == engine::key::r)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
 				if (!loadedModel)
@@ -298,7 +292,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::key::o)
+			if (keyPressedEvent->getKey() == engine::key::o)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/AlphaBlendModeTest.glb");
 				if (!loadedModel)
@@ -314,7 +308,7 @@ namespace sandbox
 				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
 			}
 
-			if (event->getKey() == engine::key::y)
+			if (keyPressedEvent->getKey() == engine::key::y)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/bistro_outside.glb");
 				if (!loadedModel)
@@ -329,7 +323,7 @@ namespace sandbox
 				e.addComponent<engine::newEntityComponent>();
 			}
 
-			if (event->getKey() == engine::key::q)
+			if (keyPressedEvent->getKey() == engine::key::q)
 			{
 				entt::entity toDelete{};
 
@@ -347,11 +341,11 @@ namespace sandbox
 		}
 #endif // DEBUG
 
-		if (e->getEventType() == engine::eventType::keyDown)
-		{
-			auto event = static_cast<engine::keyPressedEvent*>(e.get());
+		auto keyDown = tryCastToEventType<engine::keyDownEvent>(e, engine::eventType::keyDown);
 
-			if (event->getKey() == engine::key::t)
+		if (keyDown)
+		{
+			if (keyDown->getKey() == engine::key::t)
 			{
 				entt::entity toRotate{};
 				engine::transformComponent oldTrs{ glm::vec3{}, glm::vec3{}, glm::quat{} };

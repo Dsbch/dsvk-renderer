@@ -35,26 +35,6 @@ namespace engine
 		if (debugCount > 1)
 			return error{ "more than one debug camera is scene" };
 
-		return {};
-	}
-
-	error cameraSystem::onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
-	{
-		return {};
-	}
-
-	error cameraSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
-	{
-		return {};
-	}
-
-	error cameraSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
-	{
-		return {};
-	}
-
-	error cameraSystem::onRender(std::shared_ptr<registryHandle> registry, float deltaTime)
-	{
 		if (isDebugCameraPresent(registry))
 		{
 			auto newPos = getDebugCameraPos(registry);
@@ -75,17 +55,29 @@ namespace engine
 		return {};
 	}
 
+	error cameraSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return {};
+	}
+
+	error cameraSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return {};
+	}
+
 	error cameraSystem::applyInput(std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
 	{
 		const float maxOffset = 0.1f;
 
-		if (e->getEventType() == eventType::keyDown)
+		auto keyDown = tryCastToEventType<keyDownEvent>(e, eventType::keyDown);
+
+		if (keyDown)
 		{
 			glm::vec3 oldPos = camera.camera->getPosition();
 
 			for (auto key : input.keyDown)
 			{
-				if (key == static_cast<keyDownEvent*>(e.get())->getKey())
+				if (key == keyDown->getKey())
 				{
 					switch (key)
 					{
@@ -111,9 +103,11 @@ namespace engine
 			}
 		}
 
-		if (e->getEventType() == eventType::mouseMove && input.mouseMove)
+		auto mouseMove = tryCastToEventType<mouseMoveEvent>(e, eventType::mouseMove);
+
+		if (mouseMove)
 		{
-			auto offset = static_cast<mouseMoveEvent*>(e.get())->getMouseOffset();
+			auto offset = mouseMove->getMouseOffset();
 
 			camera.camera->offsetYaw(float(offset.x) * 0.1f);
 			camera.camera->offsetPitch(float(-offset.y) * 0.1f);
@@ -124,9 +118,11 @@ namespace engine
 
 	error cameraSystem::onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e)
 	{
-		if (e->getEventType() == eventType::keyUp)
+		auto keyUp = tryCastToEventType<keyUpEvent>(e, eventType::keyUp);
+
+		if (keyUp)
 		{
-			key k = static_cast<keyUpEvent*>(e.get())->getKey();
+			key k = keyUp->getKey();
 
 			switch (k)
 			{
@@ -143,14 +139,14 @@ namespace engine
 			}
 		}
 
-		if (e->getEventType() == eventType::frameBufferReisze)
-		{
-			auto resizeEvent = static_cast<windowFrameBufferResizeEvent*>(e.get());
+		auto frameBufferResize = tryCastToEventType<windowFrameBufferResizeEvent>(e, eventType::frameBufferReisze);
 
+		if (frameBufferResize)
+		{
 			registry->forEach<fpsCameraComponent>(
 				[&](entt::entity ent, fpsCameraComponent& camera)
 				{
-					camera.camera->changeViewPort(resizeEvent->getWidth(), resizeEvent->getHeight());
+					camera.camera->changeViewPort(frameBufferResize->getWidth(), frameBufferResize->getHeight());
 				}
 			);
 
