@@ -12,6 +12,14 @@
 
 namespace engine
 {
+#define VISIBLE_FIRST_PASS_FLAG_BIT         (1 << 0)
+#define VISIBLE_SECOND_PASS_FLAG_BIT        (1 << 1)
+#define NOT_VISIBLE_FLAG_BIT                (1 << 2)
+
+#define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
+#define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
+#define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
+
 	typedef uint32_t entityHash;
 	typedef uint32_t pixelShaderHash;
 	typedef uint32_t meshHash;
@@ -27,10 +35,6 @@ namespace engine
 	};
 
 	glm::mat4 toMat4(const transform& trs);
-
-#define VISIBLE_FIRST_PASS_FLAG_BIT         (1 << 0)
-#define VISIBLE_SECOND_PASS_FLAG_BIT        (1 << 1)
-#define NOT_VISIBLE_FLAG_BIT                (1 << 2)
 
 	// Task/Amplification shader cmd buffer.
 	struct meshletShaderCMD
@@ -272,6 +276,11 @@ namespace engine
 		std::shared_ptr<const std::vector<perMeshAttributes>> perMeshData;
 		materials mat;
 		animations anims;
+
+		bool operator<(const model& other) const
+		{
+			return id < other.id;
+		}
 	};
 
 	struct frustum
@@ -313,24 +322,27 @@ namespace engine
 
 	struct pushConstants
 	{
+		uint32_t frameIndex;
 		uint32_t cmdBufferCount;
-		uint32_t opaqueCmdBufferIndex;
+		uint32_t cmdOpaqueBufferIndex;
 	};
-
-#define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
-#define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
-#define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
 
 	struct computePushConstants
 	{
+		uint32_t frameIndex;
 		uint32_t hzbMipLevel;
 		uint32_t mipWidth;
 		uint32_t mipHeight;
 		uint32_t cullingPassFlagBit;
-		uint32_t opaqueCmdBufferIndex;
+		uint32_t cmdOpaqueBufferIndex;
 		uint32_t cmdBufferCount;
 		uint32_t hzbLength;
 		uint32_t compactRule;
+	};
+
+	struct linePushConstant
+	{
+		uint32_t frameIndex;
 	};
 
 	struct lineVertex

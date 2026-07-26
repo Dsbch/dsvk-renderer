@@ -4,11 +4,12 @@
 
 struct pushConstant
 {
+	uint frameIndex;
     uint hzbMipLevel;
     uint mipWidth;
     uint mipHeight;
     uint cullingPassFlagBit;
-    uint opaqueCmdBufferIndex;
+    uint cmdOpaqueBufferIndex;
     uint cmdBufferCount;
     uint hzbLength;
     uint compactRule;
@@ -20,14 +21,14 @@ pushConstant push;
 Texture2D<float> originalZbuffer : register(t0, space0);
 RWTexture2D<float> hzbChain[] : register(u1, space0);
 RWStructuredBuffer<command> commandOpaqueBuffer[] : register(u2, space0);
-RWStructuredBuffer<command> commandAccumilationBuffer : register(u3, space0);
+RWStructuredBuffer<command> commandAccumilationBuffer[] : register(u3, space0);
 StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t4, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t6, space0);
-ConstantBuffer<perDrawData> drawData : register(b7, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b7, space0);
 // [0] = visibleCount                                  
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
-RWStructuredBuffer<uint> visabilityBuffer : register(u8, space0);
+RWStructuredBuffer<uint> visabilityBuffer []: register(u8, space0);
 
 struct occlusionCullingData
 {
@@ -39,19 +40,19 @@ struct occlusionCullingData
     float closestDepth;
 };
 
-occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perDrawData drawData)
+occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perDrawData dData)
 {
     occlusionCullingData result;
     
     // View space.
-    float4 vsCenter = mul(drawData.view, float4(worldSpaceSphere.xyz, 1.0f));
+    float4 vsCenter = mul(dData.view, float4(worldSpaceSphere.xyz, 1.0f));
     float4 vsBorder = float4(vsCenter.x, vsCenter.y + worldSpaceSphere.w, vsCenter.zw);
     float4 vsClosestToCamera = float4(vsCenter.x, vsCenter.y, vsCenter.z + worldSpaceSphere.w, vsCenter.w);
     
     // Clip space.
-    float4 clipToCamera = mul(drawData.projection, vsClosestToCamera);
-    float4 clipCenter = mul(drawData.projection, vsCenter);
-    float4 clipBorder = mul(drawData.projection, vsBorder);
+    float4 clipToCamera = mul(dData.projection, vsClosestToCamera);
+    float4 clipCenter = mul(dData.projection, vsCenter);
+    float4 clipBorder = mul(dData.projection, vsBorder);
     
     // NDC space.
     float2 ndcToCamera = clipToCamera.xy / clipToCamera.w;
@@ -64,8 +65,8 @@ occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perD
     float2 ndcNormalizedCenter = ((ndcCenter + 1.0f) / 2.0f);
     float2 ndcNormalizedBorder = ((ndcBorder + 1.0f) / 2.0f);
     
-    uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(drawData.width)), uint(ndcNormalizedCenter.y * float(drawData.height)));
-    uint2 ndcBorderPixel = uint2(uint(ndcNormalizedBorder.x * float(drawData.width)), uint(ndcNormalizedBorder.y * float(drawData.height)));
+    uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(dData.width)), uint(ndcNormalizedCenter.y * float(dData.height)));
+    uint2 ndcBorderPixel = uint2(uint(ndcNormalizedBorder.x * float(dData.width)), uint(ndcNormalizedBorder.y * float(dData.height)));
     
     result.pixelLength = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixel));
     result.sphereCenterUV = ndcNormalizedCenter.xy;
@@ -73,7 +74,7 @@ occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perD
     return result;
 }
 
-bool isOcluded(occlusionCullingData occData)
+bool isOcluded(occlusionCullingData occData, perDrawData dData)
 {
     // Floor, because we will sample 2x2 texels for that sphere.
     uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
@@ -82,8 +83,8 @@ bool isOcluded(occlusionCullingData occData)
                     
     // drawData.width >> neededChain => divide by 2 in power of neededChain.
     // drawData.width / 2 because zero mip starts with drawData.width / 2.
-    int mipWidth = max(1, int(drawData.width / 2) >> (neededChain));
-    int mipHeight = max(1, int(drawData.height / 2) >> (neededChain));
+    int mipWidth = max(1, int(dData.width / 2) >> (neededChain));
+    int mipHeight = max(1, int(dData.height / 2) >> (neededChain));
 
     float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
 
@@ -105,22 +106,23 @@ void main(uint dtid : SV_DispatchThreadID)
     // Accumilation runs on entire CMD buffer, no compaction.
     if (dtid < push.cmdBufferCount && hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
     {
-        command cmd = commandAccumilationBuffer[dtid];
-        
-        perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex][cmd.instanceOffset];
+        command cmd = commandAccumilationBuffer[push.frameIndex][dtid];
+        perDrawData dData = drawData[push.frameIndex];
+
+        perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
 
             // Get first lod level to reference a meshlet.
         uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
         meshlet mesh = meshletBuffer[cmd.meshletIndex][meshletOffsetFirstLodLevel];
         perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
         
-        uint selectedLod = selectLodLevel(meshAttr, drawData, instanceAttr.modelTransform);
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
         uint meshletOffset = getMeshletOffset(cmd, selectedLod);
             
             // Overdraw for current lod level.
         if (meshletOffset == MAX_UINT)
         {
-            commandAccumilationBuffer[dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+            commandAccumilationBuffer[push.frameIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
             return;
         }
             
@@ -128,12 +130,12 @@ void main(uint dtid : SV_DispatchThreadID)
             
         meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
             
-        occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), drawData);
+        occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
-        bool visible = mesh.alphaType == BLEND_ALPHA_MODE && isInFrustum(drawData, worldBounds) && !isOcluded(occData);
+        bool visible = mesh.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, dData);
              
-        commandAccumilationBuffer[dtid].selectedLod = selectedLod;
-        commandAccumilationBuffer[dtid].visabilityBit = visible ? VISIBLE_FIRST_PASS_FLAG_BIT : NOT_VISIBLE_FLAG_BIT;
+        commandAccumilationBuffer[push.frameIndex][dtid].selectedLod = selectedLod;
+        commandAccumilationBuffer[push.frameIndex][dtid].visabilityBit = visible ? VISIBLE_FIRST_PASS_FLAG_BIT : NOT_VISIBLE_FLAG_BIT;
             
         return;
     }
@@ -141,25 +143,26 @@ void main(uint dtid : SV_DispatchThreadID)
     // First opaque pass only frustum test.
     if (dtid < push.cmdBufferCount && hasFlag(push.cullingPassFlagBit, FIRST_OPAQUE_PASS_FLAG_BIT))
     {
-        command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid];
+        command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
+        perDrawData dData = drawData[push.frameIndex];
 
         if (!hasFlag(cmd.visabilityBit, VISIBLE_FIRST_PASS_FLAG_BIT | VISIBLE_SECOND_PASS_FLAG_BIT))
             return;
             
-        perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex][cmd.instanceOffset];
+        perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
 
         // Get first lod level to reference a mesh.
         uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
         perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
         
-        uint selectedLod = selectLodLevel(meshAttr, drawData, instanceAttr.modelTransform);
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
     
         uint meshletOffset = getMeshletOffset(cmd, selectedLod);
             
         // Overdraw for current lod level.
         if (meshletOffset == MAX_UINT)
         {
-            commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+            commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
             return;
         }
             
@@ -168,10 +171,10 @@ void main(uint dtid : SV_DispatchThreadID)
         meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
             
         // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
-        bool visible = isFrontfaceMeshlet(drawData, worldBounds) && isInFrustum(drawData, worldBounds);
+        bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);
             
-        commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].selectedLod = selectedLod;
-        commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = visible ? VISIBLE_FIRST_PASS_FLAG_BIT : NOT_VISIBLE_FLAG_BIT;
+        commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].selectedLod = selectedLod;
+        commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = visible ? VISIBLE_FIRST_PASS_FLAG_BIT : NOT_VISIBLE_FLAG_BIT;
             
         return;
     }
@@ -179,12 +182,13 @@ void main(uint dtid : SV_DispatchThreadID)
     // Second pass frustum + oclussion cull.
     if (dtid < push.cmdBufferCount && hasFlag(push.cullingPassFlagBit, SECOND_OPAQUE_PASS_FLAG_BIT))
     {
-        command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid];
+        command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
+        perDrawData dData = drawData[push.frameIndex];
      
         // Retest each meshlet that was drawn in first PASS. 
         if (hasFlag(cmd.visabilityBit, VISIBLE_FIRST_PASS_FLAG_BIT))
         {
-            perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex][cmd.instanceOffset];
+            perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
 
             // Get first lod level to reference a meshlet.
             uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
@@ -196,7 +200,7 @@ void main(uint dtid : SV_DispatchThreadID)
             // Overdraw for current lod level.
             if (meshletOffset == MAX_UINT)
             {
-                commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+                commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
                 return;
             }
             
@@ -204,9 +208,9 @@ void main(uint dtid : SV_DispatchThreadID)
             
             meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
                 
-            occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), drawData);
+            occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
-            commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = isOcluded(occData) ? NOT_VISIBLE_FLAG_BIT : VISIBLE_FIRST_PASS_FLAG_BIT;
+            commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : VISIBLE_FIRST_PASS_FLAG_BIT;
                 
             return;
         }
@@ -214,20 +218,20 @@ void main(uint dtid : SV_DispatchThreadID)
         if (hasFlag(cmd.visabilityBit, NOT_VISIBLE_FLAG_BIT))
         {
             // Meshlet was invisible prev frame so we process it.
-            perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex][cmd.instanceOffset];
+            perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
 
             // Get first lod level to reference a meshlet.
             uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
             perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
         
-            uint selectedLod = selectLodLevel(meshAttr, drawData, instanceAttr.modelTransform);
+            uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
     
             uint meshletOffset = getMeshletOffset(cmd, selectedLod);
             
             // Overdraw for current lod level.
             if (meshletOffset == MAX_UINT)
             {
-                commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+                commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
                 return;
             }
             
@@ -236,18 +240,18 @@ void main(uint dtid : SV_DispatchThreadID)
             meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
                     
             // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
-            bool visible = isFrontfaceMeshlet(drawData, worldBounds) && isInFrustum(drawData, worldBounds);
+            bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);
         
             if (!visible)
             {
-                commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
+                commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
                 return;
             }
                 
-            occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), drawData);
+            occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
-            commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].selectedLod = selectedLod;
-            commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid].visabilityBit = isOcluded(occData) ? NOT_VISIBLE_FLAG_BIT : (hasFlag(cmd.visabilityBit, VISIBLE_FIRST_PASS_FLAG_BIT)) ? VISIBLE_FIRST_PASS_FLAG_BIT : VISIBLE_SECOND_PASS_FLAG_BIT;
+            commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].selectedLod = selectedLod;
+            commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : (hasFlag(cmd.visabilityBit, VISIBLE_FIRST_PASS_FLAG_BIT)) ? VISIBLE_FIRST_PASS_FLAG_BIT : VISIBLE_SECOND_PASS_FLAG_BIT;
             return;
         
         }

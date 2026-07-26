@@ -352,13 +352,14 @@ namespace engine
 		VkFormat depthFormat,
 		const std::vector<VkFormat>& colorAttachmentFormats,
 		VkSampleCountFlagBits sampleCount,
+		uint32_t framesInFlight,
 		pipelineType type
 	)
 	{
 		mNeedDescriptorUpdate = true;
 
 		// Buffer is mapped and we need CPU readback.
-		mBufferMapFlags = {true, false};
+		mBufferMapFlags = { true, false };
 
 		VkPushConstantRange pc{};
 		pc.offset = 0;
@@ -409,12 +410,22 @@ namespace engine
 		if (err)
 			return err;
 
-		mCmdBufferSize = 2 << 24;
-		mCmdBuffer.init(device, allocator, mBufferMapFlags);
+		mEntitiesToDelete.resize(framesInFlight);
+		mEntitiesToAdd.resize(framesInFlight);
+		mUploadedEntities.resize(framesInFlight);
+		mMeshCount.resize(framesInFlight);
 
-		err = mCmdBuffer.build(is, nullptr, mCmdBufferSize, 0);
-		if (err)
-			return err;
+		mCmdBufferSize = 2 << 24;
+		mCmdBuffer.resize(framesInFlight);
+
+		for (uint32_t i = 0; i < framesInFlight; i++)
+		{
+			mCmdBuffer[i].init(device, allocator, mBufferMapFlags);
+
+			err = mCmdBuffer[i].build(is, nullptr, mCmdBufferSize, 0);
+			if (err)
+				return err;
+		}
 
 		return {};
 	}
@@ -423,22 +434,25 @@ namespace engine
 	{
 		mPipeline.destroy();
 
-		mCmdBuffer.destroy();
+		for (auto& b : mCmdBuffer)
+			b.destroy();
+	
+		mCmdBuffer.clear();
 	}
 
 	error pipelineData::addInstance(const pipelineData::addInstanceParams& params)
 	{
-		if (mEntitiesToAdd.find(params.instanceID) == mEntitiesToAdd.end() && mUploadedEntities.find(params.instanceID) == mUploadedEntities.end())
+		if (!mEntitiesToAdd[params.frameIndex].contains(params.instanceID) && !mUploadedEntities[params.frameIndex].contains(params.instanceID))
 		{
 			for (auto& m : params.meshesData)
 			{
-				mMeshCount[m.meshID]++;
+				mMeshCount[params.frameIndex][m.meshID]++;
 
 				uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
 
 				for (uint32_t i = 0; i < m.meshlets.second; i++)
 				{
-					mEntitiesToAdd[params.instanceID].push_back(
+					mEntitiesToAdd[params.frameIndex][params.instanceID].push_back(
 						meshletShaderCMD{
 							.instanceIndex = params.perInstanceHandle.bufferIndex,
 							.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
@@ -462,15 +476,15 @@ namespace engine
 
 	void pipelineData::removeInstance(const pipelineData::removeInstanceParams& params)
 	{
-		if (mEntitiesToDelete.find(params.instanceID) != mEntitiesToDelete.end())
+		if (mEntitiesToDelete[params.frameIndex].contains(params.instanceID))
 			return;
 
-		if (mEntitiesToAdd.find(params.instanceID) == mEntitiesToAdd.end() && mUploadedEntities.find(params.instanceID) == mUploadedEntities.end())
+		if (!mEntitiesToAdd[params.frameIndex].contains(params.instanceID) && !mUploadedEntities[params.frameIndex].contains(params.instanceID))
 			return;
 
-		mEntitiesToDelete.insert(params.instanceID);
+		mEntitiesToDelete[params.frameIndex].insert(params.instanceID);
 
-		if (auto found = mMeshCount.find(params.meshID); found != mMeshCount.end() && found->second != 0)
+		if (auto found = mMeshCount[params.frameIndex].find(params.meshID); found != mMeshCount[params.frameIndex].end() && found->second != 0)
 			found->second--;
 	}
 
@@ -478,32 +492,32 @@ namespace engine
 	{
 		std::vector<entityHash> toRemove;
 
-		for (auto& instanceID : mEntitiesToDelete)
+		for (auto& instanceID : mEntitiesToDelete[params.frameIndex])
 		{
-			if (mEntitiesToAdd.find(instanceID) != mEntitiesToAdd.end())
+			if (mEntitiesToAdd[params.frameIndex].contains(instanceID))
 				toRemove.push_back(instanceID);
 		}
 
 		for (auto& id : toRemove)
 		{
-			mEntitiesToAdd.erase(id);
-			mEntitiesToDelete.erase(id);
+			mEntitiesToAdd[params.frameIndex].erase(id);
+			mEntitiesToDelete[params.frameIndex].erase(id);
 		}
 
-		for (auto& [k, v] : mEntitiesToAdd)
+		for (auto& [k, v] : mEntitiesToAdd[params.frameIndex])
 		{
-			if (mUploadedEntities.find(k) == mUploadedEntities.end())
+			if (!mUploadedEntities[params.frameIndex].contains(k))
 			{
 				size_t size = v.size() * sizeof(meshletShaderCMD);
-				size_t offset = mCmdBuffer.getLoadedBytes();
+				size_t offset = mCmdBuffer[params.frameIndex].getLoadedBytes();
 
-				error err = mCmdBuffer.updateBuffer(params.is, v.data(), size, offset);
+				error err = mCmdBuffer[params.frameIndex].updateBuffer(params.is, v.data(), size, offset);
 				if (err && err.is(errCodeBufferOverFlow))
 				{
 					mNeedDescriptorUpdate = true;
 
 					mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
-					uint32_t minSize = uint32_t(v.size() * sizeof(meshletShaderCMD) + mCmdBuffer.getLoadedBytes());
+					uint32_t minSize = uint32_t(v.size() * sizeof(meshletShaderCMD) + mCmdBuffer[params.frameIndex].getLoadedBytes());
 
 					if (mCmdBufferSize < minSize)
 						mCmdBufferSize = minSize;
@@ -511,7 +525,7 @@ namespace engine
 					vulkanBuffer newBuf{};
 
 					newBuf.init(params.device, params.allocator, mBufferMapFlags);
-					err = newBuf.build(params.is, mCmdBuffer, mCmdBufferSize, true);
+					err = newBuf.build(params.is, mCmdBuffer[params.frameIndex], mCmdBufferSize, false);
 					if (err)
 						return err;
 
@@ -519,33 +533,35 @@ namespace engine
 					if (err)
 						return err;
 
-					mCmdBuffer = std::move(newBuf);
+					mCmdBuffer[params.frameIndex].destroy();
+
+					mCmdBuffer[params.frameIndex] = std::move(newBuf);
 				}
 
-				mUploadedEntities[k] = { offset, offset + size };
+				mUploadedEntities[params.frameIndex][k] = { offset, offset + size };
 			}
 		}
 
-		mEntitiesToAdd.clear();
+		mEntitiesToAdd[params.frameIndex].clear();
 
-		for (auto& k : mEntitiesToDelete)
+		for (auto& k : mEntitiesToDelete[params.frameIndex])
 		{
-			auto uploadedEnity = mUploadedEntities.find(k);
+			auto uploadedEnity = mUploadedEntities[params.frameIndex].find(k);
 
-			if (uploadedEnity != mUploadedEntities.end())
+			if (uploadedEnity != mUploadedEntities[params.frameIndex].end())
 			{
-				if (mCmdBuffer.getLoadedBytes() != uploadedEnity->second.second)
+				if (mCmdBuffer[params.frameIndex].getLoadedBytes() != uploadedEnity->second.second)
 				{
-					error err = mCmdBuffer.shiftData(params.is, uploadedEnity->second.first, uploadedEnity->second.second);
+					error err = mCmdBuffer[params.frameIndex].shiftData(params.is, uploadedEnity->second.first, uploadedEnity->second.second);
 					if (err)
 						return err;
 				}
 				else
-					mCmdBuffer.markBytesAsDead(uploadedEnity->second.second - uploadedEnity->second.first);
+					mCmdBuffer[params.frameIndex].markBytesAsDead(uploadedEnity->second.second - uploadedEnity->second.first);
 
 				size_t deletedSize = uploadedEnity->second.second - uploadedEnity->second.first;
 
-				for (auto& [_, v] : mUploadedEntities)
+				for (auto& [_, v] : mUploadedEntities[params.frameIndex])
 				{
 					if (v.first >= uploadedEnity->second.second)
 					{
@@ -554,54 +570,48 @@ namespace engine
 					}
 				}
 
-				mUploadedEntities.erase(k);
+				mUploadedEntities[params.frameIndex].erase(k);
 			}
 		}
 
-		mEntitiesToDelete.clear();
+		mEntitiesToDelete[params.frameIndex].clear();
 
 		return {};
 	}
 
-	pipelineData::pipelineRenderData pipelineData::getPipelineRenderData() const
+	pipelineData::pipelineRenderData pipelineData::getPipelineRenderData(uint32_t frameIndex) const
 	{
 		auto pipe = mPipeline.getPipeline();
 
 		return pipelineData::pipelineRenderData{
 			.pipeline = pipe.first,
 			.pipelineLayout = pipe.second,
-			.cmdBufferCount = uint32_t(mCmdBuffer.getLoadedBytes() / sizeof(meshletShaderCMD)),
+			.cmdBufferCount = uint32_t(mCmdBuffer[frameIndex].getLoadedBytes() / sizeof(meshletShaderCMD)),
 		};
 	}
 
-	bool pipelineData::meshIsUsed(uint32_t id) const
+	bool pipelineData::meshIsUsed(uint32_t id, uint32_t frameIndex) const
 	{
-		if (auto found = mMeshCount.find(id); found != mMeshCount.end() && found->second != 0)
+		if (auto found = mMeshCount[frameIndex].find(id); found != mMeshCount[frameIndex].end() && found->second != 0)
 			return true;
 
 		return false;
 	}
 
-	bool pipelineData::instanceExists(uint32_t id) const
+	bool pipelineData::instanceExists(uint32_t id, uint32_t frameIndex) const
 	{
-		if (mUploadedEntities.find(id) != mUploadedEntities.end())
+		if (mUploadedEntities[frameIndex].find(id) != mUploadedEntities[frameIndex].end())
 			return true;
 
 		return false;
 	}
-
-	std::vector<VkWriteDescriptorSet> pipelineData::getWriteInfo(uint32_t binding)
-	{
- 		getBufferInfo();
-
-		return descriptorSet::getWriteInfo(binding, { mBufferInfo });
-	}
-
+	
 	std::vector<VkDescriptorBufferInfo> pipelineData::getBufferInfo()
 	{
 		mBufferInfo.clear();
 
-		mBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = mCmdBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+		for (auto& b : mCmdBuffer)
+			mBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 
 		return mBufferInfo;
 	}
@@ -616,13 +626,13 @@ namespace engine
 		mNeedDescriptorUpdate = false;
 	}
 
-	vulkanBuffer pipelineData::getBuffer() const
+	vulkanBuffer pipelineData::getBuffer(uint32_t frameIndex) const
 	{
-		return mCmdBuffer;
+		return mCmdBuffer[frameIndex];
 	}
 
-	uint32_t pipelineData::getCommandBufferLoadedSize() const
+	uint32_t pipelineData::getCommandBufferLoadedSize(uint32_t frameIndex) const
 	{
-		return uint32_t(mCmdBuffer.getLoadedBytes());
+		return uint32_t(mCmdBuffer[frameIndex].getLoadedBytes());
 	}
 }

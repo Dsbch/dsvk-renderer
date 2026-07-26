@@ -10,8 +10,9 @@
 // Push constant START.
 struct pushConstant
 {
+	uint frameIndex;
     uint cmdBufferCount;
-    uint opaqueCmdBufferIndex;
+    uint cmdOpaqueBufferIndex;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -40,17 +41,17 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    bool visible = dtid < visabilityBuffer[0];
+    bool visible = dtid < visabilityBuffer[push.frameIndex][0];
     
     // Not overdraw.
     if (visible)
     {
-        command cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][visabilityBuffer[dtid + 4]];
+        command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][visabilityBuffer[push.frameIndex][dtid + 4]];
         uint meshletOffset = getMeshletOffset(cmd, cmd.selectedLod);
     
         uint index = WavePrefixCountBits(visible);
         
-        payload.perInstanceIndex[index] = cmd.instanceIndex;
+        payload.perInstanceIndex[index] = cmd.instanceIndex + push.frameIndex;
         payload.perInstanceOffset[index] = cmd.instanceOffset;
         payload.meshletIndex[index] = cmd.meshletIndex;
         payload.meshletOffset[index] = meshletOffset;
@@ -83,6 +84,7 @@ void msmain(
     meshlet mesh = meshletBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
     perInstanceAttr instanceAttr = perInstanceBuffer[payload.perInstanceIndex[gid]][payload.perInstanceOffset[gid]];
     perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+    perDrawData dData = drawData[push.frameIndex];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
         
@@ -91,13 +93,15 @@ void msmain(
         uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
         uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.weightBufferOffset;
         
+        instanceAttr.jointIndex += push.frameIndex;
+        
         skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
         
         float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
         sharedPositions[gtid] = skVertex.position;
         
-        vertices[gtid].position = mul(drawData.useDebugCamera ? drawData.debugViewProjection : drawData.viewProjection, worldPos);
+        vertices[gtid].position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, worldPos);
         
         vertices[gtid].uv = skVertex.textureCoords;
         vertices[gtid].materialBase = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
@@ -125,7 +129,7 @@ void msmain(
         uint idxAnim3 = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + unpacked.z] + mesh.weightBufferOffset;
         
         primitives[gtid].cullPrimitive = isBackface(
-                drawData,
+                dData,
                 instanceAttr.modelTransform,
                 sharedPositions[unpacked.x],
                 sharedPositions[unpacked.y],
@@ -143,10 +147,11 @@ float4 psmain(meshOutput input) : SV_TARGET
 {
     // Model rotation is already baked into tangent and normal.
     float3x3 TBN = calculateTBN(float4(0, 0, 0, 1), input.tangent, input.normal);
+    perDrawData dData = drawData[push.frameIndex];
     
-    float3 cameraPos = mul(drawData.cameraPos, TBN);
+    float3 cameraPos = mul(dData.cameraPos, TBN);
     float3 worldPos = mul(input.worldPos, TBN);
-    float3 cameraFront = normalize(mul(drawData.cameraFront, TBN));
+    float3 cameraFront = normalize(mul(dData.cameraFront, TBN));
     
     float4 metalicRoughnes = materials[input.materialBase + 2].Sample(materialsSampler[input.materialBase + 2], input.uv);
 

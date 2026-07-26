@@ -305,7 +305,7 @@ namespace engine
 		mLoadedBytes = 0;
 	}
 
-	allocatedBuffer vulkanBuffer::getBuffer()
+	allocatedBuffer vulkanBuffer::getBuffer() const
 	{
 		return mBuffer;
 	}

@@ -182,7 +182,7 @@ StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
 // 11 - 50.
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t11, space0);
 StructuredBuffer<command> commandOpaqueBuffer[] : register(t12, space0);
-StructuredBuffer<command> commandAccumilationBuffer : register(t13, space0);
+StructuredBuffer<command> commandAccumilationBuffer[] : register(t13, space0);
 StructuredBuffer<uint> vertexIndexBuffer[] : register(t14, space0);
 StructuredBuffer<uint> primitiveBuffer[] : register(t15, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t16, space0);
@@ -190,13 +190,13 @@ StructuredBuffer<float4x4> jointBuffer[] : register(t17, space0);
 StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t18, space0);
 // [0] = visibleCount                                  
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ     
-StructuredBuffer<uint> visabilityBuffer : register(t19, space0);
+StructuredBuffer<uint> visabilityBuffer[] : register(t19, space0);
 
 // SSBO END.
 
 // UBO START.
 
-ConstantBuffer<perDrawData> drawData : register(b20, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b20, space0);
 
 // UBO END.
 

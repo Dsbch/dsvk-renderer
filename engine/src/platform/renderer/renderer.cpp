@@ -18,6 +18,11 @@ namespace engine
 		return mPackage;
 	}
 
+	renderer::renderPackage::renderPackage(uint32_t framesInFlight)
+		:
+		mCurrentSceneState(framesInFlight)
+	{}
+
 	void renderer::renderPackage::setRenderParams(renderParams params)
 	{
 		co::mutex_guard l{ mMu };
@@ -29,39 +34,55 @@ namespace engine
 	{
 		co::mutex_guard l{ mMu };
 
-		mCurrentSceneState.addedEntities.push_back(m);
+		for (auto& v : mCurrentSceneState)
+			v.addedEntities.insert(m);
 	}
 
 	void renderer::renderPackage::deleteEntity(const model& m)
 	{
 		co::mutex_guard l{ mMu };
 
-		mCurrentSceneState.deletedEntities.push_back(m);
+		for (auto& v : mCurrentSceneState)
+		{
+			auto same = [&](const model& x) { return x.id == m.id; };
+			std::erase_if(v.updateAnimations, same);
+			std::erase_if(v.updateInstanceAttributes, same);
+			std::erase_if(v.addedEntities, same);
+			v.deletedEntities.insert(m);
+		}
 	}
 
 	void renderer::renderPackage::updateInstanceAttributes(const model& m)
 	{
 		co::mutex_guard l{ mMu };
 
-		mCurrentSceneState.updateInstanceAttributes.push_back(m);
+		for (auto& v : mCurrentSceneState)
+		{
+			v.updateInstanceAttributes.erase(m);
+			v.updateInstanceAttributes.insert(m);
+		}
 	}
 
 	void renderer::renderPackage::updateAnimations(const model& m)
 	{
 		co::mutex_guard l{ mMu };
 
-		mCurrentSceneState.updateAnimations.push_back(m);
+		for (auto& v : mCurrentSceneState)
+		{
+			v.updateAnimations.erase(m);
+			v.updateAnimations.insert(m);
+		}
 	}
 
-	renderer::sceneState& renderer::renderPackage::getStateToRender()
+	renderer::sceneState renderer::renderPackage::getStateToRender(uint32_t frame)
 	{
 		co::mutex_guard l{ mMu };
 
-		mPrevSceneState = {};
+		sceneState sState = {};
 
-		std::swap(mPrevSceneState, mCurrentSceneState);
+		std::swap(sState, mCurrentSceneState[frame]);
 
-		return mPrevSceneState;
+		return sState;
 	}
 
 	renderer::renderParams renderer::renderPackage::getRenderParams()

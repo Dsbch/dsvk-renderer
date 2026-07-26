@@ -7,19 +7,20 @@
 
 namespace engine
 {
-	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags)
+	void bufferRegistry::init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags, uint32_t buffersPerBlock)
 	{
 		mDevice = device;
 		mAllocator = allocator;
 		mNeedUpdate = false;
 		mBufferMapFlags = flags;
+		mBuffersPerBlock = buffersPerBlock;
 	}
 
 	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
-			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end())
+			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end() && !mBlockScheduledToDelete.contains(id))
 				return *handle;
 		}
 
@@ -36,23 +37,23 @@ namespace engine
 				auto handle = bufferHandle{
 						.id = id,
 						.offset = uint32_t(offset),
-						.bufferIndex = i,
+						.bufferIndex = i * mBuffersPerBlock,
 						.size = sizeInBytes,
 						.vAllocation = vAllocation,
 				};
 
 				mBuffers[i].bufferHandles.insert(handle);
 
-				error err = mBuffers[i].buffer.updateBuffer(is, data, sizeInBytes, offset);
-				if (err)
-					return err;
+				for (uint32_t k = 0; k < mBuffersPerBlock; k++)
+				{
+					error err = mBuffers[i].buffer[k].updateBuffer(is, data, sizeInBytes, offset);
+					if (err)
+						return err;
+				}
 
 				return handle;
 			}
 		}
-
-		vulkanBuffer newBuffer{};
-		newBuffer.init(mDevice, mAllocator, mBufferMapFlags);
 
 		if (sizeInBytes > newSize)
 		{
@@ -76,21 +77,30 @@ namespace engine
 		if (vmaVirtualAllocate(vBlock, &allocateInfo, &vAllocation, &offset) != VK_SUCCESS)
 			return error{ "can't allocate in virtual block" };
 
-		error err = newBuffer.build(is, data, newSize, sizeInBytes);
-		if (err)
-			return err;
+		std::vector<vulkanBuffer> buffers{ mBuffersPerBlock };
+		for (uint32_t i = 0; i < mBuffersPerBlock; i++)
+		{
+			vulkanBuffer buffer{};
+			buffer.init(mDevice, mAllocator, mBufferMapFlags);
+
+			error err = buffer.build(is, data, newSize, sizeInBytes);
+			if (err)
+				return err;
+
+			buffers[i] = buffer;
+		}
 
 		auto handle = bufferHandle{
 				.id = id,
 				.offset = uint32_t(offset),
-				.bufferIndex = uint32_t(mBuffers.size()),
+				.bufferIndex = uint32_t(mBuffers.size()) * mBuffersPerBlock,
 				.size = sizeInBytes,
 				.vAllocation = vAllocation,
 		};
 
 		mBuffers.push_back(
 			bufferWithHandles{
-				.buffer = newBuffer,
+				.buffer = buffers,
 				.vBlock = vBlock,
 			}
 			);
@@ -113,15 +123,22 @@ namespace engine
 		return error{ "block not found" };
 	}
 
-	error bufferRegistry::updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is)
+	error bufferRegistry::updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, uint32_t frameIndex)
 	{
+		bool found{};
+		for (auto& sd : mBlockScheduledToDelete)
+			found |= sd.second.contains(id);
+
+		if (found)
+			return error{ "[bufferRegistry::updateBlock] trying to update block scheduled for delete" };
+
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
 			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end())
 			{
-				mBuffers[i].buffer.markBytesAsDead(sizeInBytes);
+				mBuffers[i].buffer[frameIndex].markBytesAsDead(sizeInBytes);
 
-				error err = mBuffers[i].buffer.updateBuffer(is, data, sizeInBytes, handle->offset);
+				error err = mBuffers[i].buffer[frameIndex].updateBuffer(is, data, sizeInBytes, handle->offset);
 				if (err)
 					return err;
 			}
@@ -137,7 +154,10 @@ namespace engine
 			if (auto found = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); found != mBuffers[i].bufferHandles.end())
 			{
 				vmaVirtualFree(mBuffers[i].vBlock, found->vAllocation);
-				mBuffers[i].buffer.markBytesAsDead(found->size);
+
+				for (auto& b : mBuffers[i].buffer)
+					b.markBytesAsDead(found->size);
+
 				mBuffers[i].bufferHandles.erase(bufferHandle{ .id = id });
 
 				return true;
@@ -147,10 +167,36 @@ namespace engine
 		return false;
 	}
 
+	bool bufferRegistry::scheduleDeleteBlock(uint32_t id, uint32_t frameIndex)
+	{
+		for (uint32_t i = 0; i < mBuffers.size(); i++)
+		{
+			if (auto found = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); found != mBuffers[i].bufferHandles.end())
+			{
+				mBlockScheduledToDelete[frameIndex].insert(id);
+
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	void bufferRegistry::deleteScheduledBlocks(uint32_t frameIndex)
+	{
+		for (auto& id : mBlockScheduledToDelete[frameIndex])
+			deleteBlock(id);
+
+		mBlockScheduledToDelete[frameIndex].clear();
+	}
+
 	void bufferRegistry::destroy()
 	{
-		for (auto& b : mBuffers)
-			b.buffer.destroy();
+		for (auto& buffs : mBuffers)
+		{
+			for (auto& b : buffs.buffer)
+				b.destroy();
+		}
 
 		mBuffers.clear();
 	}
@@ -166,11 +212,10 @@ namespace engine
 	{
 		mBuffersInfo.clear();
 
-		for (auto& b : mBuffers)
+		for (auto& buffs : mBuffers)
 		{
-			mBuffersInfo.push_back(
-				VkDescriptorBufferInfo{ .buffer = b.buffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE }
-			);
+			for (auto& b : buffs.buffer)
+				mBuffersInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 		}
 
 		return mBuffersInfo;
@@ -272,9 +317,22 @@ namespace engine
 		return error{ "Materils not found" };
 	}
 
-	void materialRegistry::deleteMaterials(const materials& materials)
+	void materialRegistry::deleteScheduledMaterials(uint32_t frameIndex)
 	{
-		if (auto found = mUploadedMaterials.find(materials.hash); found != mUploadedMaterials.end())
+		for (auto& id : mMaterialsScheduledToDelete[frameIndex])
+			deleteMaterials(id);
+
+		mMaterialsScheduledToDelete[frameIndex].clear();
+	}
+
+	void materialRegistry::scheduleDeleteMaterials(uint32_t hash, uint32_t frameIndex)
+	{
+		mMaterialsScheduledToDelete[frameIndex].insert(hash);
+	}
+
+	void materialRegistry::deleteMaterials(uint32 hash)
+	{
+		if (auto found = mUploadedMaterials.find(hash); found != mUploadedMaterials.end())
 		{
 			// Still need to update descripts, because we can get error if textures get deleted later.
 			mNeedUpdate = true;
@@ -289,7 +347,7 @@ namespace engine
 				mImagesInfo[i + 2].imageView = static_cast<const vulkanTexture*>(mDefaultMat.metallicRoughness.get())->mImage.img.view;
 			}
 
-			mUploadedMaterials.erase(materials.hash);
+			mUploadedMaterials.erase(hash);
 		}
 	}
 

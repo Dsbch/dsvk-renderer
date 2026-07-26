@@ -42,13 +42,13 @@ namespace engine
 			submit& is,
 			deviceLimits limits,
 			graphicsPreset preset,
-			VkBuffer UBObuffer,
-			VkBuffer visabilityBuffer,
+			const std::vector<vulkanBuffer>& UBObuffer,
+			const std::vector<vulkanBuffer>& visabilityBuffer,
 			const swapChain& sChain
 		);
 		error destroy();
 
-		error buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
+		error buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
 
 		struct cullMeshletsParams
 		{
@@ -58,7 +58,7 @@ namespace engine
 			uint32_t hzbLength;
 		};
 
-		error cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params);
+		error cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params, uint32_t frameIndex);
 
 		struct compactCommandBufferParams
 		{
@@ -68,7 +68,7 @@ namespace engine
 			uint32_t compactRule;
 		};
 
-		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params);
+		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex);
 
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
 		error updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
@@ -93,8 +93,8 @@ namespace engine
 		error initDescriptors(
 			VkDevice device,
 			VkPhysicalDevice physicalDevice,
-			VkBuffer UBObuffer,
-			VkBuffer visabilityBuffer,
+			const std::vector<vulkanBuffer>& UBObuffer,
+			const std::vector<vulkanBuffer>& visabilityBuffer,
 			deviceLimits limits
 		);
 		error initComputePipeline(VkDevice device);

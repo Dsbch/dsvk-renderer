@@ -82,6 +82,7 @@ namespace engine
 
 		// Animated.
 		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, animationComponent, newEntityComponent>(
+			entt::exclude<deleteComponent>,
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs, animationComponent& anim)
 			{
 				if (err)
@@ -112,7 +113,7 @@ namespace engine
 
 		// Not animated.
 		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, newEntityComponent>(
-			entt::exclude<animationComponent>,
+			entt::exclude<animationComponent, deleteComponent>,
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
 			{
 				if (err)
@@ -189,6 +190,7 @@ namespace engine
 		std::vector<entity> updatedEntites{};
 
 		registry->forEach<uidComponent, meshComponent, materialComponent, transformComponent, updateInstanceComponent>(
+			entt::exclude<deleteComponent>,
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, transformComponent& trs)
 			{
 				toUpdate.push_back({
@@ -227,6 +229,7 @@ namespace engine
 		std::vector<model> toUpdateAnim{};
 
 		registry->forEach<uidComponent, meshComponent, materialComponent, animationComponent, updateAnimationComponent>(
+			entt::exclude<deleteComponent>,
 			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, animationComponent& anim)
 			{
 				if (err)

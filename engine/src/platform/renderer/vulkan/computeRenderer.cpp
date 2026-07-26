@@ -11,8 +11,8 @@ namespace engine
 		submit& is,
 		deviceLimits limits,
 		graphicsPreset preset,
-		VkBuffer UBObuffer,
-		VkBuffer visabilityBuffer,
+		const std::vector<vulkanBuffer>& UBObuffer,
+		const std::vector<vulkanBuffer>& visabilityBuffer,
 		const swapChain& sChain
 	)
 	{
@@ -63,7 +63,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain)
+	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
 	{
 		if (in.useDebugCamera)
 			return {};
@@ -94,6 +94,7 @@ namespace engine
 			uint32_t mipHeight = std::max(1u, in.height >> (i + 1));
 
 			computePushConstants pc{
+				.frameIndex = frameIndex,
 				.hzbMipLevel = i,
 				.mipWidth = mipWidth,
 				.mipHeight = mipHeight,
@@ -110,7 +111,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, computeRenderer::cullMeshletsParams params)
+	error computeRenderer::cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, computeRenderer::cullMeshletsParams params, uint32_t frameIndex)
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingPipeline.getPipeline().first);
 
@@ -118,8 +119,9 @@ namespace engine
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		computePushConstants pc{
+			.frameIndex = frameIndex,
 			.cullingPassFlagBit = params.cullStage,
-			.opaqueCmdBufferIndex = params.opaqueCmdBufferIndex,
+			.cmdOpaqueBufferIndex = params.opaqueCmdBufferIndex,
 			.cmdBufferCount = params.cmdBufferCount,
 			.hzbLength = params.hzbLength,
 		};
@@ -132,7 +134,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params)
+	error computeRenderer::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex)
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().first);
 
@@ -140,8 +142,9 @@ namespace engine
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		computePushConstants pc{
+			.frameIndex = frameIndex,
 			.cullingPassFlagBit = params.stage,
-			.opaqueCmdBufferIndex = params.opaqueCmdBufferIndex,
+			.cmdOpaqueBufferIndex = params.opaqueCmdBufferIndex,
 			.cmdBufferCount = params.cmdBufferCount,
 			.compactRule = params.compactRule,
 		};
@@ -242,8 +245,8 @@ namespace engine
 	error computeRenderer::initDescriptors(
 		VkDevice device,
 		VkPhysicalDevice physicalDevice,
-		VkBuffer UBObuffer,
-		VkBuffer visabilityBuffer,
+		const std::vector<vulkanBuffer>& UBObuffer,
+		const std::vector<vulkanBuffer>& visabilityBuffer,
 		deviceLimits limits
 	)
 	{
@@ -328,17 +331,19 @@ namespace engine
 			return err;
 
 		// Set descriptor for ubo buffer write right away.
-		std::vector<VkDescriptorBufferInfo> bufferInfo{
-			VkDescriptorBufferInfo{.buffer = UBObuffer, .offset = 0, .range = VK_WHOLE_SIZE }
-		};
+		std::vector<VkDescriptorBufferInfo> bufferInfo{};
+
+		for (auto& b : UBObuffer)
+			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE});
 
 		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perDrawDataBufferBinding, bufferInfo, true);
 		mDescriptorSet.updateWrite(writeInfo);
 
 		// Set descriptor for visabilityBuffers right away.
-		bufferInfo = {
-			VkDescriptorBufferInfo{.buffer = visabilityBuffer, .offset = 0, .range = VK_WHOLE_SIZE }
-		};
+		bufferInfo = {};
+
+		for (auto& b : visabilityBuffer)
+			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 
 		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
 		mDescriptorSet.updateWrite(writeInfo);

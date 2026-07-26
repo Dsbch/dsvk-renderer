@@ -6,11 +6,12 @@
 
 struct pushConstant
 {
+    uint frameIndex;
     uint hzbMipLevel;
     uint mipWidth;
     uint mipHeight;
     uint cullingPassFlagBit;
-    uint opaqueCmdBufferIndex;
+    uint cmdOpaqueBufferIndex;
     uint meshletCount;
     uint hzbLength;
     uint compactRule;
@@ -22,14 +23,14 @@ pushConstant push;
 Texture2D<float> originalZbuffer : register(t0, space0);
 RWTexture2D<float> hzbChain[] : register(u1, space0);
 RWStructuredBuffer<command> commandOpaqueBuffer[] : register(u2, space0);
-RWStructuredBuffer<command> commandAccumilationBuffer : register(u3, space0);
+RWStructuredBuffer<command> commandAccumilationBuffer[] : register(u3, space0);
 StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t4, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t6, space0);
-ConstantBuffer<perDrawData> drawData : register(b7, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b7, space0);
 // [0] = visibleCount                                  
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
-RWStructuredBuffer<uint> visabilityBuffer : register(u8, space0);
+RWStructuredBuffer<uint> visabilityBuffer[] : register(u8, space0);
 
 groupshared uint groupVisibleCount;
 groupshared uint groupBase;
@@ -50,9 +51,9 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
     {
         command cmd;
         if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
-            cmd = commandAccumilationBuffer[dtid];
+            cmd = commandAccumilationBuffer[push.cmdOpaqueBufferIndex][dtid];
         else
-            cmd = commandOpaqueBuffer[push.opaqueCmdBufferIndex][dtid];
+            cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
 
         visible = hasFlag(cmd.visabilityBit, push.compactRule);
     }
@@ -69,14 +70,14 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
 
     if (gtid == 0 && groupVisibleCount > 0)
     {
-        InterlockedAdd(visabilityBuffer[0], groupVisibleCount, groupBase);
+        InterlockedAdd(visabilityBuffer[push.frameIndex][0], groupVisibleCount, groupBase);
 
         uint groupsNeeded = (groupBase + groupVisibleCount + THREADS_COUNT - 1) / THREADS_COUNT;
-        InterlockedMax(visabilityBuffer[1], groupsNeeded);
+        InterlockedMax(visabilityBuffer[push.frameIndex][1], groupsNeeded);
     }
 
     GroupMemoryBarrierWithGroupSync();
 
     if (visible)
-        visabilityBuffer[4 + groupBase + waveBaseInGroup + laneSlot] = dtid;
+        visabilityBuffer[push.frameIndex][4 + groupBase + waveBaseInGroup + laneSlot] = dtid;
 }

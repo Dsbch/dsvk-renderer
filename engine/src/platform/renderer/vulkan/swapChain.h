@@ -13,8 +13,6 @@ namespace engine
 {
 	VkPresentInfoKHR presentInfo();
 
-	const static uint32_t FRAME_OVERLAP = 3;
-
 	struct frameData
 	{
 		VkCommandPool commandPool;
@@ -26,32 +24,21 @@ namespace engine
 	struct swapChain
 	{
 	public:
-		swapChain() :
+		swapChain(uint32_t framesInFlight) :
 			mAllocator(VK_NULL_HANDLE),
 			mDevice(VK_NULL_HANDLE),
 			mSurface(VK_NULL_HANDLE),
 			mChosenGPU(VK_NULL_HANDLE),
 			mSwapchain(VK_NULL_HANDLE),
 			mSwapchainImageFormat(VK_FORMAT_B8G8R8A8_UNORM),
-			mFrames(
-				{
-					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE },
-					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE },
-					frameData{.commandPool = VK_NULL_HANDLE, .commandBuffer = VK_NULL_HANDLE, .swapchainSemaphore = VK_NULL_HANDLE, .renderFence = VK_NULL_HANDLE }
-				}
-			),
-			mRenderSema(
-				{
-					VK_NULL_HANDLE,
-					VK_NULL_HANDLE,
-					VK_NULL_HANDLE,
-				}
-				),
+			mFrames(framesInFlight),
+			mRenderSema(framesInFlight),
 			mDepthImage(),
 			mDrawImage(),
 			mSwapchainExtent(),
 			mSwapchainIndex(0),
-			mFrameNumber(0)
+			mFrameNumber(0),
+			mFramesInFlight(framesInFlight)
 		{}
 
 		void init(VmaAllocator vma, VkDevice device, VkSurfaceKHR surface, VkPhysicalDevice chosenGPU, submit& is, graphicsPreset preset);
@@ -156,6 +143,8 @@ namespace engine
 		VkSemaphore getSwapchainSemaphore();
 		VkSemaphore getRenderSemaphore();
 		VkFence getRenderFence();
+
+		uint32_t getCurrentFrameIndex() const;
 	private:
 		void increment();
 		error createSwapChain(submit& is, uint32_t width, uint32_t height);
@@ -174,10 +163,23 @@ namespace engine
 		// swap chain stuff.
 		VkSwapchainKHR mSwapchain;
 		VkFormat mSwapchainImageFormat;
+		VkExtent2D mSwapchainExtent;
+		
+		// That index is owned by GPU.
+		// Have to index swapchain images and render sema's with that index.
+		uint32_t mSwapchainIndex;
+		std::vector<VkSemaphore> mRenderSema;
 		std::vector<VkImage> mSwapchainImages;
 		std::vector<VkImageView> mSwapchainImageViews;
-		VkExtent2D mSwapchainExtent;
 
+		// CPU side index used to index CPU side per frame data.
+		uint32_t mFrameNumber;
+		uint32_t mFramesInFlight;
+		graphicsPreset mPreset;
+		std::vector<frameData> mFrames;
+
+		// Below are recources that do not need indexing.
+		// All frames share them.
 		// For OIT blending.
 		vulkanImage mAccumImage;
 		vulkanImage mRevealImage;
@@ -189,15 +191,8 @@ namespace engine
 		vulkanImage mResolveImage;
 		vulkanImage mDepthImage;
 		vulkanImage mDepthResolveImage;
-
+		
+		// For two pass olcussion pass.
 		std::vector<vulkanImage> mHZB;
-
-		uint32_t mFrameNumber;
-		uint32_t mSwapchainIndex;
-
-		graphicsPreset mPreset;
-
-		std::array<frameData, FRAME_OVERLAP> mFrames;
-		std::array<VkSemaphore, FRAME_OVERLAP> mRenderSema;
 	};
 }

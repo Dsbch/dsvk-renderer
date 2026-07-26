@@ -157,9 +157,7 @@ namespace engine
 		std::vector<VkDescriptorBindingFlagsEXT> pFlagsV{};
 
 		for (uint32_t i = 0; i < totalDescriptorsCount; i++)
-		{
 			pFlagsV.push_back(pFlags);
-		}
 
 		VkDescriptorSetLayoutBindingFlagsCreateInfoEXT binding_flags{};
 		binding_flags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;

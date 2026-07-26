@@ -56,15 +56,16 @@ namespace engine
 
 		struct sceneState
 		{
-			std::vector<model> addedEntities;
-			std::vector<model> deletedEntities;
-			std::vector<model> updateInstanceAttributes;
-			std::vector<model> updateAnimations;
+			std::set<model> addedEntities;
+			std::set<model> deletedEntities;
+			std::set<model> updateInstanceAttributes;
+			std::set<model> updateAnimations;
 		};
 
 		struct renderPackage
 		{
 		public:
+			renderPackage(uint32_t framesInFlight);
 			void setRenderParams(renderParams params);
 			void addEntity(const model& m);
 			void deleteEntity(const model& m);
@@ -72,18 +73,21 @@ namespace engine
 			void updateAnimations(const model& m);
 			void swapSceneState();
 
-			sceneState& getStateToRender();
+			sceneState getStateToRender(uint32_t frame);
 			renderParams getRenderParams();
 		private:
-			renderParams mRenderCallParams;
-
-			sceneState mPrevSceneState;
-			sceneState mCurrentSceneState;
-
 			co::mutex mMu;
+			renderParams mRenderCallParams;
+			std::vector<sceneState> mCurrentSceneState;
 		};
 
-		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : mCtx(ctx), mPreset(), mWindow(window), mPackage(std::make_shared<renderPackage>()), mErr() {};
+		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : 
+			mCtx(ctx), 
+			mPreset(), 
+			mWindow(window), 
+			mPackage(std::make_shared<renderPackage>(ctx->config.inner.graphics.framesInFlight)), 
+			mErr() 
+		{};
 		virtual ~renderer() = default;
 		virtual std::string getVersion() const = 0;
 		virtual std::string getGpuName() const = 0;

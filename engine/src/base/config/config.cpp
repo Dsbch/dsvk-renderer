@@ -127,6 +127,7 @@ namespace engine
 	void from_json(const nlohmann::json& j, graphicsCfg& p)
 	{
 		j.at("msaa").get_to(p.msaa);
+		j.at("framesInFlight").get_to(p.framesInFlight);
 		j.at("anisotropicFiltering").get_to(p.anisotropicFiltering);
 	}
 
@@ -135,6 +136,7 @@ namespace engine
 		j = nlohmann::json{
 			{"msaa", p.msaa},
 			{"anisotropicFiltering", p.anisotropicFiltering},
+			{"framesInFlight", p.framesInFlight},
 		};
 	}
 

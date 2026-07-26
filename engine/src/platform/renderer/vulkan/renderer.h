@@ -57,7 +57,7 @@ namespace engine
 		deletionQueue mDeletionQueue;
 
 		// UBO generic data per drawCall.
-		vulkanBuffer mUboPerDrawBuffer;
+		std::vector<vulkanBuffer> mUboPerDrawBuffer;
 
 		// Geometry pass.
 		meshletRenderer mMeshletRenderer;
@@ -79,11 +79,11 @@ namespace engine
 
 		error initRenderers(std::shared_ptr<window> window);
 
-		error updatePerDrawBuffer(renderer::renderParams in, float deltaTime);
+		error updatePerDrawBuffer(renderer::renderParams in, float deltaTime, uint32_t frameIndex);
 		void chooseGraphicsPreset();
-		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in);
-		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in);
-		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in);
+		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
+		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
+		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
 		error drawUI(VkCommandBuffer cmd);
 
 		void updateProfInfo(float deltaTime);
@@ -91,9 +91,9 @@ namespace engine
 		void visualizeNormals(const model& m);
 
 		error handleEvents();
-		error addToRender(const std::vector<model>& addedEntities);
-		error updateInstance(const std::vector<model>& updatedEntities);
-		error updateAnimations(const std::vector<model>& animationUpdatedEntities);
-		void removeFromRender(const std::vector<model>& deletedEntities);
+		error addToRender(const std::set<model>& addedEntities, uint32_t frameIndex);
+		error updateInstance(const std::set<model>& updatedEntities, uint32_t frameIndex);
+		error updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex);
+		void removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex);
 	};
 }

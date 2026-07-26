@@ -123,6 +123,7 @@ namespace engine
 			VkFormat depthFormat,
 			const std::vector<VkFormat>& colorAttachmentFormats,
 			VkSampleCountFlagBits sampleCount,
+			uint32_t framesInFlight,
 			pipelineType type = pipelineType::opaque
 		);
 		void destroy();
@@ -142,6 +143,7 @@ namespace engine
 			bufferHandle perInstanceHandle;
 			std::vector<meshes> meshesData;
 			bool isBlendGeometry;
+			uint32_t frameIndex;
 		};
 
 		struct removeInstanceParams
@@ -149,6 +151,7 @@ namespace engine
 			uint32_t pixelShaderID;
 			uint32_t instanceID;
 			uint32_t meshID;
+			uint32_t frameIndex;
 		};
 
 		struct updateCommandBufferParams
@@ -156,6 +159,7 @@ namespace engine
 			VkDevice device;
 			VmaAllocator allocator;
 			submit& is;
+			uint32_t frameIndex;
 		};
 
 		error addInstance(const addInstanceParams& params);
@@ -169,29 +173,27 @@ namespace engine
 			uint32_t cmdBufferCount;
 		};
 
-		pipelineRenderData getPipelineRenderData() const;
-		bool meshIsUsed(uint32_t id) const;
-		bool instanceExists(uint32_t id) const;
-		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
+		pipelineRenderData getPipelineRenderData(uint32_t frameIndex) const;
+		bool meshIsUsed(uint32_t id, uint32_t frameIndex) const;
+		bool instanceExists(uint32_t id, uint32_t frameIndex) const;
 		std::vector<VkDescriptorBufferInfo> getBufferInfo();
 		bool needDescriptorUpdate() const;
 		void setUpdated();
-		vulkanBuffer getBuffer() const;
-		uint32_t getCommandBufferLoadedSize() const;
+		vulkanBuffer getBuffer(uint32_t frameIndex) const;
+		uint32_t getCommandBufferLoadedSize(uint32_t frameIndex) const;
 	private:
 		classicGraphicPipeline mPipeline;
 
 		bool mNeedDescriptorUpdate;
 
-		std::set<entityHash> mEntitiesToDelete;
-		std::map<entityHash, std::vector<meshletShaderCMD>> mEntitiesToAdd;
-		std::map<entityHash, std::pair<size_t, size_t>> mUploadedEntities;
-
-		std::map<meshHash, uint32_t> mMeshCount;
+		std::vector<std::set<entityHash>> mEntitiesToDelete;
+		std::vector<std::map<entityHash, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
+		std::vector<std::map<entityHash, std::pair<size_t, size_t>>> mUploadedEntities;
+		std::vector<std::map<meshHash, uint32_t>> mMeshCount;
 
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		uint32_t mCmdBufferSize;
-		vulkanBuffer mCmdBuffer;
+		std::vector<vulkanBuffer> mCmdBuffer;
 		std::vector<VkDescriptorBufferInfo> mBufferInfo;
 	};
 }

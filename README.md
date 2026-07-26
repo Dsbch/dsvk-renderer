@@ -43,7 +43,7 @@ Windows only for now.
 ## TODO
 
 **In progress**
-- Per-frame-in-flight resource buffering. Need to separate joint matrices/per-instance/draw buffers for each frame in flight. This will solve a lot of problems and bugs. Also this will remove a lot of barriers for images and buffers.
+- Optimize ECS systems to run a LOT of animated objects. Now animated objects can stall game thread.
 
 **Planned**
 - Hard and soft shadows.

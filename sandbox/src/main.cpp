@@ -4,10 +4,7 @@
 
 // Current todo list:
 // Things that have to be unique per frame:
-// 1. Command buffers.
 // 2. Joint buffer.
-// 3. Visability buffer.
-// 4. Draw UBO buffer.
 // 5. Pre intsance buffer (transform updates).
 // Write more optimized animation system with co::corutines.
 // Do not block game thread on asset load.

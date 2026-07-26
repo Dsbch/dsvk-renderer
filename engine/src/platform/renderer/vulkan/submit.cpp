@@ -41,16 +41,15 @@ namespace engine
 					{
 						while (true)
 						{
-							{
-								co::mutex_guard m{ mu };
-								if (semaToDelete.empty())
-									break;
-							}
-
 							std::pair<VkSemaphore, std::function<void()>> semaAndCleanUp{};
 							{
 								co::mutex_guard m{ mu };
-								semaAndCleanUp = semaToDelete.back();
+
+								if (semaToDelete.empty())
+									break;
+
+								semaAndCleanUp = std::move(semaToDelete.back());
+								semaToDelete.pop_back();
 							}
 
 							VkSemaphoreWaitInfo waitInfo;
@@ -69,11 +68,6 @@ namespace engine
 
 							if (semaAndCleanUp.second != nullptr)
 								semaAndCleanUp.second();
-
-							{
-								co::mutex_guard m{ mu };
-								semaToDelete.pop_back();
-							}
 
 							LOGDEBUG("cleanup submit thread");
 						}

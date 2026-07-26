@@ -28,14 +28,15 @@ namespace engine
 			VkPhysicalDevice physicalDevice, 
 			VmaAllocator allocator, 
 			submit& is, 
-			VkBuffer UBObuffer,
+			const std::vector<vulkanBuffer>& UBObuffer,
 			VkFormat depthFormat, VkFormat drawFormat,
-			graphicsPreset preset
+			graphicsPreset preset,
+			deviceLimits limits
 		);
 		error destroy();
 		error addLine(glm::vec3 p1, glm::vec3 p2);
 		error updateDescriptors(VmaAllocator allocator, submit& is);
-		error drawLines(VkCommandBuffer cmd, const swapChain& sChain);
+		error drawLines(VkCommandBuffer cmd, const swapChain& sChain, uint32_t frameIndex);
 	private:
 		std::shared_ptr<context> mCtx;
 		graphicsPreset mPreset;
@@ -51,6 +52,6 @@ namespace engine
 		bool mNeedDescrotprUpdate;
 
 		error initPipeline(VkDevice device, VkFormat depthFormat, VkFormat drawFormat);
-		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer UBObuffer);
+		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, const std::vector<vulkanBuffer>& UBObuffer, deviceLimits limits);
 	};
 }

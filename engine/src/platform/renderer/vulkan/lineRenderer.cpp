@@ -10,10 +10,11 @@ namespace engine
 		VkPhysicalDevice physicalDevice,
 		VmaAllocator allocator,
 		submit& is,
-		VkBuffer UBObuffer,
+		const std::vector<vulkanBuffer>& UBObuffer,
 		VkFormat depthFormat,
 		VkFormat drawFormat,
-		graphicsPreset preset
+		graphicsPreset preset,
+		deviceLimits limits
 	)
 	{
 		mCtx = ctx;
@@ -39,7 +40,7 @@ namespace engine
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mVertexBuffer });
 
-		err = initDescriptors(device, physicalDevice, UBObuffer);
+		err = initDescriptors(device, physicalDevice, UBObuffer, limits);
 		if (err)
 			return err;
 
@@ -99,7 +100,7 @@ namespace engine
 		return {};
 	}
 
-	error lineRenderer::drawLines(VkCommandBuffer cmd, const swapChain& sChain)
+	error lineRenderer::drawLines(VkCommandBuffer cmd, const swapChain& sChain, uint32_t frameIndex)
 	{
 		VkClearValue clear{
 			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
@@ -115,6 +116,12 @@ namespace engine
 		vkCmdBeginRendering(cmd, &renderInfo);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.getPipeline().first);
+
+		linePushConstant pc{
+			.frameIndex = frameIndex,
+		};
+
+		vkCmdPushConstants(cmd, mPipeline.getPipeline().second, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(linePushConstant), &pc);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
@@ -160,7 +167,12 @@ namespace engine
 		mPipeline.setColorAttachmentFormats({ drawFormat });
 		mPipeline.setDepthFormat(depthFormat);
 
-		error buildErr = mPipeline.build(VK_NULL_HANDLE, { mDescriptorSet.getDescriptorSet().second });
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(linePushConstant);
+		pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		error buildErr = mPipeline.build(&pc, { mDescriptorSet.getDescriptorSet().second });
 		if (buildErr)
 			return buildErr;
 
@@ -169,29 +181,32 @@ namespace engine
 		return {};
 	}
 
-	error lineRenderer::initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, VkBuffer UBObuffer)
+	error lineRenderer::initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, const std::vector<vulkanBuffer>& UBObuffer, deviceLimits limits)
 	{
 		error err = mDescriptorSet.init(
 			device,
 			physicalDevice,
 			poolConstraints{
-				.maxBuffersDescriptors = 1,
-				.maxUniformBuffersDescriptors = 1,
+				.maxBuffersDescriptors = limits.maxStorageBuffers,
+				.maxUniformBuffersDescriptors = limits.maxUniformBuffers,
 			}
 			);
 		if (err)
 			return err;
 
+		const uint32_t bufferObjects = 1;
+		const uint32_t uniformObjects = 1;
+
 		// add bindings for buffers.
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.vertexBinding, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.vertexBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.perDrawDataBinding, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+				mBindings.perDrawDataBinding, limits.maxUniformBuffers / uniformObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
 			)
 		);
 
@@ -200,9 +215,9 @@ namespace engine
 			return err;
 
 		// Set ubo buffer write right away.
-		std::vector<VkDescriptorBufferInfo> bufferInfo{
-			VkDescriptorBufferInfo{.buffer = UBObuffer, .offset = 0, .range = VK_WHOLE_SIZE }
-		};
+		std::vector<VkDescriptorBufferInfo> bufferInfo{};
+		for (auto& b : UBObuffer)
+			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 
 		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perDrawDataBinding, bufferInfo, true);
 		mDescriptorSet.updateWrite(writeInfo);

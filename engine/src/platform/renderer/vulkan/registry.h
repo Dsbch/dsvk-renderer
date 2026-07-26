@@ -29,7 +29,7 @@ namespace engine
 
 	struct bufferWithHandles
 	{
-		vulkanBuffer buffer;
+		std::vector<vulkanBuffer> buffer;
 		VmaVirtualBlock vBlock;
 		std::set<bufferHandle> bufferHandles;
 	};
@@ -37,11 +37,13 @@ namespace engine
 	struct bufferRegistry
 	{
 	public:
-		void init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags = {false, false});
+		void init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags = {false, false}, uint32_t buffersPerBlock = 1);
 		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize = newBufferSize);
 		withError<bufferHandle> findBlock(uint32_t id);
-		error updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is);
-		bool deleteBlock(uint32_t id);
+		error updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, uint32_t frameIndex = 0);
+		bool scheduleDeleteBlock(uint32_t id, uint32_t frameIndex);
+		void deleteScheduledBlocks(uint32_t frameIndex);
+		
 		void destroy();
 		void setUpdated();
 		bool needDescriptorUpdate() const;
@@ -49,9 +51,14 @@ namespace engine
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 		std::vector<VkDescriptorBufferInfo> getBufferInfo();
 	private:
+		bool deleteBlock(uint32_t id);
+
+		uint32_t mBuffersPerBlock;
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		std::vector<bufferWithHandles> mBuffers;
 		std::vector<VkDescriptorBufferInfo> mBuffersInfo;
+
+		std::map<uint32_t, std::set<uint32_t>> mBlockScheduledToDelete;
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
@@ -72,8 +79,13 @@ namespace engine
 
 		withError<uint32_t> addMaterials(const materials& materials);
 		withError<uint32_t> getMaterialsOffset(const materials& materials);
-		void deleteMaterials(const materials& materials);
+		void scheduleDeleteMaterials(uint32 hash, uint32_t frameIndex);
+		void deleteScheduledMaterials(uint32_t frameIndex);
 	private:
+		void deleteMaterials(uint32 hash);
+
+		std::map<uint32_t, std::set<uint32_t>> mMaterialsScheduledToDelete;
+
 		materialTextures mDefaultMat;
 
 		VmaVirtualBlock mVBlock;

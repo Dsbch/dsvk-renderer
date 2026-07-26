@@ -21,7 +21,7 @@ namespace engine
 
 	frameData& swapChain::getCurrentFrameData()
 	{
-		return mFrames[mFrameNumber % FRAME_OVERLAP];
+		return mFrames[getCurrentFrameIndex()];
 	}
 
 	VkFormat swapChain::getDrawImageFormat() const
@@ -247,6 +247,11 @@ namespace engine
 		return getCurrentFrameData().renderFence;
 	}
 
+	uint32_t swapChain::getCurrentFrameIndex() const
+	{
+		return mFrameNumber % mFramesInFlight;
+	}
+
 	error swapChain::resetCommandBuffer()
 	{
 		auto result = vkResetCommandBuffer(getCurrentFrameData().commandBuffer, 0);
@@ -266,7 +271,7 @@ namespace engine
 		vkb::SwapchainBuilder swapchainBuilder{ mChosenGPU, mDevice, mSurface };
 
 		auto result = swapchainBuilder
-			.set_desired_min_image_count(FRAME_OVERLAP)
+			.set_desired_min_image_count(mFramesInFlight)
 			.set_desired_format(VkSurfaceFormatKHR{ .format = mSwapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
 			.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 			.set_desired_extent(width, height)
@@ -374,7 +379,7 @@ namespace engine
 		VkFenceCreateInfo fenceInfo = fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 		VkSemaphoreCreateInfo semaphoreInfo = semaphoreCreateInfo(0);
 
-		for (int i = 0; i < FRAME_OVERLAP; i++)
+		for (uint32_t i = 0; i < mFramesInFlight; i++)
 		{
 			auto result = vkCreateFence(mDevice, &fenceInfo, nullptr, &mFrames[i].renderFence);
 			if (result != VK_SUCCESS)
@@ -431,7 +436,7 @@ namespace engine
 	{
 		vkDeviceWaitIdle(mDevice);
 
-		for (int i = 0; i < FRAME_OVERLAP; i++)
+		for (uint32_t i = 0; i < mFramesInFlight; i++)
 		{
 			vkDestroyCommandPool(mDevice, mFrames[i].commandPool, nullptr);
 			vkDestroyFence(mDevice, mFrames[i].renderFence, nullptr);

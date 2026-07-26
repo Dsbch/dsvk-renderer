@@ -38,7 +38,9 @@ namespace engine
 		renderer(ctx, window),
 		mWindowMinimized(false),
 		mVkCmdDrawMeshTasksEXT(nullptr),
-		mProfInfo()
+		mProfInfo(),
+		mSwapChain(ctx->config.inner.graphics.framesInFlight),
+		mUboPerDrawBuffer(ctx->config.inner.graphics.framesInFlight)
 	{
 		mErr = initVulkan();
 		if (mErr)
@@ -300,19 +302,22 @@ namespace engine
 	error vulkanRenderer::initRenderers(std::shared_ptr<window> window)
 	{
 		// Init UBO perDrawBuffer.
-		mUboPerDrawBuffer.init(mDevice, mAllocator, { true, false });
+		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
+		{
+			mUboPerDrawBuffer[i].init(mDevice, mAllocator, { true, false });
 
-		error err = mUboPerDrawBuffer.buildAsUBO(mSubmit, nullptr, sizeof(preDrawData), 0);
+			error err = mUboPerDrawBuffer[i].buildAsUBO(mSubmit, nullptr, sizeof(preDrawData), 0);
+			if (err)
+				return err;
+
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer[i]});
+		}
+
+		error err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mVkCmdDrawMeshTasksIndirectEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer, mSwapChain);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer });
-
-		err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mVkCmdDrawMeshTasksIndirectEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain);
-		if (err)
-			return err;
-
-		err = mLineRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mUboPerDrawBuffer.getBuffer().buffer, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), mPreset);
+		err = mLineRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mUboPerDrawBuffer, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), mPreset, mDeviceLimits);
 		if (err)
 			return err;
 
@@ -323,7 +328,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in, float deltaTime)
+	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in, float deltaTime, uint32_t frameIndex)
 	{
 		preDrawData data{
 			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
@@ -340,9 +345,9 @@ namespace engine
 			.height = in.height,
 		};
 
-		mUboPerDrawBuffer.markBytesAsDead(sizeof(preDrawData));
+		mUboPerDrawBuffer[frameIndex].markBytesAsDead(sizeof(preDrawData));
 
-		error err = mUboPerDrawBuffer.updateBuffer(
+		error err = mUboPerDrawBuffer[frameIndex].updateBuffer(
 			mSubmit,
 			&data,
 			sizeof(preDrawData),
@@ -368,11 +373,12 @@ namespace engine
 			mPreset.msaa = sampleCountsAsUint(mDeviceLimits.maxMultiSampling);
 	}
 
-	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderParams in)
+	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		error err = mLineRenderer.drawLines(
 			cmd,
-			mSwapChain
+			mSwapChain,
+			frameIndex
 		);
 		if (err)
 			return err;
@@ -380,7 +386,8 @@ namespace engine
 		err = mMeshletRenderer.opaquePass(
 			cmd,
 			in,
-			mSwapChain
+			mSwapChain,
+			frameIndex
 		);
 		if (err)
 			return err;
@@ -388,14 +395,14 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderParams in)
+	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer.accumilationPass(cmd, in, mSwapChain);
+		return mMeshletRenderer.accumilationPass(cmd, in, mSwapChain, frameIndex);
 	}
 
-	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in)
+	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer.compositePass(cmd, in, mSwapChain);
+		return mMeshletRenderer.compositePass(cmd, in, mSwapChain, frameIndex);
 	}
 
 	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
@@ -462,26 +469,6 @@ namespace engine
 		if (err)
 			return err;
 
-		const renderer::sceneState& renderState = mPackage->getStateToRender();
-
-		// Prepare to render, add/remove/update entities.
-		{
-			err = addToRender(renderState.addedEntities);
-			if (err)
-				return err;
-
-			err = updateAnimations(renderState.updateAnimations);
-			if (err)
-				return err;
-
-			err = updateInstance(renderState.updateInstanceAttributes);
-			if (err)
-				return err;
-
-			removeFromRender(renderState.deletedEntities);
-
-		}
-
 		// Render.
 		static auto nextRender = std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart());
 		static auto renderShift = std::chrono::nanoseconds(std::chrono::seconds(1)) / mCtx->config.inner.gameLoop.fps;
@@ -493,6 +480,27 @@ namespace engine
 
 		if (std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
 		{
+			uint32_t frameIndex = mSwapChain.getCurrentFrameIndex();
+
+			const renderer::sceneState& renderState = mPackage->getStateToRender(frameIndex);
+
+			// Prepare to render, add/update entities.
+			{
+				err = addToRender(renderState.addedEntities, frameIndex);
+				if (err)
+					return err;
+
+				err = updateAnimations(renderState.updateAnimations, frameIndex);
+				if (err)
+					return err;
+
+				err = updateInstance(renderState.updateInstanceAttributes, frameIndex);
+				if (err)
+					return err;
+
+				removeFromRender(renderState.deletedEntities, frameIndex);
+			}
+
 			if (mWindowMinimized)
 				return {};
 
@@ -502,12 +510,12 @@ namespace engine
 			if (err)
 				return err;
 
-			err = mMeshletRenderer.updateDescriptors(params, mSubmit, mDevice, mAllocator);
+			err = mMeshletRenderer.updateDescriptors(params, mSubmit, mDevice, mAllocator, frameIndex);
 			if (err)
 				return err;
 
 			// Update global UBO.
-			err = updatePerDrawBuffer(params, deltaTime);
+			err = updatePerDrawBuffer(params, deltaTime, frameIndex);
 			if (err)
 				return err;
 
@@ -617,7 +625,7 @@ namespace engine
 				return err;
 
 			// Begin a render pass connected to our draw image and depth buffer.
-			err = drawOpaque(cmd, params);
+			err = drawOpaque(cmd, params, frameIndex);
 			if (err)
 				return err;
 
@@ -625,7 +633,7 @@ namespace engine
 
 			err = mGpuProfiler.beginTimeStamp(cmd, "drawTransperent");
 
-			err = drawTransperent(cmd, params);
+			err = drawTransperent(cmd, params, frameIndex);
 			if (err)
 				return err;
 
@@ -637,7 +645,7 @@ namespace engine
 
 			err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent");
 
-			err = compositeOpaqueAndTransperent(cmd, params);
+			err = compositeOpaqueAndTransperent(cmd, params, frameIndex);
 			if (err)
 				return err;
 
@@ -734,6 +742,9 @@ namespace engine
 			last = now;
 
 			nextRender += renderShift;
+
+			if (std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
+				nextRender = std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart());
 		}
 
 		return {};
@@ -864,14 +875,14 @@ namespace engine
 		return err;
 	}
 
-	error vulkanRenderer::addToRender(const std::vector<model>& addedEntities)
+	error vulkanRenderer::addToRender(const std::set<model>& addedEntities, uint32_t frameIndex)
 	{
 		error err = {};
 		for (auto& m : addedEntities)
 		{
 			registerSceneMetrics(m);
 
-			err = mMeshletRenderer.addToRender(mDevice, mAllocator, mSubmit, mSwapChain, m);
+			err = mMeshletRenderer.addToRender(mDevice, mAllocator, mSubmit, mSwapChain, m, frameIndex);
 			if (err)
 				return err;
 		}
@@ -879,12 +890,12 @@ namespace engine
 		return err;
 	}
 	
-	error vulkanRenderer::updateInstance(const std::vector<model>& updatedEntities)
+	error vulkanRenderer::updateInstance(const std::set<model>& updatedEntities, uint32_t frameIndex)
 	{
 		error err = {};
 		for (auto& m : updatedEntities)
 		{
-			err = mMeshletRenderer.updateInstance(m, mSubmit);
+			err = mMeshletRenderer.updateInstance(m, mSubmit, frameIndex);
 			if (err)
 				return err;
 		}
@@ -892,12 +903,12 @@ namespace engine
 		return err;
 	}
 	
-	error vulkanRenderer::updateAnimations(const std::vector<model>& animationUpdatedEntities)
+	error vulkanRenderer::updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex)
 	{
 		error err = {};
 		for (auto& m : animationUpdatedEntities)
 		{
-			err = mMeshletRenderer.updateAnimations(m, mSubmit);
+			err = mMeshletRenderer.updateAnimations(m, mSubmit, frameIndex);
 			if (err)
 				return err;
 		}
@@ -905,13 +916,13 @@ namespace engine
 		return err;
 	}
 	
-	void vulkanRenderer::removeFromRender(const std::vector<model>& deletedEntities)
+	void vulkanRenderer::removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex)
 	{
 		for (auto& m : deletedEntities)
 		{
 			registerSceneMetrics(m, true);
 
-			mMeshletRenderer.removeFromRender(m);
+			mMeshletRenderer.removeFromRender(m, frameIndex);
 		}
 	}
 }

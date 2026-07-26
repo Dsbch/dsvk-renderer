@@ -56,22 +56,22 @@ namespace engine
 			submit& is,
 			deviceLimits limits,
 			graphicsPreset preset,
-			VkBuffer UBObuffer,
+			const std::vector<vulkanBuffer>& UBObuffer,
 			const swapChain& sChain
 		);
 		error destroy();
 
-		error addToRender(VkDevice device, VmaAllocator allocator, submit& is, const swapChain& sChain, const model& m);
-		error updateInstance(const model& m, submit& is);
-		error updateAnimations(const model& m, submit& is);
-		void removeFromRender(const model& m);
+		error addToRender(VkDevice device, VmaAllocator allocator, submit& is, const swapChain& sChain, const model& m, uint32_t frameIndex);
+		error updateInstance(const model& m, submit& is, uint32_t frameIndex);
+		error updateAnimations(const model& m, submit& is, uint32_t frameIndex);
+		void removeFromRender(const model& m, uint32_t frameIndex);
 
-		error updateDescriptors(renderer::renderParams in, submit& is, VkDevice device, VmaAllocator allocator);
+		error updateDescriptors(renderer::renderParams in, submit& is, VkDevice device, VmaAllocator allocator, uint32_t frameIndex);
 		error updateSwapchainDependentDescriptors(const swapChain& sChain);
 		
-		error opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
-		error accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
-		error compositePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain);
+		error opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
+		error accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
+		error compositePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
@@ -110,12 +110,17 @@ namespace engine
 
 		// Visability buffers for indirect calls.
 		uint32_t mVisabilityBufferSize;
-		vulkanBuffer mVisabilityBuffer;
+		std::vector<vulkanBuffer> mVisabilityBuffer;
 
 		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
-		error initDescriptors(VkDevice device, VkPhysicalDevice physicalDevice, deviceLimits limits, VkBuffer UBObuffer);
+		error initDescriptors(
+			VkDevice device, 
+			VkPhysicalDevice physicalDevice,
+			deviceLimits limits, 
+			const std::vector<vulkanBuffer>& UBObuffer
+		);
 		error initBlendingPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is);
 		
-		uint32_t getMaxCmdBufferSize() const;
+		uint32_t getMaxCmdBufferSize(uint32_t frameIndex) const;
 	};
 }

@@ -25,7 +25,7 @@ namespace engine
 		std::vector<entity> needAnimUpd{};
 
 		registry->forEach<uidComponent, animationComponent>(
-			entt::exclude<updateAnimationComponent>,
+			entt::exclude<updateAnimationComponent, deleteComponent>,
 			[&](entt::entity e, uidComponent& uid, animationComponent& anim)
 			{
 				needAnimUpd.push_back({ mCtx, e, registry });

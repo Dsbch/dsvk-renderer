@@ -48,7 +48,7 @@ namespace engine
 		error shiftData(submit& is, size_t dstOffset, size_t srcOffset);
 		void destroy();
 
-		allocatedBuffer getBuffer();
+		allocatedBuffer getBuffer() const;
 
 		void markBytesAsDead(size_t size);
 		size_t getSize() const;
