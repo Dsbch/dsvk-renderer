@@ -802,6 +802,9 @@ namespace engine
 	{
 		if (isDeleted)
 		{
+			if (!mProfInfo.inScene.contains(m.id))
+				return;
+
 			for (auto& mesh : *m.meshData.get())
 			{
 				mProfInfo.sceneInfo.maxLodMeshlets -= mesh.meshlets.second;
@@ -811,9 +814,14 @@ namespace engine
 			}
 
 			mProfInfo.sceneInfo.entities--;
+
+			mProfInfo.inScene.erase(m.id);
 		}
 		else
 		{
+			if (mProfInfo.inScene.contains(m.id))
+				return;
+
 			for (auto& mesh : *m.meshData.get())
 			{
 				mProfInfo.sceneInfo.maxLodMeshlets += mesh.meshlets.second;
@@ -823,6 +831,8 @@ namespace engine
 			}
 
 			mProfInfo.sceneInfo.entities++;
+
+			mProfInfo.inScene.insert(m.id);
 		}
 	}
 

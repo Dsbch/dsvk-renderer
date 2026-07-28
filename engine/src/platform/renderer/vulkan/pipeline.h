@@ -41,16 +41,38 @@ namespace engine
 		return info;
 	}
 
-	struct classicGraphicPipeline
+	struct graphicsPipeline
 	{
 	public:
-		classicGraphicPipeline();
+		enum class pipelineType
+		{
+			opaque,
+			accumilation,
+			composite,
+		};
 
-		void init(VkDevice device);
-		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets, bool meshShaderPipeline = false);
+		void init(VkDevice device, pipelineType type);
+		error build(
+			std::shared_ptr<const shader> pixelShader,
+			std::shared_ptr<const shader> meshShader,
+			std::shared_ptr<const shader> taskShader,
+			const std::vector<VkDescriptorSetLayout>& descriptorSets,
+			VkFormat depthFormat,
+			const std::vector<VkFormat>& colorAttachmentFormats,
+			VkSampleCountFlagBits sampleCount
+		);
+		error buildLinePipeline(
+			std::shared_ptr<const shader> pixelShader,
+			std::shared_ptr<const shader> vertexShader,
+			const std::vector<VkDescriptorSetLayout>& descriptorSets,
+			VkFormat depthFormat,
+			const std::vector<VkFormat>& colorAttachmentFormats,
+			VkSampleCountFlagBits sampleCount
+		);
 		void destroy();
-
 		std::pair<VkPipeline, VkPipelineLayout> getPipeline() const;
+	private:
+		error create(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets, bool meshShaderPipeline = false);
 
 		void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
 		void setShaders(VkShaderModule taskShader, VkShaderModule meshShader, VkShaderModule fragmentShader);
@@ -66,8 +88,9 @@ namespace engine
 		void enableDepthtest(bool depthWriteEnable, VkCompareOp op);
 		void enableBlendingOITAccumulation();
 		void enableBlendingOITComposite();
-	private:
+
 		VkDevice mDevice;
+		pipelineType mType;
 		VkPipeline mPipeline;
 		VkPipelineLayout mPipelineLayout;
 
@@ -89,7 +112,7 @@ namespace engine
 		computePipeline();
 
 		void init(VkDevice device);
-		engine::error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
+		error build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets);
 		void destroy();
 
 		void setShader(VkShaderModule computeShader);
@@ -100,100 +123,5 @@ namespace engine
 		VkPipeline mPipeline;
 		VkPipelineLayout mPipelineLayout;
 		VkPipelineShaderStageCreateInfo mComputeShaderStage;
-	};
-
-	struct pipelineData
-	{
-	public:
-		enum class pipelineType
-		{
-			opaque,
-			accumilation,
-			composite,
-		};
-
-		error init(
-			VkDevice device,
-			VmaAllocator allocator,
-			submit& is,
-			std::shared_ptr<const shader> pixelShader,
-			std::shared_ptr<const shader> meshShader,
-			std::shared_ptr<const shader> taskShader,
-			const std::vector<VkDescriptorSetLayout>& descriptorSets,
-			VkFormat depthFormat,
-			const std::vector<VkFormat>& colorAttachmentFormats,
-			VkSampleCountFlagBits sampleCount,
-			uint32_t framesInFlight,
-			pipelineType type = pipelineType::opaque
-		);
-		void destroy();
-
-		struct meshes
-		{
-			uint32_t meshID;
-			bufferHandle meshHandle;
-			bufferHandle meshletHandle;
-			const dataWithLodLevels<meshlet>& meshlets;
-		};
-
-		struct addInstanceParams
-		{
-			uint32_t pixelShaderID;
-			uint32_t instanceID;
-			bufferHandle perInstanceHandle;
-			std::vector<meshes> meshesData;
-			bool isBlendGeometry;
-			uint32_t frameIndex;
-		};
-
-		struct removeInstanceParams
-		{
-			uint32_t pixelShaderID;
-			uint32_t instanceID;
-			uint32_t meshID;
-			uint32_t frameIndex;
-		};
-
-		struct updateCommandBufferParams
-		{
-			VkDevice device;
-			VmaAllocator allocator;
-			submit& is;
-			uint32_t frameIndex;
-		};
-
-		error addInstance(const addInstanceParams& params);
-		void removeInstance(const removeInstanceParams& params);
-		error updateCommandBuffer(const updateCommandBufferParams& params);
-
-		struct pipelineRenderData
-		{
-			VkPipeline pipeline;
-			VkPipelineLayout pipelineLayout;
-			uint32_t cmdBufferCount;
-		};
-
-		pipelineRenderData getPipelineRenderData(uint32_t frameIndex) const;
-		bool meshIsUsed(uint32_t id, uint32_t frameIndex) const;
-		bool instanceExists(uint32_t id, uint32_t frameIndex) const;
-		std::vector<VkDescriptorBufferInfo> getBufferInfo();
-		bool needDescriptorUpdate() const;
-		void setUpdated();
-		vulkanBuffer getBuffer(uint32_t frameIndex) const;
-		uint32_t getCommandBufferLoadedSize(uint32_t frameIndex) const;
-	private:
-		classicGraphicPipeline mPipeline;
-
-		bool mNeedDescriptorUpdate;
-
-		std::vector<std::set<entityHash>> mEntitiesToDelete;
-		std::vector<std::map<entityHash, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
-		std::vector<std::map<entityHash, std::pair<size_t, size_t>>> mUploadedEntities;
-		std::vector<std::map<meshHash, uint32_t>> mMeshCount;
-
-		vulkanBuffer::mapFlags mBufferMapFlags;
-		uint32_t mCmdBufferSize;
-		std::vector<vulkanBuffer> mCmdBuffer;
-		std::vector<VkDescriptorBufferInfo> mBufferInfo;
 	};
 }

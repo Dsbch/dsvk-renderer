@@ -8,20 +8,11 @@
 
 namespace engine
 {
-	classicGraphicPipeline::classicGraphicPipeline()
-		:
-		mDevice(VK_NULL_HANDLE),
-		mPipeline(VK_NULL_HANDLE),
-		mPipelineLayout(VK_NULL_HANDLE),
-		mInputAssembly(),
-		mRasterizer(),
-		mColorBlendAttachments(),
-		mMultisampling(),
-		mDepthStencil(),
-		mRenderInfo(),
-		mColorAttachmentformats(),
-		mID(genUID())
+	void graphicsPipeline::init(VkDevice device, pipelineType type)
 	{
+		mDevice = device;
+		mType = type;
+
 		mInputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 
 		mRasterizer = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
@@ -35,25 +26,120 @@ namespace engine
 		mRenderInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
 
 		mShaderStages.clear();
+		mID = genUID();
 	}
 
-	void classicGraphicPipeline::init(VkDevice device)
+	error graphicsPipeline::build(
+		std::shared_ptr<const shader> pixelShader, 
+		std::shared_ptr<const shader> meshShader, 
+		std::shared_ptr<const shader> taskShader, 
+		const std::vector<VkDescriptorSetLayout>& descriptorSets, 
+		VkFormat depthFormat, 
+		const std::vector<VkFormat>& colorAttachmentFormats, 
+		VkSampleCountFlagBits sampleCount
+	)
 	{
-		mDevice = device;
+		setShaders(
+			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+		);
+
+		setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		setPolygonMode(VK_POLYGON_MODE_FILL);
+
+		// Back face culling is done in shaders.
+		setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+
+		setMultisampling(sampleCount);
+
+		if (mType == pipelineType::opaque)
+		{
+			disableBlending();
+			enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
+
+		if (mType == pipelineType::accumilation)
+		{
+			enableBlendingOITAccumulation();
+			enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+		}
+
+		if (mType == pipelineType::composite)
+		{
+			enableBlendingOITComposite();
+			disableDepthtest();
+		}
+
+		//connect the image format we will draw into, from draw image
+		setColorAttachmentFormats(colorAttachmentFormats);
+		setDepthFormat(depthFormat);
+
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(pushConstants);
+		pc.stageFlags = VK_SHADER_STAGE_ALL;
+
+		error err = create(&pc, descriptorSets, true);
+		if (err)
+			return err;
+		
+		return {};
 	}
 
-	void classicGraphicPipeline::destroy()
+	error graphicsPipeline::buildLinePipeline(
+		std::shared_ptr<const shader> pixelShader, 
+		std::shared_ptr<const shader> vertexShader, 
+		const std::vector<VkDescriptorSetLayout>& descriptorSets, 
+		VkFormat depthFormat, 
+		const std::vector<VkFormat>& colorAttachmentFormats, 
+		VkSampleCountFlagBits sampleCount
+	)
+	{
+		setShaders(
+			static_cast<vulkanShader*>(const_cast<shader*>(vertexShader.get()))->mShaderModule,
+			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+		);
+
+		setInputTopology(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+		setPolygonMode(VK_POLYGON_MODE_FILL);
+
+		setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+
+		setMultisampling(sampleCount);
+
+		disableBlending();
+
+		enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+		//connect the image format we will draw into, from draw image
+		setColorAttachmentFormats(colorAttachmentFormats);
+		setDepthFormat(depthFormat);
+
+		VkPushConstantRange pc{};
+		pc.offset = 0;
+		pc.size = sizeof(linePushConstant);
+		pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		error buildErr = create(&pc, descriptorSets);
+		if (buildErr)
+			return buildErr;
+
+		return {};
+	}
+
+	void graphicsPipeline::destroy()
 	{
 		vkDestroyPipelineLayout(mDevice, mPipelineLayout, nullptr);
 		vkDestroyPipeline(mDevice, mPipeline, nullptr);
 	}
 
-	std::pair<VkPipeline, VkPipelineLayout> classicGraphicPipeline::getPipeline() const
+	std::pair<VkPipeline, VkPipelineLayout> graphicsPipeline::getPipeline() const
 	{
 		return { mPipeline, mPipelineLayout };
 	}
 
-	engine::error classicGraphicPipeline::build(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets, bool meshShaderPipeline)
+	engine::error graphicsPipeline::create(VkPushConstantRange* pushConstant, const std::vector<VkDescriptorSetLayout>& descriptorSets, bool meshShaderPipeline)
 	{
 		//build the pipeline layout that controls the inputs/outputs of the shader
 		VkPipelineLayoutCreateInfo pipeline_layout_info = pipelineLayoutCreateInfo();
@@ -131,7 +217,7 @@ namespace engine
 		return {};
 	}
 
-	void classicGraphicPipeline::setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
+	void graphicsPipeline::setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
 	{
 		mShaderStages.clear();
 
@@ -142,7 +228,7 @@ namespace engine
 			pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "psmain"));
 	}
 
-	void classicGraphicPipeline::setShaders(VkShaderModule taskShader, VkShaderModule meshShader, VkShaderModule fragmentShader)
+	void graphicsPipeline::setShaders(VkShaderModule taskShader, VkShaderModule meshShader, VkShaderModule fragmentShader)
 	{
 		mShaderStages.clear();
 
@@ -154,25 +240,25 @@ namespace engine
 		mShaderStages.push_back(pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "psmain"));
 	}
 
-	void classicGraphicPipeline::setInputTopology(VkPrimitiveTopology topology)
+	void graphicsPipeline::setInputTopology(VkPrimitiveTopology topology)
 	{
 		mInputAssembly.topology = topology;
 		mInputAssembly.primitiveRestartEnable = VK_FALSE;
 	}
 
-	void classicGraphicPipeline::setPolygonMode(VkPolygonMode mode)
+	void graphicsPipeline::setPolygonMode(VkPolygonMode mode)
 	{
 		mRasterizer.polygonMode = mode;
 		mRasterizer.lineWidth = 1.f;
 	}
 
-	void classicGraphicPipeline::setCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace)
+	void graphicsPipeline::setCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace)
 	{
 		mRasterizer.cullMode = cullMode;
 		mRasterizer.frontFace = frontFace;
 	}
 
-	void classicGraphicPipeline::setMultisampling(VkSampleCountFlagBits sampleCount)
+	void graphicsPipeline::setMultisampling(VkSampleCountFlagBits sampleCount)
 	{
 		mMultisampling.sampleShadingEnable = VK_FALSE;
 		if (sampleCount != VK_SAMPLE_COUNT_1_BIT)
@@ -187,7 +273,7 @@ namespace engine
 		mMultisampling.alphaToOneEnable = VK_FALSE;
 	}
 
-	void classicGraphicPipeline::disableBlending()
+	void graphicsPipeline::disableBlending()
 	{
 		VkPipelineColorBlendAttachmentState blendingState{};
 
@@ -199,7 +285,7 @@ namespace engine
 		mColorBlendAttachments = { blendingState };
 	}
 
-	void classicGraphicPipeline::enableBlendingOITAccumulation()
+	void graphicsPipeline::enableBlendingOITAccumulation()
 	{
 		VkPipelineColorBlendAttachmentState accumBlend{};
 		accumBlend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
@@ -225,7 +311,7 @@ namespace engine
 		mColorBlendAttachments = { accumBlend, revealBlend };
 	}
 
-	void classicGraphicPipeline::enableBlendingOITComposite()
+	void graphicsPipeline::enableBlendingOITComposite()
 	{
 		VkPipelineColorBlendAttachmentState blendingState{};
 
@@ -242,7 +328,7 @@ namespace engine
 		mColorBlendAttachments = { blendingState };
 	}
 
-	void classicGraphicPipeline::setColorAttachmentFormats(const std::vector<VkFormat>& formats)
+	void graphicsPipeline::setColorAttachmentFormats(const std::vector<VkFormat>& formats)
 	{
 		mColorAttachmentformats = formats;
 		// connect the format to the renderInfo  structure
@@ -250,12 +336,12 @@ namespace engine
 		mRenderInfo.pColorAttachmentFormats = mColorAttachmentformats.data();
 	}
 
-	void classicGraphicPipeline::setDepthFormat(VkFormat format)
+	void graphicsPipeline::setDepthFormat(VkFormat format)
 	{
 		mRenderInfo.depthAttachmentFormat = format;
 	}
 
-	void classicGraphicPipeline::disableDepthtest()
+	void graphicsPipeline::disableDepthtest()
 	{
 		mDepthStencil.depthTestEnable = VK_FALSE;
 		mDepthStencil.depthWriteEnable = VK_FALSE;
@@ -268,7 +354,7 @@ namespace engine
 		mDepthStencil.maxDepthBounds = 1.f;
 	}
 
-	void classicGraphicPipeline::enableDepthtest(bool depthWriteEnable, VkCompareOp op)
+	void graphicsPipeline::enableDepthtest(bool depthWriteEnable, VkCompareOp op)
 	{
 		mDepthStencil.depthTestEnable = VK_TRUE;
 		mDepthStencil.depthWriteEnable = depthWriteEnable;
@@ -339,300 +425,5 @@ namespace engine
 			return vkResultToStr(result);
 
 		return {};
-	}
-
-	error pipelineData::init(
-		VkDevice device,
-		VmaAllocator allocator,
-		submit& is,
-		std::shared_ptr<const shader> pixelShader,
-		std::shared_ptr<const shader> meshShader,
-		std::shared_ptr<const shader> taskShader,
-		const std::vector<VkDescriptorSetLayout>& descriptorSets,
-		VkFormat depthFormat,
-		const std::vector<VkFormat>& colorAttachmentFormats,
-		VkSampleCountFlagBits sampleCount,
-		uint32_t framesInFlight,
-		pipelineType type
-	)
-	{
-		mNeedDescriptorUpdate = true;
-
-		// Buffer is mapped and we need CPU readback.
-		mBufferMapFlags = { true, false };
-
-		VkPushConstantRange pc{};
-		pc.offset = 0;
-		pc.size = sizeof(pushConstants);
-		pc.stageFlags = VK_SHADER_STAGE_ALL;
-
-		// init pipeline.
-		mPipeline.init(device);
-
-		//connecting the vertex and pixel shaders to the pipeline
-		mPipeline.setShaders(
-			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
-		);
-
-		mPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		mPipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
-
-		// Back face culling is done in shaders.
-		mPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-
-		mPipeline.setMultisampling(sampleCount);
-
-		if (type == pipelineType::opaque)
-		{
-			mPipeline.disableBlending();
-			mPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-		}
-
-		if (type == pipelineType::accumilation)
-		{
-			mPipeline.enableBlendingOITAccumulation();
-			mPipeline.enableDepthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
-		}
-
-		if (type == pipelineType::composite)
-		{
-			mPipeline.enableBlendingOITComposite();
-			mPipeline.disableDepthtest();
-		}
-
-		//connect the image format we will draw into, from draw image
-		mPipeline.setColorAttachmentFormats(colorAttachmentFormats);
-		mPipeline.setDepthFormat(depthFormat);
-
-		error err = mPipeline.build(&pc, descriptorSets, true);
-		if (err)
-			return err;
-
-		mEntitiesToDelete.resize(framesInFlight);
-		mEntitiesToAdd.resize(framesInFlight);
-		mUploadedEntities.resize(framesInFlight);
-		mMeshCount.resize(framesInFlight);
-
-		mCmdBufferSize = 2 << 24;
-		mCmdBuffer.resize(framesInFlight);
-
-		for (uint32_t i = 0; i < framesInFlight; i++)
-		{
-			mCmdBuffer[i].init(device, allocator, mBufferMapFlags);
-
-			err = mCmdBuffer[i].build(is, nullptr, mCmdBufferSize, 0);
-			if (err)
-				return err;
-		}
-
-		return {};
-	}
-
-	void pipelineData::destroy()
-	{
-		mPipeline.destroy();
-
-		for (auto& b : mCmdBuffer)
-			b.destroy();
-	
-		mCmdBuffer.clear();
-	}
-
-	error pipelineData::addInstance(const pipelineData::addInstanceParams& params)
-	{
-		if (!mEntitiesToAdd[params.frameIndex].contains(params.instanceID) && !mUploadedEntities[params.frameIndex].contains(params.instanceID))
-		{
-			for (auto& m : params.meshesData)
-			{
-				mMeshCount[params.frameIndex][m.meshID]++;
-
-				uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
-
-				for (uint32_t i = 0; i < m.meshlets.second; i++)
-				{
-					mEntitiesToAdd[params.frameIndex][params.instanceID].push_back(
-						meshletShaderCMD{
-							.instanceIndex = params.perInstanceHandle.bufferIndex,
-							.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
-							.meshletIndex = m.meshletHandle.bufferIndex,
-							.meshletOffset1 = baseOffset + i,
-							.meshletOffset2 = i < m.meshlets.third - m.meshlets.second ? baseOffset + i + m.meshlets.second : std::numeric_limits<uint32_t>::max(),
-							.meshletOffset3 = i < m.meshlets.fourth - m.meshlets.third ? baseOffset + i + m.meshlets.third : std::numeric_limits<uint32_t>::max(),
-							.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max(),
-							.meshIndex = m.meshHandle.bufferIndex,
-							.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
-							.visabilityBit = NOT_VISIBLE_FLAG_BIT,
-							.selectedLod = 1,
-						}
-					);
-				}
-			}
-		}
-
-		return {};
-	}
-
-	void pipelineData::removeInstance(const pipelineData::removeInstanceParams& params)
-	{
-		if (mEntitiesToDelete[params.frameIndex].contains(params.instanceID))
-			return;
-
-		if (!mEntitiesToAdd[params.frameIndex].contains(params.instanceID) && !mUploadedEntities[params.frameIndex].contains(params.instanceID))
-			return;
-
-		mEntitiesToDelete[params.frameIndex].insert(params.instanceID);
-
-		if (auto found = mMeshCount[params.frameIndex].find(params.meshID); found != mMeshCount[params.frameIndex].end() && found->second != 0)
-			found->second--;
-	}
-
-	error pipelineData::updateCommandBuffer(const updateCommandBufferParams& params)
-	{
-		std::vector<entityHash> toRemove;
-
-		for (auto& instanceID : mEntitiesToDelete[params.frameIndex])
-		{
-			if (mEntitiesToAdd[params.frameIndex].contains(instanceID))
-				toRemove.push_back(instanceID);
-		}
-
-		for (auto& id : toRemove)
-		{
-			mEntitiesToAdd[params.frameIndex].erase(id);
-			mEntitiesToDelete[params.frameIndex].erase(id);
-		}
-
-		for (auto& [k, v] : mEntitiesToAdd[params.frameIndex])
-		{
-			if (!mUploadedEntities[params.frameIndex].contains(k))
-			{
-				size_t size = v.size() * sizeof(meshletShaderCMD);
-				size_t offset = mCmdBuffer[params.frameIndex].getLoadedBytes();
-
-				error err = mCmdBuffer[params.frameIndex].updateBuffer(params.is, v.data(), size, offset);
-				if (err && err.is(errCodeBufferOverFlow))
-				{
-					mNeedDescriptorUpdate = true;
-
-					mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
-					uint32_t minSize = uint32_t(v.size() * sizeof(meshletShaderCMD) + mCmdBuffer[params.frameIndex].getLoadedBytes());
-
-					if (mCmdBufferSize < minSize)
-						mCmdBufferSize = minSize;
-
-					vulkanBuffer newBuf{};
-
-					newBuf.init(params.device, params.allocator, mBufferMapFlags);
-					err = newBuf.build(params.is, mCmdBuffer[params.frameIndex], mCmdBufferSize, false);
-					if (err)
-						return err;
-
-					err = newBuf.updateBuffer(params.is, v.data(), size, offset);
-					if (err)
-						return err;
-
-					mCmdBuffer[params.frameIndex].destroy();
-
-					mCmdBuffer[params.frameIndex] = std::move(newBuf);
-				}
-
-				mUploadedEntities[params.frameIndex][k] = { offset, offset + size };
-			}
-		}
-
-		mEntitiesToAdd[params.frameIndex].clear();
-
-		for (auto& k : mEntitiesToDelete[params.frameIndex])
-		{
-			auto uploadedEnity = mUploadedEntities[params.frameIndex].find(k);
-
-			if (uploadedEnity != mUploadedEntities[params.frameIndex].end())
-			{
-				if (mCmdBuffer[params.frameIndex].getLoadedBytes() != uploadedEnity->second.second)
-				{
-					error err = mCmdBuffer[params.frameIndex].shiftData(params.is, uploadedEnity->second.first, uploadedEnity->second.second);
-					if (err)
-						return err;
-				}
-				else
-					mCmdBuffer[params.frameIndex].markBytesAsDead(uploadedEnity->second.second - uploadedEnity->second.first);
-
-				size_t deletedSize = uploadedEnity->second.second - uploadedEnity->second.first;
-
-				for (auto& [_, v] : mUploadedEntities[params.frameIndex])
-				{
-					if (v.first >= uploadedEnity->second.second)
-					{
-						v.first -= deletedSize;
-						v.second -= deletedSize;
-					}
-				}
-
-				mUploadedEntities[params.frameIndex].erase(k);
-			}
-		}
-
-		mEntitiesToDelete[params.frameIndex].clear();
-
-		return {};
-	}
-
-	pipelineData::pipelineRenderData pipelineData::getPipelineRenderData(uint32_t frameIndex) const
-	{
-		auto pipe = mPipeline.getPipeline();
-
-		return pipelineData::pipelineRenderData{
-			.pipeline = pipe.first,
-			.pipelineLayout = pipe.second,
-			.cmdBufferCount = uint32_t(mCmdBuffer[frameIndex].getLoadedBytes() / sizeof(meshletShaderCMD)),
-		};
-	}
-
-	bool pipelineData::meshIsUsed(uint32_t id, uint32_t frameIndex) const
-	{
-		if (auto found = mMeshCount[frameIndex].find(id); found != mMeshCount[frameIndex].end() && found->second != 0)
-			return true;
-
-		return false;
-	}
-
-	bool pipelineData::instanceExists(uint32_t id, uint32_t frameIndex) const
-	{
-		if (mUploadedEntities[frameIndex].find(id) != mUploadedEntities[frameIndex].end())
-			return true;
-
-		return false;
-	}
-	
-	std::vector<VkDescriptorBufferInfo> pipelineData::getBufferInfo()
-	{
-		mBufferInfo.clear();
-
-		for (auto& b : mCmdBuffer)
-			mBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
-
-		return mBufferInfo;
-	}
-
-	bool pipelineData::needDescriptorUpdate() const
-	{
-		return mNeedDescriptorUpdate;
-	}
-
-	void pipelineData::setUpdated()
-	{
-		mNeedDescriptorUpdate = false;
-	}
-
-	vulkanBuffer pipelineData::getBuffer(uint32_t frameIndex) const
-	{
-		return mCmdBuffer[frameIndex];
-	}
-
-	uint32_t pipelineData::getCommandBufferLoadedSize(uint32_t frameIndex) const
-	{
-		return uint32_t(mCmdBuffer[frameIndex].getLoadedBytes());
 	}
 }

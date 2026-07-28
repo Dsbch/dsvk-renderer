@@ -372,24 +372,27 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		error err = mAccumilationPipeline.init(
-			device,
-			allocator,
-			is,
+		mAccumilationPipeline.init(device, graphicsPipeline::pipelineType::accumilation);
+
+		error err = mAccumilationPipeline.build(
 			pixel.value(),
 			meshlets.value(),
 			task.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
 			{ sChain.getAccumImageFormat(), sChain.getRevealImageFormat() },
-			sampleCounts(mPreset.msaa),
-			mCtx->config.inner.graphics.framesInFlight,
-			pipelineData::pipelineType::accumilation
+			sampleCounts(mPreset.msaa)
 		);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipeData, .pipeData = &mAccumilationPipeline });
+		mAccumilationCommandBuffer.init(device, allocator, is, mCtx->config.inner.graphics.framesInFlight);
+		err = mAccumilationCommandBuffer.build(is);
+		if (err)
+			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mAccumilationPipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = cmdBuf, .cmdBuf = &mAccumilationCommandBuffer });
 
 		meshlets = mCtx->mAmanager->getDefaultCompositeMeshShader();
 		if (!meshlets)
@@ -403,24 +406,21 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		err = mCompositePipeline.init(
-			device,
-			allocator,
-			is,
+		mCompositePipeline.init(device, graphicsPipeline::pipelineType::composite);
+
+		err = mCompositePipeline.build(
 			pixel.value(),
 			meshlets.value(),
 			task.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			sChain.getDepthImageFormat(),
 			{ sChain.getDrawImageFormat() },
-			sampleCounts(mPreset.msaa),
-			mCtx->config.inner.graphics.framesInFlight,
-			pipelineData::pipelineType::composite
+			sampleCounts(mPreset.msaa)
 		);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = pipeData, .pipeData = &mCompositePipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mCompositePipeline });
 
 		return {};
 	}
@@ -428,24 +428,25 @@ namespace engine
 	uint32_t meshletRenderer::getMaxCmdBufferSize(uint32_t frameIndex) const
 	{
 		uint32_t opaque{};
-		for (auto& [_, v] : mPipelines)
-			opaque += v.getCommandBufferLoadedSize(frameIndex);
+		for (auto& [_, v] : mOpaquePipelines)
+			opaque += v.second.getCommandBufferLoadedSize(frameIndex);
 
-		return std::max(opaque, mAccumilationPipeline.getCommandBufferLoadedSize(frameIndex));
+		return std::max(opaque, mAccumilationCommandBuffer.getCommandBufferLoadedSize(frameIndex));
 	}
 
 	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
 	{
 		uint32_t cmdBufferIndex = 0;
-		for (auto& [_, v] : mPipelines)
+		for (auto& [_, v] : mOpaquePipelines)
 		{
-			auto pipeline = v.getPipelineRenderData(frameIndex);
+			auto [pipeline, pipelineLayout] = v.first.getPipeline();
 
-			VkBuffer cmdBuf = v.getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(v.getBuffer(frameIndex).getLoadedBytes());
+			VkBuffer cmdBuf = v.second.getBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(v.second.getBuffer(frameIndex).getLoadedBytes());
+			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 			// Has to render.
-			if (pipeline.cmdBufferCount > 0)
+			if (cmdBufferCount > 0)
 			{
 				// FIRST PASS.
 				{
@@ -454,7 +455,7 @@ namespace engine
 						cmd,
 						in,
 						computeRenderer::cullMeshletsParams{
-							.cmdBufferCount = pipeline.cmdBufferCount,
+							.cmdBufferCount = cmdBufferCount,
 							.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 						},
@@ -502,7 +503,7 @@ namespace engine
 						cmd,
 						in,
 						computeRenderer::compactCommandBufferParams{
-							.cmdBufferCount = pipeline.cmdBufferCount,
+							.cmdBufferCount = cmdBufferCount,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 							.stage = FIRST_OPAQUE_PASS_FLAG_BIT,
 							.compactRule = VISIBLE_FIRST_PASS_FLAG_BIT,
@@ -532,19 +533,19 @@ namespace engine
 
 					vkCmdBeginRendering(cmd, &renderInfo);
 
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 					pushConstants pc{
 						.frameIndex = frameIndex,
-						.cmdBufferCount = pipeline.cmdBufferCount,
+						.cmdBufferCount = cmdBufferCount,
 						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 					};
 
-					vkCmdPushConstants(cmd, pipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 					// bind the descriptor set.
 					auto set = mDescriptorSet.getDescriptorSet().first;
-					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 					mVkCmdDrawMeshTasksIndirectEXT(
 						cmd,
@@ -594,7 +595,7 @@ namespace engine
 						cmd,
 						in,
 						computeRenderer::cullMeshletsParams{
-							.cmdBufferCount = pipeline.cmdBufferCount,
+							.cmdBufferCount = cmdBufferCount,
 							.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 							.hzbLength = uint32_t(sChain.getHzbSize()),
@@ -643,7 +644,7 @@ namespace engine
 						cmd,
 						in,
 						computeRenderer::compactCommandBufferParams{
-							.cmdBufferCount = pipeline.cmdBufferCount,
+							.cmdBufferCount = cmdBufferCount,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 							.stage = SECOND_OPAQUE_PASS_FLAG_BIT,
 							.compactRule = VISIBLE_SECOND_PASS_FLAG_BIT,
@@ -684,19 +685,19 @@ namespace engine
 
 					vkCmdBeginRendering(cmd, &renderInfo);
 
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 					pushConstants pc{
 						.frameIndex = frameIndex,
-						.cmdBufferCount = pipeline.cmdBufferCount,
+						.cmdBufferCount = cmdBufferCount,
 						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 					};
 
-					vkCmdPushConstants(cmd, pipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 					// bind the descriptor set.
 					auto set = mDescriptorSet.getDescriptorSet().first;
-					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 					mVkCmdDrawMeshTasksIndirectEXT(
 						cmd,
@@ -758,10 +759,14 @@ namespace engine
 
 		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
 
-		auto blendingPipeline = mAccumilationPipeline.getPipelineRenderData(frameIndex);
+		auto [pipeline, pipelineLayout] = mAccumilationPipeline.getPipeline();
+
+		VkBuffer cmdBuf = mAccumilationCommandBuffer.getBuffer(frameIndex).getBuffer().buffer;
+		uint32_t cmdBufSize = uint32_t(mAccumilationCommandBuffer.getBuffer(frameIndex).getLoadedBytes());
+		uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 		// Nothing to render.
-		if (blendingPipeline.cmdBufferCount == 0)
+		if (cmdBufferCount == 0)
 		{
 			vkCmdBeginRendering(cmd, &renderInfo);
 			vkCmdEndRendering(cmd);
@@ -776,7 +781,7 @@ namespace engine
 			cmd,
 			in,
 			computeRenderer::cullMeshletsParams{
-				.cmdBufferCount = blendingPipeline.cmdBufferCount,
+				.cmdBufferCount = cmdBufferCount,
 				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
 				.hzbLength = uint32_t(sChain.getHzbSize()),
 			},
@@ -784,9 +789,6 @@ namespace engine
 			);
 		if (err)
 			return err;
-
-		VkBuffer cmdBuf = mAccumilationPipeline.getBuffer(frameIndex).getBuffer().buffer;
-		uint32_t cmdBufSize = uint32_t(mAccumilationPipeline.getBuffer(frameIndex).getLoadedBytes());
 
 		// Wait for compute call to finish it writes.
 		pipelineBufferBarier(
@@ -827,7 +829,7 @@ namespace engine
 			cmd,
 			in,
 			computeRenderer::compactCommandBufferParams{
-				.cmdBufferCount = blendingPipeline.cmdBufferCount,
+				.cmdBufferCount = cmdBufferCount,
 				.stage = ACCUMILATION_PASS_FLAG_BIT,
 				.compactRule = VISIBLE_FIRST_PASS_FLAG_BIT,
 			},
@@ -860,19 +862,19 @@ namespace engine
 
 		vkCmdBeginRendering(cmd, &renderInfo);
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 		pushConstants pc{
 			.frameIndex = frameIndex,
-			.cmdBufferCount = blendingPipeline.cmdBufferCount,
+			.cmdBufferCount = cmdBufferCount,
 			.cmdOpaqueBufferIndex = frameIndex,
 		};
 
-		vkCmdPushConstants(cmd, blendingPipeline.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksIndirectEXT(
 			cmd,
@@ -898,13 +900,13 @@ namespace engine
 
 		vkCmdBeginRendering(cmd, &renderInfo);
 
-		auto blendingPipeline = mCompositePipeline.getPipelineRenderData(frameIndex);
+		auto [pipeline, pipelineLayout] = mCompositePipeline.getPipeline();
 
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipeline);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 		// bind the descriptor set.
 		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, blendingPipeline.pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
 
 		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
 
@@ -923,33 +925,38 @@ namespace engine
 		if (!taskShader)
 			return taskShader.err();
 
-		if (mPipelines.find(m.mat.pixelShader->hash()) == mPipelines.end())
+		if (!mOpaquePipelines.contains(m.mat.pixelShader->hash()))
 		{
-			pipelineData pipeline{};
+			graphicsPipeline pipeline{};
 
-			error err = pipeline.init(
-				device,
-				allocator,
-				is,
+			pipeline.init(device, graphicsPipeline::pipelineType::opaque);
+
+			error err = pipeline.build(
 				m.mat.pixelShader,
 				meshShader.value(),
 				taskShader.value(),
 				{ mDescriptorSet.getDescriptorSet().second },
 				sChain.getDepthImageFormat(),
 				{ sChain.getDrawImageFormat() },
-				sampleCounts(mPreset.msaa),
-				mCtx->config.inner.graphics.framesInFlight,
-				pipelineData::pipelineType::opaque
+				sampleCounts(mPreset.msaa)
 			);
 			if (err)
 				return err;
 
-			mPipelines[m.mat.pixelShader->hash()] = pipeline;
+			commandBuffer cmd{};
 
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = pipeData, .pipeData = &mPipelines[m.mat.pixelShader->hash()] });
+			cmd.init(device, allocator, is, mCtx->config.inner.graphics.framesInFlight);
+			err = cmd.build(is);
+			if (err)
+				return err;
+
+			mOpaquePipelines[m.mat.pixelShader->hash()] = { pipeline, cmd };
+
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = cmdBuf, .cmdBuf = &mOpaquePipelines[m.mat.pixelShader->hash()].second });
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mOpaquePipelines[m.mat.pixelShader->hash()].first });
 		}
 
-		if (mPipelines[m.mat.pixelShader->hash()].instanceExists(m.id, frameIndex))
+		if (mOpaquePipelines[m.mat.pixelShader->hash()].second.instanceExists(m.id, frameIndex))
 			return {};
 
 		// Upload material.
@@ -983,8 +990,7 @@ namespace engine
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();
 
-		pipelineData::addInstanceParams addParams{
-			.pixelShaderID = m.mat.pixelShader->hash(),
+		commandBuffer::addInstanceParams addParams{
 			.instanceID = m.id,
 			.perInstanceHandle = perInstanceHandle.value(),
 			.meshesData = {},
@@ -1110,7 +1116,7 @@ namespace engine
 				return handle.err();
 
 			addParams.meshesData.push_back(
-				pipelineData::meshes{
+				commandBuffer::meshes{
 					.meshID = crntMesh.meshHash,
 					.meshHandle = perMeshHandle.value(),
 					.meshletHandle = handle.value(),
@@ -1121,12 +1127,14 @@ namespace engine
 
 		if (addParams.isBlendGeometry)
 		{
-			error err = mAccumilationPipeline.addInstance(addParams);
+			error err = mAccumilationCommandBuffer.addInstance(addParams);
 			if (err)
 				return err;
 		}
 
-		error err = mPipelines[m.mat.pixelShader->hash()].addInstance(addParams);
+		// Have to add because some materials can have BLEND enabled for material but have opaque geometry too.
+		// Cutoff goes here too.
+		error err = mOpaquePipelines[m.mat.pixelShader->hash()].second.addInstance(addParams);
 		if (err)
 			return err;
 
@@ -1181,42 +1189,40 @@ namespace engine
 
 		mMaterialRegistry.deleteScheduledMaterials(frameIndex);
 
-		auto pipeline = mPipelines.find(m.mat.pixelShader->hash());
-
-		if (pipeline == mPipelines.end())
+		if (!mOpaquePipelines.contains(m.mat.pixelShader->hash()))
 			return;
 
 		mPerInstanceRegistry.scheduleDeleteBlock(m.id, frameIndex);
 
 		for (int i = 0; i < m.meshData->size(); i++)
 		{
+			auto& [pipeline, cmd] = mOpaquePipelines[m.mat.pixelShader->hash()];
+
 			const mesh& crntMesh = m.meshData->operator[](i);
 			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
 
 			// Remove instance.
-			pipeline->second.removeInstance(
-				pipelineData::removeInstanceParams{
-					.pixelShaderID = m.mat.pixelShader->hash(),
+			cmd.removeInstance(
+				commandBuffer::removeInstanceParams{
 					.instanceID = m.id,
 					.meshID = crntMesh.meshHash,
 					.frameIndex = frameIndex,
 				}
-			);
+				);
 
-			mAccumilationPipeline.removeInstance(
-				pipelineData::removeInstanceParams{
-					.pixelShaderID = m.mat.pixelShader->hash(),
+			mAccumilationCommandBuffer.removeInstance(
+				commandBuffer::removeInstanceParams{
 					.instanceID = m.id,
 					.meshID = crntMesh.meshHash,
 					.frameIndex = frameIndex,
 				}
-			);
+				);
 
 			// Remove animation data.
 			mJointRegistry.scheduleDeleteBlock(m.id, frameIndex);
 
 			// Mesh isn't used.
-			if (!pipeline->second.meshIsUsed(crntMesh.meshHash, frameIndex))
+			if (!cmd.meshIsUsed(crntMesh.meshHash, frameIndex) && !mAccumilationCommandBuffer.meshIsUsed(crntMesh.meshHash, frameIndex))
 			{
 				mPositionRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
@@ -1246,10 +1252,10 @@ namespace engine
 	error meshletRenderer::updateDescriptors(renderer::renderParams in, submit& is, VkDevice device, VmaAllocator allocator, uint32_t frameIndex)
 	{
 		// Update command buffer for mesh pipeline.
-		for (auto& [_, p] : mPipelines)
+		for (auto& [_, p] : mOpaquePipelines)
 		{
-			error err = p.updateCommandBuffer(
-				pipelineData::updateCommandBufferParams{
+			error err = p.second.updateCommandBuffer(
+				commandBuffer::updateCommandBufferParams{
 					.device = device,
 					.allocator = allocator,
 					.is = is,
@@ -1260,8 +1266,8 @@ namespace engine
 				return err;
 		}
 
-		error err = mAccumilationPipeline.updateCommandBuffer(
-			pipelineData::updateCommandBufferParams{
+		error err = mAccumilationCommandBuffer.updateCommandBuffer(
+			commandBuffer::updateCommandBufferParams{
 				.device = device,
 				.allocator = allocator,
 				.is = is,
@@ -1273,16 +1279,17 @@ namespace engine
 
 		bool needUpdate = false;
 
-		for (auto& [_, p] : mPipelines)
-			needUpdate |= p.needDescriptorUpdate();
+		for (auto& [_, p] : mOpaquePipelines)
+			needUpdate |= p.second.needDescriptorUpdate();
 
 		// update cmd opaque buffer.
 		if (needUpdate)
 		{
 			std::vector<VkDescriptorBufferInfo> buffersInfo{};
-			for (auto& [_, p] : mPipelines)
+
+			for (auto& [_, p] : mOpaquePipelines)
 			{
-				auto info = p.getBufferInfo();
+				auto info = p.second.getBufferInfo();
 				buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
 			}
 
@@ -1294,16 +1301,16 @@ namespace engine
 			if (err)
 				return err;
 
-			for (auto& [_, p] : mPipelines)
-				p.setUpdated();
+			for (auto& [_, p] : mOpaquePipelines)
+				p.second.setUpdated();
 		}
 
 		// update cmd accumilation buffer.
-		if (mAccumilationPipeline.needDescriptorUpdate())
+		if (mAccumilationCommandBuffer.needDescriptorUpdate())
 		{
 			std::vector<VkDescriptorBufferInfo> buffersInfo{};
 
-			auto info = mAccumilationPipeline.getBufferInfo();
+			auto info = mAccumilationCommandBuffer.getBufferInfo();
 			buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
 
 			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, buffersInfo);
@@ -1314,7 +1321,7 @@ namespace engine
 			if (err)
 				return err;
 
-			mAccumilationPipeline.setUpdated();
+			mAccumilationCommandBuffer.setUpdated();
 		}
 
 		if (mPositionRegistry.needDescriptorUpdate())

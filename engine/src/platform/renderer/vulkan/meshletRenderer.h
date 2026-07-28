@@ -10,6 +10,7 @@
 #include "platform/renderer/renderer.h"
 #include "computeRenderer.h"
 #include "pipeline.h"
+#include "commandBuffer.h"
 
 namespace engine
 {
@@ -83,6 +84,11 @@ namespace engine
 
 		VkSampler mSampler;
 		descriptorSet mDescriptorSet;
+
+		// Visability buffers for indirect calls.
+		uint32_t mVisabilityBufferSize;
+		std::vector<vulkanBuffer> mVisabilityBuffer;
+		
 		// Vertex attribtes.
 		bufferRegistry mPositionRegistry;
 		bufferRegistry mNormalRegistry;
@@ -96,21 +102,21 @@ namespace engine
 		bufferRegistry mMeshletRegistry;
 		bufferRegistry mPerMeshRegistry;
 
-		pipelineData mCompositePipeline;
-		pipelineData mAccumilationPipeline;
-		std::map<uint32_t, pipelineData> mPipelines;
-		materialRegistry mMaterialRegistry;
-
 		// Can be updated each frame, they live as MAPPED buffers.
 		bufferRegistry mPerInstanceRegistry;
 		bufferRegistry mJointRegistry;
+		
+		// Material registry.
+		materialRegistry mMaterialRegistry;
+		
+		graphicsPipeline mCompositePipeline;
+		graphicsPipeline mAccumilationPipeline;
+		std::map<uint32_t, std::pair<graphicsPipeline, commandBuffer>> mOpaquePipelines;
+
+		commandBuffer mAccumilationCommandBuffer;
 
 		// Compute renderer to make HZB and for culling.
 		computeRenderer mComputeRenderer;
-
-		// Visability buffers for indirect calls.
-		uint32_t mVisabilityBufferSize;
-		std::vector<vulkanBuffer> mVisabilityBuffer;
 
 		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
 		error initDescriptors(

@@ -136,45 +136,26 @@ namespace engine
 
 	error lineRenderer::initPipeline(VkDevice device, VkFormat depthFormat, VkFormat drawFormat)
 	{
-		VkShaderModule vertexShaderModule;
 		auto vertexShader = mCtx->mAmanager->getDefaultLineVertexShader();
 		if (!vertexShader)
 			return vertexShader.err();
 
-		VkShaderModule pixelShaderModule;
 		auto pixelShader = mCtx->mAmanager->getDefaultLinePixelShader();
 		if (!pixelShader)
 			return pixelShader.err();
 
-		vertexShaderModule = static_cast<vulkanShader*>(const_cast<shader*>(vertexShader.value().get()))->mShaderModule;
-		pixelShaderModule = static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.value().get()))->mShaderModule;
-
-		mPipeline.init(device);
-		mPipeline.setShaders(vertexShaderModule, pixelShaderModule);
-
-		mPipeline.setInputTopology(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
-		mPipeline.setPolygonMode(VK_POLYGON_MODE_FILL);
-
-		mPipeline.setCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-
-		mPipeline.setMultisampling(sampleCounts(mPreset.msaa));
-
-		mPipeline.disableBlending();
-
-		mPipeline.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-		//connect the image format we will draw into, from draw image
-		mPipeline.setColorAttachmentFormats({ drawFormat });
-		mPipeline.setDepthFormat(depthFormat);
-
-		VkPushConstantRange pc{};
-		pc.offset = 0;
-		pc.size = sizeof(linePushConstant);
-		pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-		error buildErr = mPipeline.build(&pc, { mDescriptorSet.getDescriptorSet().second });
-		if (buildErr)
-			return buildErr;
+		mPipeline.init(device, graphicsPipeline::pipelineType::opaque);
+		
+		error err = mPipeline.buildLinePipeline(
+			pixelShader.value(), 
+			vertexShader.value(),
+			{ mDescriptorSet.getDescriptorSet().second },
+			depthFormat,
+			{ drawFormat },
+			sampleCounts(mPreset.msaa)
+		);
+		if (err)
+			return err;
 
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mPipeline });
 

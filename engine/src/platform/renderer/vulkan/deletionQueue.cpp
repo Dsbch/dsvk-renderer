@@ -62,9 +62,9 @@ namespace engine
 				if (it->matReg)
 					it->matReg->destroy();
 				break;
-			case pipeData:
-				if (it->pipeData)
-					it->pipeData->destroy();
+			case cmdBuf:
+				if (it->cmdBuf)
+					it->cmdBuf->destroy();
 				break;
 			default:
 				LOGERROR("deletionQueue.cpp unkown deletionType");

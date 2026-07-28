@@ -43,7 +43,7 @@ namespace engine
 
 		deletionQueue mDeletionQueue;
 
-		classicGraphicPipeline mPipeline;
+		graphicsPipeline mPipeline;
 		
 		lineBindings mBindings;
 		descriptorSet mDescriptorSet;

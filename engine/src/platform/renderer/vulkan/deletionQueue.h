@@ -12,6 +12,7 @@
 #include "registry.h"
 #include "texture.h"
 #include "gpuProfiler.h"
+#include "commandBuffer.h"
 
 namespace engine
 {
@@ -28,7 +29,7 @@ namespace engine
 		vulkanBuf,
 		gpuProf,
 		matReg,
-		pipeData,
+		cmdBuf,
 	};
 
 	struct destroyTask
@@ -41,13 +42,13 @@ namespace engine
 			swapChain* sChain;
 			descriptorSet* descSet;
 			computePipeline* computePipe;
-			classicGraphicPipeline* graphicsPipe;
+			graphicsPipeline* graphicsPipe;
 			bufferRegistry* buffRegistry;
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;
 			gpuProfiler* profiler;
 			materialRegistry* matReg;
-			pipelineData* pipeData;
+			commandBuffer* cmdBuf;
 		};
 	};
 
