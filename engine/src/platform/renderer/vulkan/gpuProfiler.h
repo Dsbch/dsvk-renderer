@@ -3,6 +3,7 @@
 
 #include <vma/vk_mem_alloc.h>
 #include "platform/renderer/renderer.h"
+#include "submit.h"
 #include "helper.h"
 
 namespace engine
@@ -10,22 +11,22 @@ namespace engine
 	struct gpuProfiler
 	{
 	public:
-		void init(VkDevice device, deviceLimits limits);
+		void init(VkDevice device, deviceLimits limits, uint32_t framesInFlight);
 		void destroy();
-		error createProfiling();
+		error createProfiling(submit& is);
 
-		error beginTimeStamp(VkCommandBuffer cmd, const std::string& slotName);
-		void endTimestamp(VkCommandBuffer cmd, const std::string& slotName);
-		void reset(VkCommandBuffer cmd);
+		error beginTimeStamp(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex);
+		void endTimestamp(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex);
+		void reset(VkCommandBuffer cmd, uint32_t frameIndex);
 
-		std::map<std::string, float> getAllSlots();
+		std::map<std::string, float> getAllSlots(uint32_t frameIndex);
 	private:
 		VkDevice mDevice;
-		VkQueryPool mQueryPool;
+		std::vector<VkQueryPool> mQueryPool;
 		uint32_t mPoolCount;
 		uint32_t mCurrentSlot;
 		deviceLimits mDeviceLimits;
 
-		std::map<std::string, std::pair<uint32_t, uint32_t>> mUsedSlots;
+		std::vector<std::map<std::string, std::pair<uint32_t, uint32_t>>> mUsedSlots;
 	};
 }

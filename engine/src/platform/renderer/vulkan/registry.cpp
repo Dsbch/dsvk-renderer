@@ -256,7 +256,12 @@ namespace engine
 
 	withError<uint32_t> materialRegistry::addMaterials(const materials& materials)
 	{
-		if (auto found = mUploadedMaterials.find(materials.hash); found != mUploadedMaterials.end())
+		bool scheduledToDelete = false;
+
+		for (auto& sd : mMaterialsScheduledToDelete)
+			scheduledToDelete |= sd.second.contains(materials.hash);
+
+		if (auto found = mUploadedMaterials.find(materials.hash); found != mUploadedMaterials.end() && !scheduledToDelete)
 		{
 			return found->second.offset;
 		}

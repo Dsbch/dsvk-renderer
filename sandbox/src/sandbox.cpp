@@ -81,7 +81,7 @@ namespace sandbox
 
 		engine::entity alphaTestEnt{ mCtx, registry };
 
-		alphaTestEnt.addComponent<engine::transformComponent>(glm::vec3{}, glm::vec3{1.0f}, glm::quat{});
+		alphaTestEnt.addComponent<engine::transformComponent>(glm::vec3{}, glm::vec3{ 1.0f }, glm::quat{});
 		alphaTestEnt.addComponent<engine::materialComponent>(alphaTest.value()->mat);
 		alphaTestEnt.addComponent<engine::meshComponent>(alphaTest.value()->meshData, alphaTest.value()->perMeshData);
 		alphaTestEnt.addComponent<engine::newEntityComponent>();
@@ -115,12 +115,13 @@ namespace sandbox
 		if (keyPressedEvent && keyPressedEvent->getKey() == engine::key::m)
 			mCtx->mApplicationEventQueue->queueEvent(std::make_shared<engine::toggleCursorEvent>());
 
+#ifdef DEBUG
 		if (keyPressedEvent)
 		{
-			if (keyPressedEvent->getKey() == engine::key::h)
+			if (keyPressedEvent->getKey() == engine::key::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/marble.glb",
+					"../assets/catapult.glb",
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.coneWieght,
@@ -129,46 +130,17 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				// 22^3 = 10,648 models total
-				const int gridCount = 25;
+				engine::entity e{ mCtx, registry };
 
-				// Increase these bounds to spread the models further apart
-				const float minExtent = -10.0f;
-				const float maxExtent = 10.0f;
-				const float extentRange = maxExtent - minExtent;
+				auto tr = generateTransform();
 
-				glm::vec3 scale = glm::vec3(1.0f);
-				glm::vec3 rotation = glm::vec3(0.0f);
-
-				for (int x = 0; x < gridCount; ++x)
-				{
-					float posX = minExtent + extentRange * (static_cast<float>(x) / static_cast<float>(gridCount - 1));
-
-					for (int y = 0; y < gridCount; ++y)
-					{
-						float posY = minExtent + extentRange * (static_cast<float>(y) / static_cast<float>(gridCount - 1));
-
-						for (int z = 0; z < gridCount; ++z)
-						{
-							float posZ = minExtent + extentRange * (static_cast<float>(z) / static_cast<float>(gridCount - 1));
-
-							engine::entity e{ mCtx, registry };
-
-							glm::vec3 translation = glm::vec3(posX, posY, posZ);
-
-							e.addComponent<engine::transformComponent>(translation, scale, rotation);
-							e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
-							e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-							e.addComponent<engine::newEntityComponent>();
-						}
-					}
-				}
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.1f }, tr.rotation);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
+				e.addComponent<engine::newEntityComponent>();
 			}
-		}
 
-#ifdef DEBUG
-		if (keyPressedEvent)
-		{
 			if (keyPressedEvent->getKey() == engine::key::v)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(

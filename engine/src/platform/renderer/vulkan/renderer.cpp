@@ -68,8 +68,8 @@ namespace engine
 		if (mErr)
 			return;
 
-		mGpuProfiler.init(mDevice, mDeviceLimits);
-		mErr = mGpuProfiler.createProfiling();
+		mGpuProfiler.init(mDevice, mDeviceLimits, mCtx->config.inner.graphics.framesInFlight);
+		mErr = mGpuProfiler.createProfiling(mSubmit);
 		if (mErr)
 			return;
 
@@ -531,12 +531,7 @@ namespace engine
 			if (vkResult != VK_SUCCESS)
 				return vkResultToStr(vkResult);
 
-			static bool firstFrame = true;
-
-			if (!firstFrame)
-				updateProfInfo(deltaTime);
-
-			firstFrame = false;
+			updateProfInfo(deltaTime, frameIndex);
 
 			// request image from the swapchain.
 			// keep in mind that we use swapChain semaphore as signaling here.
@@ -576,7 +571,7 @@ namespace engine
 
 			setViewportAndSciccors(cmd, mSwapChain.getDrawImageExtent());
 
-			mGpuProfiler.reset(cmd);
+			mGpuProfiler.reset(cmd, frameIndex);
 
 			// Cross frame barriers.
 			mSwapChain.transitionDepthImage(
@@ -620,7 +615,7 @@ namespace engine
 				VK_ACCESS_2_SHADER_WRITE_BIT
 			);
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque");
+			err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque", frameIndex);
 			if (err)
 				return err;
 
@@ -629,39 +624,39 @@ namespace engine
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "drawOpaque");
+			mGpuProfiler.endTimestamp(cmd, "drawOpaque", frameIndex);
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "drawTransperent");
+			err = mGpuProfiler.beginTimeStamp(cmd, "drawTransperent", frameIndex);
 
 			err = drawTransperent(cmd, params, frameIndex);
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "drawTransperent");
+			mGpuProfiler.endTimestamp(cmd, "drawTransperent", frameIndex);
 
 			// Transition to sample them as textures in composite pass.
 			mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent");
+			err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
 
 			err = compositeOpaqueAndTransperent(cmd, params, frameIndex);
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent");
+			mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
 
 			// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
 			mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "drawUI");
+			err = mGpuProfiler.beginTimeStamp(cmd, "drawUI", frameIndex);
 
 			err = drawUI(cmd);
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "drawUI");
+			mGpuProfiler.endTimestamp(cmd, "drawUI", frameIndex);
 
 			// Prepare for next frame.
 			mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -777,7 +772,7 @@ namespace engine
 		return vkTexture;
 	}
 
-	void vulkanRenderer::updateProfInfo(float deltaTime)
+	void vulkanRenderer::updateProfInfo(float deltaTime, uint32_t frameIndex)
 	{
 		static uint32_t frames = 0;
 		static auto lastCall = std::chrono::steady_clock::now();
@@ -795,7 +790,7 @@ namespace engine
 
 		mProfInfo.globalInfo.deltaTime = deltaTime;
 
-		mProfInfo.passInfo = mGpuProfiler.getAllSlots();
+		mProfInfo.passInfo = mGpuProfiler.getAllSlots(frameIndex);
 	}
 
 	void vulkanRenderer::registerSceneMetrics(const model& m, bool isDeleted)

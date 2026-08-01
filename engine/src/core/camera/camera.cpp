@@ -200,7 +200,7 @@ namespace engine
 		float horizontalFOV = glm::degrees(2.0f * atan(tan(glm::radians(verticalFOV) * 0.5f) * ratio));
 
 		glm::vec3 fromCenter = mPos - glm::vec3(0.0f);
-		glm::vec3 right = glm::cross(mFront, mUp);
+		glm::vec3 right = glm::normalize(glm::cross(mFront, mUp));
 
 		std::pair<glm::vec3, float> plane = calculatePlane(mFront * mNearPlane + mPos - glm::vec3(0.0f), mFront, 0.0f, glm::vec3(0.0f));
 		result.worldFrontN = plane.first;

@@ -25,7 +25,7 @@ namespace engine
 			graphicsPreset preset
 		);
 		error destroy();
-		error onRender(VkCommandBuffer cmd, const swapChain& sChain, profilingInfo profInfo);
+		error onRender(VkCommandBuffer cmd, const swapChain& sChain, const profilingInfo& profInfo);
 		void updateSwapchainDependentDescriptors(swapChain sChain);
 	private:
 		VkDevice mDevice;
@@ -41,7 +41,7 @@ namespace engine
 		std::map<std::string, passHistory> mPassHistories;
 		int mGlobalOffset;
 		
-		void renderProfilingInfo(profilingInfo profInfo);
+		void renderProfilingInfo(const profilingInfo& profInfo);
 		void renderAccumAndRevealImages();
 		void renderHzbImages();
 	};

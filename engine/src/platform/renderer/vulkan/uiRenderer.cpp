@@ -89,7 +89,7 @@ namespace engine
 		return {};
 	}
 
-	error uiRenderer::onRender(VkCommandBuffer cmd, const swapChain& sChain, profilingInfo profInfo)
+	error uiRenderer::onRender(VkCommandBuffer cmd, const swapChain& sChain, const profilingInfo& profInfo)
 	{
 		// Imgui can't work with msaa color attachments.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -167,7 +167,7 @@ namespace engine
 		}
 	}
 
-	void uiRenderer::renderProfilingInfo(profilingInfo profInfo)
+	void uiRenderer::renderProfilingInfo(const profilingInfo& profInfo)
 	{
 		// Style
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.08f, 1.0f));

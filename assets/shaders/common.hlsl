@@ -424,7 +424,7 @@ bool isFrontfaceMeshlet(perDrawData drawData, meshletBounds bounds)
     if (bounds.coneCutoff == 1.0f)
         return true;
     
-    float3 viewDir = normalize(bounds.center- drawData.cameraPos);
+    float3 viewDir = normalize(bounds.center - drawData.cameraPos);
     
     return dot(viewDir, bounds.coneAxis) < bounds.coneCutoff;
 }

@@ -3,74 +3,88 @@
 
 namespace engine
 {
-	void gpuProfiler::init(VkDevice device, deviceLimits limits)
+	void gpuProfiler::init(VkDevice device, deviceLimits limits, uint32_t framesInFlight)
 	{
 		mDevice = device;
 		mQueryPool = {};
 
-		mPoolCount = 2 << 10;
+		mPoolCount = 4096;
 		mCurrentSlot = 0;
 
 		mDeviceLimits = limits;
+
+		mUsedSlots.resize(framesInFlight);
+		mQueryPool.resize(framesInFlight);
 	}
 
-	error gpuProfiler::createProfiling()
+	error gpuProfiler::createProfiling(submit& is)
 	{
-		VkQueryPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-		poolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
-		poolInfo.queryCount = mPoolCount;
+		for (uint32_t i = 0; i < mQueryPool.size(); i++)
+		{
+			VkQueryPoolCreateInfo poolInfo{};
+			poolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+			poolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+			poolInfo.queryCount = mPoolCount;
 
-		VkResult res = vkCreateQueryPool(mDevice, &poolInfo, nullptr, &mQueryPool);
-		if (res != VK_SUCCESS)
-			return { vkResultToStr(res) };
+			VkResult res = vkCreateQueryPool(mDevice, &poolInfo, nullptr, &mQueryPool[i]);
+			if (res != VK_SUCCESS)
+				return { vkResultToStr(res) };
+
+			error err = is.immediate([pool = mQueryPool[i], poolCount = mPoolCount](VkCommandBuffer cmd)
+				{
+					vkCmdResetQueryPool(cmd, pool, 0, poolCount);
+				}
+			);
+			if (err)
+				return err;
+		}
 
 		return {};
 	}
 
 	void gpuProfiler::destroy()
 	{
-		if (mDevice && mQueryPool)
-			vkDestroyQueryPool(mDevice, mQueryPool, nullptr);
+		for (auto& pool : mQueryPool)
+			vkDestroyQueryPool(mDevice, pool, nullptr);
 	}
 
-	error gpuProfiler::beginTimeStamp(VkCommandBuffer cmd, const std::string& slotName)
+	error gpuProfiler::beginTimeStamp(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex)
 	{
-		if (mUsedSlots.find(slotName) != mUsedSlots.end())
+		if (mUsedSlots[frameIndex].find(slotName) != mUsedSlots[frameIndex].end())
 			return { "slot with such name was already recorded that frame" };
 
 		if (mCurrentSlot >= mPoolCount)
 			return { "slot count is reached" };
 
-		vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, mQueryPool, mCurrentSlot);
+		vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, mQueryPool[frameIndex], mCurrentSlot);
 
-		mUsedSlots[slotName] = { mCurrentSlot , mCurrentSlot + 1 };
+		mUsedSlots[frameIndex][slotName] = { mCurrentSlot , mCurrentSlot + 1 };
 
 		mCurrentSlot += 2;
 
 		return {};
 	}
 
-	void gpuProfiler::endTimestamp(VkCommandBuffer cmd, const std::string& slotName)
+	void gpuProfiler::endTimestamp(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex)
 	{
-		if (mUsedSlots.find(slotName) != mUsedSlots.end())
+		if (mUsedSlots[frameIndex].find(slotName) != mUsedSlots[frameIndex].end())
 		{
-			auto slot = mUsedSlots[slotName];
+			auto slot = mUsedSlots[frameIndex][slotName];
 
-			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, mQueryPool, slot.second);
+			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, mQueryPool[frameIndex], slot.second);
 		}
 	}
 
-	void gpuProfiler::reset(VkCommandBuffer cmd)
+	void gpuProfiler::reset(VkCommandBuffer cmd, uint32_t frameIndex)
 	{
 		mCurrentSlot = 0;
 
-		mUsedSlots.clear();
+		mUsedSlots[frameIndex].clear();
 
-		vkCmdResetQueryPool(cmd, mQueryPool, 0, mPoolCount);
+		vkCmdResetQueryPool(cmd, mQueryPool[frameIndex], 0, mPoolCount);
 	}
 
-	std::map<std::string, float> gpuProfiler::getAllSlots()
+	std::map<std::string, float> gpuProfiler::getAllSlots(uint32_t frameIndex)
 	{
 		std::map<std::string, float> result{};
 
@@ -83,7 +97,7 @@ namespace engine
 		results.resize(mPoolCount);
 
 		VkResult queryRes = vkGetQueryPoolResults(
-			mDevice, mQueryPool, 0, mPoolCount,
+			mDevice, mQueryPool[frameIndex], 0, mPoolCount,
 			results.size() * sizeof(timeStampResult),
 			results.data(),
 			sizeof(timeStampResult),
@@ -92,7 +106,7 @@ namespace engine
 		if (queryRes != VK_SUCCESS && queryRes != VK_NOT_READY)
 			return result;
 
-		for (auto& [k, v] : mUsedSlots)
+		for (auto& [k, v] : mUsedSlots[frameIndex])
 		{
 			if (results[v.first].isAvailable != 0 && results[v.second].isAvailable != 0)
 			{

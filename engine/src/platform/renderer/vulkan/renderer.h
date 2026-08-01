@@ -86,7 +86,7 @@ namespace engine
 		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
 		error drawUI(VkCommandBuffer cmd);
 
-		void updateProfInfo(float deltaTime);
+		void updateProfInfo(float deltaTime, uint32_t frameIndex);
 		void registerSceneMetrics(const model& m, bool isDeleted = false);
 		void visualizeNormals(const model& m);
 
