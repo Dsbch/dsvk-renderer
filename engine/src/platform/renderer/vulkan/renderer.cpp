@@ -321,7 +321,7 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mUiRenderer.init(window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain, mPreset);
+		err = mUiRenderer.init(mCtx, window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain, mPreset);
 		if (err)
 			return err;
 
@@ -480,6 +480,13 @@ namespace engine
 
 		if (std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart()) >= nextRender)
 		{
+			if (mWindowMinimized)
+				return {};
+
+			auto waitResult = mSwapChain.waitOnRenderFence();
+			if (waitResult)
+				return waitResult.err();
+
 			uint32_t frameIndex = mSwapChain.getCurrentFrameIndex();
 
 			const renderer::sceneState& renderState = mPackage->getStateToRender(frameIndex);
@@ -500,9 +507,6 @@ namespace engine
 
 				removeFromRender(renderState.deletedEntities, frameIndex);
 			}
-
-			if (mWindowMinimized)
-				return {};
 
 			renderer::renderParams params = mPackage->getRenderParams();
 
@@ -526,10 +530,6 @@ namespace engine
 			auto vkResult = vkQueueSubmit2(mGraphicsQueue, uint32_t(commands.size()), commands.data(), nullptr);
 			if (vkResult != VK_SUCCESS)
 				return vkResultToStr(vkResult);
-
-			auto waitResult = mSwapChain.waitOnRenderFence();
-			if (waitResult)
-				return waitResult.err();
 
 			static bool firstFrame = true;
 

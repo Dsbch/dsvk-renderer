@@ -100,13 +100,16 @@ namespace engine
 
 		mBuffer = createBufRes.value();
 
-		if (buf.getBuffer().buffer != VK_NULL_HANDLE && mLoadedBytes != 0)
+		if (buf.getBuffer().buffer != VK_NULL_HANDLE)
 		{
 			if (mMapFlags.mapped && mMapFlags.cpuReadBack && buf.mMapFlags.mapped && buf.mMapFlags.cpuReadBack)
 			{
-				VkResult res = vmaCopyMemoryToAllocation(mAllocator, buf.mBuffer.info.pMappedData, mBuffer.allocation, 0, mLoadedBytes);
-				if (res != VK_SUCCESS)
-					return { vkResultToStr(res) };
+				if (mLoadedBytes != 0)
+				{
+					VkResult res = vmaCopyMemoryToAllocation(mAllocator, buf.mBuffer.info.pMappedData, mBuffer.allocation, 0, mLoadedBytes);
+					if (res != VK_SUCCESS)
+						return { vkResultToStr(res) };
+				}
 
 				if (destroyBuffer)
 					buf.destroy();
@@ -116,12 +119,15 @@ namespace engine
 				error err = is.queue(
 					[oldBuf = buf, crntBuf = mBuffer, loadedBytes = mLoadedBytes](VkCommandBuffer cmd) mutable
 					{
-						VkBufferCopy copy{};
-						copy.dstOffset = 0;
-						copy.srcOffset = 0;
-						copy.size = loadedBytes;
+						if (loadedBytes != 0)
+						{
+							VkBufferCopy copy{};
+							copy.dstOffset = 0;
+							copy.srcOffset = 0;
+							copy.size = loadedBytes;
 
-						vkCmdCopyBuffer(cmd, oldBuf.getBuffer().buffer, crntBuf.buffer, 1, &copy);
+							vkCmdCopyBuffer(cmd, oldBuf.getBuffer().buffer, crntBuf.buffer, 1, &copy);
+						}
 					},
 					[oldBuf = buf, destroyBuffer = destroyBuffer]() mutable
 					{
@@ -234,9 +240,9 @@ namespace engine
 
 					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
 				},
-				[=]()
+				[allocator = mAllocator, buffer = stagingBuffer.value()]()
 				{
-					destroyBuffer(mAllocator, stagingBuffer.value());
+					destroyBuffer(allocator, buffer);
 				}
 			);
 			if (err)
@@ -279,9 +285,9 @@ namespace engine
 
 					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
 				},
-				[=]()
+				[allocator = mAllocator, buffer = stagingBuffer.value()]()
 				{
-					destroyBuffer(mAllocator, stagingBuffer.value());
+					destroyBuffer(allocator, buffer);
 				}
 			);
 			if (err)

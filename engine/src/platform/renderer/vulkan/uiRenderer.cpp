@@ -9,6 +9,7 @@
 namespace engine
 {
 	error uiRenderer::init(
+		std::shared_ptr<context> ctx,
 		GLFWwindow* wnd,
 		VkDevice device,
 		VkPhysicalDevice physicalDevice,
@@ -53,8 +54,8 @@ namespace engine
 		initInfo.QueueFamily = queueFamily;
 		initInfo.Queue = queue;
 		initInfo.DescriptorPoolSize = 100;
-		initInfo.MinImageCount = 2;
-		initInfo.ImageCount = 3;
+		initInfo.MinImageCount = ctx->config.inner.graphics.framesInFlight;
+		initInfo.ImageCount = ctx->config.inner.graphics.framesInFlight;
 		initInfo.PipelineInfoMain.Subpass = 0;
 		initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = {

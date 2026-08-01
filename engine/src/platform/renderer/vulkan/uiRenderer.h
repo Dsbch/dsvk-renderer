@@ -14,6 +14,7 @@ namespace engine
 	struct uiRenderer
 	{
 		error init(
+			std::shared_ptr<context> ctx,
 			GLFWwindow* wnd,	
 			VkDevice device, 
 			VkPhysicalDevice physicalDevice, 

@@ -27,10 +27,11 @@ namespace engine
 	};
 
 	struct graphicsCfg
+
 	{
 		uint32_t msaa = 4;
 		uint32_t anisotropicFiltering = 16;
-		uint32_t framesInFlight = 3;
+		uint32_t framesInFlight = 2;
 	};
 
 	struct gameLoopCfg

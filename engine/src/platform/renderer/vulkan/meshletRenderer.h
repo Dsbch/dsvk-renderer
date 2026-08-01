@@ -86,7 +86,6 @@ namespace engine
 		descriptorSet mDescriptorSet;
 
 		// Visability buffers for indirect calls.
-		uint32_t mVisabilityBufferSize;
 		std::vector<vulkanBuffer> mVisabilityBuffer;
 		
 		// Vertex attribtes.

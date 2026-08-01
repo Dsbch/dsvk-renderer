@@ -56,8 +56,6 @@ namespace engine
 			.revealBinding = 53,
 		};
 
-		mVisabilityBufferSize = 2 << 24;
-
 		mDeletionQueue.init(device);
 
 		mPreset = preset;
@@ -163,7 +161,7 @@ namespace engine
 		{
 			mVisabilityBuffer[i].init(device, allocator);
 
-			err = mVisabilityBuffer[i].build(is, visDispatch.data(), mVisabilityBufferSize, sizeof(uint32_t) * 4, true);
+			err = mVisabilityBuffer[i].build(is, visDispatch.data(), 2 << 24, sizeof(uint32_t) * 4, true);
 			if (err)
 				return err;
 
@@ -1428,20 +1426,15 @@ namespace engine
 		}
 
 		// Resize visability buffer if needed.
-		if (uint32_t max = getMaxCmdBufferSize(frameIndex); max > mVisabilityBufferSize)
+		if (uint32_t max = getMaxCmdBufferSize(frameIndex) * sizeof(uint32_t) / sizeof(meshletShaderCMD); max > (mVisabilityBuffer[frameIndex].getSize() - 4 * sizeof(uint32_t)))
 		{
-			for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
-			{
-				mVisabilityBuffer[i].destroy();
+			mVisabilityBuffer[frameIndex].destroy();
 
-				mVisabilityBufferSize = uint32_t(1.5f * max);
+			std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
 
-				std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
-
-				error err = mVisabilityBuffer[i].build(is, visDispatch.data(), mVisabilityBufferSize, sizeof(uint32_t) * 4, true);
-				if (err)
-					return err;
-			}
+			error err = mVisabilityBuffer[frameIndex].build(is, visDispatch.data(), max + 4 * sizeof(uint32_t), sizeof(uint32_t) * 4, true);
+			if (err)
+				return err;
 
 			std::vector<VkDescriptorBufferInfo> bufferInfo{};
 

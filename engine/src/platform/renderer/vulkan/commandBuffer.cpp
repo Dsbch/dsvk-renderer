@@ -110,42 +110,45 @@ namespace engine
 			mEntitiesToDelete[params.frameIndex].erase(id);
 		}
 
+		std::vector<meshletShaderCMD> cmdToAdd{};
+
 		for (auto& [k, v] : mEntitiesToAdd[params.frameIndex])
 		{
 			if (!mUploadedEntities[params.frameIndex].contains(k))
 			{
 				size_t size = v.size() * sizeof(meshletShaderCMD);
-				size_t offset = mCmdBuffer[params.frameIndex].getLoadedBytes();
+				size_t offset = mCmdBuffer[params.frameIndex].getLoadedBytes() + cmdToAdd.size() * sizeof(meshletShaderCMD);
 
-				error err = mCmdBuffer[params.frameIndex].updateBuffer(params.is, v.data(), size, offset);
-				if (err && err.is(errCodeBufferOverFlow))
-				{
-					mNeedDescriptorUpdate = true;
-
-					mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
-					uint32_t minSize = uint32_t(v.size() * sizeof(meshletShaderCMD) + mCmdBuffer[params.frameIndex].getLoadedBytes());
-
-					if (mCmdBufferSize < minSize)
-						mCmdBufferSize = minSize;
-
-					vulkanBuffer newBuf{};
-
-					newBuf.init(params.device, params.allocator, mBufferMapFlags);
-					err = newBuf.build(params.is, mCmdBuffer[params.frameIndex], mCmdBufferSize, false);
-					if (err)
-						return err;
-
-					err = newBuf.updateBuffer(params.is, v.data(), size, offset);
-					if (err)
-						return err;
-
-					mCmdBuffer[params.frameIndex].destroy();
-
-					mCmdBuffer[params.frameIndex] = std::move(newBuf);
-				}
+				for (auto& c : v)
+					cmdToAdd.push_back(c);
 
 				mUploadedEntities[params.frameIndex][k] = { offset, offset + size };
 			}
+		}
+
+		error err = mCmdBuffer[params.frameIndex].updateBuffer(params.is, cmdToAdd.data(), cmdToAdd.size() * sizeof(meshletShaderCMD), mCmdBuffer[params.frameIndex].getLoadedBytes());
+		if (err && err.is(errCodeBufferOverFlow))
+		{
+			mNeedDescriptorUpdate = true;
+
+			mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
+			uint32_t minSize = uint32_t(cmdToAdd.size() * sizeof(meshletShaderCMD) + mCmdBuffer[params.frameIndex].getLoadedBytes());
+
+			if (mCmdBufferSize < minSize)
+				mCmdBufferSize = minSize;
+
+			vulkanBuffer newBuf{};
+
+			newBuf.init(params.device, params.allocator, mBufferMapFlags);
+			err = newBuf.build(params.is, mCmdBuffer[params.frameIndex], mCmdBufferSize, true);
+			if (err)
+				return err;
+
+			err = newBuf.updateBuffer(params.is, cmdToAdd.data(), cmdToAdd.size() * sizeof(meshletShaderCMD), mCmdBuffer[params.frameIndex].getLoadedBytes());
+			if (err)
+				return err;
+
+			mCmdBuffer[params.frameIndex] = std::move(newBuf);
 		}
 
 		mEntitiesToAdd[params.frameIndex].clear();
