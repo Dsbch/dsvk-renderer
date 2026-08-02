@@ -5,116 +5,9 @@
 
 namespace engine
 {
-	cameraSystem::cameraSystem(std::shared_ptr<context> ctx)
-		: system(ctx), mLastFramePosition(0.0f)
+	cameraSystem::cameraSystem(std::shared_ptr<context> ctx, std::shared_ptr<renderer::renderPackage> renderPackage)
+		: coreSystem(ctx, renderPackage), mLastFramePosition(0.0f)
 	{}
-
-	error cameraSystem::onAttach(std::shared_ptr<registryHandle> registry)
-	{
-		spawnCamera(registry);
-
-		return {};
-	}
-
-	void cameraSystem::onDetach(std::shared_ptr<registryHandle> registry)
-	{}
-
-	error cameraSystem::checkError()
-	{
-		return {};
-	}
-
-	error cameraSystem::onFixedUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
-	{
-		size_t activeCount = registry->sizeHint<fpsCameraComponent, activeCameraComponent>();
-		size_t debugCount = registry->sizeHint<fpsCameraComponent, debugCameraComponent>();
-
-		if (activeCount > 1)
-			return error{ "more than one active camera is scene" };
-
-		if (debugCount > 1)
-			return error{ "more than one debug camera is scene" };
-
-		if (isDebugCameraPresent(registry))
-		{
-			auto newPos = getDebugCameraPos(registry);
-			if (!newPos)
-				return newPos.err();
-
-			mLastFramePosition = newPos.value();
-		}
-		else
-		{
-			auto newPos = getCameraPos(registry);
-			if (!newPos)
-				return newPos.err();
-
-			mLastFramePosition = newPos.value();
-		}
-
-		return {};
-	}
-
-	error cameraSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
-	{
-		return {};
-	}
-
-	error cameraSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
-	{
-		return {};
-	}
-
-	error cameraSystem::applyInput(std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
-	{
-		const float maxOffset = 0.1f;
-
-		auto keyDown = tryCastToEventType<keyDownEvent>(e, eventType::keyDown);
-
-		if (keyDown)
-		{
-			glm::vec3 oldPos = camera.camera->getPosition();
-
-			for (auto key : input.keyDown)
-			{
-				if (key == keyDown->getKey())
-				{
-					switch (key)
-					{
-					case key::w:
-						camera.camera->offsetPosition(0.0f, maxOffset);
-						break;
-					case key::s:
-						camera.camera->offsetPosition(0.0f, -maxOffset);
-						break;
-					case key::a:
-						camera.camera->offsetPosition(-maxOffset, 0.0f);
-						break;
-					case key::d:
-						camera.camera->offsetPosition(maxOffset, 0.0f);
-						break;
-					}
-				}
-			}
-
-			if (glm::vec3 oldToNew = camera.camera->getPosition() - mLastFramePosition; glm::length(oldToNew) > maxOffset)
-			{
-				camera.camera->setPosition(mLastFramePosition + glm::normalize(oldToNew) * maxOffset);
-			}
-		}
-
-		auto mouseMove = tryCastToEventType<mouseMoveEvent>(e, eventType::mouseMove);
-
-		if (mouseMove)
-		{
-			auto offset = mouseMove->getMouseOffset();
-
-			camera.camera->offsetYaw(float(offset.x) * 0.1f);
-			camera.camera->offsetPitch(float(-offset.y) * 0.1f);
-		}
-
-		return {};
-	}
 
 	error cameraSystem::onEvent(std::shared_ptr<registryHandle> registry, std::shared_ptr<baseEvent> e)
 	{
@@ -169,6 +62,170 @@ namespace engine
 					applyInput(e, camera, input);
 				}
 			);
+		}
+
+		return {};
+	}
+
+	error cameraSystem::onAttach(std::shared_ptr<registryHandle> registry)
+	{
+		spawnCamera(registry);
+
+		return {};
+	}
+
+	void cameraSystem::onDetach(std::shared_ptr<registryHandle> registry)
+	{}
+
+	error cameraSystem::onBeginUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return {};
+	}
+
+	error cameraSystem::onUpdate(std::shared_ptr<registryHandle> registry, float deltaTime)
+	{
+		size_t activeCount = registry->sizeHint<fpsCameraComponent, activeCameraComponent>();
+		size_t debugCount = registry->sizeHint<fpsCameraComponent, debugCameraComponent>();
+
+		if (activeCount > 1)
+			return error{ "more than one active camera is scene" };
+
+		if (debugCount > 1)
+			return error{ "more than one debug camera is scene" };
+
+		if (isDebugCameraPresent(registry))
+		{
+			auto newPos = getDebugCameraPos(registry);
+			if (!newPos)
+				return newPos.err();
+
+			mLastFramePosition = newPos.value();
+		}
+		else
+		{
+			auto newPos = getCameraPos(registry);
+			if (!newPos)
+				return newPos.err();
+
+			mLastFramePosition = newPos.value();
+		}
+
+		renderer::renderParams renderCall{};
+
+		auto view = getView(registry);
+		if (!view)
+			return view.err();
+
+		renderCall.view = view.value();
+
+		auto projection = getProjection(registry);
+		if (!projection)
+			return projection.err();
+
+		renderCall.projection = projection.value();
+
+		auto cameraPos = getCameraPos(registry);
+		if (!cameraPos)
+			return cameraPos.err();
+
+		renderCall.cameraPos = cameraPos.value();
+
+		auto cameraFront = getCameraFront(registry);
+		if (!cameraFront)
+			return cameraFront.err();
+
+		renderCall.cameraFront = cameraFront.value();
+
+		auto cameraUp = getCameraUp(registry);
+		if (!cameraUp)
+			return cameraUp.err();
+
+		renderCall.cameraUp = cameraUp.value();
+
+		auto cameraFrustum = calculateCameraFrustum(registry);
+		if (!cameraFrustum)
+			return cameraFrustum.err();
+
+		renderCall.cameraFrustum = cameraFrustum.value();
+
+		auto cameraWidthHeight = getWidthHeight(registry);
+		if (!cameraWidthHeight)
+			return cameraWidthHeight.err();
+
+		renderCall.width = cameraWidthHeight.value().first;
+		renderCall.height = cameraWidthHeight.value().second;
+
+		if (isDebugCameraPresent(registry))
+		{
+			view = getDebugView(registry);
+			if (!view)
+				return view.err();
+
+			projection = getDebugProjection(registry);
+			if (!projection)
+				return projection.err();
+
+			renderCall.useDebugCamera = 1;
+			renderCall.debugCameraView = view.value();
+			renderCall.debugCameraProjection = projection.value();
+		}
+
+		mRenderPackage->setRenderParams(renderCall);
+
+		return {};
+	}
+
+	error cameraSystem::onEndUpdate(std::shared_ptr<registryHandle> registry)
+	{
+		return {};
+	}
+
+	error cameraSystem::applyInput(std::shared_ptr<baseEvent> e, fpsCameraComponent& camera, inputListenerComponent& input)
+	{
+		const float maxOffset = 0.1f;
+
+		auto keyDown = tryCastToEventType<keyDownEvent>(e, eventType::keyDown);
+
+		if (keyDown)
+		{
+			glm::vec3 oldPos = camera.camera->getPosition();
+
+			for (auto key : input.keyDown)
+			{
+				if (key == keyDown->getKey())
+				{
+					switch (key)
+					{
+					case key::w:
+						camera.camera->offsetPosition(0.0f, maxOffset);
+						break;
+					case key::s:
+						camera.camera->offsetPosition(0.0f, -maxOffset);
+						break;
+					case key::a:
+						camera.camera->offsetPosition(-maxOffset, 0.0f);
+						break;
+					case key::d:
+						camera.camera->offsetPosition(maxOffset, 0.0f);
+						break;
+					}
+				}
+			}
+
+			if (glm::vec3 oldToNew = camera.camera->getPosition() - mLastFramePosition; glm::length(oldToNew) > maxOffset)
+			{
+				camera.camera->setPosition(mLastFramePosition + glm::normalize(oldToNew) * maxOffset);
+			}
+		}
+
+		auto mouseMove = tryCastToEventType<mouseMoveEvent>(e, eventType::mouseMove);
+
+		if (mouseMove)
+		{
+			auto offset = mouseMove->getMouseOffset();
+
+			camera.camera->offsetYaw(float(offset.x) * 0.1f);
+			camera.camera->offsetPitch(float(-offset.y) * 0.1f);
 		}
 
 		return {};
@@ -342,5 +399,10 @@ namespace engine
 
 			ent.detroy();
 		}
+	}
+
+	error cameraSystem::checkError()
+	{
+		return {};
 	}
 }

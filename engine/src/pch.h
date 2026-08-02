@@ -27,10 +27,10 @@
 template<class F>
 inline void measure(const std::string& name, F&& func)
 {
-	auto start = std::chrono::high_resolution_clock::now();
-	func();
-	auto end = std::chrono::high_resolution_clock::now();
-	LOGINFO("{} took: {}", name, std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+		auto start = std::chrono::high_resolution_clock::now();
+		func();
+		auto end = std::chrono::high_resolution_clock::now();
+		printf("%s took: %lld micros\n", name.c_str(), std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
 }
 
 inline co::wait_group gWG;
@@ -46,7 +46,7 @@ inline void goCatch(F&& f)
 	gWG.add(1);
 
 	go(
-		[f]()
+		[f = std::forward<F>(f)]() mutable
 		{
 			defer(gWG.done());
 
@@ -59,5 +59,5 @@ inline void goCatch(F&& f)
 template<class F>
 inline void goCatchMeasure(const std::string& name, F&& f)
 {
-	goCatch([name, f]() {measure(name, f); });
+	goCatch([name, f = std::forward<F>(f)]() mutable {measure(name, f); });
 }

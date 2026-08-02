@@ -10,6 +10,8 @@ namespace engine
 	class entity
 	{
 	public:
+		entity() = default;
+
 		entity(std::shared_ptr<context> ctx, entt::entity handle, std::shared_ptr<registryHandle> registry)
 			: mCtx(ctx), mHandle(handle), mRegistry(registry)
 		{

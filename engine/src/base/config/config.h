@@ -38,7 +38,6 @@ namespace engine
 	{
 		uint32_t fps = 144;
 		uint32_t gups = 100;
-		uint32_t minimumFps = 5;
 	};
 
 	struct editorCfg

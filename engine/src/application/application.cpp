@@ -73,9 +73,9 @@ namespace engine
 		app = this;
 	}
 
-	void application::addUserSystem(std::unique_ptr<system>&& s)
+	void application::addUserSystem(std::unique_ptr<userSystem>&& s)
 	{
-		mScene->addSystem(std::move(s));
+		mScene->addUserSystem(std::move(s));
 	}
 
 	application::~application()

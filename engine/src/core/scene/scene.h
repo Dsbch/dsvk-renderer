@@ -5,12 +5,13 @@
 
 #include "base/context/context.h"
 #include "core/events/events.h"
-#include "components.h"
 #include "platform/renderer/renderer.h"
+#include "components.h"
 
 namespace engine
 {
-	class system;
+	class coreSystem;
+	class userSystem;
 	class window;
 
 	class registryHandle
@@ -135,16 +136,19 @@ namespace engine
 		error checkError() const;
 
 		void runGameThraed();
-		void addSystem(std::unique_ptr<system>&&);
+		void addUserSystem(std::unique_ptr<userSystem>&&);
 	private:
-		error onEvent(std::shared_ptr<baseEvent> e);
+		void addCoreSystem(std::unique_ptr<coreSystem>&&);
 
-		error onBeginUpdate();
-		error onFixedUpdate(float deltaTime);
-		error onEndUpdate();
+		error onEventCore(std::shared_ptr<baseEvent> e);
+		error onEventUser(std::shared_ptr<baseEvent> e);
+
+		error onUpdateCore(float deltaTime);
+		error onUpdateUser(float deltaTime);
 
 		std::shared_ptr<context> mCtx;
-		std::vector<std::unique_ptr<system>> mSystems;
+		std::vector<std::unique_ptr<coreSystem>> mCoreSystems;
+		std::vector<std::unique_ptr<userSystem>> mUserSystems;
 		std::shared_ptr<registryHandle> mSceneRegistry;
 		co::wait_group mWg;
 		std::atomic<bool> mRunning;

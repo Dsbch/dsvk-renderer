@@ -87,6 +87,8 @@ namespace engine
 		std::shared_ptr<std::vector<skin>> skins;
 		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
 
+		animationComponent() = default;
+
 		// Copy all animations as it changes every frame.
 		animationComponent(std::shared_ptr<std::vector<animation>> aPtr, std::shared_ptr<std::vector<skin>> sPtr)
 			: uid(genUID()), 
@@ -103,8 +105,6 @@ namespace engine
 			}
 		}
 	};
-
-	struct updateAnimationComponent {};
 
 	struct newEntityComponent {};
 }

@@ -103,7 +103,6 @@ project "glfw"
 		runtime "Debug"
 		symbols "on"
 		sanitize { "Address" }
-		flags { "NoRuntimeChecks", "NoIncrementalLink" }
 
    filter "configurations:Debug"
        defines { "DEBUG" }

@@ -4,7 +4,7 @@
 
 namespace sandbox
 {
-	class sandboxSystem : public engine::system
+	class sandboxSystem : public engine::userSystem
 	{
 	public:
 		sandboxSystem(std::shared_ptr<engine::context> ctx);
@@ -17,7 +17,7 @@ namespace sandbox
 		engine::error onEvent(std::shared_ptr<engine::registryHandle> registry, std::shared_ptr<engine::baseEvent> e);
 		
 		engine::error onBeginUpdate(std::shared_ptr<engine::registryHandle> registry);
-		engine::error onFixedUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime);
+		engine::error onUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime);
 		engine::error onEndUpdate(std::shared_ptr<engine::registryHandle> registry);
 	};
 }

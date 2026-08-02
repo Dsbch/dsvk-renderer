@@ -24,7 +24,6 @@ namespace engine
 		j = nlohmann::json{
 			{"fps", p.fps},
 			{"gups", p.gups},
-			{"minimumFps", p.minimumFps},
 		};
 	}
 
@@ -32,7 +31,6 @@ namespace engine
 	{
 		j.at("fps").get_to(p.fps);
 		j.at("gups").get_to(p.gups);
-		j.at("minimumFps").get_to(p.minimumFps);
 	}
 
 	void to_json(nlohmann::json& j, const editorCfg& p)

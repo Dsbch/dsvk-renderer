@@ -21,7 +21,7 @@ namespace sandbox
 	}
 
 	sandboxSystem::sandboxSystem(std::shared_ptr<engine::context> ctx)
-		: engine::system(ctx)
+		: engine::userSystem(ctx)
 	{}
 
 	engine::error sandboxSystem::checkError()
@@ -103,7 +103,7 @@ namespace sandbox
 		return {};
 	}
 
-	engine::error sandboxSystem::onFixedUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
+	engine::error sandboxSystem::onUpdate(std::shared_ptr<engine::registryHandle> registry, float deltaTime)
 	{
 		return {};
 	}
@@ -122,29 +122,6 @@ namespace sandbox
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/catapult.glb",
-					mCtx->config.inner.meshlets.maxVert,
-					mCtx->config.inner.meshlets.maxTriangles,
-					mCtx->config.inner.meshlets.coneWieght,
-					mCtx->config.inner.meshlets.errorLevel
-				);
-				if (!loadedModel)
-					return loadedModel.err();
-
-				engine::entity e{ mCtx, registry };
-
-				auto tr = generateTransform();
-
-				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.1f }, tr.rotation);
-				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
-				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
-				e.addComponent<engine::newEntityComponent>();
-			}
-
-			if (keyPressedEvent->getKey() == engine::key::v)
-			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/mira.glb",
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.coneWieght,
@@ -186,6 +163,31 @@ namespace sandbox
 				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
 				e.addComponent<engine::newEntityComponent>();
 			}
+
+			if (keyPressedEvent->getKey() == engine::key::v)
+			{
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/mira.glb",
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
+				if (!loadedModel)
+					return loadedModel.err();
+
+				engine::entity e{ mCtx, registry };
+
+				auto tr = generateTransform();
+
+				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.1f }, tr.rotation);
+				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
+				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
+				e.addComponent<engine::newEntityComponent>();
+			}
+
+			
 
 			if (keyPressedEvent->getKey() == engine::key::h)
 			{

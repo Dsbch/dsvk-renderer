@@ -43,7 +43,7 @@ Windows only for now.
 ## TODO
 
 **In progress**
-- Optimize ECS systems to run a LOT of animated objects. Now animated objects can stall game thread.
+- Global illumination and reflections with radiance cascades.
 
 **Planned**
 - Hard and soft shadows.

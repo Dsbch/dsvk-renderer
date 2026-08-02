@@ -2,11 +2,13 @@
 
 #include <pch.h>
 #include <entt/entt.hpp>
+
 #include "base/context/context.h"
+#include "platform/window/window.h"
+
 #include "shader.h"
 #include "texture.h"
 #include "vertex.h"
-#include "platform/window/window.h"
 
 namespace engine
 {

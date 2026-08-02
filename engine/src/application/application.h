@@ -9,7 +9,7 @@ namespace engine
 {
 	class window;
 	class scene;
-	class system;
+	class userSystem;
 
 	class application
 	{
@@ -18,7 +18,7 @@ namespace engine
 		virtual ~application();
 
 		std::shared_ptr<context> getAppContext();
-		void addUserSystem(std::unique_ptr<system>&&);
+		void addUserSystem(std::unique_ptr<userSystem>&&);
 		void run();
 		error checkError();
 	protected:
