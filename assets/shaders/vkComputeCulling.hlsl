@@ -30,51 +30,7 @@ ConstantBuffer<perDrawData> drawData[] : register(b7, space0);
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
 RWStructuredBuffer<uint> visabilityBuffer []: register(u8, space0);
 
-struct occlusionCullingData
-{
-    // BS vertical/horizontal pixel length.
-    float pixelLength;
-    // Center of a sphere for zero mip level, meaning for original image.
-    float2 sphereCenterUV;
-    // Closest depth, from center to camera (0, 0).
-    float closestDepth;
-};
-
-occlusionCullingData calculateOcclusionCullingData(float4 worldSpaceSphere, perDrawData dData)
-{
-    occlusionCullingData result;
-    
-    // View space.
-    float4 vsCenter = mul(dData.view, float4(worldSpaceSphere.xyz, 1.0f));
-    float4 vsBorder = float4(vsCenter.x, vsCenter.y + worldSpaceSphere.w, vsCenter.zw);
-    float4 vsClosestToCamera = float4(vsCenter.x, vsCenter.y, vsCenter.z + worldSpaceSphere.w, vsCenter.w);
-    
-    // Clip space.
-    float4 clipToCamera = mul(dData.projection, vsClosestToCamera);
-    float4 clipCenter = mul(dData.projection, vsCenter);
-    float4 clipBorder = mul(dData.projection, vsBorder);
-    
-    // NDC space.
-    float2 ndcToCamera = clipToCamera.xy / clipToCamera.w;
-    
-    result.closestDepth = clipToCamera.z / clipToCamera.w;
-    
-    float2 ndcCenter = clipCenter.xy / clipCenter.w;
-    float2 ndcBorder = clipBorder.xy / clipBorder.w;
-    
-    float2 ndcNormalizedCenter = ((ndcCenter + 1.0f) / 2.0f);
-    float2 ndcNormalizedBorder = ((ndcBorder + 1.0f) / 2.0f);
-    
-    uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(dData.width)), uint(ndcNormalizedCenter.y * float(dData.height)));
-    uint2 ndcBorderPixel = uint2(uint(ndcNormalizedBorder.x * float(dData.width)), uint(ndcNormalizedBorder.y * float(dData.height)));
-    
-    result.pixelLength = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixel));
-    result.sphereCenterUV = ndcNormalizedCenter.xy;
-    
-    return result;
-}
-
-bool isOcluded(occlusionCullingData occData, perDrawData dData)
+bool isOcluded(cullingData occData, perDrawData dData)
 {
     // Floor, because we will sample 2x2 texels for that sphere.
     uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
@@ -130,7 +86,7 @@ void main(uint dtid : SV_DispatchThreadID)
             
         meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
             
-        occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), dData);
+        cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
         bool visible = mesh.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, dData);
              
@@ -208,7 +164,7 @@ void main(uint dtid : SV_DispatchThreadID)
             
             meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
                 
-            occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), dData);
+            cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
             commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : VISIBLE_FIRST_PASS_FLAG_BIT;
                 
@@ -248,7 +204,7 @@ void main(uint dtid : SV_DispatchThreadID)
                 return;
             }
                 
-            occlusionCullingData occData = calculateOcclusionCullingData(float4(worldBounds.center, worldBounds.radius), dData);
+            cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
             commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].selectedLod = selectedLod;
             commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid].visabilityBit = isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : (hasFlag(cmd.visabilityBit, VISIBLE_FIRST_PASS_FLAG_BIT)) ? VISIBLE_FIRST_PASS_FLAG_BIT : VISIBLE_SECOND_PASS_FLAG_BIT;

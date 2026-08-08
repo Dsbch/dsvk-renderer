@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifdef __spirv__
 #define DEFINE_AS_PUSH_CONSTANT [[vk::push_constant]]
@@ -108,7 +108,7 @@ struct command
 };
 
 struct perMeshAttributes
-{   
+{
     float bsRadius;
     float3 bsCenter;
     uint isSkinned;
@@ -329,6 +329,106 @@ float3 transformPoint(transform pointTransform, float3 p)
     return translate(pointTransform.translation, rotate(pointTransform.rotation, scale(pointTransform.scale, p)));
 }
 
+float maxScale(float4x4 m)
+{
+    float3 basisX = mul(m, float4(1.0f, 0.0f, 0.0f, 0.0f)).xyz;
+    float3 basisY = mul(m, float4(0.0f, 1.0f, 0.0f, 0.0f)).xyz;
+    float3 basisZ = mul(m, float4(0.0f, 0.0f, 1.0f, 0.0f)).xyz;
+
+    return max(length(basisX), max(length(basisY), length(basisZ)));
+}
+
+struct cullingData
+{
+    // BS pixel length.
+    float pixelLength;
+    // Center of a sphere for zero mip level, meaning for original image.
+    float2 sphereCenterUV;
+    // Closest depth, from center to camera (0, 0).
+    float closestDepth;
+};
+
+struct sphereScreenExtent
+{
+    float3 vsCenter;
+    float2 ndcCenter;
+    float2 ndcBorderH;
+    float2 ndcBorderV;
+};
+
+sphereScreenExtent calculateSphereScreenExtent(float4 worldSpaceSphere, perDrawData dData)
+{
+    sphereScreenExtent result;
+
+    // View space.
+    float4 vsCenter = mul(dData.view, float4(worldSpaceSphere.xyz, 1.0f));
+
+    result.vsCenter = vsCenter.xyz;
+
+    // View space tangent.
+    float3 fromCamera = vsCenter.xyz - float3(0.0f, 0.0f, 0.0f);
+    float fromCameraLength = length(fromCamera);
+
+    float tangentLength = sqrt(fromCameraLength * fromCameraLength - worldSpaceSphere.w * worldSpaceSphere.w);
+
+    float sinAlpha = tangentLength / fromCameraLength;
+    float cosAlpha = worldSpaceSphere.w / fromCameraLength;
+
+    float heightLength = sinAlpha * worldSpaceSphere.w;
+
+    float3 uFromaCamera = normalize(fromCamera);
+
+    float3 vsTangentH = uFromaCamera * (fromCameraLength - cosAlpha * worldSpaceSphere.w) + normalize(cross(uFromaCamera, cross(uFromaCamera, float3(1.0f, 0.0f, 0.0f)))) * heightLength;
+    float3 vsTangentV = uFromaCamera * (fromCameraLength - cosAlpha * worldSpaceSphere.w) + normalize(cross(uFromaCamera, cross(uFromaCamera, float3(0.0f, 1.0f, 0.0f)))) * heightLength;
+
+    // Clip space.
+    float4 clipCenter = mul(dData.projection, vsCenter);
+    float4 clipBorderH = mul(dData.projection, float4(vsTangentH, 1.0f));
+    float4 clipBorderV = mul(dData.projection, float4(vsTangentV, 1.0f));
+
+    // NDC space.
+    result.ndcCenter = clipCenter.xy / clipCenter.w;
+    result.ndcBorderH = clipBorderH.xy / clipBorderH.w;
+    result.ndcBorderV = clipBorderV.xy / clipBorderV.w;
+
+    return result;
+}
+
+float sphereNdcRadius(float4 worldSpaceSphere, perDrawData dData)
+{
+    sphereScreenExtent extent = calculateSphereScreenExtent(worldSpaceSphere, dData);
+
+    return max(length(extent.ndcCenter - extent.ndcBorderH), length(extent.ndcCenter - extent.ndcBorderV));
+}
+
+cullingData calculateCullingData(float4 worldSpaceSphere, perDrawData dData)
+{
+    cullingData result;
+
+    sphereScreenExtent extent = calculateSphereScreenExtent(worldSpaceSphere, dData);
+
+    float4 vsClosestToCamera = float4(extent.vsCenter.x, extent.vsCenter.y, extent.vsCenter.z + worldSpaceSphere.w, 1.0f);
+    float4 clipClosestToCamera = mul(dData.projection, vsClosestToCamera);
+
+    result.closestDepth = clipClosestToCamera.z / clipClosestToCamera.w;
+
+    float2 ndcNormalizedCenter = ((extent.ndcCenter + 1.0f) / 2.0f);
+    float2 ndcNormalizedBorderH = ((extent.ndcBorderH + 1.0f) / 2.0f);
+    float2 ndcNormalizedBorderV = ((extent.ndcBorderV + 1.0f) / 2.0f);
+
+    uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(dData.width)), uint(ndcNormalizedCenter.y * float(dData.height)));
+    uint2 ndcBorderPixelH = uint2(uint(ndcNormalizedBorderH.x * float(dData.width)), uint(ndcNormalizedBorderH.y * float(dData.height)));
+    uint2 ndcBorderPixelV = uint2(uint(ndcNormalizedBorderV.x * float(dData.width)), uint(ndcNormalizedBorderV.y * float(dData.height)));
+
+    float pixelLengthH = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixelH));
+    float pixelLengthV = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixelV));
+
+    result.pixelLength = max(pixelLengthH, pixelLengthV);
+    result.sphereCenterUV = ndcNormalizedCenter.xy;
+
+    return result;
+}
+
 meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTransform, perMeshAttributes meshAttr)
 {
     meshletBounds result = bounds;
@@ -336,7 +436,7 @@ meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTrans
     result.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, result.coneAxis));
     result.coneAxis = normalize(rotate(modelTransform.rotation, result.coneAxis));
     
-    float uniformScale = max(length(meshAttr.meshGlobalTransform[0].xyz), max(length(meshAttr.meshGlobalTransform[1].xyz), length(meshAttr.meshGlobalTransform[2].xyz)));
+    float uniformScale = maxScale(meshAttr.meshGlobalTransform);
     
     result.center = mul(meshAttr.meshGlobalTransform, float4(result.center, 1.0f)).xyz;
     result.radius *= uniformScale;
@@ -378,7 +478,7 @@ uint selectLodLevel(
     transform modelTransform
 )
 {
-    float uniformScale = max(length(meshAttr.meshGlobalTransform[0].xyz), max(length(meshAttr.meshGlobalTransform[1].xyz), length(meshAttr.meshGlobalTransform[2].xyz)));
+    float uniformScale = maxScale(meshAttr.meshGlobalTransform);
 
     meshAttr.bsCenter = mul(meshAttr.meshGlobalTransform, float4(meshAttr.bsCenter, 1.0f)).xyz;
     meshAttr.bsRadius *= uniformScale;
@@ -388,28 +488,18 @@ uint selectLodLevel(
     meshAttr.bsCenter = transformPoint(modelTransform, meshAttr.bsCenter);
     meshAttr.bsRadius *= uniformScale;
     
-    // Get viewSpace of the center.
-    float4 vsCenter = mul(drawData.view, float4(meshAttr.bsCenter, 1.0f));
-    
-    // Calculate view space for second point that is at the sphere border on y axis.
-    float4 vsBorder = float4(vsCenter.x, vsCenter.y + meshAttr.bsRadius, vsCenter.zw);
-
-    // To NDC for both.
-    float4 clipCenter = mul(drawData.projection, vsCenter);
-    float4 clipBorder = mul(drawData.projection, vsBorder);
-
-    float2 ndcCenter = clipCenter.xy / clipCenter.w;
-    float2 ndcBorder = clipBorder.xy / clipBorder.w;
-    
-    float ndcRadius = length(ndcCenter - ndcBorder);
-    
-    if (ndcRadius * 2 >= 0.2f)   // ~10% of screen.
+    if (length(drawData.cameraPos - meshAttr.bsCenter) <= meshAttr.bsRadius)
         return 1;
     
-    if (ndcRadius * 2 >= 0.1f)   // ~5% of screen.
+    float ndcRadius = sphereNdcRadius(float4(meshAttr.bsCenter, meshAttr.bsRadius), drawData);
+    
+    if (ndcRadius >= 0.2f)   // ~10% of screen.
+        return 1;
+    
+    if (ndcRadius >= 0.1f)   // ~5% of screen.
         return 2;
     
-    if (ndcRadius * 2 >= 0.05f)  // ~2.5% of screen.
+    if (ndcRadius >= 0.05f)  // ~2.5% of screen.
         return 3;
     
     return 4; // < 2.5% of screen.
