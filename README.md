@@ -43,7 +43,9 @@ Windows only for now.
 ## TODO
 
 **In progress**
-- Global illumination and reflections with radiance cascades.
+- Global illumination and reflections with Voxel cone tracing.
+- Voxelize a scene with clipmap. 
+- Build simple raymarching to visualize voxelized scene.
 
 **Planned**
 - Hard and soft shadows.

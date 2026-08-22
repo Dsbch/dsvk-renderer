@@ -56,9 +56,7 @@ namespace engine
 		}
 
 		if (sizeInBytes > newSize)
-		{
 			newSize = sizeInBytes;
-		}
 
 		VmaVirtualBlockCreateInfo vBlockInfo{
 			.size = newSize,
@@ -102,10 +100,9 @@ namespace engine
 			bufferWithHandles{
 				.buffer = buffers,
 				.vBlock = vBlock,
+				.bufferHandles = { handle },
 			}
-			);
-
-		mBuffers.back().bufferHandles.insert(handle);
+		);
 
 		mNeedUpdate = true;
 

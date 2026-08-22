@@ -20,7 +20,7 @@ namespace engine
 
 	renderer::renderPackage::renderPackage(uint32_t framesInFlight)
 		:
-		mCurrentSceneState(framesInFlight)
+		mCurrentSceneState(framesInFlight), mRenderCallParams({})
 	{}
 
 	void renderer::renderPackage::setRenderParams(renderParams params)
@@ -78,9 +78,11 @@ namespace engine
 	{
 		co::mutex_guard l{ mMu };
 
+		using std::swap;
+
 		sceneState sState = {};
 
-		std::swap(sState, mCurrentSceneState[frame]);
+		swap(sState, mCurrentSceneState[frame]);
 
 		return sState;
 	}

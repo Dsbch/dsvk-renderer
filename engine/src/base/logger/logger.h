@@ -26,16 +26,8 @@ namespace engine {
 	};
 }
 
-#ifdef DEBUG
 #define LOGTRACE(...) engine::logger::log()->trace(__VA_ARGS__)
 #define LOGDEBUG(...) engine::logger::log()->debug(__VA_ARGS__)
 #define LOGINFO(...) engine::logger::log()->info(__VA_ARGS__)
 #define LOGWARN(...) engine::logger::log()->warn(__VA_ARGS__)
 #define LOGERROR(...) engine::logger::log()->error(__VA_ARGS__)
-#else
-#define LOGTRACE(...) (void)0
-#define LOGDEBUG(...) (void)0
-#define LOGINFO(...) (void)0
-#define LOGWARN(...) (void)0
-#define LOGERROR(...) (void)0
-#endif

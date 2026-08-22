@@ -24,9 +24,7 @@ namespace engine
 	error application::initApplication()
 	{
 		if (app)
-		{
 			return { "application already created" };
-		}
 
 		if (mCtx->config.inner.log.useFile)
 		{

@@ -2,12 +2,10 @@
 #include <co/all.h>
 #include "sandbox.h"
 
-// Current todo list:
-// Things that have to be unique per frame:
-// 2. Joint buffer.
-// 5. Pre intsance buffer (transform updates).
-// Write more optimized animation system with co::corutines.
-// Do not block game thread on asset load.
+// 1. Calculate scene bounding box.
+// 2. Write new voxel renderer, that will voxelize a scene (depth test off, culling off, ortho projection) into 3D texture.
+// 2.1. Need to implement triangle swizling in mesh shader.
+// 3. Try to visualize voxelized scene using raymarching.
 int main(int argc, char* argv[])
 {
 	flag::parse(argc, argv);
