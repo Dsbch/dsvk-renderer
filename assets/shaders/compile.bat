@@ -165,4 +165,37 @@ if %errorlevel% neq 0 (
 
 echo.
 
+echo Compiling Voxel Task Shader...
+dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationAs.spv vkVoxelization.hlsl
+if %errorlevel% neq 0 (
+    echo Voxel Task Shader compilation failed!
+    pause
+) else (
+    echo Voxel Task Shader compiled successfully.
+)
+
+echo.
+
+echo Compiling Voxel Mesh Shader...
+dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationMs.spv vkVoxelization.hlsl
+if %errorlevel% neq 0 (
+    echo Voxel Mesh Shader compilation failed!
+    pause
+) else (
+    echo Voxel Mesh Shader compiled successfully.
+)
+
+echo.
+
+echo Compiling Voxel Pixel Shader...
+dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkVoxelizationPs.spv vkVoxelization.hlsl
+if %errorlevel% neq 0 (
+    echo Voxel Pixel compilation failed!
+    pause
+) else (
+    echo Voxel Pixel compiled successfully.
+)
+
+echo.
+
 pause

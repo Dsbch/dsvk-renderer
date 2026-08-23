@@ -36,6 +36,33 @@ namespace engine
 		withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<const texture>> makeTextureWithMips(const imageWithMipLevels& img);
 	private:
+		error initVulkan();
+		error setLimits();
+		error initImmediateSubmit();
+		error initSwapchain(uint32_t width, uint32_t height);
+		error loadExtensions();
+
+		error initRenderers(std::shared_ptr<window> window);
+
+		error updatePerDrawBuffer(renderer::renderParams in, voxelDrawParams voxelParams, float deltaTime, uint32_t frameIndex);
+		void chooseGraphicsPreset();
+		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
+		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
+		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
+		error drawUI(VkCommandBuffer cmd);
+
+		void updateProfInfo(float deltaTime, uint32_t frameIndex);
+		void registerSceneMetrics(const model& m, bool isDeleted = false);
+		void visualizeNormals(const model& m);
+		void visualizeAABB(const model& m);
+		void visualizeAABB(const aabb& box);
+
+		error handleEvents();
+		error addToRender(const std::set<model>& addedEntities, uint32_t frameIndex);
+		error updateInstance(const std::set<model>& updatedEntities, uint32_t frameIndex);
+		error updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex);
+		void removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex);
+
 		bool mWindowMinimized;
 		VkDebugUtilsMessengerEXT mDebugMessenger;
 		VkDevice mDevice;
@@ -70,30 +97,5 @@ namespace engine
 
 		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
 		PFN_vkCmdDrawMeshTasksIndirectEXT mVkCmdDrawMeshTasksIndirectEXT;
-		
-		error initVulkan();
-		error setLimits();
-		error initImmediateSubmit();
-		error initSwapchain(uint32_t width, uint32_t height);
-		error loadExtensions();
-
-		error initRenderers(std::shared_ptr<window> window);
-
-		error updatePerDrawBuffer(renderer::renderParams in, float deltaTime, uint32_t frameIndex);
-		void chooseGraphicsPreset();
-		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
-		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
-		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
-		error drawUI(VkCommandBuffer cmd);
-
-		void updateProfInfo(float deltaTime, uint32_t frameIndex);
-		void registerSceneMetrics(const model& m, bool isDeleted = false);
-		void visualizeNormals(const model& m);
-
-		error handleEvents();
-		error addToRender(const std::set<model>& addedEntities, uint32_t frameIndex);
-		error updateInstance(const std::set<model>& updatedEntities, uint32_t frameIndex);
-		error updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex);
-		void removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex);
 	};
 }

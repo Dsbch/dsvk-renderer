@@ -40,7 +40,8 @@ namespace engine
 		mVkCmdDrawMeshTasksEXT(nullptr),
 		mProfInfo(),
 		mSwapChain(ctx->config.inner.graphics.framesInFlight),
-		mUboPerDrawBuffer(ctx->config.inner.graphics.framesInFlight)
+		mUboPerDrawBuffer(ctx->config.inner.graphics.framesInFlight),
+		mUiRenderer({})
 	{
 		mErr = initVulkan();
 		if (mErr)
@@ -73,7 +74,7 @@ namespace engine
 		if (mErr)
 			return;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = gpuProf, .profiler = &mGpuProfiler });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::gpuProf, .profiler = &mGpuProfiler });
 	}
 
 	vulkanRenderer::~vulkanRenderer()
@@ -180,6 +181,7 @@ namespace engine
 		deviceFeatures.sampleRateShading = VK_TRUE;
 		deviceFeatures.shaderStorageImageMultisample = VK_TRUE;
 		deviceFeatures.independentBlend = VK_TRUE;
+		deviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
 
 		//use vkbootstrap to select a gpu. 
 		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features.
@@ -225,7 +227,7 @@ namespace engine
 
 		mDeletionQueue.init(mDevice);
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = allocator, .allocator = mAllocator });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::allocator, .allocator = mAllocator });
 
 		return {};
 	}
@@ -236,7 +238,8 @@ namespace engine
 		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
 
 		mDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
-		mDeviceLimits.maxImage = props.limits.maxPerStageDescriptorStorageImages;
+		mDeviceLimits.maxRWImage = props.limits.maxPerStageDescriptorStorageImages;
+		mDeviceLimits.maxSampledImage = props.limits.maxPerStageDescriptorSampledImages;
 		mDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
 		mDeviceLimits.maxUniformBuffers = props.limits.maxPerStageDescriptorUniformBuffers;
 		mDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
@@ -268,7 +271,7 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = iSub, .iSubmit = &mSubmit });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::iSub, .iSubmit = &mSubmit });
 
 		return {};
 	}
@@ -294,7 +297,7 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = sChain, .sChain = &mSwapChain });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::sChain, .sChain = &mSwapChain });
 
 		return {};
 	}
@@ -310,7 +313,7 @@ namespace engine
 			if (err)
 				return err;
 
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer[i]});
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer[i] });
 		}
 
 		error err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mVkCmdDrawMeshTasksIndirectEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer, mSwapChain);
@@ -328,7 +331,7 @@ namespace engine
 		return {};
 	}
 
-	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in, float deltaTime, uint32_t frameIndex)
+	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in, voxelDrawParams voxelParams, float deltaTime, uint32_t frameIndex)
 	{
 		preDrawData data{
 			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
@@ -343,6 +346,7 @@ namespace engine
 			.deltaTime = deltaTime,
 			.width = in.width,
 			.height = in.height,
+			.voxelParams = voxelParams,
 		};
 
 		mUboPerDrawBuffer[frameIndex].markBytesAsDead(sizeof(preDrawData));
@@ -472,7 +476,7 @@ namespace engine
 		// Render.
 		static auto nextRender = std::chrono::duration_cast<std::chrono::nanoseconds>(mCtx->appTimer.getTimeSinceStart());
 		static auto renderShift = std::chrono::nanoseconds(std::chrono::seconds(1)) / mCtx->config.inner.gameLoop.fps;
-		
+
 		static auto last = std::chrono::steady_clock::now();
 
 		auto now = std::chrono::steady_clock::now();
@@ -519,7 +523,7 @@ namespace engine
 				return err;
 
 			// Update global UBO.
-			err = updatePerDrawBuffer(params, deltaTime, frameIndex);
+			err = updatePerDrawBuffer(params, mMeshletRenderer.getVoxelSceneParams(), deltaTime, frameIndex);
 			if (err)
 				return err;
 
@@ -614,6 +618,19 @@ namespace engine
 				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 				VK_ACCESS_2_SHADER_WRITE_BIT
 			);
+
+			// Just to test voxel scene.
+			{
+				err = mGpuProfiler.beginTimeStamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
+				if (err)
+					return err;
+
+				err = mMeshletRenderer.voxilizeOpaqueGeometry(cmd, params, mSwapChain, frameIndex);
+				if (err)
+					return err;
+
+				mGpuProfiler.endTimestamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
+			}
 
 			err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque", frameIndex);
 			if (err)
@@ -856,6 +873,66 @@ namespace engine
 		}
 	}
 
+	void vulkanRenderer::visualizeAABB(const model& m)
+	{
+		const aabb box = m.calculateWorldSpaceAABB();
+
+		visualizeAABB(box);
+	}
+
+	void vulkanRenderer::visualizeAABB(const aabb& box)
+	{
+
+		const float cosA = glm::dot(glm::normalize(box.min - box.max), glm::vec3{ 0.0f, 0.0f, -1.0f });
+		const float cosB = glm::dot(glm::normalize(box.min - box.max), glm::vec3{ -1.0f, 0.0f, 0.0f });
+		const float cosY = glm::dot(glm::normalize(box.min - box.max), glm::vec3{ 0.0f, -1.0f, 0.0f });
+
+		const float width = glm::length(box.min - box.max) * cosB;
+		const float length = glm::length(box.min - box.max) * cosA;
+		const float height = glm::length(box.min - box.max) * cosY;
+
+		const std::array<glm::vec3, 24> lines{
+			box.max,
+			box.max + glm::vec3{ -1.0f, 0.0f, 0.0f } * width,
+
+			box.max,
+			box.max + glm::vec3{ 0.0f, -1.0f, 0.0f } * height,
+
+			box.max,
+			box.max + glm::vec3{ 0.0f, 0.0f, -1.0f } * length,
+
+			box.min,
+			box.min + glm::vec3{ 1.0f, 0.0f, 0.0f } * width,
+
+			box.min,
+			box.min + glm::vec3{ 0.0f, 1.0f, 0.0f } * height,
+
+			box.min,
+			box.min + glm::vec3{ 0.0f, 0.0f, 1.0f } * length,
+
+			box.min + glm::vec3{ 0.0f, 0.0f, 1.0f } * length,
+			box.max + glm::vec3{ 0.0f, -1.0f, 0.0f } * height,
+
+			box.max + glm::vec3{ 0.0f, 0.0f, -1.0f } * length,
+			box.min + glm::vec3{ 0.0f, 1.0f, 0.0f } * height,
+
+			box.min + glm::vec3{ 0.0f, 0.0f, 1.0f } * length,
+			box.max + glm::vec3{ -1.0f, 0.0f, 0.0f } * width,
+
+			box.max + glm::vec3{ -1.0f, 0.0f, 0.0f } * width,
+			box.min + glm::vec3{ 0.0f, 1.0f, 0.0f } * height,
+
+			box.max + glm::vec3{ 0.0f, -1.0f, 0.0f } * height,
+			box.min + glm::vec3{ 1.0f, 0.0f, 0.0f } * width,
+
+			box.max + glm::vec3{ 0.0f, 0.0f, -1.0f } * length,
+			box.min + glm::vec3{ 1.0f, 0.0f, 0.0f } * width,
+		};
+
+		for (size_t i = 1; i < lines.size(); i += 2)
+			mLineRenderer.addLine(lines[i], lines[i - 1]);
+	}
+
 	error vulkanRenderer::handleEvents()
 	{
 		error err = {};
@@ -891,10 +968,10 @@ namespace engine
 			if (err)
 				return err;
 		}
-		
+
 		return err;
 	}
-	
+
 	error vulkanRenderer::updateInstance(const std::set<model>& updatedEntities, uint32_t frameIndex)
 	{
 		error err = {};
@@ -907,7 +984,7 @@ namespace engine
 
 		return err;
 	}
-	
+
 	error vulkanRenderer::updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex)
 	{
 		error err = {};
@@ -920,7 +997,7 @@ namespace engine
 
 		return err;
 	}
-	
+
 	void vulkanRenderer::removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex)
 	{
 		for (auto& m : deletedEntities)

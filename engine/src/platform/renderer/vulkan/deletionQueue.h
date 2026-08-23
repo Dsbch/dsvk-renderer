@@ -13,10 +13,11 @@
 #include "texture.h"
 #include "gpuProfiler.h"
 #include "commandBuffer.h"
+#include "image.h"
 
 namespace engine
 {
-	enum handleType
+	enum class handleType
 	{
 		allocator,
 		iSub,
@@ -27,6 +28,7 @@ namespace engine
 		buffRegistry,
 		sampler,
 		vulkanBuf,
+		vulkImg,
 		gpuProf,
 		matReg,
 		cmdBuf,
@@ -49,6 +51,7 @@ namespace engine
 			gpuProfiler* profiler;
 			materialRegistry* matReg;
 			commandBuffer* cmdBuf;
+			vulkanImage* img;
 		};
 	};
 

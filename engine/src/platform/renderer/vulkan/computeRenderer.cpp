@@ -159,11 +159,10 @@ namespace engine
 	error computeRenderer::updateSwapchainDependentDescriptors(const swapChain& sChain)
 	{
 		std::vector<VkDescriptorImageInfo> originalZInfo{ VkDescriptorImageInfo{} };
-		originalZInfo.front().sampler = mSampler;
 		originalZInfo.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		originalZInfo.front().imageView = sChain.getDepthImageView(mPreset.msaa > 1);
 
-		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.orignalZBufferBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, originalZInfo);
+		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.orignalZBufferBinding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, originalZInfo);
 
 		mDescriptorSet.updateWrite(wSet);
 
@@ -173,7 +172,6 @@ namespace engine
 		for (auto& h : hzb)
 		{
 			VkDescriptorImageInfo imgInfo{
-				.sampler = mSampler,
 				.imageView = h.img.view,
 				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 			};
@@ -254,7 +252,8 @@ namespace engine
 			device,
 			physicalDevice,
 			poolConstraints{
-				.maxImageDescriptors = limits.maxImage,
+				.maxRWImageDescriptors = limits.maxRWImage,
+				.maxSampledImageDescriptors = limits.maxSampledImage,
 				.maxCombinedImageDescriptors = limits.maxCombinedImageSamplers,
 				.maxBuffersDescriptors = limits.maxStorageBuffers,
 				.maxUniformBuffersDescriptors = limits.maxUniformBuffers,
@@ -263,21 +262,21 @@ namespace engine
 		if (err)
 			return err;
 
-		const uint32_t imageStorage = 1;
-		const uint32_t combinedImageSamplers = 1;
+		const uint32_t imageRWStorage = 1;
+		const uint32_t sampledClassBindings = 1;
 		const uint32_t bufferObjects = 6;
 		const uint32_t uniformBufferObjects = 1;
 
 		// add bindings for hzb.
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.orignalZBufferBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mBindings.orignalZBufferBinding, limits.maxSampledImage / sampledClassBindings, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
 			)
 		);
 
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.hzbBinding, limits.maxImage / imageStorage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+				mBindings.hzbBinding, limits.maxRWImage / imageRWStorage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
 			)
 		);
 
@@ -348,16 +347,8 @@ namespace engine
 		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
 		mDescriptorSet.updateWrite(writeInfo);
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = descSet, .descSet = &mDescriptorSet });
-
-		auto samp = descriptorSet::createSampler(device, float(mPreset.anisotropicFiltering));
-		if (!samp)
-			return samp.err();
-
-		mSampler = samp.value();
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = sampler, .sampler = &mSampler });
-
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mDescriptorSet });
+		
 		return {};
 	}
 
@@ -383,7 +374,7 @@ namespace engine
 		if (buildErr)
 			return buildErr;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = computePipe, .computePipe = &mBuildHzbPipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mBuildHzbPipeline });
 
 		// Init culling pipeline.
 		VkShaderModule cullingModule;
@@ -404,7 +395,7 @@ namespace engine
 		if (buildErr)
 			return buildErr;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = computePipe, .computePipe = &mCullingPipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCullingPipeline });
 
 		// Init compact pipeline.
 		VkShaderModule compactModule;
@@ -425,7 +416,7 @@ namespace engine
 		if (buildErr)
 			return buildErr;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = computePipe, .computePipe = &mCompactCommandsPipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCompactCommandsPipeline });
 
 		return {};
 	}

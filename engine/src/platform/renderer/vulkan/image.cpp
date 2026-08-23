@@ -67,13 +67,13 @@ namespace engine
 		vkCmdPipelineBarrier2(cmd, &depInfo);
 	}
 
-	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels, VkSampleCountFlagBits samples)
+	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, uint32_t mipLevels, VkSampleCountFlagBits samples, VkImageType imageType)
 	{
 		VkImageCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		info.pNext = nullptr;
 
-		info.imageType = VK_IMAGE_TYPE_2D;
+		info.imageType = imageType;
 
 		info.format = format;
 		info.extent = extent;
@@ -91,13 +91,13 @@ namespace engine
 		return info;
 	}
 
-	VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
+	VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags, uint32_t mipLevels, VkImageViewType viewType)
 	{
 		VkImageViewCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		info.pNext = nullptr;
 
-		info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		info.viewType = viewType;
 		info.image = image;
 		info.format = format;
 		info.subresourceRange.levelCount = mipLevels;
@@ -197,7 +197,6 @@ namespace engine
 		VkImageUsageFlags usage = 0;
 		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;       // Needed to copy/upload from a staging buffer
 		usage |= VK_IMAGE_USAGE_SAMPLED_BIT;            // Needed to read in a shader
-		usage |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;	// GPU only memmory.
 		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;       // To generate mipmaps
 
 		VkExtent3D size = VkExtent3D{ .width = uint32_t(rawImage.w), .height = uint32_t(rawImage.h), .depth = 1 };
@@ -391,9 +390,19 @@ namespace engine
 		return {};
 	}
 
-	engine::error vulkanImage::build(submit& is, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples, VkImageLayout neededLayout, bool queue)
+	engine::error vulkanImage::build(
+		submit& is, 
+		VkExtent3D size, 
+		VkFormat format, 
+		VkImageUsageFlags usage, 
+		bool mipmapped, 
+		VkSampleCountFlagBits samples, 
+		VkImageLayout neededLayout, 
+		bool queue,
+		VkImageType imageType
+	)
 	{
-		auto newImage = createImage(size, format, usage, mipmapped, samples);
+		auto newImage = createImage(size, format, usage, mipmapped, samples, imageType);
 		if (!newImage)
 			return newImage.err();
 
@@ -455,7 +464,14 @@ namespace engine
 		img.allocation = VK_NULL_HANDLE;
 	}
 
-	engine::withError<allocatedImage> vulkanImage::createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples)
+	engine::withError<allocatedImage> vulkanImage::createImage(
+		VkExtent3D size, 
+		VkFormat format, 
+		VkImageUsageFlags usage, 
+		bool mipmapped, 
+		VkSampleCountFlagBits samples,
+		VkImageType imageType
+	)
 	{
 		allocatedImage newImage = {};
 
@@ -466,12 +482,12 @@ namespace engine
 		if (mipmapped)
 			mips = image::mipLevels(int(size.width), int(size.height));
 
-		VkImageCreateInfo img_info = imageCreateInfo(format, usage, size, mips, samples);
+		VkImageCreateInfo img_info = imageCreateInfo(format, usage, size, mips, samples, imageType);
 
 		// always allocate images on dedicated GPU memory.
 		VmaAllocationCreateInfo allocinfo = {};
 		allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		allocinfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 		// allocate and create the image
 		auto vkRes = vmaCreateImage(mAllocator, &img_info, &allocinfo, &newImage.image, &newImage.allocation, nullptr);
@@ -486,7 +502,13 @@ namespace engine
 		}
 
 		// build a image-view for the image
-		VkImageViewCreateInfo view_info = imageviewCreateInfo(format, newImage.image, aspectFlag, mips);
+		VkImageViewCreateInfo view_info = imageviewCreateInfo(
+			format, 
+			newImage.image, 
+			aspectFlag, 
+			mips,
+			imageType == VK_IMAGE_VIEW_TYPE_2D ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_3D
+		);
 
 		vkRes = vkCreateImageView(mDevice, &view_info, nullptr, &newImage.view);
 		if (vkRes != VK_SUCCESS)

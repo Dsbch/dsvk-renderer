@@ -182,6 +182,42 @@ namespace engine
 		makeTextureWithMips = std::move(func);
 	}
 
+	
+	withError<std::shared_ptr<const shader>> aManager::getDefaultVoxelTaskShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkVoxelizationAs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<const shader>> aManager::getDefaultVoxelMeshShader()
+	{
+
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkVoxelizationMs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<const shader>> aManager::getDefaultVoxelPixelShader()
+	{
+
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkVoxelizationPs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
 	withError<std::shared_ptr<const shader>> aManager::getDefaultCompositeTaskShader()
 	{
 #ifdef VULKAN

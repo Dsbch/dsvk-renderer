@@ -121,7 +121,7 @@ namespace sandbox
 			if (keyPressedEvent->getKey() == engine::key::e)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/catapult.glb",
+					"../assets/backpack.glb",
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.coneWieght,

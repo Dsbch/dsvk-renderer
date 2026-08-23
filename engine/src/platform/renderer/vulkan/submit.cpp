@@ -42,6 +42,7 @@ namespace engine
 						while (true)
 						{
 							std::pair<VkSemaphore, std::function<void()>> semaAndCleanUp{};
+
 							{
 								co::mutex_guard m{ mu };
 

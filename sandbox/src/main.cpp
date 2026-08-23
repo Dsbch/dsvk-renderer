@@ -6,6 +6,7 @@
 // 2. Write new voxel renderer, that will voxelize a scene (depth test off, culling off, ortho projection) into 3D texture.
 // 2.1. Need to implement triangle swizling in mesh shader.
 // 3. Try to visualize voxelized scene using raymarching.
+// 4. Fix line renderer, lines should be added with renderPackage.
 int main(int argc, char* argv[])
 {
 	flag::parse(argc, argv);

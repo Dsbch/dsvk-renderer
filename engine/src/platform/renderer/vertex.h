@@ -36,6 +36,12 @@ namespace engine
 
 	glm::mat4 toMat4(const transform& trs);
 
+	struct aabb
+	{
+		glm::vec3 min;
+		glm::vec3 max;
+	};
+
 	// Task/Amplification shader cmd buffer.
 	struct meshletShaderCMD
 	{
@@ -251,7 +257,7 @@ namespace engine
 
 	struct perMeshAttributes
 	{
-		float  bsRadius;
+		float	  bsRadius;
 		glm::vec3 bsCenter;
 
 		uint32_t isSkinned;
@@ -281,6 +287,44 @@ namespace engine
 		{
 			return id < other.id;
 		}
+
+		aabb calculateWorldSpaceAABB() const
+		{
+			auto maxScale = [](const glm::mat4x4& mat) -> float
+				{
+					glm::vec3 basisX = mat * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+					glm::vec3 basisY = mat * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
+					glm::vec3 basisZ = mat * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+
+					return std::max(glm::length(basisX), std::max(glm::length(basisY), glm::length(basisZ)));
+				};
+
+			aabb result{
+				.min = glm::vec3{std::numeric_limits<float>::max()},
+				.max = glm::vec3{std::numeric_limits<float>::lowest()},
+			};
+
+			for (auto& pm : *perMeshData.get())
+			{
+				glm::vec3 sphereCenter{ pm.bsCenter };
+				float sphereRadius{ pm.bsRadius };
+
+				float uniformScale = maxScale(pm.meshGlobalTransform);
+
+				sphereCenter = pm.meshGlobalTransform * glm::vec4{ sphereCenter, 1.0f };
+				sphereRadius *= uniformScale;
+
+				uniformScale = std::max(instanceAttributes.modelTransform.scale.x, std::max(instanceAttributes.modelTransform.scale.y, instanceAttributes.modelTransform.scale.z));
+
+				sphereCenter = instanceAttributes.modelTransform.translation + (instanceAttributes.modelTransform.rotation * (instanceAttributes.modelTransform.scale * sphereCenter));
+				sphereRadius *= uniformScale;
+
+				result.max = glm::max(result.max, sphereCenter + glm::vec3{ 1.0f, 1.0f, 1.0f } * sphereRadius);
+				result.min = glm::min(result.min, sphereCenter + glm::vec3{ -1.0f, -1.0f, -1.0f } * sphereRadius);
+			}
+
+			return result;
+		}
 	};
 
 	struct frustum
@@ -297,6 +341,15 @@ namespace engine
 		float topDistance;
 		glm::vec3 worldBottomN;
 		float bottomDistance;
+	};
+
+	struct voxelDrawParams
+	{
+		uint32_t voxelGridExtent;
+		uint32_t voxelSceneUpperBound;
+		glm::mat4 viewVoxel;
+		glm::mat4 projectionVoxel;
+		glm::mat4 viewProjectionVoxel;
 	};
 
 	struct preDrawData
@@ -318,6 +371,8 @@ namespace engine
 
 		uint32_t width;
 		uint32_t height;
+		
+		voxelDrawParams voxelParams;
 	};
 
 	struct pushConstants

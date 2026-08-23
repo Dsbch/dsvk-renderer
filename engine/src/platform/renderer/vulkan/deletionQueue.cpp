@@ -19,50 +19,54 @@ namespace engine
 		{
 			switch (it->type)
 			{
-			case allocator:
+			case handleType::allocator:
 				vmaDestroyAllocator(it->allocator);
 				break;
-			case iSub:
+			case handleType::iSub:
 				if (it->iSubmit)
 					it->iSubmit->destroy();
 				break;
-			case sChain:
+			case handleType::sChain:
 				if (it->sChain)
 					it->sChain->destroy();
 				break;
-			case descSet:
+			case handleType::descSet:
 				if (it->descSet)
 					it->descSet->destroy();
 				break;
-			case computePipe:
+			case handleType::computePipe:
 				if (it->computePipe)
 					it->computePipe->destroy();
 				break;
-			case graphicsPipe:
+			case handleType::graphicsPipe:
 				if (it->graphicsPipe)
 					it->graphicsPipe->destroy();
 				break;
-			case buffRegistry:
+			case handleType::buffRegistry:
 				if (it->buffRegistry)
 					it->buffRegistry->destroy();
 				break;
-			case sampler:
+			case handleType::sampler:
 				if (it->sampler)
 					vkDestroySampler(mDevice, *it->sampler, nullptr);
 				break;
-			case vulkanBuf:
+			case handleType::vulkanBuf:
 				if (it->vulkanBuf)
 					it->vulkanBuf->destroy();
 				break;
-			case gpuProf:
+			case handleType::vulkImg:
+				if (it->img)
+					it->img->destroy();
+				break;
+			case handleType::gpuProf:
 				if (it->profiler)
 					it->profiler->destroy();
 				break;
-			case matReg:
+			case handleType::matReg:
 				if (it->matReg)
 					it->matReg->destroy();
 				break;
-			case cmdBuf:
+			case handleType::cmdBuf:
 				if (it->cmdBuf)
 					it->cmdBuf->destroy();
 				break;

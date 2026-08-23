@@ -42,6 +42,9 @@ namespace engine
 		uint32_t materialArrayBinding;
 		uint32_t accumBinding;
 		uint32_t revealBinding;
+
+		// Voxel bindings.
+		uint32_t clipMapBinding;
 	};
 
 	struct meshletRenderer
@@ -73,7 +76,23 @@ namespace engine
 		error opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
 		error accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
 		error compositePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
+	
+		voxelDrawParams getVoxelSceneParams() const;
+		error voxilizeOpaqueGeometry(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
 	private:
+		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
+		error initDescriptors(
+			VkDevice device, 
+			VkPhysicalDevice physicalDevice,
+			deviceLimits limits, 
+			const std::vector<vulkanBuffer>& UBObuffer
+		);
+		error initBlendingPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is);
+		error initVoxelPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is);
+
+		uint32_t getMaxCmdBufferSize(uint32_t frameIndex) const;
+		aabb getSceneBoundingBox() const;
+
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
 		meshletBindings mBindings;
@@ -107,6 +126,12 @@ namespace engine
 		
 		// Material registry.
 		materialRegistry mMaterialRegistry;
+
+		// Voxel stuff.
+		// N-frames buffered???????
+		vulkanImage mClipMap;
+		graphicsPipeline mVoxelizationPipeline;
+		std::unordered_map<uint32_t, aabb> mSceneAABB;
 		
 		graphicsPipeline mCompositePipeline;
 		graphicsPipeline mAccumilationPipeline;
@@ -116,16 +141,5 @@ namespace engine
 
 		// Compute renderer to make HZB and for culling.
 		computeRenderer mComputeRenderer;
-
-		error initRegistry(VkDevice device, VmaAllocator allocator, submit& is);
-		error initDescriptors(
-			VkDevice device, 
-			VkPhysicalDevice physicalDevice,
-			deviceLimits limits, 
-			const std::vector<vulkanBuffer>& UBObuffer
-		);
-		error initBlendingPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is);
-		
-		uint32_t getMaxCmdBufferSize(uint32_t frameIndex) const;
 	};
 }

@@ -10,7 +10,9 @@ namespace engine
 	struct poolConstraints
 	{
 		// Max number of descriptors of type VK_DESCRIPTOR_TYPE_STORAGE_IMAGE per pool.
-		uint32_t maxImageDescriptors;
+		uint32_t maxRWImageDescriptors;
+		// Max number of descriptors of type VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE per pool.
+		uint32_t maxSampledImageDescriptors;
 		// Max number of descriptors of type VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER per pool.
 		uint32_t maxCombinedImageDescriptors;
 		// Max number of descriptors of type VK_DESCRIPTOR_TYPE_STORAGE_BUFFER per pool.

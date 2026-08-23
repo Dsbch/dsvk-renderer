@@ -49,6 +49,7 @@ namespace engine
 			opaque,
 			accumilation,
 			composite,
+			voxelization,
 		};
 
 		void init(VkDevice device, pipelineType type);

@@ -71,6 +71,12 @@ namespace engine
 			disableDepthtest();
 		}
 
+		if (mType == pipelineType::voxelization)
+		{
+			disableBlending();
+			disableDepthtest();
+		}
+
 		//connect the image format we will draw into, from draw image
 		setColorAttachmentFormats(colorAttachmentFormats);
 		setDepthFormat(depthFormat);

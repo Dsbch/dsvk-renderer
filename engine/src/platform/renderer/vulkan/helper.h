@@ -13,7 +13,8 @@ namespace engine
 		uint32_t maxUniformBuffers;
 		uint32_t maxStorageBuffers;
 		uint32_t maxCombinedImageSamplers;
-		uint32_t maxImage;
+		uint32_t maxRWImage;
+		uint32_t maxSampledImage;
 		VkSampleCountFlagBits maxMultiSampling;
 		float maxFiltering;
 		float timestampPeriod;
@@ -294,6 +295,19 @@ namespace engine
 		}
 
 		return colorAttachment;
+	}
+
+	inline VkRenderingInfo renderingInfo(VkExtent3D renderExtent)
+	{
+		VkRenderingInfo renderInfo{};
+		renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+		renderInfo.pNext = nullptr;
+
+		renderInfo.renderArea = VkRect2D{ VkOffset2D { 0, 0 }, VkExtent2D{.width = renderExtent.width, .height = renderExtent.height} };
+		renderInfo.layerCount = 1;
+		renderInfo.pStencilAttachment = nullptr;
+
+		return renderInfo;
 	}
 
 	inline VkRenderingInfo renderingInfo(VkExtent3D renderExtent, std::vector<VkRenderingAttachmentInfo>& colorAttachments, VkRenderingAttachmentInfo* depthAttachment)

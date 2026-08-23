@@ -29,7 +29,7 @@ namespace engine
 
 		mBindings = meshletBindings{
 			.descriptorSet = 0,
-			.totalDescriptorsCount = 18,
+			.totalDescriptorsCount = 19,
 
 			// Vertex attributes.
 			.positionsBinding = 0,
@@ -54,6 +54,9 @@ namespace engine
 			.materialArrayBinding = 51,
 			.accumBinding = 52,
 			.revealBinding = 53,
+
+			// For voxelization.
+			.clipMapBinding = 101,
 		};
 
 		mDeletionQueue.init(device);
@@ -69,6 +72,10 @@ namespace engine
 			return err;
 
 		err = initBlendingPipelines(device, sChain, allocator, is);
+		if (err)
+			return err;
+
+		err = initVoxelPipelines(device, sChain, allocator, is);
 		if (err)
 			return err;
 
@@ -112,27 +119,27 @@ namespace engine
 		mPerInstanceRegistry.init(device, allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
 		mJointRegistry.init(device, allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPositionRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPositionRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mNormalRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mNormalRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mTangentRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mTangentRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mJointIndexRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointIndexRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mWeightRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mWeightRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mIndexRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mIndexRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPrimitiveRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPrimitiveRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mMeshletRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mMeshletRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerInstanceRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerInstanceRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mJointRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointRegistry });
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = buffRegistry, .buffRegistry = &mPerMeshRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerMeshRegistry });
 
 		auto samp = descriptorSet::createSampler(device, float(mPreset.anisotropicFiltering));
 		if (!samp)
@@ -140,7 +147,7 @@ namespace engine
 
 		mSampler = samp.value();
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = sampler, .sampler = &mSampler });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::sampler, .sampler = &mSampler });
 
 		auto defaultMat = mCtx->mAmanager->loadDetaultMaterial();
 		if (!defaultMat)
@@ -150,7 +157,7 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = matReg, .matReg = &mMaterialRegistry });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::matReg, .matReg = &mMaterialRegistry });
 
 		// Init visability buffers.
 		std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
@@ -165,8 +172,27 @@ namespace engine
 			if (err)
 				return err;
 
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mVisabilityBuffer[i] });
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mVisabilityBuffer[i] });
 		}
+
+		// Init clipmap.
+		mClipMap.init(device, allocator);
+
+		err = mClipMap.build(
+			is,
+			VkExtent3D{ .width = 512, .height = 512, .depth = 512 },
+			VK_FORMAT_R8G8B8A8_UNORM,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			false,
+			VK_SAMPLE_COUNT_1_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,
+			false,
+			VK_IMAGE_TYPE_3D
+		);
+		if (err)
+			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkImg, .img = &mClipMap });
 
 		return {};
 	}
@@ -182,7 +208,8 @@ namespace engine
 			device,
 			physicalDevice,
 			poolConstraints{
-				.maxImageDescriptors = limits.maxImage,
+				.maxRWImageDescriptors = limits.maxRWImage,
+				.maxSampledImageDescriptors = limits.maxSampledImage,
 				.maxCombinedImageDescriptors = limits.maxCombinedImageSamplers,
 				.maxBuffersDescriptors = limits.maxStorageBuffers,
 				.maxUniformBuffersDescriptors = limits.maxUniformBuffers,
@@ -191,27 +218,28 @@ namespace engine
 		if (err)
 			return err;
 
-		const uint32_t combinedImageSamplers = 3;
+		const uint32_t combinedSamplerClassImages = 3;
+		const uint32_t storageImage = 1;
 		const uint32_t bufferObjects = 14;
 		const uint32_t uniformObjects = 1;
 
 		// add bindings for blending stage.
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.accumBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mBindings.accumBinding, limits.maxCombinedImageSamplers / combinedSamplerClassImages, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.revealBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mBindings.revealBinding, limits.maxCombinedImageSamplers / combinedSamplerClassImages, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
 		// add bindings for materials.
 		mDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.materialArrayBinding, limits.maxCombinedImageSamplers / combinedImageSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mBindings.materialArrayBinding, limits.maxCombinedImageSamplers / combinedSamplerClassImages, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
@@ -307,6 +335,12 @@ namespace engine
 			)
 		);
 
+		mDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.clipMapBinding, limits.maxSampledImage / storageImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			)
+		);
+
 		err = mDescriptorSet.build(VK_SHADER_STAGE_ALL, mBindings.totalDescriptorsCount);
 		if (err)
 			return err;
@@ -329,7 +363,16 @@ namespace engine
 		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
 		mDescriptorSet.updateWrite(writeInfo);
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = descSet, .descSet = &mDescriptorSet });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mDescriptorSet });
+
+		// Set descriptor set for clipMap right away.
+		std::vector<VkDescriptorImageInfo> clipMapInfo{ VkDescriptorImageInfo{} };
+		clipMapInfo.front().imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		clipMapInfo.front().imageView = mClipMap.img.view;
+
+		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.clipMapBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, clipMapInfo);
+
+		mDescriptorSet.updateWrite(wSet);
 
 		return {};
 	}
@@ -389,8 +432,8 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mAccumilationPipeline });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = cmdBuf, .cmdBuf = &mAccumilationCommandBuffer });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mAccumilationPipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mAccumilationCommandBuffer });
 
 		meshlets = mCtx->mAmanager->getDefaultCompositeMeshShader();
 		if (!meshlets)
@@ -418,7 +461,40 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mCompositePipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mCompositePipeline });
+
+		return {};
+	}
+
+	error meshletRenderer::initVoxelPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is)
+	{
+		auto meshlets = mCtx->mAmanager->getDefaultVoxelMeshShader();
+		if (!meshlets)
+			return meshlets.err();
+
+		auto task = mCtx->mAmanager->getDefaultVoxelTaskShader();
+		if (!task)
+			return task.err();
+
+		auto pixel = mCtx->mAmanager->getDefaultVoxelPixelShader();
+		if (!pixel)
+			return pixel.err();
+
+		mVoxelizationPipeline.init(device, graphicsPipeline::pipelineType::voxelization);
+
+		error err = mVoxelizationPipeline.build(
+			pixel.value(),
+			meshlets.value(),
+			task.value(),
+			{ mDescriptorSet.getDescriptorSet().second },
+			{},
+			{},
+			sampleCounts(mPreset.msaa)
+		);
+		if (err)
+			return err;
+
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mVoxelizationPipeline });
 
 		return {};
 	}
@@ -430,6 +506,25 @@ namespace engine
 			opaque += v.second.getCommandBufferLoadedSize(frameIndex);
 
 		return std::max(opaque, mAccumilationCommandBuffer.getCommandBufferLoadedSize(frameIndex));
+	}
+
+	aabb meshletRenderer::getSceneBoundingBox() const
+	{
+		aabb result{
+			.min = glm::vec3{std::numeric_limits<float>::max()},
+			.max = glm::vec3{std::numeric_limits<float>::lowest()},
+		};
+
+		if (mSceneAABB.size() == 0)
+			return aabb{};
+
+		for (auto& [_, v] : mSceneAABB)
+		{
+			result.max = glm::max(result.max, v.max);
+			result.min = glm::min(result.min, v.min);
+		}
+
+		return result;
 	}
 
 	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
@@ -913,8 +1008,84 @@ namespace engine
 		return {};
 	}
 
+	voxelDrawParams meshletRenderer::getVoxelSceneParams() const
+	{
+		// For now it's just hardcoded values. Need to figure out where to put them next.
+		const uint32_t voxelSceneUpperBound = 64;
+		const uint32_t voxelGridExtent = 512;
+
+		aabb box = getSceneBoundingBox();
+
+		glm::mat4 view = glm::translate(glm::mat4{ 1.0f }, -(box.max + box.min) * 0.5f);
+
+		const float halfExtent = float(voxelSceneUpperBound) * 0.5f;
+
+		glm::mat4 proj = glm::ortho(
+			-halfExtent, halfExtent,
+			-halfExtent, halfExtent,
+			-halfExtent, halfExtent);
+
+		voxelDrawParams result{
+			.voxelGridExtent = voxelGridExtent,
+			.voxelSceneUpperBound = voxelSceneUpperBound,
+			.viewVoxel = view,
+			.projectionVoxel = proj,
+			.viewProjectionVoxel = proj * view,
+		};
+
+		return result;
+	}
+
+	error meshletRenderer::voxilizeOpaqueGeometry(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
+	{
+		uint32_t cmdBufferIndex = 0;
+		for (auto& [_, v] : mOpaquePipelines)
+		{
+			VkBuffer cmdBuf = v.second.getBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(v.second.getBuffer(frameIndex).getLoadedBytes());
+			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
+
+			// Has to render.
+			if (cmdBufferCount > 0)
+			{
+				VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent());
+
+				vkCmdBeginRendering(cmd, &renderInfo);
+
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().first);
+
+				pushConstants pc{
+					.frameIndex = frameIndex,
+					.cmdBufferCount = cmdBufferCount,
+					.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
+				};
+
+				vkCmdPushConstants(cmd, mVoxelizationPipeline.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+
+				// bind the descriptor set.
+				auto set = mDescriptorSet.getDescriptorSet().first;
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+
+				mVkCmdDrawMeshTasksEXT(
+					cmd,
+					cmdBufferCount / mCtx->config.inner.render.shaderWorkGroup + 1,
+					1,
+					1
+				);
+
+				vkCmdEndRendering(cmd);
+			}
+
+			cmdBufferIndex++;
+		}
+
+		return {};
+	}
+
 	error meshletRenderer::addToRender(VkDevice device, VmaAllocator allocator, submit& is, const swapChain& sChain, const model& m, uint32_t frameIndex)
 	{
+		mSceneAABB[m.id] = m.calculateWorldSpaceAABB();
+
 		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
 		if (!meshShader)
 			return meshShader.err();
@@ -950,8 +1121,8 @@ namespace engine
 
 			mOpaquePipelines[m.mat.pixelShader->hash()] = { pipeline, cmd };
 
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = cmdBuf, .cmdBuf = &mOpaquePipelines[m.mat.pixelShader->hash()].second });
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mOpaquePipelines[m.mat.pixelShader->hash()].first });
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mOpaquePipelines[m.mat.pixelShader->hash()].second });
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mOpaquePipelines[m.mat.pixelShader->hash()].first });
 		}
 
 		if (mOpaquePipelines[m.mat.pixelShader->hash()].second.instanceExists(m.id, frameIndex))
@@ -1172,6 +1343,8 @@ namespace engine
 
 	void meshletRenderer::removeFromRender(const model& m, uint32_t frameIndex)
 	{
+		mSceneAABB.erase(m.id);
+
 		// Execute all schedulded deletes.
 		mPositionRegistry.deleteScheduledBlocks(frameIndex);
 		mNormalRegistry.deleteScheduledBlocks(frameIndex);

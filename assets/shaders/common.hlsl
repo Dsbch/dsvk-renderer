@@ -150,6 +150,12 @@ struct perDrawData
     float deltaTime;
     uint width;
     uint height;
+    
+    uint voxelGridExtent;
+    uint voxelSceneUpperBound;
+    float4x4 viewVoxel;
+    float4x4 projectionVoxel;
+    float4x4 viewProjectionVoxel;
 };
 
 struct meshOutput
@@ -210,6 +216,10 @@ Texture2D reveal : register(t53, space0);
 SamplerState revealSampler : register(s53, space0);
 
 // MATERIALS END.
+
+// Voxel stuff START.
+RWTexture3D<float4> clipMap : register(u101, space0);
+// Voxel stuff END.
 
 float3 getPostition(uint index, uint offset)
 {

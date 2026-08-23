@@ -18,6 +18,9 @@ namespace engine
 		void setMakeTextureFunc(std::function<withError<std::shared_ptr<const texture>>(const image& img)>&& func);
 		void setMakeTextureWithMipsFunc(std::function<withError<std::shared_ptr<const texture>>(const imageWithMipLevels& img)>&& func);
 
+		withError<std::shared_ptr<const shader>> getDefaultVoxelTaskShader();
+		withError<std::shared_ptr<const shader>> getDefaultVoxelMeshShader();
+		withError<std::shared_ptr<const shader>> getDefaultVoxelPixelShader();
 		withError<std::shared_ptr<const shader>> getDefaultCompositeTaskShader();
 		withError<std::shared_ptr<const shader>> getDefaultCompositeMeshShader();
 		withError<std::shared_ptr<const shader>> getDefaultCompositePixelShader();

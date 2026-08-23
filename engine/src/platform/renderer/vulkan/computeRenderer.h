@@ -87,7 +87,6 @@ namespace engine
 		computePipeline mCullingPipeline;
 		computePipeline mCompactCommandsPipeline;
 
-		VkSampler mSampler;
 		descriptorSet mDescriptorSet;
 
 		error initDescriptors(

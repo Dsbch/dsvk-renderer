@@ -12,12 +12,6 @@ namespace engine
 
 	error application::checkError()
 	{
-		if (error err = mWindow->checkError(); err)
-			return err;
-
-		if (error err = mScene->checkError(); err)
-			return err;
-
 		return mErr;
 	}
 
@@ -25,6 +19,8 @@ namespace engine
 	{
 		if (app)
 			return { "application already created" };
+
+		app = this;
 
 		if (mCtx->config.inner.log.useFile)
 		{
@@ -63,12 +59,12 @@ namespace engine
 			return;
 
 		mRenderer = makeRenderer(mCtx, mWindow);
+		if (mErr = mRenderer->checkError(); mErr)
+			return;
 
 		mScene = std::make_unique<scene>(mCtx, mRenderer->getRenderPackage());
 		if (mErr = mScene->checkError(); mErr)
 			return;
-
-		app = this;
 	}
 
 	void application::addUserSystem(std::unique_ptr<userSystem>&& s)

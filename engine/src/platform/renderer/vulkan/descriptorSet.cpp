@@ -21,14 +21,21 @@ namespace engine
 				}
 			);
 
-		if (constraints.maxImageDescriptors != 0)
+		if (constraints.maxRWImageDescriptors != 0)
 			mPoolSizes.push_back(
 				{
 					.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-					.descriptorCount = mConstraints.maxImageDescriptors
+					.descriptorCount = mConstraints.maxRWImageDescriptors
 				}
 			);
 
+		if (constraints.maxSampledImageDescriptors!= 0)
+			mPoolSizes.push_back(
+				{
+					.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+					.descriptorCount = mConstraints.maxSampledImageDescriptors
+				}
+			);
 
 		if (constraints.maxCombinedImageDescriptors != 0)
 			mPoolSizes.push_back(
@@ -182,9 +189,7 @@ namespace engine
 	void descriptorSet::updateWrite(std::vector<VkWriteDescriptorSet>& writeInfo)
 	{
 		for (auto& s : writeInfo)
-		{
 			s.dstSet = mDescriptorSet;
-		}
 
 		vkUpdateDescriptorSets(mDevice, uint32_t(writeInfo.size()), writeInfo.data(), 0, nullptr);
 	}

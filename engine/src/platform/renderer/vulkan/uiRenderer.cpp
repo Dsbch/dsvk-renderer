@@ -80,11 +80,13 @@ namespace engine
 		for (auto& ds : mImGuiDescroptorSets)
 			ImGui_ImplVulkan_RemoveTexture(ds);
 
-		vkDestroySampler(mDevice, mSampler, nullptr);
-
-		ImGui_ImplVulkan_Shutdown();
-		ImGui_ImplGlfw_Shutdown();
-		ImGui::DestroyContext();
+		if (mDevice && mSampler)
+		{
+			vkDestroySampler(mDevice, mSampler, nullptr);
+			ImGui_ImplVulkan_Shutdown();
+			ImGui_ImplGlfw_Shutdown();
+			ImGui::DestroyContext();
+		}
 
 		return {};
 	}

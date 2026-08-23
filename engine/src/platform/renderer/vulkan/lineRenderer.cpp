@@ -32,13 +32,13 @@ namespace engine
 
 		mDeletionQueue.init(device);
 
-		mVertexBuffer.init(device, allocator);
+		mVertexBuffer.init(device, allocator, { true, false });
 
 		error err = mVertexBuffer.build(is, nullptr, sizeof(glm::vec3) * 2 * 5000, 0);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = vulkanBuf, .vulkanBuf = &mVertexBuffer });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mVertexBuffer });
 
 		err = initDescriptors(device, physicalDevice, UBObuffer, limits);
 		if (err)
@@ -145,9 +145,9 @@ namespace engine
 			return pixelShader.err();
 
 		mPipeline.init(device, graphicsPipeline::pipelineType::opaque);
-		
+
 		error err = mPipeline.buildLinePipeline(
-			pixelShader.value(), 
+			pixelShader.value(),
 			vertexShader.value(),
 			{ mDescriptorSet.getDescriptorSet().second },
 			depthFormat,
@@ -157,7 +157,7 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = graphicsPipe, .graphicsPipe = &mPipeline });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mPipeline });
 
 		return {};
 	}
@@ -203,7 +203,7 @@ namespace engine
 		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perDrawDataBinding, bufferInfo, true);
 		mDescriptorSet.updateWrite(writeInfo);
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = descSet, .descSet = &mDescriptorSet });
+		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mDescriptorSet });
 
 		return {};
 	}
