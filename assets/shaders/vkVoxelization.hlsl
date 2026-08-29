@@ -2,12 +2,10 @@
 //  dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkVoxelizationPs.spv vkVoxelization.hlsl
 //  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationAs.spv vkVoxelization.hlsl
 //  add -fspv-debug=vulkan-with-source flag only for debug.
-#define NEED_BINDINGS
 #include "common.hlsl"
 
 // DescriptorSets END.
 
-// Push constant START.
 struct pushConstant
 {
     uint frameIndex;
@@ -17,10 +15,6 @@ struct pushConstant
 
 DEFINE_AS_PUSH_CONSTANT
 pushConstant push;
-
-// Push constant END.
-
-// INPUT END.
 
 // TS START.
 

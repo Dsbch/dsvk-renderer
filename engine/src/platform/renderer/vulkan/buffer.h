@@ -54,6 +54,9 @@ namespace engine
 		size_t getSize() const;
 		size_t getLoadedBytes() const;
 
+		bool needDescriptorUpdate() const;
+		void setUpdated();
+
 		static withError<allocatedBuffer> createBuffer(VmaAllocator allocator, VkDevice device, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, mapFlags flags = {false, false});
 		static void destroyBuffer(VmaAllocator allocator, allocatedBuffer buf);
 	private:
@@ -64,5 +67,6 @@ namespace engine
 
 		size_t mLoadedBytes;
 		size_t mByteSize;
+		bool mNeedDescriptorUpdate;
 	};
 }

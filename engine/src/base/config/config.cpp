@@ -127,14 +127,18 @@ namespace engine
 		j.at("msaa").get_to(p.msaa);
 		j.at("framesInFlight").get_to(p.framesInFlight);
 		j.at("anisotropicFiltering").get_to(p.anisotropicFiltering);
+		j.at("clipMapResolution").get_to(p.clipMapResolution);
+		j.at("voxelSceneUpperBound").get_to(p.voxelSceneUpperBound);
 	}
 
 	void to_json(nlohmann::json& j, const graphicsCfg& p)
 	{
 		j = nlohmann::json{
 			{"msaa", p.msaa},
-			{"anisotropicFiltering", p.anisotropicFiltering},
 			{"framesInFlight", p.framesInFlight},
+			{"anisotropicFiltering", p.anisotropicFiltering},
+			{"clipMapResolution", p.clipMapResolution},
+			{"voxelSceneUpperBound", p.voxelSceneUpperBound},
 		};
 	}
 

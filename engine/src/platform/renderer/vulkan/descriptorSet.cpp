@@ -194,7 +194,7 @@ namespace engine
 		vkUpdateDescriptorSets(mDevice, uint32_t(writeInfo.size()), writeInfo.data(), 0, nullptr);
 	}
 
-	std::pair<VkDescriptorSet, VkDescriptorSetLayout> descriptorSet::getDescriptorSet()
+	std::pair<VkDescriptorSet, VkDescriptorSetLayout> descriptorSet::getDescriptorSet() const
 	{
 		return { mDescriptorSet, mDescriptorSetLayout };
 	}

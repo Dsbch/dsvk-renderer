@@ -14,6 +14,10 @@ namespace engine
 	struct commandBuffer
 	{
 	public:
+		commandBuffer() = default;
+
+		commandBuffer(const commandBuffer&) = delete;
+
 		void init(VkDevice device, VmaAllocator allocator, submit& is, uint32_t framesInFlight);
 		error build(submit& is);
 		void destroy();

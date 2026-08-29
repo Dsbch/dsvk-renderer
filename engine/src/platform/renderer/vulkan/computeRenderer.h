@@ -9,28 +9,11 @@
 #include "helper.h"
 #include "swapChain.h"
 #include "registry.h"
+#include "resourceManager.h"
 #include "platform/renderer/renderer.h"
 
 namespace engine
 {
-	struct computeBindings
-	{
-		uint32_t descriptorSet;
-		uint32_t totalDescriptorsCount;
-
-		// HZB bindings.
-		uint32_t orignalZBufferBinding;
-		uint32_t hzbBinding;
-		// Buffers binding.
-		uint32_t cmdOpaqueBufferBinding;
-		uint32_t cmdAccumilationBufferBinding;
-		uint32_t perMeshBufferBinding;
-		uint32_t meshletBufferBinding;
-		uint32_t perInstanceBufferBinding;
-		uint32_t perDrawDataBufferBinding;
-		uint32_t visabilityBuffer;
-	};
-
 	struct computeRenderer
 	{
 	public:
@@ -42,13 +25,11 @@ namespace engine
 			submit& is,
 			deviceLimits limits,
 			graphicsPreset preset,
-			const std::vector<vulkanBuffer>& UBObuffer,
-			const std::vector<vulkanBuffer>& visabilityBuffer,
-			const swapChain& sChain
+			std::shared_ptr<resourceManager> resourceManager
 		);
 		error destroy();
 
-		error buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex);
+		error buildHZB(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
 
 		struct cullMeshletsParams
 		{
@@ -69,33 +50,16 @@ namespace engine
 		};
 
 		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex);
-
-		error updateSwapchainDependentDescriptors(const swapChain& sChain);
-		error updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
-		error updateAccumilationCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
-		error updatePerMeshBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
-		error updateMeshletBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
-		error updatePerInstancetBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
-		error updateVisabilityBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info);
 	private:
 		std::shared_ptr<context> mCtx;
 		deletionQueue mDeletionQueue;
-		computeBindings mBindings;
 		graphicsPreset mPreset;
+		std::shared_ptr<resourceManager> mResourceManager;
 
 		computePipeline mBuildHzbPipeline;
 		computePipeline mCullingPipeline;
 		computePipeline mCompactCommandsPipeline;
 
-		descriptorSet mDescriptorSet;
-
-		error initDescriptors(
-			VkDevice device,
-			VkPhysicalDevice physicalDevice,
-			const std::vector<vulkanBuffer>& UBObuffer,
-			const std::vector<vulkanBuffer>& visabilityBuffer,
-			deviceLimits limits
-		);
 		error initComputePipeline(VkDevice device);
 	};
 }

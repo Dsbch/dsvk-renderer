@@ -17,6 +17,7 @@
 #include "meshletRenderer.h"
 #include "lineRenderer.h"
 #include "gpuProfiler.h"
+#include "resourceManager.h"
 
 namespace engine
 {
@@ -44,7 +45,6 @@ namespace engine
 
 		error initRenderers(std::shared_ptr<window> window);
 
-		error updatePerDrawBuffer(renderer::renderParams in, voxelDrawParams voxelParams, float deltaTime, uint32_t frameIndex);
 		void chooseGraphicsPreset();
 		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
@@ -83,9 +83,6 @@ namespace engine
 
 		deletionQueue mDeletionQueue;
 
-		// UBO generic data per drawCall.
-		std::vector<vulkanBuffer> mUboPerDrawBuffer;
-
 		// Geometry pass.
 		meshletRenderer mMeshletRenderer;
 		// Line renderer.
@@ -94,6 +91,8 @@ namespace engine
 		uiRenderer mUiRenderer;
 
 		gpuProfiler mGpuProfiler;
+
+		std::shared_ptr<resourceManager> mResourceManager;
 
 		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
 		PFN_vkCmdDrawMeshTasksIndirectEXT mVkCmdDrawMeshTasksIndirectEXT;

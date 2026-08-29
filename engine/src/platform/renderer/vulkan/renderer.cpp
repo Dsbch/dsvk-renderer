@@ -40,7 +40,6 @@ namespace engine
 		mVkCmdDrawMeshTasksEXT(nullptr),
 		mProfInfo(),
 		mSwapChain(ctx->config.inner.graphics.framesInFlight),
-		mUboPerDrawBuffer(ctx->config.inner.graphics.framesInFlight),
 		mUiRenderer({})
 	{
 		mErr = initVulkan();
@@ -64,6 +63,21 @@ namespace engine
 		mCtx->mAmanager->setMakeShaderFunc([&](const std::vector<uint32_t>& src) { return makeShader(src); });
 		mCtx->mAmanager->setMakeTextureFunc([&](const image& img) { return makeTexture(img); });
 		mCtx->mAmanager->setMakeTextureWithMipsFunc([&](const imageWithMipLevels& img) { return makeTextureWithMips(img); });
+
+		mResourceManager = std::make_unique<resourceManager>();
+		mResourceManager->init(mCtx, mDevice, mPreset, mDeviceLimits);
+		mErr = mResourceManager->build(
+			resourceManager::buildParams{
+				.device = mDevice,
+				.physicalDevice = mPhysicalDevice,
+				.allocator = mAllocator,
+				.is = mSubmit,
+				.width = window->getFbWidth(),
+				.height = window->getFbHeight(),
+			}
+			);
+		if (mErr)
+			return;
 
 		mErr = initRenderers(window);
 		if (mErr)
@@ -96,6 +110,8 @@ namespace engine
 			LOGERROR("~vulkanRenderer mLineRenderer.destroy {}", err.err());
 
 		mPackage.reset();
+
+		mResourceManager->destroy();
 
 		mDeletionQueue.flushDeletonQueue();
 	}
@@ -304,58 +320,44 @@ namespace engine
 
 	error vulkanRenderer::initRenderers(std::shared_ptr<window> window)
 	{
-		// Init UBO perDrawBuffer.
-		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
-		{
-			mUboPerDrawBuffer[i].init(mDevice, mAllocator, { true, false });
-
-			error err = mUboPerDrawBuffer[i].buildAsUBO(mSubmit, nullptr, sizeof(preDrawData), 0);
-			if (err)
-				return err;
-
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer[i] });
-		}
-
-		error err = mMeshletRenderer.init(mCtx, mVkCmdDrawMeshTasksEXT, mVkCmdDrawMeshTasksIndirectEXT, mDevice, mPhysicalDevice, mAllocator, mSubmit, mDeviceLimits, mPreset, mUboPerDrawBuffer, mSwapChain);
+		error err = mMeshletRenderer.init(
+			mCtx, 
+			mVkCmdDrawMeshTasksEXT, 
+			mVkCmdDrawMeshTasksIndirectEXT, 
+			mDevice, 
+			mPhysicalDevice, 
+			mAllocator, 
+			mSubmit, 
+			mDeviceLimits, 
+			mPreset, 
+			mResourceManager
+		);
 		if (err)
 			return err;
 
-		err = mLineRenderer.init(mCtx, mDevice, mPhysicalDevice, mAllocator, mSubmit, mUboPerDrawBuffer, mSwapChain.getDepthImageFormat(), mSwapChain.getDrawImageFormat(), mPreset, mDeviceLimits);
+		err = mLineRenderer.init(
+			mCtx, 
+			mDevice, 
+			mPhysicalDevice, 
+			mAllocator, 
+			mSubmit, 
+			mPreset, 
+			mDeviceLimits,
+			mResourceManager
+		);
 		if (err)
 			return err;
 
-		err = mUiRenderer.init(mCtx, window->getGLFWhandle(), mDevice, mPhysicalDevice, mInstance, mGraphicsQueueFamily, mGraphicsQueue, mSwapChain, mPreset);
-		if (err)
-			return err;
-
-		return {};
-	}
-
-	error vulkanRenderer::updatePerDrawBuffer(renderer::renderParams in, voxelDrawParams voxelParams, float deltaTime, uint32_t frameIndex)
-	{
-		preDrawData data{
-			.debugViewProjection = in.debugCameraProjection * in.debugCameraView,
-			.useDebugCamera = in.useDebugCamera,
-			.cameraFront = in.cameraFront,
-			.cameraPos = in.cameraPos,
-			.cameraUp = in.cameraUp,
-			.view = in.view,
-			.projection = in.projection,
-			.viewProjection = in.projection * in.view,
-			.cameraFrustum = in.cameraFrustum,
-			.deltaTime = deltaTime,
-			.width = in.width,
-			.height = in.height,
-			.voxelParams = voxelParams,
-		};
-
-		mUboPerDrawBuffer[frameIndex].markBytesAsDead(sizeof(preDrawData));
-
-		error err = mUboPerDrawBuffer[frameIndex].updateBuffer(
-			mSubmit,
-			&data,
-			sizeof(preDrawData),
-			0
+		err = mUiRenderer.init(
+			mCtx, 
+			window->getGLFWhandle(), 
+			mDevice, 
+			mPhysicalDevice, 
+			mInstance, 
+			mGraphicsQueueFamily, 
+			mGraphicsQueue, 
+			mPreset,
+			mResourceManager
 		);
 		if (err)
 			return err;
@@ -381,7 +383,6 @@ namespace engine
 	{
 		error err = mLineRenderer.drawLines(
 			cmd,
-			mSwapChain,
 			frameIndex
 		);
 		if (err)
@@ -390,7 +391,6 @@ namespace engine
 		err = mMeshletRenderer.opaquePass(
 			cmd,
 			in,
-			mSwapChain,
 			frameIndex
 		);
 		if (err)
@@ -401,18 +401,17 @@ namespace engine
 
 	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer.accumilationPass(cmd, in, mSwapChain, frameIndex);
+		return mMeshletRenderer.accumilationPass(cmd, in, frameIndex);
 	}
 
 	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer.compositePass(cmd, in, mSwapChain, frameIndex);
+		return mMeshletRenderer.compositePass(cmd, in, frameIndex);
 	}
 
 	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
 	{
-		// Draw UI.
-		return mUiRenderer.onRender(cmd, mSwapChain, mProfInfo);
+		return mUiRenderer.onRender(cmd, mProfInfo);
 	}
 
 	std::string vulkanRenderer::getVersion() const
@@ -458,11 +457,17 @@ namespace engine
 		if (swapChainErr)
 			return swapChainErr;
 
-		error err = mMeshletRenderer.updateSwapchainDependentDescriptors(mSwapChain);
-		if (err)
-			return err;
+		mResourceManager->changeViewPort(resourceManager::buildParams{
+				.device = mDevice,
+				.physicalDevice = mPhysicalDevice,
+				.allocator = mAllocator,
+				.is = mSubmit,
+				.width = width,
+				.height = height,
+			}
+		);
 
-		mUiRenderer.updateSwapchainDependentDescriptors(mSwapChain);
+		mUiRenderer.updateViewPortDependantDescriptors();
 
 		return {};
 	}
@@ -514,16 +519,37 @@ namespace engine
 
 			renderer::renderParams params = mPackage->getRenderParams();
 
-			error err = mLineRenderer.updateDescriptors(mAllocator, mSubmit);
-			if (err)
-				return err;
-
-			err = mMeshletRenderer.updateDescriptors(params, mSubmit, mDevice, mAllocator, frameIndex);
+			err = mResourceManager->updateDescriptors(
+				resourceManager::updateDescriptorsParams{
+					.device = mDevice,
+					.allocator = mAllocator,
+					.is = mSubmit,
+					.frameIndex = frameIndex
+				}
+			);
 			if (err)
 				return err;
 
 			// Update global UBO.
-			err = updatePerDrawBuffer(params, mMeshletRenderer.getVoxelSceneParams(), deltaTime, frameIndex);
+			err = mResourceManager->updatePerDrawBuffer(
+				perDrawData{
+					.debugViewProjection = params.debugCameraProjection * params.debugCameraView,
+					.useDebugCamera = params.useDebugCamera,
+					.cameraFront = params.cameraFront,
+					.cameraPos = params.cameraPos,
+					.cameraUp = params.cameraUp,
+					.view = params.view,
+					.projection = params.projection,
+					.viewProjection = params.projection * params.view,
+					.cameraFrustum = params.cameraFrustum,
+					.deltaTime = deltaTime,
+					.width = params.width,
+					.height = params.height,
+					.voxelParams = mMeshletRenderer.getVoxelSceneParams(),
+				},
+				mSubmit,
+				frameIndex
+			);
 			if (err)
 				return err;
 
@@ -552,8 +578,6 @@ namespace engine
 				return err;
 			}
 
-			mSwapChain.pickImageExtent();
-
 			auto resetResult = mSwapChain.resetRenderFence();
 			if (resetResult)
 				return resetResult.err();
@@ -573,12 +597,12 @@ namespace engine
 			if (vkResult != VK_SUCCESS)
 				return vkResultToStr(vkResult);
 
-			setViewportAndSciccors(cmd, mSwapChain.getDrawImageExtent());
+			setViewportAndSciccors(cmd, mResourceManager->getColorAttachmentImage(false).img.extent);
 
 			mGpuProfiler.reset(cmd, frameIndex);
 
 			// Cross frame barriers.
-			mSwapChain.transitionDepthImage(
+			mResourceManager->transitionDepthImage(
 				cmd,
 				VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -587,7 +611,7 @@ namespace engine
 				VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
 			);
 
-			mSwapChain.transitionDrawImage(
+			mResourceManager->transitionColorAttachmentImage(
 				cmd,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -596,21 +620,21 @@ namespace engine
 				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
 			);
 
-			mSwapChain.transitionAccumImage(
+			mResourceManager->transitionAccumImage(
 				cmd,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
 				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
 			);
 
-			mSwapChain.transitionRevealImage(
+			mResourceManager->transitionRevealImage(
 				cmd,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT,
 				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
 			);
 
-			mSwapChain.transitionHzbChainImages(
+			mResourceManager->transitionHzbChainImages(
 				cmd,
 				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
 				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
@@ -625,7 +649,7 @@ namespace engine
 				if (err)
 					return err;
 
-				err = mMeshletRenderer.voxilizeOpaqueGeometry(cmd, params, mSwapChain, frameIndex);
+				err = mMeshletRenderer.voxilizeOpaqueGeometry(cmd, params, frameIndex);
 				if (err)
 					return err;
 
@@ -652,8 +676,8 @@ namespace engine
 			mGpuProfiler.endTimestamp(cmd, "drawTransperent", frameIndex);
 
 			// Transition to sample them as textures in composite pass.
-			mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
 
@@ -664,8 +688,8 @@ namespace engine
 			mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
 
 			// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
-			mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mResourceManager->transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mResourceManager->transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			err = mGpuProfiler.beginTimeStamp(cmd, "drawUI", frameIndex);
 
@@ -676,13 +700,13 @@ namespace engine
 			mGpuProfiler.endTimestamp(cmd, "drawUI", frameIndex);
 
 			// Prepare for next frame.
-			mSwapChain.transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-			mSwapChain.transitionRevealImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-			mSwapChain.transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-			mSwapChain.transitionDepthImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			mResourceManager->transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			mResourceManager->transitionDepthImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 			//transition the draw image and the swapchain image into their correct transfer layouts
-			mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			mResourceManager->transitionColorAttachmentImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
 			mSwapChain.transitionCurrentSwapChainImage(
 				cmd,
@@ -691,10 +715,16 @@ namespace engine
 			);
 
 			// copy from the draw image into the swapchain
-			copyImageToImage(cmd, mSwapChain.getDrawImage(mPreset.msaa > 1), mSwapChain.getCurrentSwapChainImage(), mSwapChain.getResolveImageExtent(), mSwapChain.getSwapChainExtent());
+			copyImageToImage(
+				cmd, 
+				mResourceManager->getColorAttachmentImage(mPreset.msaa > 1).img.image, 
+				mSwapChain.getCurrentSwapChainImage(), 
+				mResourceManager->getColorAttachmentImage(false).img.extent,
+				mSwapChain.getSwapChainExtent()
+			);
 
 			// Transition image back to it's format.
-			mSwapChain.transitionDrawImage(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			mResourceManager->transitionColorAttachmentImage(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 			// set swapchain image layout to Attachment Optimal so we can draw it
 			mSwapChain.transitionCurrentSwapChainImage(
@@ -868,7 +898,12 @@ namespace engine
 				normal = glm::transpose(glm::inverse(glm::mat3(perMeshAttr.meshGlobalTransform))) * normal;
 				normal = glm::normalize(m.instanceAttributes.modelTransform.rotation * normal);
 
-				mLineRenderer.addLine(pos, pos + normal / 10.0f);
+				mLineRenderer.addLine(
+					mDevice,
+					mAllocator,
+					mSubmit,
+					line{ .p1 = pos, .p2 = pos + normal / 10.0f }
+				);
 			}
 		}
 	}
@@ -930,7 +965,12 @@ namespace engine
 		};
 
 		for (size_t i = 1; i < lines.size(); i += 2)
-			mLineRenderer.addLine(lines[i], lines[i - 1]);
+			mLineRenderer.addLine(
+				mDevice,
+				mAllocator,
+				mSubmit,
+				line{ .p1 = lines[i], .p2 = lines[i - 1] }
+			);
 	}
 
 	error vulkanRenderer::handleEvents()
@@ -964,7 +1004,7 @@ namespace engine
 		{
 			registerSceneMetrics(m);
 
-			err = mMeshletRenderer.addToRender(mDevice, mAllocator, mSubmit, mSwapChain, m, frameIndex);
+			err = mMeshletRenderer.addToRender(m, mDevice, mAllocator, mSubmit, frameIndex);
 			if (err)
 				return err;
 		}
@@ -977,7 +1017,7 @@ namespace engine
 		error err = {};
 		for (auto& m : updatedEntities)
 		{
-			err = mMeshletRenderer.updateInstance(m, mSubmit, frameIndex);
+			err = mMeshletRenderer.updateInstance(m, mDevice, mAllocator, mSubmit, frameIndex);
 			if (err)
 				return err;
 		}
@@ -990,7 +1030,7 @@ namespace engine
 		error err = {};
 		for (auto& m : animationUpdatedEntities)
 		{
-			err = mMeshletRenderer.updateAnimations(m, mSubmit, frameIndex);
+			err = mMeshletRenderer.updateAnimations(m, mDevice, mAllocator, mSubmit, frameIndex);
 			if (err)
 				return err;
 		}
@@ -1004,7 +1044,7 @@ namespace engine
 		{
 			registerSceneMetrics(m, true);
 
-			mMeshletRenderer.removeFromRender(m, frameIndex);
+			mMeshletRenderer.removeFromRender(m, mDevice, mAllocator, mSubmit, frameIndex);
 		}
 	}
 }

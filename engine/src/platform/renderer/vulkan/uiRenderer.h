@@ -5,7 +5,7 @@
 #include <imgui.h>
 
 #include "descriptorSet.h"
-#include "swapChain.h"
+#include "resourceManager.h"
 #include "platform/renderer/renderer.h"
 
 
@@ -21,17 +21,20 @@ namespace engine
 			VkInstance instance, 
 			uint32_t queueFamily, 
 			VkQueue queue, 
-			swapChain sChain,
-			graphicsPreset preset
+			graphicsPreset preset,
+			std::shared_ptr<resourceManager> manager
 		);
 		error destroy();
-		error onRender(VkCommandBuffer cmd, const swapChain& sChain, const profilingInfo& profInfo);
-		void updateSwapchainDependentDescriptors(swapChain sChain);
+		error onRender(VkCommandBuffer cmd, const profilingInfo& profInfo);
+		
+		// Should be called when only viewport changed.
+		void updateViewPortDependantDescriptors();
 	private:
 		VkDevice mDevice;
 		std::vector<VkDescriptorSet> mImGuiDescroptorSets;
 		VkSampler mSampler;
 		graphicsPreset mPreset;
+		std::shared_ptr<resourceManager> mResourceManager;
 
 		struct passHistory {
 			float history[128] = {};

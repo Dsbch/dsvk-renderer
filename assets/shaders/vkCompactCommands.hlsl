@@ -20,18 +20,6 @@ struct pushConstant
 DEFINE_AS_PUSH_CONSTANT
 pushConstant push;
 
-Texture2D<float> originalZbuffer : register(t0, space0);
-RWTexture2D<float> hzbChain[] : register(u1, space0);
-RWStructuredBuffer<command> commandOpaqueBuffer[] : register(u2, space0);
-RWStructuredBuffer<command> commandAccumilationBuffer[] : register(u3, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t4, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t5, space0);
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t6, space0);
-ConstantBuffer<perDrawData> drawData[] : register(b7, space0);
-// [0] = visibleCount                                  
-// [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ                 
-RWStructuredBuffer<uint> visabilityBuffer[] : register(u8, space0);
-
 groupshared uint groupVisibleCount;
 groupshared uint groupBase;
 

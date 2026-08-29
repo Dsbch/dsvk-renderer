@@ -15,8 +15,7 @@ namespace engine
 		submit& is,
 		deviceLimits limits,
 		graphicsPreset preset,
-		const std::vector<vulkanBuffer>& UBObuffer,
-		const swapChain& sChain
+		std::shared_ptr<resourceManager> resourceManager
 	)
 	{
 		if (!vkCmdDrawMeshTasksEXT)
@@ -27,63 +26,21 @@ namespace engine
 
 		mCtx = ctx;
 
-		mBindings = meshletBindings{
-			.descriptorSet = 0,
-			.totalDescriptorsCount = 19,
-
-			// Vertex attributes.
-			.positionsBinding = 0,
-			.normalBinding = 1,
-			.tangentBinding = 2,
-			.jointIndexBinding = 3,
-			.wightBinding = 4,
-
-			// Buffers.
-			.perInstanceBinding = 11,
-			.cmdOpaqueBufferBinding = 12,
-			.cmdAccumilationBufferBinding = 13,
-			.indexBinding = 14,
-			.primitiveBinding = 15,
-			.meshletBinding = 16,
-			.jointsBinding = 17,
-			.perMeshBinding = 18,
-			.visabilityBuffer = 19,
-			.perDrawBufferUboBinding = 20,
-
-			// Materials.
-			.materialArrayBinding = 51,
-			.accumBinding = 52,
-			.revealBinding = 53,
-
-			// For voxelization.
-			.clipMapBinding = 101,
-		};
+		mResourceManager = resourceManager;
 
 		mDeletionQueue.init(device);
 
 		mPreset = preset;
 
-		error err = initRegistry(device, allocator, is);
+		error err = initBlendingPipelines(device, allocator, is);
 		if (err)
 			return err;
 
-		err = initDescriptors(device, physicalDevice, limits, UBObuffer);
+		err = initVoxelPipelines(device, allocator, is);
 		if (err)
 			return err;
 
-		err = initBlendingPipelines(device, sChain, allocator, is);
-		if (err)
-			return err;
-
-		err = initVoxelPipelines(device, sChain, allocator, is);
-		if (err)
-			return err;
-
-		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, UBObuffer, mVisabilityBuffer, sChain);
-		if (err)
-			return err;
-
-		err = updateSwapchainDependentDescriptors(sChain);
+		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, mResourceManager);
 		if (err)
 			return err;
 
@@ -99,307 +56,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::initRegistry(VkDevice device, VmaAllocator allocator, submit& is)
-	{
-		mPositionRegistry.init(device, allocator);
-		mNormalRegistry.init(device, allocator);
-		mTangentRegistry.init(device, allocator);
-		mJointIndexRegistry.init(device, allocator);
-		mWeightRegistry.init(device, allocator);
-
-		mIndexRegistry.init(device, allocator);
-
-		mPrimitiveRegistry.init(device, allocator);
-
-		mMeshletRegistry.init(device, allocator);
-
-		mPerMeshRegistry.init(device, allocator);
-
-		// Updated each frame used as MAPPED.
-		mPerInstanceRegistry.init(device, allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
-		mJointRegistry.init(device, allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPositionRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mNormalRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mTangentRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointIndexRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mWeightRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mIndexRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPrimitiveRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mMeshletRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerInstanceRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointRegistry });
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerMeshRegistry });
-
-		auto samp = descriptorSet::createSampler(device, float(mPreset.anisotropicFiltering));
-		if (!samp)
-			return samp.err();
-
-		mSampler = samp.value();
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::sampler, .sampler = &mSampler });
-
-		auto defaultMat = mCtx->mAmanager->loadDetaultMaterial();
-		if (!defaultMat)
-			return defaultMat.err();
-
-		error err = mMaterialRegistry.init(mSampler, defaultMat.value());
-		if (err)
-			return err;
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::matReg, .matReg = &mMaterialRegistry });
-
-		// Init visability buffers.
-		std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
-
-		mVisabilityBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
-
-		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
-		{
-			mVisabilityBuffer[i].init(device, allocator);
-
-			err = mVisabilityBuffer[i].build(is, visDispatch.data(), 2 << 24, sizeof(uint32_t) * 4, true);
-			if (err)
-				return err;
-
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mVisabilityBuffer[i] });
-		}
-
-		// Init clipmap.
-		mClipMap.init(device, allocator);
-
-		err = mClipMap.build(
-			is,
-			VkExtent3D{ .width = 512, .height = 512, .depth = 512 },
-			VK_FORMAT_R8G8B8A8_UNORM,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			false,
-			VK_SAMPLE_COUNT_1_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			false,
-			VK_IMAGE_TYPE_3D
-		);
-		if (err)
-			return err;
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkImg, .img = &mClipMap });
-
-		return {};
-	}
-
-	error meshletRenderer::initDescriptors(
-		VkDevice device,
-		VkPhysicalDevice physicalDevice,
-		deviceLimits limits,
-		const std::vector<vulkanBuffer>& UBObuffer
-	)
-	{
-		error err = mDescriptorSet.init(
-			device,
-			physicalDevice,
-			poolConstraints{
-				.maxRWImageDescriptors = limits.maxRWImage,
-				.maxSampledImageDescriptors = limits.maxSampledImage,
-				.maxCombinedImageDescriptors = limits.maxCombinedImageSamplers,
-				.maxBuffersDescriptors = limits.maxStorageBuffers,
-				.maxUniformBuffersDescriptors = limits.maxUniformBuffers,
-			}
-			);
-		if (err)
-			return err;
-
-		const uint32_t combinedSamplerClassImages = 3;
-		const uint32_t storageImage = 1;
-		const uint32_t bufferObjects = 14;
-		const uint32_t uniformObjects = 1;
-
-		// add bindings for blending stage.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.accumBinding, limits.maxCombinedImageSamplers / combinedSamplerClassImages, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.revealBinding, limits.maxCombinedImageSamplers / combinedSamplerClassImages, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		// add bindings for materials.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.materialArrayBinding, limits.maxCombinedImageSamplers / combinedSamplerClassImages, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-			)
-		);
-
-		// add bindings for vertex attributes.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.positionsBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.normalBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.tangentBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.jointIndexBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.wightBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		// add bindings for buffers.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.perInstanceBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.cmdOpaqueBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.cmdAccumilationBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.indexBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.primitiveBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.meshletBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.jointsBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.perMeshBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.visabilityBuffer, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.perDrawBufferUboBinding, limits.maxUniformBuffers / uniformObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.clipMapBinding, limits.maxSampledImage / storageImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-			)
-		);
-
-		err = mDescriptorSet.build(VK_SHADER_STAGE_ALL, mBindings.totalDescriptorsCount);
-		if (err)
-			return err;
-
-		// Set descriptor for ubo buffer write right away.
-		std::vector<VkDescriptorBufferInfo> bufferInfo{};
-
-		for (auto& b : UBObuffer)
-			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
-
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perDrawBufferUboBinding, bufferInfo, true);
-		mDescriptorSet.updateWrite(writeInfo);
-
-		// Set descriptor for visabilityBuffers right away.
-		bufferInfo = {};
-
-		for (auto& b : mVisabilityBuffer)
-			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
-
-		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
-		mDescriptorSet.updateWrite(writeInfo);
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mDescriptorSet });
-
-		// Set descriptor set for clipMap right away.
-		std::vector<VkDescriptorImageInfo> clipMapInfo{ VkDescriptorImageInfo{} };
-		clipMapInfo.front().imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		clipMapInfo.front().imageView = mClipMap.img.view;
-
-		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.clipMapBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, clipMapInfo);
-
-		mDescriptorSet.updateWrite(wSet);
-
-		return {};
-	}
-
-	error meshletRenderer::updateSwapchainDependentDescriptors(const swapChain& sChain)
-	{
-		std::vector<VkDescriptorImageInfo> info{ VkDescriptorImageInfo{} };
-		info.front().sampler = mSampler;
-		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		info.front().imageView = sChain.getAccumImageView(mPreset.msaa > 1);
-
-		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.accumBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
-
-		mDescriptorSet.updateWrite(wSet);
-
-		info.front().sampler = mSampler;
-		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		info.front().imageView = sChain.getRevealImageView(mPreset.msaa > 1);
-
-		wSet = descriptorSet::getWriteInfo(mBindings.revealBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
-
-		mDescriptorSet.updateWrite(wSet);
-
-		return mComputeRenderer.updateSwapchainDependentDescriptors(sChain);
-	}
-
-	error meshletRenderer::initBlendingPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is)
+	error meshletRenderer::initBlendingPipelines(VkDevice device, VmaAllocator allocator, submit& is)
 	{
 		auto meshlets = mCtx->mAmanager->getDefaultAccumilateMeshShader();
 		if (!meshlets)
@@ -419,21 +76,15 @@ namespace engine
 			pixel.value(),
 			meshlets.value(),
 			task.value(),
-			{ mDescriptorSet.getDescriptorSet().second },
-			sChain.getDepthImageFormat(),
-			{ sChain.getAccumImageFormat(), sChain.getRevealImageFormat() },
+			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
+			mResourceManager->getDepthImage(false).img.format,
+			{ mResourceManager->getAccumImage(false).img.format, mResourceManager->getRevealImage(false).img.format },
 			sampleCounts(mPreset.msaa)
 		);
 		if (err)
 			return err;
 
-		mAccumilationCommandBuffer.init(device, allocator, is, mCtx->config.inner.graphics.framesInFlight);
-		err = mAccumilationCommandBuffer.build(is);
-		if (err)
-			return err;
-
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mAccumilationPipeline });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mAccumilationCommandBuffer });
 
 		meshlets = mCtx->mAmanager->getDefaultCompositeMeshShader();
 		if (!meshlets)
@@ -453,9 +104,9 @@ namespace engine
 			pixel.value(),
 			meshlets.value(),
 			task.value(),
-			{ mDescriptorSet.getDescriptorSet().second },
-			sChain.getDepthImageFormat(),
-			{ sChain.getDrawImageFormat() },
+			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
+			mResourceManager->getDepthImage(false).img.format,
+			{ mResourceManager->getColorAttachmentImage(false).img.format },
 			sampleCounts(mPreset.msaa)
 		);
 		if (err)
@@ -466,7 +117,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::initVoxelPipelines(VkDevice device, const swapChain& sChain, VmaAllocator allocator, submit& is)
+	error meshletRenderer::initVoxelPipelines(VkDevice device, VmaAllocator allocator, submit& is)
 	{
 		auto meshlets = mCtx->mAmanager->getDefaultVoxelMeshShader();
 		if (!meshlets)
@@ -486,7 +137,7 @@ namespace engine
 			pixel.value(),
 			meshlets.value(),
 			task.value(),
-			{ mDescriptorSet.getDescriptorSet().second },
+			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
 			{},
 			{},
 			sampleCounts(mPreset.msaa)
@@ -497,15 +148,6 @@ namespace engine
 		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mVoxelizationPipeline });
 
 		return {};
-	}
-
-	uint32_t meshletRenderer::getMaxCmdBufferSize(uint32_t frameIndex) const
-	{
-		uint32_t opaque{};
-		for (auto& [_, v] : mOpaquePipelines)
-			opaque += v.second.getCommandBufferLoadedSize(frameIndex);
-
-		return std::max(opaque, mAccumilationCommandBuffer.getCommandBufferLoadedSize(frameIndex));
 	}
 
 	aabb meshletRenderer::getSceneBoundingBox() const
@@ -527,15 +169,15 @@ namespace engine
 		return result;
 	}
 
-	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
+	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		uint32_t cmdBufferIndex = 0;
-		for (auto& [_, v] : mOpaquePipelines)
+		for (auto& [k, v] : mOpaquePipelines)
 		{
-			auto [pipeline, pipelineLayout] = v.first.getPipeline();
+			auto [pipeline, pipelineLayout] = v.getPipeline();
 
-			VkBuffer cmdBuf = v.second.getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(v.second.getBuffer(frameIndex).getLoadedBytes());
+			VkBuffer cmdBuf = mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getLoadedBytes());
 			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 			// Has to render.
@@ -570,7 +212,7 @@ namespace engine
 					);
 
 					pipelineBufferBarier(
-						cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 						VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -579,10 +221,10 @@ namespace engine
 						0
 					);
 
-					vkCmdFillBuffer(cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+					vkCmdFillBuffer(cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 					pipelineBufferBarier(
-						cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
 						VK_ACCESS_2_TRANSFER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -608,21 +250,37 @@ namespace engine
 
 					pipelineBufferBarier(
 						cmd,
-						mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
 						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mVisabilityBuffer[frameIndex].getLoadedBytes()),
+						uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getLoadedBytes()),
 						0
 					);
 
-					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
+					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
+						mResourceManager->getColorAttachmentImage(false).img.view,
+						mPreset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+						getResolveMode(mPreset.msaa),
+						nullptr,
+						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+					);
+					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
+						mResourceManager->getDepthImage(false).img.view,
+						mPreset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+						getResolveMode(mPreset.msaa),
+						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+						false
+					);
 
 					std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
 
-					VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+					VkRenderingInfo renderInfo = renderingInfo(
+						mResourceManager->getColorAttachmentImage(false).img.extent,
+						colorAttachments,
+						&depthAttachment
+					);
 
 					vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -636,13 +294,15 @@ namespace engine
 
 					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
-					// bind the descriptor set.
-					auto set = mDescriptorSet.getDescriptorSet().first;
-					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+					mResourceManager->bindDescriptorSets(
+						cmd,
+						VK_PIPELINE_BIND_POINT_GRAPHICS,
+						pipelineLayout
+					);
 
 					mVkCmdDrawMeshTasksIndirectEXT(
 						cmd,
-						mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						sizeof(uint32_t),
 						1,
 						12
@@ -654,7 +314,7 @@ namespace engine
 				// SECOND PASS.
 				{
 					// Build HZB.					
-					sChain.transitionDepthImage(
+					mResourceManager->transitionDepthImage(
 						cmd,
 						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -664,12 +324,12 @@ namespace engine
 						VK_ACCESS_2_SHADER_READ_BIT
 					);
 
-					error err = mComputeRenderer.buildHZB(cmd, in, sChain, frameIndex);
+					error err = mComputeRenderer.buildHZB(cmd, in, frameIndex);
 					if (err)
 						return err;
 
 					// Wait for HZB to generate.
-					for (auto& hzb : sChain.getHZB())
+					for (auto& hzb : mResourceManager->getHZB())
 					{
 						pipelineImageBarrier(
 							cmd,
@@ -691,7 +351,7 @@ namespace engine
 							.cmdBufferCount = cmdBufferCount,
 							.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
-							.hzbLength = uint32_t(sChain.getHzbSize()),
+							.hzbLength = uint32_t(mResourceManager->getHZB().size()),
 						},
 						frameIndex
 						);
@@ -711,7 +371,7 @@ namespace engine
 					);
 
 					pipelineBufferBarier(
-						cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_MEMORY_READ_BIT,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -720,10 +380,10 @@ namespace engine
 						0
 					);
 
-					vkCmdFillBuffer(cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+					vkCmdFillBuffer(cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 					pipelineBufferBarier(
-						cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
 						VK_ACCESS_2_TRANSFER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -749,17 +409,17 @@ namespace engine
 
 					pipelineBufferBarier(
 						cmd,
-						mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mVisabilityBuffer[frameIndex].getLoadedBytes()),
+						uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getLoadedBytes()),
 						0
 					);
 
 					// Transition depth after build HZB.
-					sChain.transitionDepthImage(
+					mResourceManager->transitionDepthImage(
 						cmd,
 						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
@@ -769,12 +429,24 @@ namespace engine
 						VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
 					);
 
-					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
+					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
+						mResourceManager->getColorAttachmentImage(false).img.view,
+						mPreset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+						getResolveMode(mPreset.msaa),
+						nullptr,
+						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+					);
+					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
+						mResourceManager->getDepthImage(false).img.view,
+						mPreset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+						getResolveMode(mPreset.msaa),
+						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+						false
+					);
 
 					std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
 
-					VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+					VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent, colorAttachments, &depthAttachment);
 
 					vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -788,13 +460,15 @@ namespace engine
 
 					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
-					// bind the descriptor set.
-					auto set = mDescriptorSet.getDescriptorSet().first;
-					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+					mResourceManager->bindDescriptorSets(
+						cmd,
+						VK_PIPELINE_BIND_POINT_GRAPHICS,
+						pipelineLayout
+					);
 
 					mVkCmdDrawMeshTasksIndirectEXT(
 						cmd,
-						mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						sizeof(uint32_t),
 						1,
 						12
@@ -810,13 +484,13 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
+	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		// Add image barier, need to wait for opaque pass to finish for early depth test in accumilation pass.
 		pipelineImageBarrier(
 			cmd,
-			sChain.getDepthImage(false),
-			sChain.getDepthImageFormat(),
+			mResourceManager->getDepthImage(false).img.image,
+			mResourceManager->getDepthImage(false).img.format,
 			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
 			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
@@ -829,8 +503,8 @@ namespace engine
 		};
 
 		VkRenderingAttachmentInfo accumAttachment = attachmentInfo(
-			sChain.getAccumImageView(false),
-			mPreset.msaa <= 1 ? nullptr : sChain.getAccumImageView(true),
+			mResourceManager->getAccumImage(false).img.view,
+			mPreset.msaa <= 1 ? nullptr : mResourceManager->getAccumImage(true).img.view,
 			getResolveMode(mPreset.msaa),
 			&clear,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
@@ -839,8 +513,8 @@ namespace engine
 		clear.color = VkClearColorValue{ 1.0f, 0.0f, 0.0f, 1.0f };
 
 		VkRenderingAttachmentInfo revealAttachment = attachmentInfo(
-			sChain.getRevealImageView(false),
-			mPreset.msaa <= 1 ? nullptr : sChain.getRevealImageView(true),
+			mResourceManager->getRevealImage(false).img.view,
+			mPreset.msaa <= 1 ? nullptr : mResourceManager->getRevealImage(true).img.view,
 			getResolveMode(mPreset.msaa),
 			&clear,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
@@ -848,14 +522,24 @@ namespace engine
 
 		std::vector<VkRenderingAttachmentInfo> colorAttachments = { accumAttachment, revealAttachment };
 
-		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(sChain.getDepthImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDepthImageView(true), getResolveMode(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, false);
+		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
+			mResourceManager->getDepthImage(false).img.view,
+			mPreset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+			getResolveMode(mPreset.msaa),
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			false
+		);
 
-		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, &depthAttachment);
+		VkRenderingInfo renderInfo = renderingInfo(
+			mResourceManager->getColorAttachmentImage(false).img.extent,
+			colorAttachments,
+			&depthAttachment
+		);
 
 		auto [pipeline, pipelineLayout] = mAccumilationPipeline.getPipeline();
 
-		VkBuffer cmdBuf = mAccumilationCommandBuffer.getBuffer(frameIndex).getBuffer().buffer;
-		uint32_t cmdBufSize = uint32_t(mAccumilationCommandBuffer.getBuffer(frameIndex).getLoadedBytes());
+		VkBuffer cmdBuf = mResourceManager->mAccumilationCommandBuffer.getBuffer(frameIndex).getBuffer().buffer;
+		uint32_t cmdBufSize = uint32_t(mResourceManager->mAccumilationCommandBuffer.getBuffer(frameIndex).getLoadedBytes());
 		uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 		// Nothing to render.
@@ -876,7 +560,7 @@ namespace engine
 			computeRenderer::cullMeshletsParams{
 				.cmdBufferCount = cmdBufferCount,
 				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
-				.hzbLength = uint32_t(sChain.getHzbSize()),
+				.hzbLength = uint32_t(mResourceManager->getHZB().size()),
 			},
 			frameIndex
 			);
@@ -896,7 +580,7 @@ namespace engine
 		);
 
 		pipelineBufferBarier(
-			cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -905,10 +589,10 @@ namespace engine
 			0
 		);
 
-		vkCmdFillBuffer(cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+		vkCmdFillBuffer(cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 		pipelineBufferBarier(
-			cmd, mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -933,23 +617,23 @@ namespace engine
 
 		pipelineBufferBarier(
 			cmd,
-			mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(mVisabilityBuffer[frameIndex].getSize()),
+			uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getSize()),
 			0
 		);
 
 		pipelineBufferBarier(
 			cmd,
-			mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(mVisabilityBuffer[frameIndex].getLoadedBytes()),
+			uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getLoadedBytes()),
 			0
 		);
 
@@ -965,13 +649,11 @@ namespace engine
 
 		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
-		// bind the descriptor set.
-		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout);
 
 		mVkCmdDrawMeshTasksIndirectEXT(
 			cmd,
-			mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 			sizeof(uint32_t),
 			1,
 			12
@@ -982,14 +664,24 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
+	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		// Composite opaque and transperent.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(false), mPreset.msaa <= 1 ? nullptr : sChain.getDrawImageView(true), getResolveMode(mPreset.msaa), nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
+			mResourceManager->getColorAttachmentImage(false).img.view,
+			mPreset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+			getResolveMode(mPreset.msaa),
+			nullptr,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		);
 
 		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
 
-		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, nullptr);
+		VkRenderingInfo renderInfo = renderingInfo(
+			mResourceManager->getColorAttachmentImage(false).img.extent,
+			colorAttachments,
+			nullptr
+		);
 
 		vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -997,9 +689,7 @@ namespace engine
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-		// bind the descriptor set.
-		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout);
 
 		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
 
@@ -1036,19 +726,19 @@ namespace engine
 		return result;
 	}
 
-	error meshletRenderer::voxilizeOpaqueGeometry(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
+	error meshletRenderer::voxilizeOpaqueGeometry(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		uint32_t cmdBufferIndex = 0;
-		for (auto& [_, v] : mOpaquePipelines)
+		for (auto& [k, v] : mOpaquePipelines)
 		{
-			VkBuffer cmdBuf = v.second.getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(v.second.getBuffer(frameIndex).getLoadedBytes());
+			VkBuffer cmdBuf = mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getLoadedBytes());
 			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 			// Has to render.
 			if (cmdBufferCount > 0)
 			{
-				VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent());
+				VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent);
 
 				vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -1062,9 +752,7 @@ namespace engine
 
 				vkCmdPushConstants(cmd, mVoxelizationPipeline.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
 
-				// bind the descriptor set.
-				auto set = mDescriptorSet.getDescriptorSet().first;
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+				mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().second);
 
 				mVkCmdDrawMeshTasksEXT(
 					cmd,
@@ -1082,20 +770,20 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::addToRender(VkDevice device, VmaAllocator allocator, submit& is, const swapChain& sChain, const model& m, uint32_t frameIndex)
+	error meshletRenderer::addToRender(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
 	{
 		mSceneAABB[m.id] = m.calculateWorldSpaceAABB();
 
-		auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
-		if (!meshShader)
-			return meshShader.err();
-
-		auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
-		if (!taskShader)
-			return taskShader.err();
-
 		if (!mOpaquePipelines.contains(m.mat.pixelShader->hash()))
 		{
+			auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
+			if (!meshShader)
+				return meshShader.err();
+
+			auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
+			if (!taskShader)
+				return taskShader.err();
+
 			graphicsPipeline pipeline{};
 
 			pipeline.init(device, graphicsPipeline::pipelineType::opaque);
@@ -1104,524 +792,64 @@ namespace engine
 				m.mat.pixelShader,
 				meshShader.value(),
 				taskShader.value(),
-				{ mDescriptorSet.getDescriptorSet().second },
-				sChain.getDepthImageFormat(),
-				{ sChain.getDrawImageFormat() },
+				{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
+				mResourceManager->getDepthImage(false).img.format,
+				{ mResourceManager->getColorAttachmentImage(false).img.format },
 				sampleCounts(mPreset.msaa)
 			);
 			if (err)
 				return err;
 
-			commandBuffer cmd{};
+			mOpaquePipelines[m.mat.pixelShader->hash()] = pipeline;
 
-			cmd.init(device, allocator, is, mCtx->config.inner.graphics.framesInFlight);
-			err = cmd.build(is);
-			if (err)
-				return err;
-
-			mOpaquePipelines[m.mat.pixelShader->hash()] = { pipeline, cmd };
-
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mOpaquePipelines[m.mat.pixelShader->hash()].second });
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mOpaquePipelines[m.mat.pixelShader->hash()].first });
+			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mOpaquePipelines[m.mat.pixelShader->hash()] });
 		}
 
-		if (mOpaquePipelines[m.mat.pixelShader->hash()].second.instanceExists(m.id, frameIndex))
-			return {};
-
-		// Upload material.
-		auto materialOffsets = mMaterialRegistry.addMaterials(m.mat);
-		if (!materialOffsets)
-			return materialOffsets.err();
-
-		perInstanceAttr attr = m.instanceAttributes;
-		attr.jointIndex = std::numeric_limits<uint32_t>::max();
-		attr.jointOffset = std::numeric_limits<uint32_t>::max();
-
-		// Upload animation data.
-		if (m.anims.jointMatrices && m.anims.jointMatrices->size() != 0)
-		{
-			auto jointHandle = mJointRegistry.addBlock(m.id, m.anims.jointMatrices->data(), m.anims.jointMatrices->size() * sizeof(glm::mat4), is);
-			if (!jointHandle)
-				return jointHandle.err();
-
-			attr.jointIndex = jointHandle.value().bufferIndex;
-			attr.jointOffset = jointHandle.value().offset / uint32_t(sizeof(glm::mat4));
-		}
-
-		attr.globalMaterialOffset = materialOffsets.value();
-
-		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
-			m.id,
-			&attr,
-			sizeof(perInstanceAttr),
-			is
-		);
-		if (!perInstanceHandle)
-			return perInstanceHandle.err();
-
-		commandBuffer::addInstanceParams addParams{
-			.instanceID = m.id,
-			.perInstanceHandle = perInstanceHandle.value(),
-			.meshesData = {},
-			.isBlendGeometry = m.mat.hasBlendMaterials(),
-			.frameIndex = frameIndex,
-		};
-
-		for (int i = 0; i < m.meshData->size(); i++)
-		{
-			const mesh& crntMesh = m.meshData->operator[](i);
-			perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
-
-			bufferHandle vertexHandle{};
-			// Upload common vertex attributes.
-			auto handle = mPositionRegistry.addBlock(
-				crntMesh.meshHash,
-				crntMesh.positions.data(),
-				crntMesh.positions.size() * sizeof(glm::vec4),
-				is
-			);
-			if (!handle)
-				return handle.err();
-
-			handle = mNormalRegistry.addBlock(
-				crntMesh.meshHash,
-				crntMesh.normal.data(),
-				crntMesh.normal.size() * sizeof(glm::vec4),
-				is
-			);
-			if (!handle)
-				return handle.err();
-
-			handle = mTangentRegistry.addBlock(
-				crntMesh.meshHash,
-				crntMesh.tangent.data(),
-				crntMesh.tangent.size() * sizeof(glm::vec4),
-				is
-			);
-			if (!handle)
-				return handle.err();
-
-			vertexHandle = handle.value();
-
-			bufferHandle weightHandle{};
-			// Upload skin data if needed.
-			if (crntMeshAttrs.isSkinned && !crntMesh.jointIndices.empty() && !crntMesh.weights.empty())
-			{
-				handle = mJointIndexRegistry.addBlock(
-					crntMesh.meshHash,
-					crntMesh.jointIndices.data(),
-					crntMesh.jointIndices.size() * sizeof(glm::uvec4),
-					is
-				);
-				if (!handle)
-					return handle.err();
-
-				handle = mWeightRegistry.addBlock(
-					crntMesh.meshHash,
-					crntMesh.weights.data(),
-					crntMesh.weights.size() * sizeof(glm::vec4),
-					is
-				);
-				if (!handle)
-					return handle.err();
-
-				weightHandle = handle.value();
-			}
-
-			auto perMeshHandle = mPerMeshRegistry.addBlock(
-				crntMesh.meshHash,
-				&crntMeshAttrs,
-				sizeof(perMeshAttributes),
-				is
-			);
-			if (!perMeshHandle)
-				return perMeshHandle.err();
-
-			std::vector<meshlet> meshlets = crntMesh.meshlets.data;
-
-			auto indexHandle = mIndexRegistry.addBlock(
-				crntMesh.meshHash,
-				crntMesh.indices.data.data(),
-				crntMesh.indices.data.size() * sizeof(uint32_t),
-				is
-			);
-			if (!handle)
-				return handle.err();
-
-			auto primitivesHandle = mPrimitiveRegistry.addBlock(
-				crntMesh.meshHash,
-				crntMesh.primitives.data.data(),
-				crntMesh.primitives.data.size() * sizeof(uint32_t),
-				is
-			);
-			if (!handle)
-				return handle.err();
-
-			for (auto& m : meshlets)
-			{
-				// Set offset + index for vertex attribs.
-				m.vertexBufferOffset = vertexHandle.offset / sizeof(glm::vec4);
-				m.vertexBufferIndex = vertexHandle.bufferIndex;
-				m.perMeshBufferOffset = perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
-				m.perMeshBufferIndex = perMeshHandle.value().bufferIndex;
-				// Set offset + index for vertex anim attribs.
-				m.weightBufferOffset = weightHandle.offset / sizeof(glm::vec4);
-				m.weightBufferIndex = weightHandle.bufferIndex;
-
-				m.triangleBufferOffset += primitivesHandle.value().offset / uint32_t(sizeof(uint32_t));
-				m.triangleBufferIndex = primitivesHandle.value().bufferIndex;
-
-				m.indexBufferOffset += indexHandle.value().offset / uint32_t(sizeof(uint32_t));
-				m.indexBufferIndex = indexHandle.value().bufferIndex;
-			}
-
-			handle = mMeshletRegistry.addBlock(
-				crntMesh.meshHash,
-				meshlets.data(),
-				meshlets.size() * sizeof(meshlet),
-				is
-			);
-			if (!handle)
-				return handle.err();
-
-			addParams.meshesData.push_back(
-				commandBuffer::meshes{
-					.meshID = crntMesh.meshHash,
-					.meshHandle = perMeshHandle.value(),
-					.meshletHandle = handle.value(),
-					.meshlets = crntMesh.meshlets,
-				}
-				);
-		}
-
-		if (addParams.isBlendGeometry)
-		{
-			error err = mAccumilationCommandBuffer.addInstance(addParams);
-			if (err)
-				return err;
-		}
-
-		// Have to add because some materials can have BLEND enabled for material but have opaque geometry too.
-		// Cutoff goes here too.
-		error err = mOpaquePipelines[m.mat.pixelShader->hash()].second.addInstance(addParams);
-		if (err)
-			return err;
-
-		return {};
-	}
-
-	error meshletRenderer::updateInstance(const model& m, submit& is, uint32_t frameIndex)
-	{
-		// Get material offsets or upload as new.
-		auto materialOffsets = mMaterialRegistry.getMaterialsOffset(m.mat);
-		if (!materialOffsets)
-		{
-			materialOffsets = mMaterialRegistry.addMaterials(m.mat);
-			if (!materialOffsets)
-				return materialOffsets.err();
-		}
-
-		// Form new instance attrs.
-		perInstanceAttr attr = m.instanceAttributes;
-		attr.globalMaterialOffset = materialOffsets.value();
-
-		auto jointHandle = mJointRegistry.findBlock(m.id);
-		if (jointHandle)
-		{
-			attr.jointIndex = jointHandle.value().bufferIndex;
-			attr.jointOffset = jointHandle.value().offset / uint32_t(sizeof(glm::mat4));
-		}
-
-		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), is, frameIndex);
-	}
-
-	error meshletRenderer::updateAnimations(const model& m, submit& is, uint32_t frameIndex)
-	{
-		// Update animation data.
-		return mJointRegistry.updateBlock(m.id, m.anims.jointMatrices->data(), m.anims.jointMatrices->size() * sizeof(glm::mat4), is, frameIndex);
-	}
-
-	void meshletRenderer::removeFromRender(const model& m, uint32_t frameIndex)
-	{
-		mSceneAABB.erase(m.id);
-
-		// Execute all schedulded deletes.
-		mPositionRegistry.deleteScheduledBlocks(frameIndex);
-		mNormalRegistry.deleteScheduledBlocks(frameIndex);
-		mTangentRegistry.deleteScheduledBlocks(frameIndex);
-		mJointIndexRegistry.deleteScheduledBlocks(frameIndex);
-		mWeightRegistry.deleteScheduledBlocks(frameIndex);
-		mIndexRegistry.deleteScheduledBlocks(frameIndex);
-		mPrimitiveRegistry.deleteScheduledBlocks(frameIndex);
-		mMeshletRegistry.deleteScheduledBlocks(frameIndex);
-		mPerMeshRegistry.deleteScheduledBlocks(frameIndex);
-		mPerInstanceRegistry.deleteScheduledBlocks(frameIndex);
-		mJointRegistry.deleteScheduledBlocks(frameIndex);
-
-		mMaterialRegistry.deleteScheduledMaterials(frameIndex);
-
-		if (!mOpaquePipelines.contains(m.mat.pixelShader->hash()))
-			return;
-
-		mPerInstanceRegistry.scheduleDeleteBlock(m.id, frameIndex);
-
-		for (int i = 0; i < m.meshData->size(); i++)
-		{
-			auto& [pipeline, cmd] = mOpaquePipelines[m.mat.pixelShader->hash()];
-
-			const mesh& crntMesh = m.meshData->operator[](i);
-			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
-
-			// Remove instance.
-			cmd.removeInstance(
-				commandBuffer::removeInstanceParams{
-					.instanceID = m.id,
-					.meshID = crntMesh.meshHash,
-					.frameIndex = frameIndex,
-				}
-				);
-
-			mAccumilationCommandBuffer.removeInstance(
-				commandBuffer::removeInstanceParams{
-					.instanceID = m.id,
-					.meshID = crntMesh.meshHash,
-					.frameIndex = frameIndex,
-				}
-				);
-
-			// Remove animation data.
-			mJointRegistry.scheduleDeleteBlock(m.id, frameIndex);
-
-			// Mesh isn't used.
-			if (!cmd.meshIsUsed(crntMesh.meshHash, frameIndex) && !mAccumilationCommandBuffer.meshIsUsed(crntMesh.meshHash, frameIndex))
-			{
-				mPositionRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-
-				mNormalRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-
-				mTangentRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-
-				if (crntMeshAttrs.isSkinned)
-				{
-					mJointIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-					mWeightRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-				}
-
-				mIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-
-				mPrimitiveRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-
-				mMeshletRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-
-				mMaterialRegistry.scheduleDeleteMaterials(m.mat.hash, frameIndex);
-
-				mPerMeshRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-			}
-		}
-	}
-
-	error meshletRenderer::updateDescriptors(renderer::renderParams in, submit& is, VkDevice device, VmaAllocator allocator, uint32_t frameIndex)
-	{
-		// Update command buffer for mesh pipeline.
-		for (auto& [_, p] : mOpaquePipelines)
-		{
-			error err = p.second.updateCommandBuffer(
-				commandBuffer::updateCommandBufferParams{
-					.device = device,
-					.allocator = allocator,
-					.is = is,
-					.frameIndex = frameIndex,
-				}
-				);
-			if (err)
-				return err;
-		}
-
-		error err = mAccumilationCommandBuffer.updateCommandBuffer(
-			commandBuffer::updateCommandBufferParams{
+		return mResourceManager->addToRender(resourceManager::instanceParams{
 				.device = device,
 				.allocator = allocator,
 				.is = is,
-				.frameIndex = frameIndex,
+				.m = m,
+				.frameIndex = frameIndex
 			}
-			);
-		if (err)
-			return err;
+		);
+	}
 
-		bool needUpdate = false;
-
-		for (auto& [_, p] : mOpaquePipelines)
-			needUpdate |= p.second.needDescriptorUpdate();
-
-		// update cmd opaque buffer.
-		if (needUpdate)
-		{
-			std::vector<VkDescriptorBufferInfo> buffersInfo{};
-
-			for (auto& [_, p] : mOpaquePipelines)
-			{
-				auto info = p.second.getBufferInfo();
-				buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
+	error meshletRenderer::updateInstance(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
+	{
+		return mResourceManager->updateInstance(resourceManager::instanceParams{
+				.device = device,
+				.allocator = allocator,
+				.is = is,
+				.m = m,
+				.frameIndex = frameIndex
 			}
+		);
+	}
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, buffersInfo);
+	error meshletRenderer::updateAnimations(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
+	{
+		return mResourceManager->updateAnimations(resourceManager::instanceParams{
+				.device = device,
+				.allocator = allocator,
+				.is = is,
+				.m = m,
+				.frameIndex = frameIndex
+			}
+		);
+	}
 
-			mDescriptorSet.updateWrite(writeInfo);
+	void meshletRenderer::removeFromRender(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
+	{
+		mSceneAABB.erase(m.id);
 
-			error err = mComputeRenderer.updateOpaqueCmdBufferDescriptors(buffersInfo);
-			if (err)
-				return err;
-
-			for (auto& [_, p] : mOpaquePipelines)
-				p.second.setUpdated();
-		}
-
-		// update cmd accumilation buffer.
-		if (mAccumilationCommandBuffer.needDescriptorUpdate())
-		{
-			std::vector<VkDescriptorBufferInfo> buffersInfo{};
-
-			auto info = mAccumilationCommandBuffer.getBufferInfo();
-			buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
-
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, buffersInfo);
-
-			mDescriptorSet.updateWrite(writeInfo);
-
-			error err = mComputeRenderer.updateAccumilationCmdBufferDescriptors(buffersInfo);
-			if (err)
-				return err;
-
-			mAccumilationCommandBuffer.setUpdated();
-		}
-
-		if (mPositionRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mPositionRegistry.getWriteInfo(mBindings.positionsBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mPositionRegistry.setUpdated();
-		}
-
-		if (mNormalRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mNormalRegistry.getWriteInfo(mBindings.normalBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mNormalRegistry.setUpdated();
-		}
-
-		if (mTangentRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mTangentRegistry.getWriteInfo(mBindings.tangentBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mTangentRegistry.setUpdated();
-		}
-
-		if (mJointIndexRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mJointIndexRegistry.getWriteInfo(mBindings.jointIndexBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mJointIndexRegistry.setUpdated();
-		}
-
-		if (mWeightRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mWeightRegistry.getWriteInfo(mBindings.wightBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mWeightRegistry.setUpdated();
-		}
-
-		if (mIndexRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mIndexRegistry.getWriteInfo(mBindings.indexBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mIndexRegistry.setUpdated();
-		}
-
-		if (mPrimitiveRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mPrimitiveRegistry.getWriteInfo(mBindings.primitiveBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mPrimitiveRegistry.setUpdated();
-		}
-
-		if (mMeshletRegistry.needDescriptorUpdate())
-		{
-			auto bufInfo = mMeshletRegistry.getBufferInfo();
-
-			error err = mComputeRenderer.updateMeshletBufferDescriptors(bufInfo);
-			if (err)
-				return err;
-
-			auto writeInfo = mMeshletRegistry.getWriteInfo(mBindings.meshletBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mMeshletRegistry.setUpdated();
-		}
-
-		if (mPerInstanceRegistry.needDescriptorUpdate())
-		{
-			auto bufInfo = mPerInstanceRegistry.getBufferInfo();
-
-			error err = mComputeRenderer.updatePerInstancetBufferDescriptors(bufInfo);
-			if (err)
-				return err;
-
-			auto writeInfo = mPerInstanceRegistry.getWriteInfo(mBindings.perInstanceBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mPerInstanceRegistry.setUpdated();
-		}
-
-		if (mJointRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mJointRegistry.getWriteInfo(mBindings.jointsBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mJointRegistry.setUpdated();
-		}
-
-		if (mPerMeshRegistry.needDescriptorUpdate())
-		{
-			auto bufInfo = mPerMeshRegistry.getBufferInfo();
-
-			error err = mComputeRenderer.updatePerMeshBufferDescriptors(bufInfo);
-			if (err)
-				return err;
-
-			auto writeInfo = mPerMeshRegistry.getWriteInfo(mBindings.perMeshBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mPerMeshRegistry.setUpdated();
-		}
-
-		// Update materials.
-		if (mMaterialRegistry.needDescriptorUpdate())
-		{
-			auto writeInfo = mMaterialRegistry.getWriteInfo(mBindings.materialArrayBinding);
-			mDescriptorSet.updateWrite(writeInfo);
-			mMaterialRegistry.setUpdated();
-		}
-
-		// Resize visability buffer if needed.
-		if (uint32_t max = getMaxCmdBufferSize(frameIndex) * sizeof(uint32_t) / sizeof(meshletShaderCMD); max > (mVisabilityBuffer[frameIndex].getSize() - 4 * sizeof(uint32_t)))
-		{
-			mVisabilityBuffer[frameIndex].destroy();
-
-			std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
-
-			error err = mVisabilityBuffer[frameIndex].build(is, visDispatch.data(), max + 4 * sizeof(uint32_t), sizeof(uint32_t) * 4, true);
-			if (err)
-				return err;
-
-			std::vector<VkDescriptorBufferInfo> bufferInfo{};
-
-			for (auto& b : mVisabilityBuffer)
-				bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
-
-			err = mComputeRenderer.updateVisabilityBufferDescriptors(bufferInfo);
-			if (err)
-				return err;
-
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
-			mDescriptorSet.updateWrite(writeInfo);
-		}
-
-		return {};
+		return mResourceManager->removeFromRender(resourceManager::instanceParams{
+				.device = device,
+				.allocator = allocator,
+				.is = is,
+				.m = m,
+				.frameIndex = frameIndex
+			}
+		);
 	}
 }

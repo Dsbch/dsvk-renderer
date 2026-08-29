@@ -352,7 +352,7 @@ namespace engine
 		glm::mat4 viewProjectionVoxel;
 	};
 
-	struct preDrawData
+	struct perDrawData
 	{
 		glm::mat4 debugViewProjection;
 
@@ -400,9 +400,10 @@ namespace engine
 		uint32_t frameIndex;
 	};
 
-	struct lineVertex
+	struct line
 	{
-		glm::vec3 position;
+		glm::vec3 p1;
+		glm::vec3 p2;
 	};
 }
 

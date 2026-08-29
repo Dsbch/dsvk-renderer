@@ -24,130 +24,9 @@ namespace engine
 		return mFrames[getCurrentFrameIndex()];
 	}
 
-	VkFormat swapChain::getDrawImageFormat() const
-	{
-		return mDrawImage.img.format;
-	}
-
-	VkFormat swapChain::getDepthImageFormat() const
-	{
-		return mDepthImage.img.format;
-	}
-
-	VkFormat swapChain::getAccumImageFormat() const
-	{
-		return mAccumImage.img.format;
-	}
-
-	VkFormat swapChain::getRevealImageFormat() const
-	{
-		return mRevealImage.img.format;
-	}
-
-	VkFormat swapChain::getResolveImageFormat() const
-	{
-		return mResolveImage.img.format;
-	}
-
-	VkExtent3D swapChain::getDrawImageExtent() const
-	{
-		return mDrawImage.img.extent;
-	}
-
-	VkExtent3D swapChain::getDepthImageExtent() const
-	{
-		return mDepthImage.img.extent;
-	}
-
-	VkExtent3D swapChain::getAccumImageExtent() const
-	{
-		return mAccumImage.img.extent;
-	}
-
-	VkExtent3D swapChain::getRevealImageExtent() const
-	{
-		return mRevealImage.img.extent;
-	}
-
-	VkExtent3D swapChain::getResolveImageExtent() const
-	{
-		return mResolveImage.img.extent;
-	}
-
-	VkImage swapChain::getDrawImage(bool needResolve) const
-	{
-		if (needResolve)
-			return mResolveImage.img.image;
-
-		return mDrawImage.img.image;
-	}
-
-	VkImage swapChain::getDepthImage(bool needResolve) const
-	{
-		if (needResolve)
-			return mDepthResolveImage.img.image;
-
-		return mDepthImage.img.image;
-	}
-
-	VkImage swapChain::getAccumImage(bool needResolve) const
-	{
-		if (needResolve)
-			return mAccumResolveImage.img.image;
-
-		return mAccumImage.img.image;
-	}
-
-	VkImage swapChain::getRevealImage(bool needResolve) const
-	{
-		if (needResolve)
-			return mRevealResolveImage.img.image;
-
-		return mRevealImage.img.image;
-	}
-
-	VkImageView swapChain::getDrawImageView(bool needResolve) const
-	{
-		if (needResolve)
-			return mResolveImage.img.view;
-
-		return mDrawImage.img.view;
-	}
-
-	VkImageView swapChain::getDepthImageView(bool needResolve) const
-	{
-		if (needResolve)
-			return mDepthResolveImage.img.view;
-
-		return mDepthImage.img.view;
-	}
-
-	VkImageView swapChain::getAccumImageView(bool needResolve) const
-	{
-		if (needResolve)
-			return mAccumResolveImage.img.view;
-
-		return mAccumImage.img.view;
-	}
-
-	VkImageView swapChain::getRevealImageView(bool needResolve) const
-	{
-		if (needResolve)
-			return mRevealResolveImage.img.view;
-
-		return mRevealImage.img.view;
-	}
-
 	void swapChain::increment()
 	{
 		mFrameNumber++;
-	}
-
-	void swapChain::pickImageExtent()
-	{
-		// here we pick needed height and width of our images.
-		mDrawImage.img.extent.height = std::min(mSwapchainExtent.height, mDrawImage.img.extent.height);
-		mDrawImage.img.extent.width = std::min(mSwapchainExtent.width, mDrawImage.img.extent.width);
 	}
 
 	VkSwapchainKHR& swapChain::getSwapChain()
@@ -284,92 +163,7 @@ namespace engine
 		mSwapchain = result.value().swapchain;
 		mSwapchainImages = result.value().get_images().value();
 		mSwapchainImageViews = result.value().get_image_views().value();
-
-		// build drawImage.
-		VkExtent3D drawImageExtent = {
-			width,
-			height,
-			1
-		};
-
-		mDrawImage.img.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-		mDrawImage.img.extent = drawImageExtent;
-
-		VkImageUsageFlags drawImageUsages{};
-		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
-		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-		VkImageUsageFlags depthImageUsages{};
-		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-		error err = mDrawImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		err = mResolveImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		err = mDepthImage.build(is, drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		err = mDepthResolveImage.build(is, drawImageExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		// Build images for OIT.
-		const VkImageUsageFlags weightedUsages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-		err = mAccumImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		err = mAccumResolveImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		err = mRevealImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		err = mRevealResolveImage.build(is, drawImageExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		if (err)
-			return err;
-
-		// Build HZB.
-		uint32_t mip0Width = (std::max)(1u, width >> 1);
-		uint32_t mip0Height = (std::max)(1u, height >> 1);
-
-		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height))));
-
-		mHZB.clear();
-
-		VkExtent3D mipExtent = { mip0Width, mip0Height, 1 };
-
-		for (uint32_t l = 0; l < hzbMipLevels; l++)
-		{
-			const uint32_t mipWidth = (std::max)(1u, width >> (l + 1));
-			const uint32_t mipHeight = (std::max)(1u, height >> (l + 1));
-
-			vulkanImage currentDepth{};
-
-			currentDepth.init(mDevice, mAllocator);
-
-			mipExtent.width = mipWidth;
-			mipExtent.height = mipHeight;
-
-			err = currentDepth.build(is, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
-			if (err)
-				return err;
-
-			mHZB.push_back(std::move(currentDepth));
-		}
-
+		
 		return {};
 	}
 
@@ -421,15 +215,6 @@ namespace engine
 		mSurface = surface;
 		mChosenGPU = chosenGPU;
 		mPreset = preset;
-
-		mDrawImage.init(mDevice, mAllocator);
-		mDepthImage.init(mDevice, mAllocator);
-		mDepthResolveImage.init(mDevice, mAllocator);
-		mResolveImage.init(mDevice, mAllocator);
-		mAccumImage.init(mDevice, mAllocator);
-		mRevealImage.init(mDevice, mAllocator);
-		mAccumResolveImage.init(mDevice, mAllocator);
-		mRevealResolveImage.init(mDevice, mAllocator);
 	}
 
 	void swapChain::destroy()
@@ -444,18 +229,6 @@ namespace engine
 			vkDestroySemaphore(mDevice, mFrames[i].swapchainSemaphore, nullptr);
 		}
 
-		mDepthImage.destroy();
-		mDepthResolveImage.destroy();
-		mDrawImage.destroy();
-		mResolveImage.destroy();
-		mAccumResolveImage.destroy();
-		mRevealResolveImage.destroy();
-		mAccumImage.destroy();
-		mRevealImage.destroy();
-
-		for (auto& d : mHZB)
-			d.destroy();
-
 		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
 
 		mSwapchain = VK_NULL_HANDLE;
@@ -463,22 +236,13 @@ namespace engine
 		for (int i = 0; i < mSwapchainImageViews.size(); i++)
 			vkDestroyImageView(mDevice, mSwapchainImageViews[i], nullptr);
 	}
-	uint32_t swapChain::getHzbSize() const
-	{
-		return uint32_t(mHZB.size());
-	}
-
-	const std::vector<vulkanImage>& swapChain::getHZB() const
-	{
-		return mHZB;
-	}
-
+	
 	void swapChain::transitionCurrentSwapChainImage(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) const
 	{
 		transitionImage(
 			cmd,
 			getCurrentSwapChainImage(),
-			getDrawImageFormat(),
+			mSwapchainImageFormat,
 			current,
 			newLayout,
 			srcStageMask,
@@ -486,174 +250,5 @@ namespace engine
 			dstStageMask,
 			dstAccessMask
 		);
-	}
-
-	void swapChain::transitionDrawImage(
-		VkCommandBuffer cmd,
-		VkImageLayout current,
-		VkImageLayout newLayout,
-		VkPipelineStageFlags2 srcStageMask,
-		VkAccessFlags2 srcAccessMask,
-		VkPipelineStageFlags2 dstStageMask,
-		VkAccessFlags2 dstAccessMask
-	) const
-	{
-		transitionImage(
-			cmd,
-			getDrawImage(false),
-			getDrawImageFormat(),
-			current,
-			newLayout,
-			srcStageMask,
-			srcAccessMask,
-			dstStageMask,
-			dstAccessMask
-		);
-
-		if (mPreset.msaa > 1)
-		{
-			transitionImage(
-				cmd,
-				getDrawImage(true),
-				getDrawImageFormat(),
-				current,
-				newLayout,
-				srcStageMask,
-				srcAccessMask,
-				dstStageMask,
-				dstAccessMask
-			);
-		}
-	}
-
-	void swapChain::transitionDepthImage(
-		VkCommandBuffer cmd,
-		VkImageLayout current,
-		VkImageLayout newLayout,
-		VkPipelineStageFlags2 srcStageMask,
-		VkAccessFlags2 srcAccessMask,
-		VkPipelineStageFlags2 dstStageMask,
-		VkAccessFlags2 dstAccessMask
-	) const
-	{
-		transitionImage(
-			cmd,
-			getDepthImage(false),
-			getDepthImageFormat(),
-			current,
-			newLayout,
-			srcStageMask,
-			srcAccessMask,
-			dstStageMask,
-			dstAccessMask
-		);
-
-		if (mPreset.msaa > 1)
-		{
-			transitionImage(
-				cmd,
-				getDepthImage(true),
-				getDepthImageFormat(),
-				current,
-				newLayout,
-				srcStageMask,
-				srcAccessMask,
-				dstStageMask,
-				dstAccessMask
-			);
-		}
-	}
-	void swapChain::transitionAccumImage(
-		VkCommandBuffer cmd,
-		VkImageLayout current,
-		VkImageLayout newLayout,
-		VkPipelineStageFlags2 srcStageMask,
-		VkAccessFlags2 srcAccessMask,
-		VkPipelineStageFlags2 dstStageMask,
-		VkAccessFlags2 dstAccessMask
-	) const
-	{
-		transitionImage(
-			cmd,
-			getAccumImage(false),
-			getAccumImageFormat(),
-			current,
-			newLayout,
-			srcStageMask,
-			srcAccessMask,
-			dstStageMask,
-			dstAccessMask
-		);
-
-		if (mPreset.msaa > 1)
-		{
-			transitionImage(
-				cmd,
-				getAccumImage(true),
-				getAccumImageFormat(),
-				current,
-				newLayout,
-				srcStageMask,
-				srcAccessMask,
-				dstStageMask,
-				dstAccessMask
-			);
-		}
-	}
-
-	void swapChain::transitionRevealImage(
-		VkCommandBuffer cmd,
-		VkImageLayout current,
-		VkImageLayout newLayout,
-		VkPipelineStageFlags2 srcStageMask,
-		VkAccessFlags2 srcAccessMask,
-		VkPipelineStageFlags2 dstStageMask,
-		VkAccessFlags2 dstAccessMask
-	) const
-	{
-		transitionImage(
-			cmd,
-			getRevealImage(false),
-			getRevealImageFormat(),
-			current,
-			newLayout,
-			srcStageMask,
-			srcAccessMask,
-			dstStageMask,
-			dstAccessMask
-		);
-
-		if (mPreset.msaa > 1)
-		{
-			transitionImage(
-				cmd,
-				getRevealImage(true),
-				getRevealImageFormat(),
-				current,
-				newLayout,
-				srcStageMask,
-				srcAccessMask,
-				dstStageMask,
-				dstAccessMask
-			);
-		}
-	}
-
-	void swapChain::transitionHzbChainImages(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) const
-	{
-		for (auto& hzb : getHZB())
-		{
-			transitionImage(
-				cmd,
-				hzb.img.image,
-				hzb.img.format,
-				current,
-				newLayout,
-				srcStageMask,
-				srcAccessMask,
-				dstStageMask,
-				dstAccessMask
-			);
-		}
 	}
 }

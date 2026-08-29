@@ -11,45 +11,18 @@ namespace engine
 		submit& is,
 		deviceLimits limits,
 		graphicsPreset preset,
-		const std::vector<vulkanBuffer>& UBObuffer,
-		const std::vector<vulkanBuffer>& visabilityBuffer,
-		const swapChain& sChain
+		std::shared_ptr<resourceManager> resourceManager
 	)
 	{
 		mCtx = ctx;
-
-		mBindings = computeBindings{
-			.descriptorSet = 0,
-			.totalDescriptorsCount = 9,
-
-			.orignalZBufferBinding = 0,
-			.hzbBinding = 1,
-
-			.cmdOpaqueBufferBinding = 2,
-			.cmdAccumilationBufferBinding = 3,
-
-			.perMeshBufferBinding = 4,
-			.meshletBufferBinding = 5,
-			.perInstanceBufferBinding = 6,
-
-			.perDrawDataBufferBinding = 7,
-
-			.visabilityBuffer = 8,
-		};
 
 		mDeletionQueue.init(device);
 
 		mPreset = preset;
 
-		error err = initDescriptors(device, physicalDevice, UBObuffer, visabilityBuffer, limits);
-		if (err)
-			return err;
+		mResourceManager = resourceManager;
 
-		err = initComputePipeline(device);
-		if (err)
-			return err;
-
-		err = updateSwapchainDependentDescriptors(sChain);
+		error err = initComputePipeline(device);
 		if (err)
 			return err;
 
@@ -63,17 +36,20 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderParams in, const swapChain& sChain, uint32_t frameIndex)
+	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		if (in.useDebugCamera)
 			return {};
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mBuildHzbPipeline.getPipeline().first);
 
-		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mBuildHzbPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		mResourceManager->bindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			mBuildHzbPipeline.getPipeline().second
+		);
 
-		auto hzbBuf = sChain.getHZB();
+		auto hzbBuf = mResourceManager->getHZB();
 		for (uint32_t i = 0; i < hzbBuf.size(); i++)
 		{
 			if (i > 0)
@@ -115,8 +91,11 @@ namespace engine
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingPipeline.getPipeline().first);
 
-		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		mResourceManager->bindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			mBuildHzbPipeline.getPipeline().second
+		);
 
 		computePushConstants pc{
 			.frameIndex = frameIndex,
@@ -138,8 +117,11 @@ namespace engine
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().first);
 
-		auto set = mDescriptorSet.getDescriptorSet().first;
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().second, mBindings.descriptorSet, 1, &set, 0, nullptr);
+		mResourceManager->bindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			mBuildHzbPipeline.getPipeline().second
+		);
 
 		computePushConstants pc{
 			.frameIndex = frameIndex,
@@ -153,202 +135,6 @@ namespace engine
 
 		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / mCtx->config.inner.render.compactWorkGroup + 1, 1, 1);
 
-		return {};
-	}
-
-	error computeRenderer::updateSwapchainDependentDescriptors(const swapChain& sChain)
-	{
-		std::vector<VkDescriptorImageInfo> originalZInfo{ VkDescriptorImageInfo{} };
-		originalZInfo.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		originalZInfo.front().imageView = sChain.getDepthImageView(mPreset.msaa > 1);
-
-		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.orignalZBufferBinding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, originalZInfo);
-
-		mDescriptorSet.updateWrite(wSet);
-
-		std::vector<vulkanImage> hzb = sChain.getHZB();
-		std::vector<VkDescriptorImageInfo> hzbInfo{};
-
-		for (auto& h : hzb)
-		{
-			VkDescriptorImageInfo imgInfo{
-				.imageView = h.img.view,
-				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-			};
-
-			hzbInfo.push_back(std::move(imgInfo));
-		}
-
-		wSet = descriptorSet::getWriteInfo(mBindings.hzbBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, hzbInfo);
-
-		mDescriptorSet.updateWrite(wSet);
-
-		return {};
-	}
-
-	error computeRenderer::updateOpaqueCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info)
-	{
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, info);
-
-		mDescriptorSet.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error computeRenderer::updateAccumilationCmdBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info)
-	{
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, info);
-
-		mDescriptorSet.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error computeRenderer::updatePerMeshBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info)
-	{
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perMeshBufferBinding, info);
-
-		mDescriptorSet.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error computeRenderer::updateMeshletBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info)
-	{
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.meshletBufferBinding, info);
-
-		mDescriptorSet.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error computeRenderer::updatePerInstancetBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info)
-	{
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perInstanceBufferBinding, info);
-
-		mDescriptorSet.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error computeRenderer::updateVisabilityBufferDescriptors(std::vector<VkDescriptorBufferInfo>& info)
-	{
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, info);
-
-		mDescriptorSet.updateWrite(writeInfo);
-
-		return {};
-	}
-
-	error computeRenderer::initDescriptors(
-		VkDevice device,
-		VkPhysicalDevice physicalDevice,
-		const std::vector<vulkanBuffer>& UBObuffer,
-		const std::vector<vulkanBuffer>& visabilityBuffer,
-		deviceLimits limits
-	)
-	{
-		error err = mDescriptorSet.init(
-			device,
-			physicalDevice,
-			poolConstraints{
-				.maxRWImageDescriptors = limits.maxRWImage,
-				.maxSampledImageDescriptors = limits.maxSampledImage,
-				.maxCombinedImageDescriptors = limits.maxCombinedImageSamplers,
-				.maxBuffersDescriptors = limits.maxStorageBuffers,
-				.maxUniformBuffersDescriptors = limits.maxUniformBuffers,
-			}
-			);
-		if (err)
-			return err;
-
-		const uint32_t imageRWStorage = 1;
-		const uint32_t sampledClassBindings = 1;
-		const uint32_t bufferObjects = 6;
-		const uint32_t uniformBufferObjects = 1;
-
-		// add bindings for hzb.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.orignalZBufferBinding, limits.maxSampledImage / sampledClassBindings, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.hzbBinding, limits.maxRWImage / imageRWStorage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-			)
-		);
-
-		// add bindings for cmd buffers.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.cmdOpaqueBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.cmdAccumilationBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		// add bindings for perMesh and meshlet buffers.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.perMeshBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.meshletBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.perInstanceBufferBinding, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.perDrawDataBufferBinding, limits.maxUniformBuffers / uniformBufferObjects, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-			)
-		);
-
-		// For indirect calls.
-		mDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.visabilityBuffer, limits.maxStorageBuffers / bufferObjects, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		err = mDescriptorSet.build(VK_SHADER_STAGE_ALL, mBindings.totalDescriptorsCount);
-		if (err)
-			return err;
-
-		// Set descriptor for ubo buffer write right away.
-		std::vector<VkDescriptorBufferInfo> bufferInfo{};
-
-		for (auto& b : UBObuffer)
-			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE});
-
-		auto writeInfo = descriptorSet::getWriteInfo(mBindings.perDrawDataBufferBinding, bufferInfo, true);
-		mDescriptorSet.updateWrite(writeInfo);
-
-		// Set descriptor for visabilityBuffers right away.
-		bufferInfo = {};
-
-		for (auto& b : visabilityBuffer)
-			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
-
-		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
-		mDescriptorSet.updateWrite(writeInfo);
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mDescriptorSet });
-		
 		return {};
 	}
 
@@ -370,7 +156,10 @@ namespace engine
 		pc.size = sizeof(computePushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-		error buildErr = mBuildHzbPipeline.build(&pc, { mDescriptorSet.getDescriptorSet().second });
+		error buildErr = mBuildHzbPipeline.build(
+			&pc, 
+			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second }
+		);
 		if (buildErr)
 			return buildErr;
 
@@ -391,7 +180,10 @@ namespace engine
 		pc.size = sizeof(computePushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-		buildErr = mCullingPipeline.build(&pc, { mDescriptorSet.getDescriptorSet().second });
+		buildErr = mCullingPipeline.build(
+			&pc, 
+			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second }
+		);
 		if (buildErr)
 			return buildErr;
 
@@ -412,7 +204,10 @@ namespace engine
 		pc.size = sizeof(computePushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-		buildErr = mCompactCommandsPipeline.build(&pc, { mDescriptorSet.getDescriptorSet().second });
+		buildErr = mCompactCommandsPipeline.build(
+			&pc, 
+			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second }
+		);
 		if (buildErr)
 			return buildErr;
 

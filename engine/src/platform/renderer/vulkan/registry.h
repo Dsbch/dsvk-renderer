@@ -37,6 +37,9 @@ namespace engine
 	struct bufferRegistry
 	{
 	public:
+		bufferRegistry() = default;
+		bufferRegistry(const bufferRegistry&) = delete;
+
 		void init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags = {false, false}, uint32_t buffersPerBlock = 1);
 		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize = newBufferSize);
 		withError<bufferHandle> findBlock(uint32_t id);
@@ -69,6 +72,9 @@ namespace engine
 	struct materialRegistry
 	{
 	public:
+		materialRegistry() = default;
+		materialRegistry(const materialRegistry&) = delete;
+
 		error init(VkSampler sampler, materialTextures defaultMat);
 		void destroy();
 		void setUpdated();

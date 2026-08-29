@@ -55,7 +55,7 @@ namespace engine
 		error build(VkShaderStageFlags shaderStages, uint32_t totalDescriptorsCount);
 		void updateWrite(std::vector<VkWriteDescriptorSet>& writeInfo);
 
-		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getDescriptorSet();
+		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getDescriptorSet() const;
 
 		static VkDescriptorSetLayoutBinding getLayoutBindingInfo(uint32_t binding, uint32_t descriptorCount, VkDescriptorType type);
 		static std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t dstBinding, VkDescriptorType descriptorType, std::vector<VkDescriptorImageInfo>& imgInfo);

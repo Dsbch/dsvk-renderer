@@ -13,26 +13,6 @@ struct pushConstant
 DEFINE_AS_PUSH_CONSTANT
 pushConstant push;
 
-
-// SSBO START.
-
-struct lineVertex
-{
-    float3 position;
-};
-
-StructuredBuffer<lineVertex> positionBuffer : register(t0, space0);
-
-// SSBO END.
-
-// UBO START.
-
-ConstantBuffer<perDrawData> drawData[] : register(b1, space0);
-
-// UBO END.
-
-// INPUT END.
-
 // VS START.
 
 struct vertexOutput
@@ -45,9 +25,9 @@ vertexOutput vsmain(uint vertexID : SV_VertexID)
     vertexOutput result;
     perDrawData dData = drawData[push.frameIndex];
     
-    lineVertex v = positionBuffer[vertexID];
+    float3 v = lineBuffer[vertexID];
     
-    result.position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, float4(v.position.xyz, 1.0f));
+    result.position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, float4(v, 1.0f));
 
     return result;
 }

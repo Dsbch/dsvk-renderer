@@ -10,12 +10,16 @@ namespace engine
 		mMapFlags = flags;
 		mDevice = device;
 		mAllocator = allocator;
+
+		mNeedDescriptorUpdate = false;
 	}
 
 	error vulkanBuffer::build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, bool dispatchBuffer)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
+
+		mNeedDescriptorUpdate = true;
 
 		mLoadedBytes = validBytes;
 		mByteSize = sizeInBytes;
@@ -84,6 +88,8 @@ namespace engine
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
 
+		mNeedDescriptorUpdate = true;
+
 		mLoadedBytes = buf.getLoadedBytes();
 		mByteSize = sizeInBytes;
 
@@ -148,6 +154,8 @@ namespace engine
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
+
+		mNeedDescriptorUpdate = true;
 
 		mLoadedBytes = validBytes;
 		mByteSize = sizeInBytes;
@@ -374,5 +382,15 @@ namespace engine
 	size_t vulkanBuffer::getLoadedBytes() const
 	{
 		return mLoadedBytes;
+	}
+
+	bool vulkanBuffer::needDescriptorUpdate() const
+	{
+		return mNeedDescriptorUpdate;
+	}
+
+	void vulkanBuffer::setUpdated()
+	{
+		mNeedDescriptorUpdate = false;
 	}
 }

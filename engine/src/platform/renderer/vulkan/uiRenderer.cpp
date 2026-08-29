@@ -16,13 +16,14 @@ namespace engine
 		VkInstance instance,
 		uint32_t queueFamily,
 		VkQueue queue,
-		swapChain sChain,
-		graphicsPreset preset
+		graphicsPreset preset,
+		std::shared_ptr<resourceManager> manager
 	)
 	{
 		mDevice = device;
 		mPreset = preset;
 		mGlobalOffset = 0;
+		mResourceManager = manager;
 
 		auto samp = descriptorSet::createSampler(mDevice, float(mPreset.anisotropicFiltering));
 		if (!samp)
@@ -42,7 +43,7 @@ namespace engine
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-		auto colorAttachmentFormat = sChain.getDrawImageFormat();
+		auto colorAttachmentFormat = mResourceManager->getColorAttachmentImage(false).img.format;
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplGlfw_InitForVulkan(wnd, true);          // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
@@ -70,7 +71,7 @@ namespace engine
 		if (!result)
 			return error{ "can't init UI" };
 
-		updateSwapchainDependentDescriptors(sChain);
+		updateViewPortDependantDescriptors();
 
 		return error();
 	}
@@ -91,14 +92,20 @@ namespace engine
 		return {};
 	}
 
-	error uiRenderer::onRender(VkCommandBuffer cmd, const swapChain& sChain, const profilingInfo& profInfo)
+	error uiRenderer::onRender(VkCommandBuffer cmd, const profilingInfo& profInfo)
 	{
 		// Imgui can't work with msaa color attachments.
-		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(sChain.getDrawImageView(mPreset.msaa > 1), nullptr, VK_RESOLVE_MODE_NONE, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
+			mResourceManager->getColorAttachmentImage(mPreset.msaa > 1).img.view, 
+			nullptr, 
+			VK_RESOLVE_MODE_NONE, 
+			nullptr, 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		);
 
 		std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
 
-		VkRenderingInfo renderInfo = renderingInfo(sChain.getDrawImageExtent(), colorAttachments, nullptr);
+		VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent, colorAttachments, nullptr);
 
 		vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -122,7 +129,7 @@ namespace engine
 		return {};
 	}
 
-	void uiRenderer::updateSwapchainDependentDescriptors(swapChain sChain)
+	void uiRenderer::updateViewPortDependantDescriptors()
 	{
 		for (auto& ds : mImGuiDescroptorSets)
 			ImGui_ImplVulkan_RemoveTexture(ds);
@@ -131,17 +138,7 @@ namespace engine
 
 		VkDescriptorSet depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
 			mSampler,
-			sChain.getAccumImageView(mPreset.msaa > 1),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		);
-
-		mImGuiDescroptorSets.push_back(depthDescriptorSet);
-
-		auto hzb = sChain.getHZB();
-
-		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
-			mSampler,
-			sChain.getRevealImageView(mPreset.msaa > 1),
+			mResourceManager->getAccumImage(mPreset.msaa > 1).img.view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
@@ -149,13 +146,21 @@ namespace engine
 
 		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
 			mSampler,
-			sChain.getDepthImageView(mPreset.msaa > 1),
+			mResourceManager->getRevealImage(mPreset.msaa > 1).img.view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
 		mImGuiDescroptorSets.push_back(depthDescriptorSet);
 
-		std::vector<vulkanImage> hzbBuf = sChain.getHZB();
+		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
+			mSampler,
+			mResourceManager->getDepthImage(mPreset.msaa > 1).img.view,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
+
+		mImGuiDescroptorSets.push_back(depthDescriptorSet);
+
+		std::vector<vulkanImage> hzbBuf = mResourceManager->getHZB();
 
 		for (auto& h : hzbBuf)
 		{

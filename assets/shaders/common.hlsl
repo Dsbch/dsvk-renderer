@@ -170,56 +170,36 @@ struct meshOutput
     float4 tangent : TANGENT1;
 };
 
-#ifdef NEED_BINDINGS
-
-// SSBO START.
-
-// Vertex attributes.
-// 0 - 10.
-// Common attributes always present.
+// Buffers bindigs.
 StructuredBuffer<float4> positionBuffer[] : register(t0, space0);
 StructuredBuffer<float4> normalBuffer[] : register(t1, space0);
 StructuredBuffer<float4> tangenBuffer[] : register(t2, space0);
-// Optional only for animated meshes.
 StructuredBuffer<uint4> jointIndexBuffer[] : register(t3, space0);
 StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
-
-// Buffers.
-// 11 - 50.
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t11, space0);
-StructuredBuffer<command> commandOpaqueBuffer[] : register(t12, space0);
-StructuredBuffer<command> commandAccumilationBuffer[] : register(t13, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t14, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t15, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t16, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t17, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t18, space0);
+RWStructuredBuffer<command> commandOpaqueBuffer[] : register(u5, space0);
+RWStructuredBuffer<command> commandAccumilationBuffer[] : register(u6, space0);
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t7, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t8, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t9, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t10, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t11, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t12, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b13, space0);
 // [0] = visibleCount                                  
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ     
-StructuredBuffer<uint> visabilityBuffer[] : register(t19, space0);
+RWStructuredBuffer<uint> visabilityBuffer[] : register(u14, space0);
+StructuredBuffer<float3> lineBuffer : register(t15, space0);
 
-// SSBO END.
-
-// UBO START.
-
-ConstantBuffer<perDrawData> drawData[] : register(b20, space0);
-
-// UBO END.
-
-// MATERIALS START.
-// 51 - 100.                               
-Texture2D materials[] : register(t51, space0);
-SamplerState materialsSampler[] : register(s51, space0);
-Texture2D accum : register(t52, space0);
-SamplerState accumSampler : register(s52, space0);
-Texture2D reveal : register(t53, space0);
-SamplerState revealSampler : register(s53, space0);
-
-// MATERIALS END.
-
-// Voxel stuff START.
-RWTexture3D<float4> clipMap : register(u101, space0);
-// Voxel stuff END.
+// Texture bindings.
+Texture2D materials[] : register(t0, space1);
+SamplerState materialsSampler[] : register(s0, space1);
+RWTexture3D<float4> clipMap : register(u1, space1);
+Texture2D accum : register(t2, space1);
+SamplerState accumSampler : register(s2, space1);
+Texture2D reveal : register(t3, space1);
+SamplerState revealSampler : register(s3, space1);
+Texture2D<float> originalZbuffer : register(t4, space1);
+RWTexture2D<float> hzbChain[] : register(u5, space1);
 
 float3 getPostition(uint index, uint offset)
 {
@@ -313,8 +293,6 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
     
     return result;
 }
-
-#endif
 
 float3 rotate(float4 quat, float3 v)
 {

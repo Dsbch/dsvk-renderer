@@ -27,11 +27,12 @@ namespace engine
 	};
 
 	struct graphicsCfg
-
 	{
 		uint32_t msaa = 4;
 		uint32_t anisotropicFiltering = 16;
 		uint32_t framesInFlight = 2;
+		uint32_t clipMapResolution = 128;
+		float voxelSceneUpperBound = 64.0f;
 	};
 
 	struct gameLoopCfg
