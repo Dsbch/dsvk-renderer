@@ -4,9 +4,8 @@
 
 #include <vma/vk_mem_alloc.h>
 
-#include "buffer.h"
-#include "submit.h"
 #include "registry.h"
+#include "submit.h"
 #include "platform/renderer/vertex.h"
 
 namespace engine

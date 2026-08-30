@@ -24,6 +24,9 @@ namespace engine
 	struct swapChain
 	{
 	public:
+		swapChain() = default;
+		swapChain(const swapChain&) = delete;
+
 		swapChain(uint32_t framesInFlight) :
 			mAllocator(VK_NULL_HANDLE),
 			mDevice(VK_NULL_HANDLE),

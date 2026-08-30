@@ -10,6 +10,8 @@ namespace engine
 	struct submit
 	{
 	public:
+		submit(const submit&) = delete;
+
 		submit() 
 			:
 			mDevice(VK_NULL_HANDLE),

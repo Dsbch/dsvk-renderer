@@ -1,6 +1,6 @@
 ﻿#include <pch.h>
+
 #include "uiRenderer.h"
-#include "helper.h"
 
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -8,33 +8,17 @@
 
 namespace engine
 {
-	error uiRenderer::init(
-		std::shared_ptr<context> ctx,
-		GLFWwindow* wnd,
-		VkDevice device,
-		VkPhysicalDevice physicalDevice,
-		VkInstance instance,
-		uint32_t queueFamily,
-		VkQueue queue,
-		graphicsPreset preset,
-		std::shared_ptr<resourceManager> manager
-	)
+	error uiRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager, GLFWwindow* wnd)
 	{
-		mDevice = device;
-		mPreset = preset;
+		mCtx = ctx;
+		mVulkanCtx = vulkanCtx;
+		mResourceManager = resourceManager;
 		mGlobalOffset = 0;
-		mResourceManager = manager;
-
-		auto samp = descriptorSet::createSampler(mDevice, float(mPreset.anisotropicFiltering));
-		if (!samp)
-			return samp.err();
-
-		mSampler = samp.value();
 
 		auto logResult = [](VkResult err)
 			{
 				if (err != VK_SUCCESS)
-					LOGERROR(vkResultToStr(err));
+					LOGERROR("[IMGUI] {}", vkResultToStr(err));
 			};
 
 		IMGUI_CHECKVERSION();
@@ -49,11 +33,11 @@ namespace engine
 		ImGui_ImplGlfw_InitForVulkan(wnd, true);          // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
 
 		ImGui_ImplVulkan_InitInfo initInfo = {};
-		initInfo.Instance = instance;
-		initInfo.PhysicalDevice = physicalDevice;
-		initInfo.Device = device;
-		initInfo.QueueFamily = queueFamily;
-		initInfo.Queue = queue;
+		initInfo.Instance = mVulkanCtx->instance;
+		initInfo.PhysicalDevice = mVulkanCtx->physicalDevice;
+		initInfo.Device = mVulkanCtx->device;
+		initInfo.QueueFamily = mVulkanCtx->graphicsQueueFamily;
+		initInfo.Queue = mVulkanCtx->graphicsQueue;
 		initInfo.DescriptorPoolSize = 100;
 		initInfo.MinImageCount = ctx->config.inner.graphics.framesInFlight;
 		initInfo.ImageCount = ctx->config.inner.graphics.framesInFlight;
@@ -81,9 +65,8 @@ namespace engine
 		for (auto& ds : mImGuiDescroptorSets)
 			ImGui_ImplVulkan_RemoveTexture(ds);
 
-		if (mDevice && mSampler)
+		if (mVulkanCtx->device)
 		{
-			vkDestroySampler(mDevice, mSampler, nullptr);
 			ImGui_ImplVulkan_Shutdown();
 			ImGui_ImplGlfw_Shutdown();
 			ImGui::DestroyContext();
@@ -96,7 +79,7 @@ namespace engine
 	{
 		// Imgui can't work with msaa color attachments.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
-			mResourceManager->getColorAttachmentImage(mPreset.msaa > 1).img.view, 
+			mResourceManager->getColorAttachmentImage(mVulkanCtx->preset.msaa > 1).img.view,
 			nullptr, 
 			VK_RESOLVE_MODE_NONE, 
 			nullptr, 
@@ -137,24 +120,24 @@ namespace engine
 		mImGuiDescroptorSets.clear();
 
 		VkDescriptorSet depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
-			mSampler,
-			mResourceManager->getAccumImage(mPreset.msaa > 1).img.view,
+			mResourceManager->getSampler(),
+			mResourceManager->getAccumImage(mVulkanCtx->preset.msaa > 1).img.view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
 		mImGuiDescroptorSets.push_back(depthDescriptorSet);
 
 		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
-			mSampler,
-			mResourceManager->getRevealImage(mPreset.msaa > 1).img.view,
+			mResourceManager->getSampler(),
+			mResourceManager->getRevealImage(mVulkanCtx->preset.msaa > 1).img.view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
 		mImGuiDescroptorSets.push_back(depthDescriptorSet);
 
 		depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
-			mSampler,
-			mResourceManager->getDepthImage(mPreset.msaa > 1).img.view,
+			mResourceManager->getSampler(),
+			mResourceManager->getDepthImage(mVulkanCtx->preset.msaa > 1).img.view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
@@ -165,7 +148,7 @@ namespace engine
 		for (auto& h : hzbBuf)
 		{
 			depthDescriptorSet = ImGui_ImplVulkan_AddTexture(
-				mSampler,
+				mResourceManager->getSampler(),
 				h.img.view,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);

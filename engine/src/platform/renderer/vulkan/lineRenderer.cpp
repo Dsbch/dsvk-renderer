@@ -1,33 +1,16 @@
 #include <pch.h>
+
 #include "lineRenderer.h"
-#include "shader.h"
 
 namespace engine
 {
-	error lineRenderer::init(
-		std::shared_ptr<context> ctx,
-		VkDevice device,
-		VkPhysicalDevice physicalDevice,
-		VmaAllocator allocator,
-		submit& is,
-		graphicsPreset preset,
-		deviceLimits limits,
-		std::shared_ptr<resourceManager> resourceManager
-	)
+	error lineRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager)
 	{
 		mCtx = ctx;
-
+		mVulkanCtx = vulkanCtx;
 		mResourceManager = resourceManager;
 
-		mPreset = preset;
-
-		mDeletionQueue.init(device);
-
-		error err = initPipeline(
-			device, 
-			resourceManager->getDepthImage(false).img.format,
-			resourceManager->getColorAttachmentImage(false).img.format
-		);
+		error err = initPipeline();
 		if (err)
 			return err;
 
@@ -36,21 +19,7 @@ namespace engine
 
 	error lineRenderer::destroy()
 	{
-		mDeletionQueue.flushDeletonQueue();
-
 		return {};
-	}
-
-	error lineRenderer::addLine(VkDevice device, VmaAllocator allocator, submit& is, line l)
-	{
-		return mResourceManager->addLine(
-			resourceManager::addLineParams{
-				.device = device,
-				.allocator = allocator,
-				.is = is,
-				.l = l,
-			}
-		);
 	}
 
 	error lineRenderer::drawLines(VkCommandBuffer cmd, uint32_t frameIndex)
@@ -61,15 +30,15 @@ namespace engine
 
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
 			mResourceManager->getColorAttachmentImage(false).img.view, 
-			mPreset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
-			getResolveMode(mPreset.msaa), 
-			&clear, 
+			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+			getResolveMode(mVulkanCtx->preset.msaa),
+			&clear,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 		);
 		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 			mResourceManager->getDepthImage(false).img.view,
-			mPreset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-			getResolveMode(mPreset.msaa), 
+			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+			getResolveMode(mVulkanCtx->preset.msaa),
 			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
 		);
 
@@ -100,7 +69,7 @@ namespace engine
 		return {};
 	}
 
-	error lineRenderer::initPipeline(VkDevice device, VkFormat depthFormat, VkFormat drawFormat)
+	error lineRenderer::initPipeline()
 	{
 		auto vertexShader = mCtx->mAmanager->getDefaultLineVertexShader();
 		if (!vertexShader)
@@ -110,20 +79,20 @@ namespace engine
 		if (!pixelShader)
 			return pixelShader.err();
 
-		mPipeline.init(device, graphicsPipeline::pipelineType::opaque);
+		mPipeline.init(mVulkanCtx->device, graphicsPipeline::pipelineType::opaque);
 
 		error err = mPipeline.buildLinePipeline(
 			pixelShader.value(),
 			vertexShader.value(),
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
-			depthFormat,
-			{ drawFormat },
-			sampleCounts(mPreset.msaa)
+			mResourceManager->getDepthImage(false).img.format,
+			{ mResourceManager->getColorAttachmentImage(false).img.format },
+			sampleCounts(mVulkanCtx->preset.msaa)
 		);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mPipeline });
 
 		return {};
 	}

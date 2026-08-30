@@ -9,11 +9,10 @@
 #include "swapChain.h"
 #include "descriptorSet.h"
 #include "pipeline.h"
+#include "image.h"
 #include "registry.h"
 #include "texture.h"
-#include "gpuProfiler.h"
 #include "commandBuffer.h"
-#include "image.h"
 
 namespace engine
 {
@@ -48,7 +47,6 @@ namespace engine
 			bufferRegistry* buffRegistry;
 			VkSampler* sampler;
 			vulkanBuffer* vulkanBuf;
-			gpuProfiler* profiler;
 			materialRegistry* matReg;
 			commandBuffer* cmdBuf;
 			vulkanImage* img;
@@ -58,6 +56,9 @@ namespace engine
 	struct deletionQueue
 	{
 	public:
+		deletionQueue() = default;
+		deletionQueue(const deletionQueue&) = delete;
+
 		void init(VkDevice device);
 		void addDestroyTask(const destroyTask& task);
 		error flushDeletonQueue();

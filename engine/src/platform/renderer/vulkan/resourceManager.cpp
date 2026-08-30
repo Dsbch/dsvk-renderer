@@ -3,35 +3,30 @@
 
 namespace engine
 {
-	void resourceManager::init(std::shared_ptr<context> ctx, VkDevice device, graphicsPreset preset, deviceLimits limits)
+	resourceManager::resourceManager(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, uint32_t width, uint32_t height)
+		: mCtx(ctx), mVulkanCtx(vulkanCtx), mBindings({})
 	{
-		mCtx = ctx;
-		mPreset = preset;
-		mDeviceLimits = limits;
+		mErr = mVulkanCtx->checkError();
+		if (mErr)
+			return;
 
-		mBindings = {};
-	
-		mDeletionQueue.init(device);
-	}
+		mErr = buildResources(width, height);
+		if (mErr)
+			return;
 
-	error resourceManager::build(buildParams params)
-	{
-		error err = buildResources(params);
-		if (err)
-			return err;
-
-		err = buildDescriptors(params);
-		if (err)
-			return err;
-
-		return {};
+		mErr = buildDescriptors();
+		if (mErr)
+			return;
 	}
 
 	void resourceManager::destroy()
 	{
-		mDeletionQueue.flushDeletonQueue();
-
 		destroyViewPortDependantResources();
+	}
+
+	error resourceManager::checkError() const
+	{
+		return mErr;
 	}
 
 	std::pair<VkDescriptorSet, VkDescriptorSetLayout> resourceManager::getBufferDescriptorSet() const
@@ -44,7 +39,12 @@ namespace engine
 		return mTextureDescriptorSet.getDescriptorSet();
 	}
 
-	error resourceManager::updateDescriptors(updateDescriptorsParams params)
+	VkSampler resourceManager::getSampler() const
+	{
+		return mSampler;
+	}
+
+	error resourceManager::updateDescriptors(uint32_t frameIndex)
 	{
 		if (mLineBuffer.needDescriptorUpdate())
 		{
@@ -63,10 +63,10 @@ namespace engine
 		{
 			error err = p.updateCommandBuffer(
 				commandBuffer::updateCommandBufferParams{
-					.device = params.device,
-					.allocator = params.allocator,
-					.is = params.is,
-					.frameIndex = params.frameIndex,
+					.device = mVulkanCtx->device,
+					.allocator = mVulkanCtx->allocator,
+					.is = mVulkanCtx->iSubmit,
+					.frameIndex = frameIndex,
 				}
 				);
 			if (err)
@@ -75,10 +75,10 @@ namespace engine
 
 		error err = mAccumilationCommandBuffer.updateCommandBuffer(
 			commandBuffer::updateCommandBufferParams{
-				.device = params.device,
-				.allocator = params.allocator,
-				.is = params.is,
-				.frameIndex = params.frameIndex,
+				.device = mVulkanCtx->device,
+				.allocator = mVulkanCtx->allocator,
+				.is = mVulkanCtx->iSubmit,
+				.frameIndex = frameIndex,
 			}
 			);
 		if (err)
@@ -212,13 +212,13 @@ namespace engine
 		}
 
 		// Resize visability buffer if needed.
-		if (uint32_t max = getMaxCmdBufferSize(params.frameIndex) * sizeof(uint32_t) / sizeof(meshletShaderCMD); max > (mVisabilityBuffer[params.frameIndex].getSize() - 4 * sizeof(uint32_t)))
+		if (uint32_t max = getMaxCmdBufferSize(frameIndex) * sizeof(uint32_t) / sizeof(meshletShaderCMD); max > (mVisabilityBuffer[frameIndex].getSize() - 4 * sizeof(uint32_t)))
 		{
-			mVisabilityBuffer[params.frameIndex].destroy();
+			mVisabilityBuffer[frameIndex].destroy();
 
 			std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
 
-			error err = mVisabilityBuffer[params.frameIndex].build(params.is, visDispatch.data(), max + 4 * sizeof(uint32_t), sizeof(uint32_t) * 4, true);
+			error err = mVisabilityBuffer[frameIndex].build(mVulkanCtx->iSubmit, visDispatch.data(), max + 4 * sizeof(uint32_t), sizeof(uint32_t) * 4, true);
 			if (err)
 				return err;
 
@@ -234,42 +234,42 @@ namespace engine
 		return {};
 	}
 
-	error resourceManager::addToRender(instanceParams params)
+	error resourceManager::addToRender(const model& m, uint32_t frameIndex)
 	{
-		if (!mOpaqueCommandBuffers.contains(params.m.mat.pixelShader->hash()))
+		if (!mOpaqueCommandBuffers.contains(m.mat.pixelShader->hash()))
 		{
 			commandBuffer cmd{};
 
-			cmd.init(params.device, params.allocator, params.is, mCtx->config.inner.graphics.framesInFlight);
-			error err = cmd.build(params.is);
+			cmd.init(mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, mCtx->config.inner.graphics.framesInFlight);
+			error err = cmd.build(mVulkanCtx->iSubmit);
 			if (err)
 				return err;
 
-			mOpaqueCommandBuffers[params.m.mat.pixelShader->hash()] = cmd;
+			mOpaqueCommandBuffers[m.mat.pixelShader->hash()] = cmd;
 
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mOpaqueCommandBuffers[params.m.mat.pixelShader->hash()] });
+			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mOpaqueCommandBuffers[m.mat.pixelShader->hash()] });
 		}
 
-		if (mOpaqueCommandBuffers[params.m.mat.pixelShader->hash()].instanceExists(params.m.id, params.frameIndex))
+		if (mOpaqueCommandBuffers[m.mat.pixelShader->hash()].instanceExists(m.id, frameIndex))
 			return {};
 
 		// Upload material.
-		auto materialOffsets = mMaterialRegistry.addMaterials(params.m.mat);
+		auto materialOffsets = mMaterialRegistry.addMaterials(m.mat);
 		if (!materialOffsets)
 			return materialOffsets.err();
 
-		perInstanceAttr attr = params.m.instanceAttributes;
+		perInstanceAttr attr = m.instanceAttributes;
 		attr.jointIndex = std::numeric_limits<uint32_t>::max();
 		attr.jointOffset = std::numeric_limits<uint32_t>::max();
 
 		// Upload animation data.
-		if (params.m.anims.jointMatrices && params.m.anims.jointMatrices->size() != 0)
+		if (m.anims.jointMatrices && m.anims.jointMatrices->size() != 0)
 		{
 			auto jointHandle = mJointRegistry.addBlock(
-				params.m.id,
-				params.m.anims.jointMatrices->data(),
-				params.m.anims.jointMatrices->size() * sizeof(glm::mat4),
-				params.is
+				m.id,
+				m.anims.jointMatrices->data(),
+				m.anims.jointMatrices->size() * sizeof(glm::mat4),
+				mVulkanCtx->iSubmit
 			);
 			if (!jointHandle)
 				return jointHandle.err();
@@ -281,26 +281,26 @@ namespace engine
 		attr.globalMaterialOffset = materialOffsets.value();
 
 		auto perInstanceHandle = mPerInstanceRegistry.addBlock(
-			params.m.id,
+			m.id,
 			&attr,
 			sizeof(perInstanceAttr),
-			params.is
+			mVulkanCtx->iSubmit
 		);
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();
 
 		commandBuffer::addInstanceParams addParams{
-			.instanceID = params.m.id,
+			.instanceID = m.id,
 			.perInstanceHandle = perInstanceHandle.value(),
 			.meshesData = {},
-			.isBlendGeometry = params.m.mat.hasBlendMaterials(),
-			.frameIndex = params.frameIndex,
+			.isBlendGeometry = m.mat.hasBlendMaterials(),
+			.frameIndex = frameIndex,
 		};
 
-		for (int i = 0; i < params.m.meshData->size(); i++)
+		for (int i = 0; i < m.meshData->size(); i++)
 		{
-			const mesh& crntMesh = params.m.meshData->operator[](i);
-			perMeshAttributes crntMeshAttrs = params.m.perMeshData->operator[](i);
+			const mesh& crntMesh = m.meshData->operator[](i);
+			perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
 
 			bufferHandle vertexHandle{};
 			// Upload common vertex attributes.
@@ -308,7 +308,7 @@ namespace engine
 				crntMesh.meshHash,
 				crntMesh.positions.data(),
 				crntMesh.positions.size() * sizeof(glm::vec4),
-				params.is
+				mVulkanCtx->iSubmit
 			);
 			if (!handle)
 				return handle.err();
@@ -317,7 +317,7 @@ namespace engine
 				crntMesh.meshHash,
 				crntMesh.normal.data(),
 				crntMesh.normal.size() * sizeof(glm::vec4),
-				params.is
+				mVulkanCtx->iSubmit
 			);
 			if (!handle)
 				return handle.err();
@@ -326,7 +326,7 @@ namespace engine
 				crntMesh.meshHash,
 				crntMesh.tangent.data(),
 				crntMesh.tangent.size() * sizeof(glm::vec4),
-				params.is
+				mVulkanCtx->iSubmit
 			);
 			if (!handle)
 				return handle.err();
@@ -341,7 +341,7 @@ namespace engine
 					crntMesh.meshHash,
 					crntMesh.jointIndices.data(),
 					crntMesh.jointIndices.size() * sizeof(glm::uvec4),
-					params.is
+					mVulkanCtx->iSubmit
 				);
 				if (!handle)
 					return handle.err();
@@ -350,7 +350,7 @@ namespace engine
 					crntMesh.meshHash,
 					crntMesh.weights.data(),
 					crntMesh.weights.size() * sizeof(glm::vec4),
-					params.is
+					mVulkanCtx->iSubmit
 				);
 				if (!handle)
 					return handle.err();
@@ -362,7 +362,7 @@ namespace engine
 				crntMesh.meshHash,
 				&crntMeshAttrs,
 				sizeof(perMeshAttributes),
-				params.is
+				mVulkanCtx->iSubmit
 			);
 			if (!perMeshHandle)
 				return perMeshHandle.err();
@@ -373,7 +373,7 @@ namespace engine
 				crntMesh.meshHash,
 				crntMesh.indices.data.data(),
 				crntMesh.indices.data.size() * sizeof(uint32_t),
-				params.is
+				mVulkanCtx->iSubmit
 			);
 			if (!handle)
 				return handle.err();
@@ -382,7 +382,7 @@ namespace engine
 				crntMesh.meshHash,
 				crntMesh.primitives.data.data(),
 				crntMesh.primitives.data.size() * sizeof(uint32_t),
-				params.is
+				mVulkanCtx->iSubmit
 			);
 			if (!handle)
 				return handle.err();
@@ -409,7 +409,7 @@ namespace engine
 				crntMesh.meshHash,
 				meshlets.data(),
 				meshlets.size() * sizeof(meshlet),
-				params.is
+				mVulkanCtx->iSubmit
 			);
 			if (!handle)
 				return handle.err();
@@ -433,7 +433,7 @@ namespace engine
 
 		// Have to add because some materials can have BLEND enabled for material but have opaque geometry too.
 		// Cutoff goes here too.
-		error err = mOpaqueCommandBuffers[params.m.mat.pixelShader->hash()].addInstance(addParams);
+		error err = mOpaqueCommandBuffers[m.mat.pixelShader->hash()].addInstance(addParams);
 		if (err)
 			return err;
 
@@ -441,115 +441,115 @@ namespace engine
 		return {};
 	}
 
-	error resourceManager::updateInstance(instanceParams params)
+	error resourceManager::updateInstance(const model& m, uint32_t frameIndex)
 	{
 		// Get material offsets or upload as new.
-		auto materialOffsets = mMaterialRegistry.getMaterialsOffset(params.m.mat);
+		auto materialOffsets = mMaterialRegistry.getMaterialsOffset(m.mat);
 		if (!materialOffsets)
 		{
-			materialOffsets = mMaterialRegistry.addMaterials(params.m.mat);
+			materialOffsets = mMaterialRegistry.addMaterials(m.mat);
 			if (!materialOffsets)
 				return materialOffsets.err();
 		}
 
 		// Form new instance attrs.
-		perInstanceAttr attr = params.m.instanceAttributes;
+		perInstanceAttr attr = m.instanceAttributes;
 		attr.globalMaterialOffset = materialOffsets.value();
 
-		auto jointHandle = mJointRegistry.findBlock(params.m.id);
+		auto jointHandle = mJointRegistry.findBlock(m.id);
 		if (jointHandle)
 		{
 			attr.jointIndex = jointHandle.value().bufferIndex;
 			attr.jointOffset = jointHandle.value().offset / uint32_t(sizeof(glm::mat4));
 		}
 
-		return mPerInstanceRegistry.updateBlock(params.m.id, &attr, sizeof(perInstanceAttr), params.is, params.frameIndex);
+		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), mVulkanCtx->iSubmit, frameIndex);
 	}
 
-	error resourceManager::updateAnimations(instanceParams params)
+	error resourceManager::updateAnimations(const model& m, uint32_t frameIndex)
 	{
 		return mJointRegistry.updateBlock(
-			params.m.id,
-			params.m.anims.jointMatrices->data(),
-			params.m.anims.jointMatrices->size() * sizeof(glm::mat4),
-			params.is,
-			params.frameIndex
+			m.id,
+			m.anims.jointMatrices->data(),
+			m.anims.jointMatrices->size() * sizeof(glm::mat4),
+			mVulkanCtx->iSubmit,
+			frameIndex
 		);
 	}
 
-	void resourceManager::removeFromRender(instanceParams params)
+	void resourceManager::removeFromRender(const model& m, uint32_t frameIndex)
 	{
 		// Execute all schedulded deletes.
-		mPositionRegistry.deleteScheduledBlocks(params.frameIndex);
-		mNormalRegistry.deleteScheduledBlocks(params.frameIndex);
-		mTangentRegistry.deleteScheduledBlocks(params.frameIndex);
-		mJointIndexRegistry.deleteScheduledBlocks(params.frameIndex);
-		mWeightRegistry.deleteScheduledBlocks(params.frameIndex);
-		mIndexRegistry.deleteScheduledBlocks(params.frameIndex);
-		mPrimitiveRegistry.deleteScheduledBlocks(params.frameIndex);
-		mMeshletRegistry.deleteScheduledBlocks(params.frameIndex);
-		mPerMeshRegistry.deleteScheduledBlocks(params.frameIndex);
-		mPerInstanceRegistry.deleteScheduledBlocks(params.frameIndex);
-		mJointRegistry.deleteScheduledBlocks(params.frameIndex);
+		mPositionRegistry.deleteScheduledBlocks(frameIndex);
+		mNormalRegistry.deleteScheduledBlocks(frameIndex);
+		mTangentRegistry.deleteScheduledBlocks(frameIndex);
+		mJointIndexRegistry.deleteScheduledBlocks(frameIndex);
+		mWeightRegistry.deleteScheduledBlocks(frameIndex);
+		mIndexRegistry.deleteScheduledBlocks(frameIndex);
+		mPrimitiveRegistry.deleteScheduledBlocks(frameIndex);
+		mMeshletRegistry.deleteScheduledBlocks(frameIndex);
+		mPerMeshRegistry.deleteScheduledBlocks(frameIndex);
+		mPerInstanceRegistry.deleteScheduledBlocks(frameIndex);
+		mJointRegistry.deleteScheduledBlocks(frameIndex);
 
-		mMaterialRegistry.deleteScheduledMaterials(params.frameIndex);
+		mMaterialRegistry.deleteScheduledMaterials(frameIndex);
 
-		if (!mOpaqueCommandBuffers.contains(params.m.mat.pixelShader->hash()))
+		if (!mOpaqueCommandBuffers.contains(m.mat.pixelShader->hash()))
 			return;
 
-		mPerInstanceRegistry.scheduleDeleteBlock(params.m.id, params.frameIndex);
+		mPerInstanceRegistry.scheduleDeleteBlock(m.id, frameIndex);
 
-		for (int i = 0; i < params.m.meshData->size(); i++)
+		for (int i = 0; i < m.meshData->size(); i++)
 		{
-			auto& cmd = mOpaqueCommandBuffers[params.m.mat.pixelShader->hash()];
+			auto& cmd = mOpaqueCommandBuffers[m.mat.pixelShader->hash()];
 
-			const mesh& crntMesh = params.m.meshData->operator[](i);
-			const perMeshAttributes crntMeshAttrs = params.m.perMeshData->operator[](i);
+			const mesh& crntMesh = m.meshData->operator[](i);
+			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
 
 			// Remove instance.
 			cmd.removeInstance(
 				commandBuffer::removeInstanceParams{
-					.instanceID = params.m.id,
+					.instanceID = m.id,
 					.meshID = crntMesh.meshHash,
-					.frameIndex = params.frameIndex,
+					.frameIndex = frameIndex,
 				}
 				);
 
 			mAccumilationCommandBuffer.removeInstance(
 				commandBuffer::removeInstanceParams{
-					.instanceID = params.m.id,
+					.instanceID = m.id,
 					.meshID = crntMesh.meshHash,
-					.frameIndex = params.frameIndex,
+					.frameIndex = frameIndex,
 				}
 				);
 
 			// Remove animation data.
-			mJointRegistry.scheduleDeleteBlock(params.m.id, params.frameIndex);
+			mJointRegistry.scheduleDeleteBlock(m.id, frameIndex);
 
 			// Mesh isn't used.
-			if (!cmd.meshIsUsed(crntMesh.meshHash, params.frameIndex) && !mAccumilationCommandBuffer.meshIsUsed(crntMesh.meshHash, params.frameIndex))
+			if (!cmd.meshIsUsed(crntMesh.meshHash, frameIndex) && !mAccumilationCommandBuffer.meshIsUsed(crntMesh.meshHash, frameIndex))
 			{
-				mPositionRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+				mPositionRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
-				mNormalRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+				mNormalRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
-				mTangentRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+				mTangentRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
 				if (crntMeshAttrs.isSkinned)
 				{
-					mJointIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
-					mWeightRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+					mJointIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
+					mWeightRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 				}
 
-				mIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+				mIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
-				mPrimitiveRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+				mPrimitiveRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
-				mMeshletRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+				mMeshletRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
-				mMaterialRegistry.scheduleDeleteMaterials(params.m.mat.hash, params.frameIndex);
+				mMaterialRegistry.scheduleDeleteMaterials(m.mat.hash, frameIndex);
 
-				mPerMeshRegistry.scheduleDeleteBlock(crntMesh.meshHash, params.frameIndex);
+				mPerMeshRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 			}
 		}
 	}
@@ -586,7 +586,7 @@ namespace engine
 			dstAccessMask
 		);
 
-		if (mPreset.msaa > 1)
+		if (mVulkanCtx->preset.msaa > 1)
 		{
 			transitionImage(
 				cmd,
@@ -624,7 +624,7 @@ namespace engine
 			dstAccessMask
 		);
 
-		if (mPreset.msaa > 1)
+		if (mVulkanCtx->preset.msaa > 1)
 		{
 			transitionImage(
 				cmd,
@@ -661,7 +661,7 @@ namespace engine
 			dstAccessMask
 		);
 
-		if (mPreset.msaa > 1)
+		if (mVulkanCtx->preset.msaa > 1)
 		{
 			transitionImage(
 				cmd,
@@ -699,7 +699,7 @@ namespace engine
 			dstAccessMask
 		);
 
-		if (mPreset.msaa > 1)
+		if (mVulkanCtx->preset.msaa > 1)
 		{
 			transitionImage(
 				cmd,
@@ -758,11 +758,11 @@ namespace engine
 		return mHZBImages;
 	}
 
-	error resourceManager::changeViewPort(resourceManager::buildParams params)
+	error resourceManager::changeViewPort(uint32_t width, uint32_t height)
 	{
 		destroyViewPortDependantResources();
 
-		error err = buildViewPortDependantResources(params);
+		error err = buildViewPortDependantResources(width, height);
 		if (err)
 			return err;
 
@@ -771,16 +771,16 @@ namespace engine
 		return {};
 	}
 
-	error resourceManager::addLine(addLineParams params)
+	error resourceManager::addLine(line l)
 	{
-		error err = mLineBuffer.updateBuffer(params.is, &params.l, sizeof(line), mLineBuffer.getLoadedBytes());
+		error err = mLineBuffer.updateBuffer(mVulkanCtx->iSubmit, &l, sizeof(line), mLineBuffer.getLoadedBytes());
 		if (err && err.is(errCodeBufferOverFlow))
 		{
 			vulkanBuffer newBuf{};
 
-			newBuf.init(params.device, params.allocator, { true, false });
+			newBuf.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false });
 
-			err = newBuf.build(params.is, mLineBuffer, mLineBuffer.getLoadedBytes() * 2, false);
+			err = newBuf.build(mVulkanCtx->iSubmit, mLineBuffer, mLineBuffer.getLoadedBytes() * 2, false);
 			if (err)
 				return err;
 
@@ -791,64 +791,64 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mLineBuffer.updateBuffer(params.is, &params.l, sizeof(line), mLineBuffer.getLoadedBytes());
+		err = mLineBuffer.updateBuffer(mVulkanCtx->iSubmit, &l, sizeof(line), mLineBuffer.getLoadedBytes());
 		if (err)
 			return err;
 
 		return {};
 	}
 
-	error resourceManager::updatePerDrawBuffer(perDrawData data, submit& is, uint32_t frameIndex)
+	error resourceManager::updatePerDrawBuffer(perDrawData data, uint32_t frameIndex)
 	{
 		mUboPerDrawBuffer[frameIndex].markBytesAsDead(sizeof(perDrawData));
 
 		return mUboPerDrawBuffer[frameIndex].updateBuffer(
-			is,
+			mVulkanCtx->iSubmit,
 			&data,
 			sizeof(perDrawData),
 			0
 		);
 	}
 
-	error resourceManager::buildResources(buildParams params)
+	error resourceManager::buildResources(uint32_t width, uint32_t height)
 	{
 		// Buffers.
-		mPositionRegistry.init(params.device, params.allocator);
-		mNormalRegistry.init(params.device, params.allocator);
-		mTangentRegistry.init(params.device, params.allocator);
-		mJointIndexRegistry.init(params.device, params.allocator);
-		mWeightRegistry.init(params.device, params.allocator);
-		mIndexRegistry.init(params.device, params.allocator);
-		mPrimitiveRegistry.init(params.device, params.allocator);
-		mMeshletRegistry.init(params.device, params.allocator);
-		mPerMeshRegistry.init(params.device, params.allocator);
+		mPositionRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mNormalRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mTangentRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mJointIndexRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mWeightRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mIndexRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mPrimitiveRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mMeshletRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mPerMeshRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
 		// Updated each frame used as MAPPED.
-		mPerInstanceRegistry.init(params.device, params.allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
-		mJointRegistry.init(params.device, params.allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
-		mAccumilationCommandBuffer.init(params.device, params.allocator, params.is, mCtx->config.inner.graphics.framesInFlight);
-		mLineBuffer.init(params.device, params.allocator, { true, false });
+		mPerInstanceRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
+		mJointRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
+		mAccumilationCommandBuffer.init(mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, mCtx->config.inner.graphics.framesInFlight);
+		mLineBuffer.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false });
 
-		error err = mAccumilationCommandBuffer.build(params.is);
+		error err = mAccumilationCommandBuffer.build(mVulkanCtx->iSubmit);
 		if (err)
 			return err;
 
-		err = mLineBuffer.build(params.is, nullptr, sizeof(glm::vec3) * 2 * 5000, 0);
+		err = mLineBuffer.build(mVulkanCtx->iSubmit, nullptr, sizeof(glm::vec3) * 2 * 5000, 0);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPositionRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mNormalRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mTangentRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointIndexRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mWeightRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mIndexRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPrimitiveRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mMeshletRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerInstanceRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerMeshRegistry });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mAccumilationCommandBuffer });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mLineBuffer });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPositionRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mNormalRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mTangentRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointIndexRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mWeightRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mIndexRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPrimitiveRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mMeshletRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerInstanceRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerMeshRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mAccumilationCommandBuffer });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mLineBuffer });
 
 		// Init visability buffers.
 		std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
@@ -857,13 +857,13 @@ namespace engine
 
 		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
 		{
-			mVisabilityBuffer[i].init(params.device, params.allocator);
+			mVisabilityBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator);
 
-			err = mVisabilityBuffer[i].build(params.is, visDispatch.data(), 2 << 24, sizeof(uint32_t) * 4, true);
+			err = mVisabilityBuffer[i].build(mVulkanCtx->iSubmit, visDispatch.data(), 2 << 24, sizeof(uint32_t) * 4, true);
 			if (err)
 				return err;
 
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mVisabilityBuffer[i] });
+			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mVisabilityBuffer[i] });
 		}
 
 		mUboPerDrawBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
@@ -871,17 +871,17 @@ namespace engine
 		// Init per draw buffer.
 		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
 		{
-			mUboPerDrawBuffer[i].init(params.device, params.allocator, { true, false });
+			mUboPerDrawBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false });
 
-			error err = mUboPerDrawBuffer[i].buildAsUBO(params.is, nullptr, sizeof(perDrawData), 0);
+			error err = mUboPerDrawBuffer[i].buildAsUBO(mVulkanCtx->iSubmit, nullptr, sizeof(perDrawData), 0);
 			if (err)
 				return err;
 
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer[i] });
+			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer[i] });
 		}
 
 		// Textures.
-		auto samp = descriptorSet::createSampler(params.device, float(mPreset.anisotropicFiltering));
+		auto samp = descriptorSet::createSampler(mVulkanCtx->device, float(mVulkanCtx->preset.anisotropicFiltering));
 		if (!samp)
 			return samp.err();
 
@@ -895,10 +895,10 @@ namespace engine
 		if (err)
 			return err;
 
-		mClipMap.init(params.device, params.allocator);
+		mClipMap.init(mVulkanCtx->device, mVulkanCtx->allocator);
 
 		err = mClipMap.build(
-			params.is,
+			mVulkanCtx->iSubmit,
 			VkExtent3D{
 				.width = mCtx->config.inner.graphics.clipMapResolution,
 				.height = mCtx->config.inner.graphics.clipMapResolution,
@@ -915,18 +915,18 @@ namespace engine
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::vulkImg, .img = &mClipMap });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::sampler, .sampler = &mSampler });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::matReg, .matReg = &mMaterialRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkImg, .img = &mClipMap });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::sampler, .sampler = &mSampler });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::matReg, .matReg = &mMaterialRegistry });
 
-		return buildViewPortDependantResources(params);
+		return buildViewPortDependantResources(width, height);
 	}
 
-	error resourceManager::buildViewPortDependantResources(buildParams params)
+	error resourceManager::buildViewPortDependantResources(uint32_t width, uint32_t height)
 	{
 		VkExtent3D colorAttachmentExtent = {
-			params.width,
-			params.height,
+			width,
+			height,
 			1
 		};
 
@@ -941,246 +941,246 @@ namespace engine
 		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		mColorAttachmentImage.init(params.device, params.allocator);
-		mColorAttachmentResolveImage.init(params.device, params.allocator);
-		mDepthImage.init(params.device, params.allocator);
-		mDepthResolveImage.init(params.device, params.allocator);
-		mAccumImage.init(params.device, params.allocator);
-		mAccumResolveImage.init(params.device, params.allocator);
-		mRevealImage.init(params.device, params.allocator);
-		mRevealResolveImage.init(params.device, params.allocator);
+		mColorAttachmentImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mColorAttachmentResolveImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mDepthImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mDepthResolveImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mAccumImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mAccumResolveImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mRevealImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mRevealResolveImage.init(mVulkanCtx->device, mVulkanCtx->allocator);
 
-		error err = mColorAttachmentImage.build(params.is, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		error err = mColorAttachmentImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, sampleCounts(mVulkanCtx->preset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mColorAttachmentResolveImage.build(params.is, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		err = mColorAttachmentResolveImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mDepthImage.build(params.is, colorAttachmentExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		err = mDepthImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, sampleCounts(mVulkanCtx->preset.msaa), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mDepthResolveImage.build(params.is, colorAttachmentExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		err = mDepthResolveImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_D32_SFLOAT, depthImageUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
 		// Build images for OIT.
 		const VkImageUsageFlags weightedUsages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-		err = mAccumImage.build(params.is, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		err = mAccumImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mVulkanCtx->preset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mAccumResolveImage.build(params.is, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		err = mAccumResolveImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mRevealImage.build(params.is, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mPreset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		err = mRevealImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, sampleCounts(mVulkanCtx->preset.msaa), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
-		err = mRevealResolveImage.build(params.is, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		err = mRevealResolveImage.build(mVulkanCtx->iSubmit, colorAttachmentExtent, VK_FORMAT_R16G16B16A16_SFLOAT, weightedUsages, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (err)
 			return err;
 
 		// Build HZB.
-		uint32_t mip0Width = (std::max)(1u, params.width >> 1);
-		uint32_t mip0Height = (std::max)(1u, params.height >> 1);
+		uint32_t mip0Width = (std::max)(1u, width >> 1);
+		uint32_t mip0Height = (std::max)(1u, height >> 1);
 
 		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height))));
 
-		mHZBImages.clear();
+		mHZBImages.resize(hzbMipLevels);
 
 		VkExtent3D mipExtent = { mip0Width, mip0Height, 1 };
 
 		for (uint32_t l = 0; l < hzbMipLevels; l++)
 		{
-			const uint32_t mipWidth = (std::max)(1u, params.width >> (l + 1));
-			const uint32_t mipHeight = (std::max)(1u, params.height >> (l + 1));
+			const uint32_t mipWidth = (std::max)(1u, width >> (l + 1));
+			const uint32_t mipHeight = (std::max)(1u, height >> (l + 1));
 
 			vulkanImage currentDepth{};
 
-			currentDepth.init(params.device, params.allocator);
+			currentDepth.init(mVulkanCtx->device, mVulkanCtx->allocator);
 
 			mipExtent.width = mipWidth;
 			mipExtent.height = mipHeight;
 
-			err = currentDepth.build(params.is, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
+			err = currentDepth.build(mVulkanCtx->iSubmit, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
 			if (err)
 				return err;
 
-			mHZBImages.push_back(std::move(currentDepth));
+			mHZBImages[l] = std::move(currentDepth);
 		}
 
 		return {};
 	}
 
-	error resourceManager::buildDescriptors(resourceManager::buildParams params)
+	error resourceManager::buildDescriptors()
 	{
 		error err = mBufferDescriptorSet.init(
-			params.device,
-			params.physicalDevice,
+			mVulkanCtx->device,
+			mVulkanCtx->physicalDevice,
 			poolConstraints{
-				.maxRWImageDescriptors = mDeviceLimits.maxRWImage,
-				.maxSampledImageDescriptors = mDeviceLimits.maxSampledImage,
-				.maxCombinedImageDescriptors = mDeviceLimits.maxCombinedImageSamplers,
-				.maxBuffersDescriptors = mDeviceLimits.maxStorageBuffers,
-				.maxUniformBuffersDescriptors = mDeviceLimits.maxUniformBuffers,
+				.maxRWImageDescriptors = mVulkanCtx->deviceLimits.maxRWImage,
+				.maxSampledImageDescriptors = mVulkanCtx->deviceLimits.maxSampledImage,
+				.maxCombinedImageDescriptors = mVulkanCtx->deviceLimits.maxCombinedImageSamplers,
+				.maxBuffersDescriptors = mVulkanCtx->deviceLimits.maxStorageBuffers,
+				.maxUniformBuffersDescriptors = mVulkanCtx->deviceLimits.maxUniformBuffers,
 			}
 			);
 		if (err)
 			return err;
 
 		err = mTextureDescriptorSet.init(
-			params.device,
-			params.physicalDevice,
+			mVulkanCtx->device,
+			mVulkanCtx->physicalDevice,
 			poolConstraints{
-				.maxRWImageDescriptors = mDeviceLimits.maxRWImage,
-				.maxSampledImageDescriptors = mDeviceLimits.maxSampledImage,
-				.maxCombinedImageDescriptors = mDeviceLimits.maxCombinedImageSamplers,
-				.maxBuffersDescriptors = mDeviceLimits.maxStorageBuffers,
-				.maxUniformBuffersDescriptors = mDeviceLimits.maxUniformBuffers,
+				.maxRWImageDescriptors = mVulkanCtx->deviceLimits.maxRWImage,
+				.maxSampledImageDescriptors = mVulkanCtx->deviceLimits.maxSampledImage,
+				.maxCombinedImageDescriptors = mVulkanCtx->deviceLimits.maxCombinedImageSamplers,
+				.maxBuffersDescriptors = mVulkanCtx->deviceLimits.maxStorageBuffers,
+				.maxUniformBuffersDescriptors = mVulkanCtx->deviceLimits.maxUniformBuffers,
 			}
 			);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mBufferDescriptorSet });
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mTextureDescriptorSet });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mBufferDescriptorSet });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::descSet, .descSet = &mTextureDescriptorSet });
 
 		// Buffers bindings.
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.positionsBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.positionsBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.normalBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.normalBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.tangentBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.tangentBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.jointIndexBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.jointIndexBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.weightBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.weightBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.perInstanceBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.perInstanceBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.cmdOpaqueBufferBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.cmdOpaqueBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.cmdAccumilationBufferBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.cmdAccumilationBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.indexBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.indexBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.primitiveBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.primitiveBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.meshletBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.meshletBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.jointsBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.jointsBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.perMeshBinding, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.perMeshBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.visabilityBuffer, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.visabilityBuffer, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.lineBuffer, mDeviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.lineBuffer, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.perDrawBufferUboBinding, mDeviceLimits.maxUniformBuffers / mBindings.uniformBufferBindings, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+				mBindings.perDrawBufferUboBinding, mVulkanCtx->deviceLimits.maxUniformBuffers / mBindings.uniformBufferBindings, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
 			)
 		);
 
 		// Texture bindings.
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.accumBinding, mDeviceLimits.maxCombinedImageSamplers / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mBindings.accumBinding, mVulkanCtx->deviceLimits.maxCombinedImageSamplers / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.revealBinding, mDeviceLimits.maxCombinedImageSamplers / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mBindings.revealBinding, mVulkanCtx->deviceLimits.maxCombinedImageSamplers / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.materialArrayBinding, mDeviceLimits.maxCombinedImageSamplers / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+				mBindings.materialArrayBinding, mVulkanCtx->deviceLimits.maxCombinedImageSamplers / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			)
 		);
 
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.clipMapBinding, mDeviceLimits.maxSampledImage / mBindings.storageImageBindings, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+				mBindings.clipMapBinding, mVulkanCtx->deviceLimits.maxSampledImage / mBindings.storageImageBindings, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
 			)
 		);
 
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.orignalZBufferBinding, mDeviceLimits.maxSampledImage / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+				mBindings.orignalZBufferBinding, mVulkanCtx->deviceLimits.maxSampledImage / mBindings.combinedSampledImageBindings, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
 			)
 		);
 
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.hzbBinding, mDeviceLimits.maxRWImage / mBindings.storageImageBindings, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+				mBindings.hzbBinding, mVulkanCtx->deviceLimits.maxRWImage / mBindings.storageImageBindings, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
 			)
 		);
 
@@ -1226,7 +1226,7 @@ namespace engine
 	{
 		std::vector<VkDescriptorImageInfo> originalZInfo{ VkDescriptorImageInfo{} };
 		originalZInfo.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		originalZInfo.front().imageView = getDepthImage(mPreset.msaa > 1).img.view;
+		originalZInfo.front().imageView = getDepthImage(mVulkanCtx->preset.msaa > 1).img.view;
 
 		std::vector<VkWriteDescriptorSet> wSet = descriptorSet::getWriteInfo(mBindings.orignalZBufferBinding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, originalZInfo);
 
@@ -1251,7 +1251,7 @@ namespace engine
 		std::vector<VkDescriptorImageInfo> info{ VkDescriptorImageInfo{} };
 		info.front().sampler = mSampler;
 		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		info.front().imageView = getAccumImage(mPreset.msaa > 1).img.view;
+		info.front().imageView = getAccumImage(mVulkanCtx->preset.msaa > 1).img.view;
 
 		wSet = descriptorSet::getWriteInfo(mBindings.accumBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
 
@@ -1259,7 +1259,7 @@ namespace engine
 
 		info.front().sampler = mSampler;
 		info.front().imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		info.front().imageView = getRevealImage(mPreset.msaa > 1).img.view;
+		info.front().imageView = getRevealImage(mVulkanCtx->preset.msaa > 1).img.view;
 
 		wSet = descriptorSet::getWriteInfo(mBindings.revealBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info);
 
@@ -1279,8 +1279,6 @@ namespace engine
 
 		for (auto& v : mHZBImages)
 			v.destroy();
-
-		mHZBImages.clear();
 	}
 
 	uint32_t resourceManager::getMaxCmdBufferSize(uint32_t frameIndex) const

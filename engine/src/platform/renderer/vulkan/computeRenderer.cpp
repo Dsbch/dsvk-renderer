@@ -3,26 +3,13 @@
 
 namespace engine
 {
-	error computeRenderer::init(
-		std::shared_ptr<context> ctx,
-		VkDevice device,
-		VkPhysicalDevice physicalDevice,
-		VmaAllocator allocator,
-		submit& is,
-		deviceLimits limits,
-		graphicsPreset preset,
-		std::shared_ptr<resourceManager> resourceManager
-	)
+	error computeRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
 	{
 		mCtx = ctx;
-
-		mDeletionQueue.init(device);
-
-		mPreset = preset;
-
+		mVulkanCtx = vulkanContext;
 		mResourceManager = resourceManager;
 
-		error err = initComputePipeline(device);
+		error err = initComputePipeline();
 		if (err)
 			return err;
 
@@ -31,8 +18,6 @@ namespace engine
 
 	error computeRenderer::destroy()
 	{
-		mDeletionQueue.flushDeletonQueue();
-
 		return {};
 	}
 
@@ -138,7 +123,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::initComputePipeline(VkDevice device)
+	error computeRenderer::initComputePipeline()
 	{
 		// Init build HZB pipeline.
 		VkShaderModule chHZBmodule;
@@ -148,7 +133,7 @@ namespace engine
 
 		chHZBmodule = static_cast<vulkanShader*>(const_cast<shader*>(csHZBShder.value().get()))->mShaderModule;
 
-		mBuildHzbPipeline.init(device);
+		mBuildHzbPipeline.init(mVulkanCtx->device);
 		mBuildHzbPipeline.setShader(chHZBmodule);
 
 		VkPushConstantRange pc{};
@@ -163,7 +148,7 @@ namespace engine
 		if (buildErr)
 			return buildErr;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mBuildHzbPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mBuildHzbPipeline });
 
 		// Init culling pipeline.
 		VkShaderModule cullingModule;
@@ -173,7 +158,7 @@ namespace engine
 
 		cullingModule = static_cast<vulkanShader*>(const_cast<shader*>(csCullingShader.value().get()))->mShaderModule;
 
-		mCullingPipeline.init(device);
+		mCullingPipeline.init(mVulkanCtx->device);
 		mCullingPipeline.setShader(cullingModule);
 
 		pc.offset = 0;
@@ -187,7 +172,7 @@ namespace engine
 		if (buildErr)
 			return buildErr;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCullingPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCullingPipeline });
 
 		// Init compact pipeline.
 		VkShaderModule compactModule;
@@ -197,7 +182,7 @@ namespace engine
 
 		compactModule = static_cast<vulkanShader*>(const_cast<shader*>(compactShader.value().get()))->mShaderModule;
 
-		mCompactCommandsPipeline.init(device);
+		mCompactCommandsPipeline.init(mVulkanCtx->device);
 		mCompactCommandsPipeline.setShader(compactModule);
 
 		pc.offset = 0;
@@ -211,7 +196,7 @@ namespace engine
 		if (buildErr)
 			return buildErr;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCompactCommandsPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCompactCommandsPipeline });
 
 		return {};
 	}

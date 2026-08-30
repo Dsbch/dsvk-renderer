@@ -1,394 +1,99 @@
 ﻿#include <pch.h>
 #define VMA_IMPLEMENTATION
 #include "renderer.h"
-#include "deletionQueue.h"
 
 namespace engine
 {
 	const uint32_t errCodeBufferOverFlow = 0;
 	const uint32_t errCodeOutOfDateKHR = 1;
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-		VkDebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
-		VkDebugUtilsMessageTypeFlagsEXT              messageType,
-		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void* pUserData)
-	{
-		const char* typeStr = (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) ? "VALIDATION" :
-			(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) ? "PERFORMANCE" : "GENERAL";
-
-		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-		{
-			LOGERROR("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
-		}
-		else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-		{
-			LOGWARN("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
-		}
-		else
-		{
-			LOGINFO("debugCallback [{}] {}", typeStr, pCallbackData->pMessage);
-		}
-
-		return VK_FALSE;
-	}
-
 	vulkanRenderer::vulkanRenderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window)
 		:
 		renderer(ctx, window),
 		mWindowMinimized(false),
-		mVkCmdDrawMeshTasksEXT(nullptr),
 		mProfInfo(),
-		mSwapChain(ctx->config.inner.graphics.framesInFlight),
-		mUiRenderer({})
+		mVulkanCtx(),
+		mResourceManager()
 	{
-		mErr = initVulkan();
+		mVulkanCtx = std::make_shared<vulkanContext>(ctx, window);
+
+		mErr = mVulkanCtx->checkError();
 		if (mErr)
 			return;
 
-		mErr = setLimits();
-		if (mErr)
-			return;
-
-		chooseGraphicsPreset();
-
-		mErr = initImmediateSubmit();
-		if (mErr)
-			return;
-
-		mErr = initSwapchain(mWindow->getWidth(), mWindow->getHeight());
-		if (mErr)
-			return;
+		mPreset = mVulkanCtx->preset;
 
 		mCtx->mAmanager->setMakeShaderFunc([&](const std::vector<uint32_t>& src) { return makeShader(src); });
 		mCtx->mAmanager->setMakeTextureFunc([&](const image& img) { return makeTexture(img); });
 		mCtx->mAmanager->setMakeTextureWithMipsFunc([&](const imageWithMipLevels& img) { return makeTextureWithMips(img); });
 
-		mResourceManager = std::make_unique<resourceManager>();
-		mResourceManager->init(mCtx, mDevice, mPreset, mDeviceLimits);
-		mErr = mResourceManager->build(
-			resourceManager::buildParams{
-				.device = mDevice,
-				.physicalDevice = mPhysicalDevice,
-				.allocator = mAllocator,
-				.is = mSubmit,
-				.width = window->getFbWidth(),
-				.height = window->getFbHeight(),
-			}
-			);
+		mResourceManager = std::make_shared<resourceManager>(ctx, mVulkanCtx, window->getFbWidth(), window->getFbHeight());
+
+		mErr = mResourceManager->checkError();
 		if (mErr)
 			return;
 
 		mErr = initRenderers(window);
 		if (mErr)
 			return;
-
-		mGpuProfiler.init(mDevice, mDeviceLimits, mCtx->config.inner.graphics.framesInFlight);
-		mErr = mGpuProfiler.createProfiling(mSubmit);
-		if (mErr)
-			return;
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::gpuProf, .profiler = &mGpuProfiler });
 	}
 
 	vulkanRenderer::~vulkanRenderer()
 	{
-		auto result = vkDeviceWaitIdle(mDevice);
+		auto result = vkDeviceWaitIdle(mVulkanCtx->device);
 		if (result != VK_SUCCESS)
 			LOGERROR("~vulkanRenderer vkDeviceWaitIdle: {}", vkResultToStr(result));
 
-		error err = mUiRenderer.destroy();
+		error err = mUiRenderer->destroy();
 		if (err)
 			LOGERROR("~vulkanRenderer mUiRenderer.destroy: {}", err.err());
 
-		err = mMeshletRenderer.destroy();
+		err = mMeshletRenderer->destroy();
 		if (err)
 			LOGERROR("~vulkanRenderer mMeshletRenderer.destroy {}", err.err());
 
-		err = mLineRenderer.destroy();
+		err = mLineRenderer->destroy();
 		if (err)
 			LOGERROR("~vulkanRenderer mLineRenderer.destroy {}", err.err());
 
-		mPackage.reset();
-
 		mResourceManager->destroy();
 
-		mDeletionQueue.flushDeletonQueue();
-	}
+		mVulkanCtx->delQueue.flushDeletonQueue();
 
-	error vulkanRenderer::initVulkan()
-	{
-		vkb::InstanceBuilder builder;
-
-		auto inst_ret = builder
-			.set_app_name(mCtx->config.inner.app.name.c_str())
-#ifdef DEBUG
-			.request_validation_layers(true)
-			.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT)
-			// enable printf in shaders.
-			//.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT)
-			//.add_debug_messenger_severity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
-			// printf in shaders end.
-			.set_debug_callback(debugCallback)
-#endif // DEBUG
-			.require_api_version(1, 3, 0)
-			.build();
-		if (!inst_ret)
-			return { inst_ret.error().message() };
-
-		vkb::Instance vkb_inst = inst_ret.value();
-
-		mInstance = vkb_inst.instance;
-		mDebugMessenger = vkb_inst.debug_messenger;
-
-		auto surfaceResult = mWindow->makeVulkunSurface(mInstance);
-		if (!surfaceResult)
-		{
-			return surfaceResult.err();
-		}
-
-		mSurface = surfaceResult.value();
-
-		VkPhysicalDeviceMultiviewFeaturesKHR multiviewFeatures{};
-		multiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
-		multiviewFeatures.multiview = VK_TRUE; // enable base multiview
-		multiviewFeatures.pNext = nullptr;
-
-		VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures{};
-		shadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
-		shadingRateFeatures.primitiveFragmentShadingRate = VK_TRUE;
-		shadingRateFeatures.pNext = &multiviewFeatures;
-
-		VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
-		meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
-		meshShaderFeatures.meshShader = VK_TRUE;
-		meshShaderFeatures.taskShader = VK_TRUE; // if using task shader
-		meshShaderFeatures.multiviewMeshShader = VK_TRUE;
-		meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_TRUE;
-		meshShaderFeatures.pNext = &shadingRateFeatures;
-
-		// Chain to Vulkan 1.3 features
-		VkPhysicalDeviceVulkan13Features features13{};
-		features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-		features13.dynamicRendering = VK_TRUE;
-		features13.synchronization2 = VK_TRUE;
-		features13.pNext = &meshShaderFeatures;
-
-		// Vulkan 1.2 features
-		VkPhysicalDeviceVulkan12Features features12{};
-		features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-		features12.bufferDeviceAddress = VK_TRUE;
-		features12.descriptorIndexing = VK_TRUE;
-		features12.runtimeDescriptorArray = VK_TRUE;
-		features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-		features12.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
-		features12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
-		features12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
-		features12.descriptorBindingPartiallyBound = VK_TRUE;
-		features12.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
-		features12.scalarBlockLayout = VK_TRUE;
-		features12.uniformBufferStandardLayout = VK_TRUE;
-		features12.timelineSemaphore = VK_TRUE;
-		features12.pNext = &features13;
-
-		VkPhysicalDeviceFeatures deviceFeatures{};
-		deviceFeatures.samplerAnisotropy = VK_TRUE;
-		deviceFeatures.fillModeNonSolid = VK_TRUE;
-		deviceFeatures.sampleRateShading = VK_TRUE;
-		deviceFeatures.shaderStorageImageMultisample = VK_TRUE;
-		deviceFeatures.independentBlend = VK_TRUE;
-		deviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
-
-		//use vkbootstrap to select a gpu. 
-		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features.
-		vkb::PhysicalDeviceSelector selector{ vkb_inst };
-		auto selectedRes = selector
-			.set_minimum_version(1, 3)
-			.set_required_features_12(features12)
-			.set_required_features(deviceFeatures)
-			.add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
-			.set_surface(mSurface)
-			.select();
-		if (!selectedRes)
-			return selectedRes.error().message();
-
-		vkb::PhysicalDevice physicalDevice = selectedRes.value();
-
-		//create the final vulkan device
-		vkb::DeviceBuilder deviceBuilder{ physicalDevice };
-
-		auto buildResult = deviceBuilder.build();
-		if (!buildResult.has_value())
-			return buildResult.error().message();
-
-		vkb::Device vkbDevice = buildResult.value();
-
-		mDevice = vkbDevice.device;
-		mPhysicalDevice = physicalDevice.physical_device;
-
-		mGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
-		mGraphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
-
-		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.physicalDevice = mPhysicalDevice;
-		allocatorInfo.device = mDevice;
-		allocatorInfo.instance = mInstance;
-		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-
-		auto vmaResult = vmaCreateAllocator(&allocatorInfo, &mAllocator);
-		if (vmaResult != VK_SUCCESS)
-			return { vkResultToStr(vmaResult) };
-
-		loadExtensions();
-
-		mDeletionQueue.init(mDevice);
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::allocator, .allocator = mAllocator });
-
-		return {};
-	}
-
-	error vulkanRenderer::setLimits()
-	{
-		VkPhysicalDeviceProperties props{};
-		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
-
-		mDeviceLimits.maxCombinedImageSamplers = props.limits.maxPerStageDescriptorSampledImages;
-		mDeviceLimits.maxRWImage = props.limits.maxPerStageDescriptorStorageImages;
-		mDeviceLimits.maxSampledImage = props.limits.maxPerStageDescriptorSampledImages;
-		mDeviceLimits.maxStorageBuffers = props.limits.maxPerStageDescriptorStorageBuffers;
-		mDeviceLimits.maxUniformBuffers = props.limits.maxPerStageDescriptorUniformBuffers;
-		mDeviceLimits.maxFiltering = props.limits.maxSamplerAnisotropy;
-		mDeviceLimits.timestampPeriod = props.limits.timestampPeriod;
-
-		VkSampleCountFlags counts = props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
-
-		if (counts & VK_SAMPLE_COUNT_64_BIT)
-			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_64_BIT;
-		else if (counts & VK_SAMPLE_COUNT_32_BIT)
-			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_32_BIT;
-		else if (counts & VK_SAMPLE_COUNT_16_BIT)
-			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_16_BIT;
-		else if (counts & VK_SAMPLE_COUNT_8_BIT)
-			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_8_BIT;
-		else if (counts & VK_SAMPLE_COUNT_4_BIT)
-			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_4_BIT;
-		else if (counts & VK_SAMPLE_COUNT_2_BIT)
-			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_2_BIT;
-		else
-			mDeviceLimits.maxMultiSampling = VK_SAMPLE_COUNT_1_BIT;
-
-		return {};
-	}
-
-	error vulkanRenderer::initImmediateSubmit()
-	{
-		error err = mSubmit.init(mCtx, mDevice, mGraphicsQueue, mGraphicsQueueFamily);
-		if (err)
-			return err;
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::iSub, .iSubmit = &mSubmit });
-
-		return {};
-	}
-
-	error vulkanRenderer::loadExtensions()
-	{
-		mVkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksEXT");
-		if (!mVkCmdDrawMeshTasksEXT)
-			return { "can't load extensions" };
-
-		mVkCmdDrawMeshTasksIndirectEXT = (PFN_vkCmdDrawMeshTasksIndirectEXT)vkGetDeviceProcAddr(mDevice, "vkCmdDrawMeshTasksIndirectEXT");
-		if (!mVkCmdDrawMeshTasksIndirectEXT)
-			return { "can't load extensions" };
-
-		return {};
-	}
-
-	error vulkanRenderer::initSwapchain(uint32_t width, uint32_t height)
-	{
-		mSwapChain.init(mAllocator, mDevice, mSurface, mPhysicalDevice, mSubmit, mPreset);
-
-		error err = mSwapChain.build(mSubmit, width, height, mGraphicsQueueFamily);
-		if (err)
-			return err;
-
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::sChain, .sChain = &mSwapChain });
-
-		return {};
+		mPackage.reset();
 	}
 
 	error vulkanRenderer::initRenderers(std::shared_ptr<window> window)
 	{
-		error err = mMeshletRenderer.init(
-			mCtx, 
-			mVkCmdDrawMeshTasksEXT, 
-			mVkCmdDrawMeshTasksIndirectEXT, 
-			mDevice, 
-			mPhysicalDevice, 
-			mAllocator, 
-			mSubmit, 
-			mDeviceLimits, 
-			mPreset, 
-			mResourceManager
-		);
+		mMeshletRenderer = std::make_unique<meshletRenderer>();
+		mLineRenderer = std::make_unique<lineRenderer>();
+		mUiRenderer = std::make_unique<uiRenderer>();
+
+		error err = mMeshletRenderer->init(mCtx, mVulkanCtx, mResourceManager);
 		if (err)
 			return err;
 
-		err = mLineRenderer.init(
-			mCtx, 
-			mDevice, 
-			mPhysicalDevice, 
-			mAllocator, 
-			mSubmit, 
-			mPreset, 
-			mDeviceLimits,
-			mResourceManager
-		);
+		err = mLineRenderer->init(mCtx, mVulkanCtx, mResourceManager);
 		if (err)
 			return err;
 
-		err = mUiRenderer.init(
-			mCtx, 
-			window->getGLFWhandle(), 
-			mDevice, 
-			mPhysicalDevice, 
-			mInstance, 
-			mGraphicsQueueFamily, 
-			mGraphicsQueue, 
-			mPreset,
-			mResourceManager
-		);
+		err = mUiRenderer->init(mCtx, mVulkanCtx, mResourceManager, window->getGLFWhandle());
 		if (err)
 			return err;
 
 		return {};
 	}
 
-	void vulkanRenderer::chooseGraphicsPreset()
-	{
-		mPreset = graphicsPreset{
-			.msaa = mCtx->config.inner.graphics.msaa,
-			.anisotropicFiltering = mCtx->config.inner.graphics.anisotropicFiltering,
-		};
-
-		if (mPreset.anisotropicFiltering > uint32_t(mDeviceLimits.maxFiltering))
-			mPreset.anisotropicFiltering = uint32_t(mDeviceLimits.maxFiltering);
-
-		if (mPreset.msaa > sampleCountsAsUint(mDeviceLimits.maxMultiSampling))
-			mPreset.msaa = sampleCountsAsUint(mDeviceLimits.maxMultiSampling);
-	}
-
 	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		error err = mLineRenderer.drawLines(
+		error err = mLineRenderer->drawLines(
 			cmd,
 			frameIndex
 		);
 		if (err)
 			return err;
 
-		err = mMeshletRenderer.opaquePass(
+		err = mMeshletRenderer->opaquePass(
 			cmd,
 			in,
 			frameIndex
@@ -401,23 +106,23 @@ namespace engine
 
 	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer.accumilationPass(cmd, in, frameIndex);
+		return mMeshletRenderer->accumilationPass(cmd, in, frameIndex);
 	}
 
 	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer.compositePass(cmd, in, frameIndex);
+		return mMeshletRenderer->compositePass(cmd, in, frameIndex);
 	}
 
 	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
 	{
-		return mUiRenderer.onRender(cmd, mProfInfo);
+		return mUiRenderer->onRender(cmd, mProfInfo);
 	}
 
 	std::string vulkanRenderer::getVersion() const
 	{
 		VkPhysicalDeviceProperties props{};
-		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
+		vkGetPhysicalDeviceProperties(mVulkanCtx->physicalDevice, &props);
 
 		uint32_t apiVersion = props.apiVersion;
 		uint32_t major = VK_VERSION_MAJOR(apiVersion);
@@ -430,7 +135,7 @@ namespace engine
 	std::string vulkanRenderer::getGpuName() const
 	{
 		VkPhysicalDeviceProperties props{};
-		vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
+		vkGetPhysicalDeviceProperties(mVulkanCtx->physicalDevice, &props);
 
 		return props.deviceName;
 	}
@@ -452,22 +157,15 @@ namespace engine
 			mWindowMinimized = false;
 		}
 
-		mSwapChain.destroy();
-		auto swapChainErr = mSwapChain.build(mSubmit, width, height, mGraphicsQueueFamily);
-		if (swapChainErr)
-			return swapChainErr;
+		error err = mVulkanCtx->changeViewPort(width, height);
+		if (err)
+			return err;
 
-		mResourceManager->changeViewPort(resourceManager::buildParams{
-				.device = mDevice,
-				.physicalDevice = mPhysicalDevice,
-				.allocator = mAllocator,
-				.is = mSubmit,
-				.width = width,
-				.height = height,
-			}
-		);
+		err = mResourceManager->changeViewPort(width, height);
+		if (err)
+			return err;
 
-		mUiRenderer.updateViewPortDependantDescriptors();
+		mUiRenderer->updateViewPortDependantDescriptors();
 
 		return {};
 	}
@@ -492,11 +190,11 @@ namespace engine
 			if (mWindowMinimized)
 				return {};
 
-			auto waitResult = mSwapChain.waitOnRenderFence();
+			auto waitResult = mVulkanCtx->sChain.waitOnRenderFence();
 			if (waitResult)
 				return waitResult.err();
 
-			uint32_t frameIndex = mSwapChain.getCurrentFrameIndex();
+			uint32_t frameIndex = mVulkanCtx->sChain.getCurrentFrameIndex();
 
 			const renderer::sceneState& renderState = mPackage->getStateToRender(frameIndex);
 
@@ -519,14 +217,7 @@ namespace engine
 
 			renderer::renderParams params = mPackage->getRenderParams();
 
-			err = mResourceManager->updateDescriptors(
-				resourceManager::updateDescriptorsParams{
-					.device = mDevice,
-					.allocator = mAllocator,
-					.is = mSubmit,
-					.frameIndex = frameIndex
-				}
-			);
+			err = mResourceManager->updateDescriptors(frameIndex);
 			if (err)
 				return err;
 
@@ -545,19 +236,18 @@ namespace engine
 					.deltaTime = deltaTime,
 					.width = params.width,
 					.height = params.height,
-					.voxelParams = mMeshletRenderer.getVoxelSceneParams(),
+					.voxelParams = getVoxelSceneParams(),
 				},
-				mSubmit,
 				frameIndex
-			);
+				);
 			if (err)
 				return err;
 
 			// Register all queued events from submit, get semaphores to wait upon before render.
-			auto waitSema = mSubmit.getCurrentSemaInUse();
-			std::vector<VkSubmitInfo2> commands = mSubmit.getSumbitedCommands();
+			auto waitSema = mVulkanCtx->iSubmit.getCurrentSemaInUse();
+			std::vector<VkSubmitInfo2> commands = mVulkanCtx->iSubmit.getSumbitedCommands();
 
-			auto vkResult = vkQueueSubmit2(mGraphicsQueue, uint32_t(commands.size()), commands.data(), nullptr);
+			auto vkResult = vkQueueSubmit2(mVulkanCtx->graphicsQueue, uint32_t(commands.size()), commands.data(), nullptr);
 			if (vkResult != VK_SUCCESS)
 				return vkResultToStr(vkResult);
 
@@ -565,7 +255,7 @@ namespace engine
 
 			// request image from the swapchain.
 			// keep in mind that we use swapChain semaphore as signaling here.
-			err = mSwapChain.acquireImageIndex();
+			err = mVulkanCtx->sChain.acquireImageIndex();
 			if (err)
 			{
 				if (err.is(errCodeOutOfDateKHR))
@@ -578,16 +268,16 @@ namespace engine
 				return err;
 			}
 
-			auto resetResult = mSwapChain.resetRenderFence();
+			auto resetResult = mVulkanCtx->sChain.resetRenderFence();
 			if (resetResult)
 				return resetResult.err();
 
-			resetResult = mSwapChain.resetCommandBuffer();
+			resetResult = mVulkanCtx->sChain.resetCommandBuffer();
 			if (resetResult)
 				return resetResult.err();
 
 			//naming it cmd for shorter writing
-			VkCommandBuffer cmd = mSwapChain.getCommandBuffer();
+			VkCommandBuffer cmd = mVulkanCtx->sChain.getCommandBuffer();
 
 			//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
 			VkCommandBufferBeginInfo cmdBeginInfo = commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -599,7 +289,7 @@ namespace engine
 
 			setViewportAndSciccors(cmd, mResourceManager->getColorAttachmentImage(false).img.extent);
 
-			mGpuProfiler.reset(cmd, frameIndex);
+			mVulkanCtx->profiler.reset(cmd, frameIndex);
 
 			// Cross frame barriers.
 			mResourceManager->transitionDepthImage(
@@ -645,18 +335,18 @@ namespace engine
 
 			// Just to test voxel scene.
 			{
-				err = mGpuProfiler.beginTimeStamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
+				err = mVulkanCtx->profiler.beginTimeStamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
 				if (err)
 					return err;
 
-				err = mMeshletRenderer.voxilizeOpaqueGeometry(cmd, params, frameIndex);
+				err = mMeshletRenderer->voxilizeOpaqueGeometry(cmd, params, frameIndex);
 				if (err)
 					return err;
 
-				mGpuProfiler.endTimestamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
+				mVulkanCtx->profiler.endTimestamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
 			}
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "drawOpaque", frameIndex);
+			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawOpaque", frameIndex);
 			if (err)
 				return err;
 
@@ -665,39 +355,39 @@ namespace engine
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "drawOpaque", frameIndex);
+			mVulkanCtx->profiler.endTimestamp(cmd, "drawOpaque", frameIndex);
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "drawTransperent", frameIndex);
+			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawTransperent", frameIndex);
 
 			err = drawTransperent(cmd, params, frameIndex);
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "drawTransperent", frameIndex);
+			mVulkanCtx->profiler.endTimestamp(cmd, "drawTransperent", frameIndex);
 
 			// Transition to sample them as textures in composite pass.
 			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
+			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
 
 			err = compositeOpaqueAndTransperent(cmd, params, frameIndex);
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
+			mVulkanCtx->profiler.endTimestamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
 
 			// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
 			mResourceManager->transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			mResourceManager->transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-			err = mGpuProfiler.beginTimeStamp(cmd, "drawUI", frameIndex);
+			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawUI", frameIndex);
 
 			err = drawUI(cmd);
 			if (err)
 				return err;
 
-			mGpuProfiler.endTimestamp(cmd, "drawUI", frameIndex);
+			mVulkanCtx->profiler.endTimestamp(cmd, "drawUI", frameIndex);
 
 			// Prepare for next frame.
 			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -708,7 +398,7 @@ namespace engine
 			//transition the draw image and the swapchain image into their correct transfer layouts
 			mResourceManager->transitionColorAttachmentImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-			mSwapChain.transitionCurrentSwapChainImage(
+			mVulkanCtx->sChain.transitionCurrentSwapChainImage(
 				cmd,
 				VK_IMAGE_LAYOUT_UNDEFINED,
 				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
@@ -716,25 +406,25 @@ namespace engine
 
 			// copy from the draw image into the swapchain
 			copyImageToImage(
-				cmd, 
-				mResourceManager->getColorAttachmentImage(mPreset.msaa > 1).img.image, 
-				mSwapChain.getCurrentSwapChainImage(), 
+				cmd,
+				mResourceManager->getColorAttachmentImage(mVulkanCtx->preset.msaa > 1).img.image,
+				mVulkanCtx->sChain.getCurrentSwapChainImage(),
 				mResourceManager->getColorAttachmentImage(false).img.extent,
-				mSwapChain.getSwapChainExtent()
+				mVulkanCtx->sChain.getSwapChainExtent()
 			);
 
 			// Transition image back to it's format.
 			mResourceManager->transitionColorAttachmentImage(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 			// set swapchain image layout to Attachment Optimal so we can draw it
-			mSwapChain.transitionCurrentSwapChainImage(
+			mVulkanCtx->sChain.transitionCurrentSwapChainImage(
 				cmd,
 				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			);
 
 			// set swapchain image layout to Present so we can draw it
-			mSwapChain.transitionCurrentSwapChainImage(
+			mVulkanCtx->sChain.transitionCurrentSwapChainImage(
 				cmd,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
@@ -755,8 +445,8 @@ namespace engine
 			std::vector<VkSemaphoreSubmitInfo> waitInfo{};
 			std::vector<VkSemaphoreSubmitInfo> signalInfo{};
 
-			waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mSwapChain.getSwapchainSemaphore()));
-			signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mSwapChain.getRenderSemaphore()));
+			waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, mVulkanCtx->sChain.getSwapchainSemaphore()));
+			signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mVulkanCtx->sChain.getRenderSemaphore()));
 
 			for (auto& sema : waitSema)
 				waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT, sema));
@@ -765,19 +455,19 @@ namespace engine
 
 			// submit command buffer to the queue and execute it.
 			// _renderFence will now block until the graphic commands finish execution.
-			vkResult = vkQueueSubmit2(mGraphicsQueue, 1, &submit, mSwapChain.getRenderFence());
+			vkResult = vkQueueSubmit2(mVulkanCtx->graphicsQueue, 1, &submit, mVulkanCtx->sChain.getRenderFence());
 			if (vkResult != VK_SUCCESS)
 				return vkResultToStr(vkResult);
 
 			// Delete all submitted commands and semaphores.
-			mSubmit.deleteSemaInUse(waitSema.size());
-			mSubmit.deleteSubmitedCommands(commands.size());
+			mVulkanCtx->iSubmit.deleteSemaInUse(waitSema.size());
+			mVulkanCtx->iSubmit.deleteSubmitedCommands(commands.size());
 
 			// prepare present.
 			// this will put the image we just rendered to into the visible window.
 			// we want to wait on the _renderSemaphore for that, 
 			// as its necessary that drawing commands have finished before the image is displayed to the user.
-			auto presentErr = mSwapChain.present(mGraphicsQueue);
+			auto presentErr = mVulkanCtx->sChain.present(mVulkanCtx->graphicsQueue);
 			if (presentErr)
 				return presentErr;
 
@@ -794,7 +484,7 @@ namespace engine
 
 	withError<std::shared_ptr<const shader>> vulkanRenderer::makeShader(const std::vector<uint32_t>& src)
 	{
-		std::shared_ptr<const shader> vkShader = std::make_shared<const vulkanShader>(mDevice, src);
+		std::shared_ptr<const shader> vkShader = std::make_shared<const vulkanShader>(mVulkanCtx->device, src);
 		if (vkShader->checkError())
 			return vkShader->checkError();
 
@@ -803,7 +493,7 @@ namespace engine
 
 	withError<std::shared_ptr<const texture>> vulkanRenderer::makeTexture(const image& img)
 	{
-		std::shared_ptr<const texture> vkTexture = std::make_shared<const vulkanTexture>(mDevice, mAllocator, mSubmit, img);
+		std::shared_ptr<const texture> vkTexture = std::make_shared<const vulkanTexture>(mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, img);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
 
@@ -812,7 +502,7 @@ namespace engine
 
 	withError<std::shared_ptr<const texture>> vulkanRenderer::makeTextureWithMips(const imageWithMipLevels& img)
 	{
-		std::shared_ptr<const texture> vkTexture = std::make_shared<const vulkanTexture>(mDevice, mAllocator, mSubmit, img);
+		std::shared_ptr<const texture> vkTexture = std::make_shared<const vulkanTexture>(mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, img);
 		if (vkTexture->checkError())
 			return vkTexture->checkError();
 
@@ -837,7 +527,7 @@ namespace engine
 
 		mProfInfo.globalInfo.deltaTime = deltaTime;
 
-		mProfInfo.passInfo = mGpuProfiler.getAllSlots(frameIndex);
+		mProfInfo.passInfo = mVulkanCtx->profiler.getAllSlots(frameIndex);
 	}
 
 	void vulkanRenderer::registerSceneMetrics(const model& m, bool isDeleted)
@@ -898,10 +588,7 @@ namespace engine
 				normal = glm::transpose(glm::inverse(glm::mat3(perMeshAttr.meshGlobalTransform))) * normal;
 				normal = glm::normalize(m.instanceAttributes.modelTransform.rotation * normal);
 
-				mLineRenderer.addLine(
-					mDevice,
-					mAllocator,
-					mSubmit,
+				mResourceManager->addLine(
 					line{ .p1 = pos, .p2 = pos + normal / 10.0f }
 				);
 			}
@@ -965,10 +652,7 @@ namespace engine
 		};
 
 		for (size_t i = 1; i < lines.size(); i += 2)
-			mLineRenderer.addLine(
-				mDevice,
-				mAllocator,
-				mSubmit,
+			mResourceManager->addLine(
 				line{ .p1 = lines[i], .p2 = lines[i - 1] }
 			);
 	}
@@ -1002,9 +686,15 @@ namespace engine
 		error err = {};
 		for (auto& m : addedEntities)
 		{
+			mSceneAABB[m.id] = m.calculateWorldSpaceAABB();
+
 			registerSceneMetrics(m);
 
-			err = mMeshletRenderer.addToRender(m, mDevice, mAllocator, mSubmit, frameIndex);
+			err = mMeshletRenderer->createPipeline(m);
+			if (err)
+				return err;
+
+			err = mResourceManager->addToRender(m, frameIndex);
 			if (err)
 				return err;
 		}
@@ -1017,7 +707,7 @@ namespace engine
 		error err = {};
 		for (auto& m : updatedEntities)
 		{
-			err = mMeshletRenderer.updateInstance(m, mDevice, mAllocator, mSubmit, frameIndex);
+			err = mResourceManager->updateInstance(m, frameIndex);
 			if (err)
 				return err;
 		}
@@ -1030,7 +720,7 @@ namespace engine
 		error err = {};
 		for (auto& m : animationUpdatedEntities)
 		{
-			err = mMeshletRenderer.updateAnimations(m, mDevice, mAllocator, mSubmit, frameIndex);
+			err = mResourceManager->updateAnimations(m, frameIndex);
 			if (err)
 				return err;
 		}
@@ -1044,7 +734,50 @@ namespace engine
 		{
 			registerSceneMetrics(m, true);
 
-			mMeshletRenderer.removeFromRender(m, mDevice, mAllocator, mSubmit, frameIndex);
+			mResourceManager->removeFromRender(m, frameIndex);
 		}
+	}
+
+	aabb vulkanRenderer::getSceneBoundingBox() const
+	{
+		aabb result{
+			.min = glm::vec3{std::numeric_limits<float>::max()},
+			.max = glm::vec3{std::numeric_limits<float>::lowest()},
+		};
+
+		if (mSceneAABB.size() == 0)
+			return aabb{};
+
+		for (auto& [_, v] : mSceneAABB)
+		{
+			result.max = glm::max(result.max, v.max);
+			result.min = glm::min(result.min, v.min);
+		}
+
+		return result;
+	}
+
+	voxelDrawParams vulkanRenderer::getVoxelSceneParams() const
+	{
+		aabb box = getSceneBoundingBox();
+
+		glm::mat4 view = glm::translate(glm::mat4{ 1.0f }, -(box.max + box.min) * 0.5f);
+
+		const float halfExtent = float(mCtx->config.inner.graphics.voxelSceneUpperBound) * 0.5f;
+
+		glm::mat4 proj = glm::ortho(
+			-halfExtent, halfExtent,
+			-halfExtent, halfExtent,
+			-halfExtent, halfExtent);
+
+		voxelDrawParams result{
+			.voxelGridExtent = mCtx->config.inner.graphics.clipMapResolution,
+			.voxelSceneUpperBound = mCtx->config.inner.graphics.voxelSceneUpperBound,
+			.viewVoxel = view,
+			.projectionVoxel = proj,
+			.viewProjectionVoxel = proj * view,
+		};
+
+		return result;
 	}
 }

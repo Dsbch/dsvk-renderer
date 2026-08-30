@@ -1,16 +1,17 @@
 #pragma once
+
 #include <pch.h>
 
-#include <vma/vk_mem_alloc.h>
-#include "platform/renderer/renderer.h"
-#include "submit.h"
-#include "helper.h"
+#include "base/include.h"
 
 namespace engine
 {
 	struct gpuProfiler
 	{
 	public:
+		gpuProfiler() = default;
+		gpuProfiler(const gpuProfiler&) = delete;
+
 		void init(VkDevice device, deviceLimits limits, uint32_t framesInFlight);
 		void destroy();
 		error createProfiling(submit& is);

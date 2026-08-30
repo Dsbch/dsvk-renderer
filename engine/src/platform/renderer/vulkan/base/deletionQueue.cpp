@@ -58,10 +58,6 @@ namespace engine
 				if (it->img)
 					it->img->destroy();
 				break;
-			case handleType::gpuProf:
-				if (it->profiler)
-					it->profiler->destroy();
-				break;
 			case handleType::matReg:
 				if (it->matReg)
 					it->matReg->destroy();

@@ -2,15 +2,8 @@
 
 #include <pch.h>
 
-#include "image.h"
-#include "buffer.h"
-#include "helper.h"
-#include "registry.h"
-#include "commandBuffer.h"
-#include "deletionQueue.h"
-#include "descriptorSet.h"
-#include "submit.h"
-#include "platform/renderer/renderer.h"
+#include "vulkanContext.h"
+#include "base/include.h"
 
 namespace engine
 {
@@ -18,65 +11,34 @@ namespace engine
 	struct computeRenderer;
 	struct lineRenderer;
 
-	struct resourceManager
+	class resourceManager
 	{
 	public:
 		resourceManager() = default;
 		resourceManager(const resourceManager&) = delete;
 
-		void init(std::shared_ptr<context> ctx, VkDevice device, graphicsPreset preset, deviceLimits limits);
-
-		struct buildParams
-		{
-			VkDevice device;
-			VkPhysicalDevice physicalDevice;
-			VmaAllocator allocator; 
-			submit& is; 
-			uint32_t width;
-			uint32_t height;
-		};
-
-		error build(buildParams params);
+		resourceManager(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, uint32_t width, uint32_t height);
+		
 		void destroy();
 
+		error checkError() const;
+		
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getBufferDescriptorSet() const;
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getTextureDescriptorSet() const;
+		VkSampler getSampler() const;
 
 		// Should be called each frame before render.
 		// Will update descriptors for all managed resources.
-		struct updateDescriptorsParams
-		{
-			VkDevice device;
-			VmaAllocator allocator;
-			submit& is;
-			uint32_t frameIndex;
-		};
-		error updateDescriptors(updateDescriptorsParams params);
+		error updateDescriptors(uint32_t frameIndex);
+		
+		error addToRender(const model& m, uint32_t frameIndex);
+		error updateInstance(const model& m, uint32_t frameIndex);
+		error updateAnimations(const model& m, uint32_t frameIndex);
+		void removeFromRender(const model& m, uint32_t frameIndex);
+		error changeViewPort(uint32_t width, uint32_t height);
 
-		struct instanceParams
-		{
-			VkDevice device;
-			VmaAllocator allocator;
-			submit& is;
-			const model& m;
-			uint32_t frameIndex;
-		};
-
-		error addToRender(instanceParams params);
-		error updateInstance(instanceParams params);
-		error updateAnimations(instanceParams params);
-		void removeFromRender(instanceParams params);
-		error changeViewPort(buildParams params);
-
-		struct addLineParams
-		{
-			VkDevice device;
-			VmaAllocator allocator;
-			submit& is;
-			line l;
-		};
-		error addLine(addLineParams params);
-		error updatePerDrawBuffer(perDrawData data, submit& is, uint32_t frameIndex);
+		error addLine(line l);
+		error updatePerDrawBuffer(perDrawData data, uint32_t frameIndex);
 	
 		void bindDescriptorSets(VkCommandBuffer cmd, VkPipelineBindPoint bindPoint, VkPipelineLayout layout);
 
@@ -133,18 +95,17 @@ namespace engine
 		std::vector<vulkanImage> getHZB() const;
 	private:
 		void destroyViewPortDependantResources();
-		error buildResources(buildParams params);
-		error buildViewPortDependantResources(buildParams params);
-		error buildDescriptors(buildParams params);
+		error buildResources(uint32_t width, uint32_t height);
+		error buildViewPortDependantResources(uint32_t width, uint32_t height);
+		error buildDescriptors();
 		void updateWriteAfterViewPortChange();
 
 		uint32_t getMaxCmdBufferSize(uint32_t frameIndex) const;
 
 		// Control fields.
 		std::shared_ptr<context> mCtx;
-
-		graphicsPreset mPreset;
-		deviceLimits mDeviceLimits;
+		std::shared_ptr<vulkanContext> mVulkanCtx;
+		error mErr;
 
 		struct descriptorsBindings
 		{
@@ -180,8 +141,6 @@ namespace engine
 			uint32_t orignalZBufferBinding = 4;
 			uint32_t hzbBinding = 5;
 		};
-
-		deletionQueue mDeletionQueue;
 
 		descriptorsBindings mBindings;
 		descriptorSet mBufferDescriptorSet;

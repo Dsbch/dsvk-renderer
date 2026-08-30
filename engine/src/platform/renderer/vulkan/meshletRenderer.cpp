@@ -1,46 +1,24 @@
 ﻿#include <pch.h>
+
 #include "meshletRenderer.h"
-#include "renderer.h"
-#include "computeRenderer.h"
 
 namespace engine
 {
-	error meshletRenderer::init(
-		std::shared_ptr<context> ctx,
-		PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT,
-		PFN_vkCmdDrawMeshTasksIndirectEXT vkCmdDrawMeshTasksIndirectEXT,
-		VkDevice device,
-		VkPhysicalDevice physicalDevice,
-		VmaAllocator allocator,
-		submit& is,
-		deviceLimits limits,
-		graphicsPreset preset,
-		std::shared_ptr<resourceManager> resourceManager
-	)
+	error meshletRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
 	{
-		if (!vkCmdDrawMeshTasksEXT)
-			return { "vkCmdDrawMeshTasksEXT nullptr" };
-
-		mVkCmdDrawMeshTasksEXT = vkCmdDrawMeshTasksEXT;
-		mVkCmdDrawMeshTasksIndirectEXT = vkCmdDrawMeshTasksIndirectEXT;
-
 		mCtx = ctx;
-
 		mResourceManager = resourceManager;
+		mVulkanCtx = vulkanContext;
 
-		mDeletionQueue.init(device);
-
-		mPreset = preset;
-
-		error err = initBlendingPipelines(device, allocator, is);
+		error err = initBlendingPipelines();
 		if (err)
 			return err;
 
-		err = initVoxelPipelines(device, allocator, is);
+		err = initVoxelPipelines();
 		if (err)
 			return err;
 
-		err = mComputeRenderer.init(mCtx, device, physicalDevice, allocator, is, limits, mPreset, mResourceManager);
+		err = mComputeRenderer.init(mCtx, mVulkanCtx, mResourceManager);
 		if (err)
 			return err;
 
@@ -49,14 +27,48 @@ namespace engine
 
 	error meshletRenderer::destroy()
 	{
-		mDeletionQueue.flushDeletonQueue();
-
 		mComputeRenderer.destroy();
 
 		return {};
 	}
 
-	error meshletRenderer::initBlendingPipelines(VkDevice device, VmaAllocator allocator, submit& is)
+	error meshletRenderer::createPipeline(const model& m)
+	{
+		if (!mOpaquePipelines.contains(m.mat.pixelShader->hash()))
+		{
+			auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
+			if (!meshShader)
+				return meshShader.err();
+
+			auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
+			if (!taskShader)
+				return taskShader.err();
+
+			graphicsPipeline pipeline{};
+
+			pipeline.init(mVulkanCtx->device, graphicsPipeline::pipelineType::opaque);
+
+			error err = pipeline.build(
+				m.mat.pixelShader,
+				meshShader.value(),
+				taskShader.value(),
+				{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
+				mResourceManager->getDepthImage(false).img.format,
+				{ mResourceManager->getColorAttachmentImage(false).img.format },
+				sampleCounts(mVulkanCtx->preset.msaa)
+			);
+			if (err)
+				return err;
+
+			mOpaquePipelines[m.mat.pixelShader->hash()] = pipeline;
+
+			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mOpaquePipelines[m.mat.pixelShader->hash()] });
+		}
+
+		return {};
+	}
+
+	error meshletRenderer::initBlendingPipelines()
 	{
 		auto meshlets = mCtx->mAmanager->getDefaultAccumilateMeshShader();
 		if (!meshlets)
@@ -70,7 +82,7 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		mAccumilationPipeline.init(device, graphicsPipeline::pipelineType::accumilation);
+		mAccumilationPipeline.init(mVulkanCtx->device, graphicsPipeline::pipelineType::accumilation);
 
 		error err = mAccumilationPipeline.build(
 			pixel.value(),
@@ -79,12 +91,12 @@ namespace engine
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
 			mResourceManager->getDepthImage(false).img.format,
 			{ mResourceManager->getAccumImage(false).img.format, mResourceManager->getRevealImage(false).img.format },
-			sampleCounts(mPreset.msaa)
+			sampleCounts(mVulkanCtx->preset.msaa)
 		);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mAccumilationPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mAccumilationPipeline });
 
 		meshlets = mCtx->mAmanager->getDefaultCompositeMeshShader();
 		if (!meshlets)
@@ -98,7 +110,7 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		mCompositePipeline.init(device, graphicsPipeline::pipelineType::composite);
+		mCompositePipeline.init(mVulkanCtx->device, graphicsPipeline::pipelineType::composite);
 
 		err = mCompositePipeline.build(
 			pixel.value(),
@@ -107,17 +119,17 @@ namespace engine
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
 			mResourceManager->getDepthImage(false).img.format,
 			{ mResourceManager->getColorAttachmentImage(false).img.format },
-			sampleCounts(mPreset.msaa)
+			sampleCounts(mVulkanCtx->preset.msaa)
 		);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mCompositePipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mCompositePipeline });
 
 		return {};
 	}
 
-	error meshletRenderer::initVoxelPipelines(VkDevice device, VmaAllocator allocator, submit& is)
+	error meshletRenderer::initVoxelPipelines()
 	{
 		auto meshlets = mCtx->mAmanager->getDefaultVoxelMeshShader();
 		if (!meshlets)
@@ -131,7 +143,7 @@ namespace engine
 		if (!pixel)
 			return pixel.err();
 
-		mVoxelizationPipeline.init(device, graphicsPipeline::pipelineType::voxelization);
+		mVoxelizationPipeline.init(mVulkanCtx->device, graphicsPipeline::pipelineType::voxelization);
 
 		error err = mVoxelizationPipeline.build(
 			pixel.value(),
@@ -140,33 +152,14 @@ namespace engine
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
 			{},
 			{},
-			sampleCounts(mPreset.msaa)
+			sampleCounts(mVulkanCtx->preset.msaa)
 		);
 		if (err)
 			return err;
 
-		mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mVoxelizationPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mVoxelizationPipeline });
 
 		return {};
-	}
-
-	aabb meshletRenderer::getSceneBoundingBox() const
-	{
-		aabb result{
-			.min = glm::vec3{std::numeric_limits<float>::max()},
-			.max = glm::vec3{std::numeric_limits<float>::lowest()},
-		};
-
-		if (mSceneAABB.size() == 0)
-			return aabb{};
-
-		for (auto& [_, v] : mSceneAABB)
-		{
-			result.max = glm::max(result.max, v.max);
-			result.min = glm::min(result.min, v.min);
-		}
-
-		return result;
 	}
 
 	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
@@ -261,15 +254,15 @@ namespace engine
 
 					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
 						mResourceManager->getColorAttachmentImage(false).img.view,
-						mPreset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
-						getResolveMode(mPreset.msaa),
+						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+						getResolveMode(mVulkanCtx->preset.msaa),
 						nullptr,
 						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 					);
 					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 						mResourceManager->getDepthImage(false).img.view,
-						mPreset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-						getResolveMode(mPreset.msaa),
+						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+						getResolveMode(mVulkanCtx->preset.msaa),
 						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 						false
 					);
@@ -300,7 +293,7 @@ namespace engine
 						pipelineLayout
 					);
 
-					mVkCmdDrawMeshTasksIndirectEXT(
+					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 						cmd,
 						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						sizeof(uint32_t),
@@ -431,15 +424,15 @@ namespace engine
 
 					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
 						mResourceManager->getColorAttachmentImage(false).img.view,
-						mPreset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
-						getResolveMode(mPreset.msaa),
+						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+						getResolveMode(mVulkanCtx->preset.msaa),
 						nullptr,
 						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 					);
 					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 						mResourceManager->getDepthImage(false).img.view,
-						mPreset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-						getResolveMode(mPreset.msaa),
+						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+						getResolveMode(mVulkanCtx->preset.msaa),
 						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 						false
 					);
@@ -466,7 +459,7 @@ namespace engine
 						pipelineLayout
 					);
 
-					mVkCmdDrawMeshTasksIndirectEXT(
+					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 						cmd,
 						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 						sizeof(uint32_t),
@@ -504,8 +497,8 @@ namespace engine
 
 		VkRenderingAttachmentInfo accumAttachment = attachmentInfo(
 			mResourceManager->getAccumImage(false).img.view,
-			mPreset.msaa <= 1 ? nullptr : mResourceManager->getAccumImage(true).img.view,
-			getResolveMode(mPreset.msaa),
+			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getAccumImage(true).img.view,
+			getResolveMode(mVulkanCtx->preset.msaa),
 			&clear,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 		);
@@ -514,8 +507,8 @@ namespace engine
 
 		VkRenderingAttachmentInfo revealAttachment = attachmentInfo(
 			mResourceManager->getRevealImage(false).img.view,
-			mPreset.msaa <= 1 ? nullptr : mResourceManager->getRevealImage(true).img.view,
-			getResolveMode(mPreset.msaa),
+			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getRevealImage(true).img.view,
+			getResolveMode(mVulkanCtx->preset.msaa),
 			&clear,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 		);
@@ -524,8 +517,8 @@ namespace engine
 
 		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 			mResourceManager->getDepthImage(false).img.view,
-			mPreset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-			getResolveMode(mPreset.msaa),
+			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+			getResolveMode(mVulkanCtx->preset.msaa),
 			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			false
 		);
@@ -651,7 +644,7 @@ namespace engine
 
 		mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout);
 
-		mVkCmdDrawMeshTasksIndirectEXT(
+		mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 			cmd,
 			mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
 			sizeof(uint32_t),
@@ -669,8 +662,8 @@ namespace engine
 		// Composite opaque and transperent.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
 			mResourceManager->getColorAttachmentImage(false).img.view,
-			mPreset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
-			getResolveMode(mPreset.msaa),
+			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+			getResolveMode(mVulkanCtx->preset.msaa),
 			nullptr,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 		);
@@ -691,39 +684,11 @@ namespace engine
 
 		mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout);
 
-		mVkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
+		mVulkanCtx->vkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
 
 		vkCmdEndRendering(cmd);
 
 		return {};
-	}
-
-	voxelDrawParams meshletRenderer::getVoxelSceneParams() const
-	{
-		// For now it's just hardcoded values. Need to figure out where to put them next.
-		const uint32_t voxelSceneUpperBound = 64;
-		const uint32_t voxelGridExtent = 512;
-
-		aabb box = getSceneBoundingBox();
-
-		glm::mat4 view = glm::translate(glm::mat4{ 1.0f }, -(box.max + box.min) * 0.5f);
-
-		const float halfExtent = float(voxelSceneUpperBound) * 0.5f;
-
-		glm::mat4 proj = glm::ortho(
-			-halfExtent, halfExtent,
-			-halfExtent, halfExtent,
-			-halfExtent, halfExtent);
-
-		voxelDrawParams result{
-			.voxelGridExtent = voxelGridExtent,
-			.voxelSceneUpperBound = voxelSceneUpperBound,
-			.viewVoxel = view,
-			.projectionVoxel = proj,
-			.viewProjectionVoxel = proj * view,
-		};
-
-		return result;
 	}
 
 	error meshletRenderer::voxilizeOpaqueGeometry(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
@@ -735,7 +700,7 @@ namespace engine
 			uint32_t cmdBufSize = uint32_t(mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getLoadedBytes());
 			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
-			// Has to render.
+			// Has to render.  
 			if (cmdBufferCount > 0)
 			{
 				VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent);
@@ -754,7 +719,7 @@ namespace engine
 
 				mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().second);
 
-				mVkCmdDrawMeshTasksEXT(
+				mVulkanCtx->vkCmdDrawMeshTasksEXT(
 					cmd,
 					cmdBufferCount / mCtx->config.inner.render.shaderWorkGroup + 1,
 					1,
@@ -768,88 +733,5 @@ namespace engine
 		}
 
 		return {};
-	}
-
-	error meshletRenderer::addToRender(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
-	{
-		mSceneAABB[m.id] = m.calculateWorldSpaceAABB();
-
-		if (!mOpaquePipelines.contains(m.mat.pixelShader->hash()))
-		{
-			auto meshShader = mCtx->mAmanager->getDefaultMeshShader();
-			if (!meshShader)
-				return meshShader.err();
-
-			auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
-			if (!taskShader)
-				return taskShader.err();
-
-			graphicsPipeline pipeline{};
-
-			pipeline.init(device, graphicsPipeline::pipelineType::opaque);
-
-			error err = pipeline.build(
-				m.mat.pixelShader,
-				meshShader.value(),
-				taskShader.value(),
-				{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
-				mResourceManager->getDepthImage(false).img.format,
-				{ mResourceManager->getColorAttachmentImage(false).img.format },
-				sampleCounts(mPreset.msaa)
-			);
-			if (err)
-				return err;
-
-			mOpaquePipelines[m.mat.pixelShader->hash()] = pipeline;
-
-			mDeletionQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mOpaquePipelines[m.mat.pixelShader->hash()] });
-		}
-
-		return mResourceManager->addToRender(resourceManager::instanceParams{
-				.device = device,
-				.allocator = allocator,
-				.is = is,
-				.m = m,
-				.frameIndex = frameIndex
-			}
-		);
-	}
-
-	error meshletRenderer::updateInstance(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
-	{
-		return mResourceManager->updateInstance(resourceManager::instanceParams{
-				.device = device,
-				.allocator = allocator,
-				.is = is,
-				.m = m,
-				.frameIndex = frameIndex
-			}
-		);
-	}
-
-	error meshletRenderer::updateAnimations(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
-	{
-		return mResourceManager->updateAnimations(resourceManager::instanceParams{
-				.device = device,
-				.allocator = allocator,
-				.is = is,
-				.m = m,
-				.frameIndex = frameIndex
-			}
-		);
-	}
-
-	void meshletRenderer::removeFromRender(const model& m, VkDevice device, VmaAllocator allocator, submit& is, uint32_t frameIndex)
-	{
-		mSceneAABB.erase(m.id);
-
-		return mResourceManager->removeFromRender(resourceManager::instanceParams{
-				.device = device,
-				.allocator = allocator,
-				.is = is,
-				.m = m,
-				.frameIndex = frameIndex
-			}
-		);
 	}
 }

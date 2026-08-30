@@ -1,23 +1,13 @@
 #pragma once
 
 #include <pch.h>
-#include <vk_mem_alloc.h>
 
-#include "platform/renderer/renderer.h"
-
-#include "swapChain.h"
-#include "pipeline.h"
-#include "descriptorSet.h"
-#include "submit.h"
-#include "shader.h"
-#include "texture.h"
-#include "registry.h"
-#include "uiRenderer.h"
-#include "deletionQueue.h"
+#include "vulkanContext.h"
+#include "resourceManager.h"
 #include "meshletRenderer.h"
 #include "lineRenderer.h"
-#include "gpuProfiler.h"
-#include "resourceManager.h"
+#include "uiRenderer.h"
+#include "base/include.h"
 
 namespace engine
 {
@@ -37,15 +27,8 @@ namespace engine
 		withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<const texture>> makeTextureWithMips(const imageWithMipLevels& img);
 	private:
-		error initVulkan();
-		error setLimits();
-		error initImmediateSubmit();
-		error initSwapchain(uint32_t width, uint32_t height);
-		error loadExtensions();
-
 		error initRenderers(std::shared_ptr<window> window);
 
-		void chooseGraphicsPreset();
 		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
 		error compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
@@ -63,38 +46,22 @@ namespace engine
 		error updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex);
 		void removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex);
 
-		bool mWindowMinimized;
-		VkDebugUtilsMessengerEXT mDebugMessenger;
-		VkDevice mDevice;
-		VmaAllocator mAllocator;
-		VkInstance mInstance;
-		VkPhysicalDevice mPhysicalDevice;
-		deviceLimits mDeviceLimits;
-		VkPhysicalDeviceProperties mDeviceProps;
+		aabb getSceneBoundingBox() const;
+		voxelDrawParams getVoxelSceneParams() const;
 
+		std::unordered_map<uint32_t, aabb> mSceneAABB;
+
+		bool mWindowMinimized;
 		profilingInfo mProfInfo;
 
-		VkSurfaceKHR mSurface;
-		swapChain mSwapChain;
-
-		VkQueue mGraphicsQueue;
-		uint32_t mGraphicsQueueFamily;
-		submit mSubmit;
-
-		deletionQueue mDeletionQueue;
-
 		// Geometry pass.
-		meshletRenderer mMeshletRenderer;
+		std::unique_ptr <meshletRenderer> mMeshletRenderer;
 		// Line renderer.
-		lineRenderer mLineRenderer;
+		std::unique_ptr <lineRenderer> mLineRenderer;
 		// UI renderer.
-		uiRenderer mUiRenderer;
+		std::unique_ptr<uiRenderer> mUiRenderer;
 
-		gpuProfiler mGpuProfiler;
-
+		std::shared_ptr<vulkanContext> mVulkanCtx;
 		std::shared_ptr<resourceManager> mResourceManager;
-
-		PFN_vkCmdDrawMeshTasksEXT mVkCmdDrawMeshTasksEXT;
-		PFN_vkCmdDrawMeshTasksIndirectEXT mVkCmdDrawMeshTasksIndirectEXT;
 	};
 }

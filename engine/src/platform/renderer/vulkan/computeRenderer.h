@@ -2,31 +2,16 @@
 
 #include <pch.h>
 
-#include "descriptorSet.h"
-#include "submit.h"
-#include "deletionQueue.h"
-#include "pipeline.h"
-#include "helper.h"
-#include "swapChain.h"
-#include "registry.h"
+#include "vulkanContext.h"
 #include "resourceManager.h"
-#include "platform/renderer/renderer.h"
+#include "base/include.h"
 
 namespace engine
 {
 	struct computeRenderer
 	{
 	public:
-		error init(
-			std::shared_ptr<context> ctx,
-			VkDevice device,
-			VkPhysicalDevice physicalDevice,
-			VmaAllocator allocator,
-			submit& is,
-			deviceLimits limits,
-			graphicsPreset preset,
-			std::shared_ptr<resourceManager> resourceManager
-		);
+		error init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager);
 		error destroy();
 
 		error buildHZB(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
@@ -52,14 +37,13 @@ namespace engine
 		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex);
 	private:
 		std::shared_ptr<context> mCtx;
-		deletionQueue mDeletionQueue;
-		graphicsPreset mPreset;
 		std::shared_ptr<resourceManager> mResourceManager;
+		std::shared_ptr<vulkanContext> mVulkanCtx;
 
 		computePipeline mBuildHzbPipeline;
 		computePipeline mCullingPipeline;
 		computePipeline mCompactCommandsPipeline;
 
-		error initComputePipeline(VkDevice device);
+		error initComputePipeline();
 	};
 }
