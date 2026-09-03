@@ -3,7 +3,6 @@
 #include <pch.h>
 
 #include "computeRenderer.h"
-#include "vulkanContext.h"
 #include "resourceManager.h"
 #include "base/include.h"
 

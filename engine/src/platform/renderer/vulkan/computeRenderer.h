@@ -2,7 +2,6 @@
 
 #include <pch.h>
 
-#include "vulkanContext.h"
 #include "resourceManager.h"
 #include "base/include.h"
 
