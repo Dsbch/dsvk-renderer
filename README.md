@@ -53,6 +53,3 @@ Windows only for now.
 - Post-processing.
 - CPU-side Jolt physics.
 - Optional: custom scene format with full ECS serialization, and gizmos.
-
-**Known bugs**
-- Flickering of meshlets because I have 3 frames in flight and they rewrite CMD buffers, need to implement per-frame-in-flight resource buffering.
