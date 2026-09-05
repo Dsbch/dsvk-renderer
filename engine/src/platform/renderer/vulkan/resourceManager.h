@@ -6,21 +6,15 @@
 
 namespace engine
 {
-	struct meshletRenderer;
-	struct computeRenderer;
-	struct lineRenderer;
-
-	class resourceManager
+	struct resourceManager
 	{
 	public:
 		resourceManager() = default;
 		resourceManager(const resourceManager&) = delete;
 
-		resourceManager(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, uint32_t width, uint32_t height);
-		
+		void init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx);
+		error build(uint32_t width, uint32_t height);
 		void destroy();
-
-		error checkError() const;
 		
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getBufferDescriptorSet() const;
 		std::pair<VkDescriptorSet, VkDescriptorSetLayout> getTextureDescriptorSet() const;
@@ -91,7 +85,11 @@ namespace engine
 		vulkanImage getDepthImage(bool needResolve) const;
 		vulkanImage getAccumImage(bool needResolve) const;
 		vulkanImage getRevealImage(bool needResolve) const;
-		std::vector<vulkanImage> getHZB() const;
+		std::span<vulkanImage> getHZB();
+		const commandBuffer* getOpaqueCmdBuffer(uint32_t pixelShaderID) const;
+		const commandBuffer& getAccumilationCmdBuffer() const;
+		const vulkanBuffer& getVisabilityBuffer(uint32_t frameIndex) const;
+		const vulkanBuffer& getLinebuffer() const;
 	private:
 		void destroyViewPortDependantResources();
 		error buildResources(uint32_t width, uint32_t height);
@@ -104,8 +102,7 @@ namespace engine
 		// Control fields.
 		std::shared_ptr<context> mCtx;
 		std::shared_ptr<vulkanContext> mVulkanCtx;
-		error mErr;
-
+		
 		struct descriptorsBindings
 		{
 			uint32_t storageBufferBindings = 15;
@@ -178,9 +175,5 @@ namespace engine
 		vulkanImage mDepthImage;
 		vulkanImage mDepthResolveImage;
 		std::vector<vulkanImage> mHZBImages;
-
-		friend struct meshletRenderer;
-		friend struct computeRenderer;
-		friend struct lineRenderer;
 	};
 }

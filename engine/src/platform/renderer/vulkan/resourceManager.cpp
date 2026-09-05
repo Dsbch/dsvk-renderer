@@ -3,30 +3,28 @@
 
 namespace engine
 {
-	resourceManager::resourceManager(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, uint32_t width, uint32_t height)
-		: mCtx(ctx), mVulkanCtx(vulkanCtx), mBindings({})
+	void resourceManager::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx)
 	{
-		mErr = mVulkanCtx->checkError();
-		if (mErr)
-			return;
+		mCtx = ctx;
+		mVulkanCtx = vulkanCtx;
+	}
 
-		mErr = buildResources(width, height);
-		if (mErr)
-			return;
+	error resourceManager::build(uint32_t width, uint32_t height)
+	{
+		error err = buildResources(width, height);
+		if (err)
+			return err;
 
-		mErr = buildDescriptors();
-		if (mErr)
-			return;
+		err = buildDescriptors();
+		if (err)
+			return err;
+
+		return {};
 	}
 
 	void resourceManager::destroy()
 	{
 		destroyViewPortDependantResources();
-	}
-
-	error resourceManager::checkError() const
-	{
-		return mErr;
 	}
 
 	std::pair<VkDescriptorSet, VkDescriptorSetLayout> resourceManager::getBufferDescriptorSet() const
@@ -753,9 +751,30 @@ namespace engine
 		return needResolve ? mRevealResolveImage : mRevealImage;
 	}
 
-	std::vector<vulkanImage> resourceManager::getHZB() const
+	std::span<vulkanImage> resourceManager::getHZB()
 	{
 		return mHZBImages;
+	}
+
+	const commandBuffer* resourceManager::getOpaqueCmdBuffer(uint32_t pixelShaderID) const
+	{
+		auto it = mOpaqueCommandBuffers.find(pixelShaderID);
+		return it == mOpaqueCommandBuffers.end() ? nullptr : &it->second;
+	}
+
+	const commandBuffer& resourceManager::getAccumilationCmdBuffer() const
+	{
+		return mAccumilationCommandBuffer;
+	}
+
+	const vulkanBuffer& resourceManager::getVisabilityBuffer(uint32_t frameIndex) const
+	{
+		return mVisabilityBuffer[frameIndex];
+	}
+
+	const vulkanBuffer& resourceManager::getLinebuffer() const
+	{
+		return mLineBuffer;
 	}
 
 	error resourceManager::changeViewPort(uint32_t width, uint32_t height)

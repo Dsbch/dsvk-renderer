@@ -169,8 +169,11 @@ namespace engine
 		{
 			auto [pipeline, pipelineLayout] = v.getPipeline();
 
-			VkBuffer cmdBuf = mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getLoadedBytes());
+			if (!mResourceManager->getOpaqueCmdBuffer(k))
+				continue;
+
+			VkBuffer cmdBuf = mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getLoadedBytes());
 			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 			// Has to render.
@@ -205,7 +208,7 @@ namespace engine
 					);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 						VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -214,10 +217,10 @@ namespace engine
 						0
 					);
 
-					vkCmdFillBuffer(cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+					vkCmdFillBuffer(cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
 						VK_ACCESS_2_TRANSFER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -243,12 +246,12 @@ namespace engine
 
 					pipelineBufferBarier(
 						cmd,
-						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
 						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getLoadedBytes()),
+						uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getLoadedBytes()),
 						0
 					);
 
@@ -295,7 +298,7 @@ namespace engine
 
 					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 						cmd,
-						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						sizeof(uint32_t),
 						1,
 						12
@@ -364,7 +367,7 @@ namespace engine
 					);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_MEMORY_READ_BIT,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -373,10 +376,10 @@ namespace engine
 						0
 					);
 
-					vkCmdFillBuffer(cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+					vkCmdFillBuffer(cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
 						VK_ACCESS_2_TRANSFER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -402,12 +405,12 @@ namespace engine
 
 					pipelineBufferBarier(
 						cmd,
-						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getLoadedBytes()),
+						uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getLoadedBytes()),
 						0
 					);
 
@@ -461,7 +464,7 @@ namespace engine
 
 					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 						cmd,
-						mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 						sizeof(uint32_t),
 						1,
 						12
@@ -531,8 +534,8 @@ namespace engine
 
 		auto [pipeline, pipelineLayout] = mAccumilationPipeline.getPipeline();
 
-		VkBuffer cmdBuf = mResourceManager->mAccumilationCommandBuffer.getBuffer(frameIndex).getBuffer().buffer;
-		uint32_t cmdBufSize = uint32_t(mResourceManager->mAccumilationCommandBuffer.getBuffer(frameIndex).getLoadedBytes());
+		VkBuffer cmdBuf = mResourceManager->getAccumilationCmdBuffer().getBuffer(frameIndex).getBuffer().buffer;
+		uint32_t cmdBufSize = uint32_t(mResourceManager->getAccumilationCmdBuffer().getBuffer(frameIndex).getLoadedBytes());
 		uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 		// Nothing to render.
@@ -573,7 +576,7 @@ namespace engine
 		);
 
 		pipelineBufferBarier(
-			cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -582,10 +585,10 @@ namespace engine
 			0
 		);
 
-		vkCmdFillBuffer(cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+		vkCmdFillBuffer(cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 		pipelineBufferBarier(
-			cmd, mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -610,23 +613,23 @@ namespace engine
 
 		pipelineBufferBarier(
 			cmd,
-			mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getSize()),
+			uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getSize()),
 			0
 		);
 
 		pipelineBufferBarier(
 			cmd,
-			mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(mResourceManager->mVisabilityBuffer[frameIndex].getLoadedBytes()),
+			uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getLoadedBytes()),
 			0
 		);
 
@@ -646,7 +649,7 @@ namespace engine
 
 		mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 			cmd,
-			mResourceManager->mVisabilityBuffer[frameIndex].getBuffer().buffer,
+			mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
 			sizeof(uint32_t),
 			1,
 			12
@@ -696,8 +699,8 @@ namespace engine
 		uint32_t cmdBufferIndex = 0;
 		for (auto& [k, v] : mOpaquePipelines)
 		{
-			VkBuffer cmdBuf = mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(mResourceManager->mOpaqueCommandBuffers[k].getBuffer(frameIndex).getLoadedBytes());
+			VkBuffer cmdBuf = mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getLoadedBytes());
 			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 			// Has to render.  

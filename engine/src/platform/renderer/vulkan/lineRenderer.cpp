@@ -62,7 +62,7 @@ namespace engine
 
 		mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.getPipeline().second);
 
-		vkCmdDraw(cmd, uint32_t(mResourceManager->mLineBuffer.getLoadedBytes() / sizeof(glm::vec3)), 1, 0, 0);
+		vkCmdDraw(cmd, uint32_t(mResourceManager->getLinebuffer().getLoadedBytes() / sizeof(glm::vec3)), 1, 0, 0);
 
 		vkCmdEndRendering(cmd);
 

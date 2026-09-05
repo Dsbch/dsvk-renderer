@@ -188,6 +188,9 @@ namespace engine
 
 	void descriptorSet::updateWrite(std::vector<VkWriteDescriptorSet>& writeInfo)
 	{
+		if (writeInfo.size() == 0)
+			return;
+
 		for (auto& s : writeInfo)
 			s.dstSet = mDescriptorSet;
 

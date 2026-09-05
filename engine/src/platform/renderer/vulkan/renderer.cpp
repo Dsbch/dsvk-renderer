@@ -27,9 +27,11 @@ namespace engine
 		mCtx->mAmanager->setMakeTextureFunc([&](const image& img) { return makeTexture(img); });
 		mCtx->mAmanager->setMakeTextureWithMipsFunc([&](const imageWithMipLevels& img) { return makeTextureWithMips(img); });
 
-		mResourceManager = std::make_shared<resourceManager>(ctx, mVulkanCtx, window->getFbWidth(), window->getFbHeight());
+		mResourceManager = std::make_shared<resourceManager>();
 
-		mErr = mResourceManager->checkError();
+		mResourceManager->init(ctx, mVulkanCtx);
+
+		mErr = mResourceManager->build(window->getFbWidth(), window->getFbHeight());
 		if (mErr)
 			return;
 
