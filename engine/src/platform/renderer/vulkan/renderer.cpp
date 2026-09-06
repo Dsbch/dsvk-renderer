@@ -419,10 +419,18 @@ namespace engine
 				VK_ACCESS_2_SHADER_WRITE_BIT
 			);
 
-			//err = drawAsRaster(cmd, params, frameIndex);
-			err = drawAsVoxels(cmd, params, frameIndex);
-			if (err)
-				return err;
+			if (mCtx->config.inner.graphics.useRayMarching)
+			{
+				err = drawAsVoxels(cmd, params, frameIndex);
+				if (err)
+					return err;
+			}
+			else
+			{
+				err = drawAsRaster(cmd, params, frameIndex);
+				if (err)
+					return err;
+			}
 
 			// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
 			mResourceManager->transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

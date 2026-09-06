@@ -33,6 +33,7 @@ namespace engine
 		uint32_t framesInFlight = 2;
 		uint32_t clipMapResolution = 128;
 		uint32_t voxelSceneExtent = 8;
+		bool useRayMarching = false;
 	};
 
 	struct gameLoopCfg
