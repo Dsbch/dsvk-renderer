@@ -101,13 +101,11 @@ float4 psmain(MeshOutput input) : SV_TARGET
     const float3 delta = voxelSize.xxx / abs(dir);
     
     float3 g = pos + voxelExtentWS;
-    float3 cellF = floor(g / voxelSize);
 
-    int3 voxelPos = clamp(int3(cellF), 0, int(dData.clipMapResolution) - 1);
-    float3 face = (cellF + step(0.0f, dir)) * voxelSize;
-    float3 traveled = (face - g) / dir - delta;
+    int3 voxelPos = worldPosToVoxel(pos, dData);
+    float3 offset = (g - voxelPos * voxelSize);
+    float3 traveled = -offset / dir;
     
-    [loop]
     for (int i = 0; i < 3 * dData.clipMapResolution; i++)
     {
         float4 voxel = clipMap[voxelPos];
