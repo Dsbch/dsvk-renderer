@@ -52,11 +52,6 @@ void msmain(
 
 // PIXEL SHADER START.
 
-bool isApproximatelyEqual(float a, float b)
-{
-    return abs(a - b) <= (abs(a) < abs(b) ? abs(b) : abs(a)) * EPSILON;
-}
-
 float max3(float3 v)
 {
     return max(max(v.x, v.y), v.z);

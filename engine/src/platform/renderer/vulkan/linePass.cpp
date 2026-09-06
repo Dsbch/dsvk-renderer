@@ -1,10 +1,10 @@
 #include <pch.h>
 
-#include "lineRenderer.h"
+#include "linePass.h"
 
 namespace engine
 {
-	error lineRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager)
+	error linePass::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager)
 	{
 		mCtx = ctx;
 		mVulkanCtx = vulkanCtx;
@@ -17,12 +17,12 @@ namespace engine
 		return {};
 	}
 
-	error lineRenderer::destroy()
+	error linePass::destroy()
 	{
 		return {};
 	}
 
-	error lineRenderer::drawLines(VkCommandBuffer cmd, uint32_t frameIndex)
+	error linePass::drawLines(VkCommandBuffer cmd, uint32_t frameIndex)
 	{
 		VkClearValue clear{
 			.color = VkClearColorValue{.float32 = { 0.0f, 0.0f, 0.0f, 0.0f} },
@@ -69,7 +69,7 @@ namespace engine
 		return {};
 	}
 
-	error lineRenderer::initPipeline()
+	error linePass::initPipeline()
 	{
 		auto vertexShader = mCtx->mAmanager->getDefaultLineVertexShader();
 		if (!vertexShader)

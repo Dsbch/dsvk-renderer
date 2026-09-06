@@ -1,9 +1,9 @@
 ﻿#include <pch.h>
-#include "computeRenderer.h"
+#include "cullingPass.h"
 
 namespace engine
 {
-	error computeRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
+	error cullingPass::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
 	{
 		mCtx = ctx;
 		mVulkanCtx = vulkanContext;
@@ -16,12 +16,12 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::destroy()
+	error cullingPass::destroy()
 	{
 		return {};
 	}
 
-	error computeRenderer::buildHZB(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
+	error cullingPass::buildHZB(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		if (in.useDebugCamera)
 			return {};
@@ -72,7 +72,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, computeRenderer::cullMeshletsParams params, uint32_t frameIndex)
+	error cullingPass::cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullingPass::cullMeshletsParams params, uint32_t frameIndex)
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingPipeline.getPipeline().first);
 
@@ -98,7 +98,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex)
+	error cullingPass::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex)
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().first);
 
@@ -123,7 +123,7 @@ namespace engine
 		return {};
 	}
 
-	error computeRenderer::initComputePipeline()
+	error cullingPass::initComputePipeline()
 	{
 		// Init build HZB pipeline.
 		VkShaderModule chHZBmodule;

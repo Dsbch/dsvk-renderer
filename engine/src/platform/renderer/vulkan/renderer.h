@@ -3,9 +3,10 @@
 #include <pch.h>
 
 #include "resourceManager.h"
-#include "meshletRenderer.h"
-#include "lineRenderer.h"
-#include "uiRenderer.h"
+#include "meshletPass.h"
+#include "linePass.h"
+#include "uiPass.h"
+#include "voxelPass.h"
 #include "base/include.h"
 
 namespace engine
@@ -26,7 +27,10 @@ namespace engine
 		withError<std::shared_ptr<const shader>> makeShader(const std::vector<uint32_t>& src);
 		withError<std::shared_ptr<const texture>> makeTextureWithMips(const imageWithMipLevels& img);
 	private:
-		error initRenderers(std::shared_ptr<window> window);
+		error drawAsRaster(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
+		error drawAsVoxels(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
+
+		error initPasses(std::shared_ptr<window> window);
 
 		error drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
 		error drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
@@ -54,11 +58,13 @@ namespace engine
 		profilingInfo mProfInfo;
 
 		// Geometry pass.
-		std::unique_ptr <meshletRenderer> mMeshletRenderer;
+		std::unique_ptr <meshletPass> mMeshletPass;
 		// Line renderer.
-		std::unique_ptr <lineRenderer> mLineRenderer;
+		std::unique_ptr <linePass> mLinePass;
 		// UI renderer.
-		std::unique_ptr<uiRenderer> mUiRenderer;
+		std::unique_ptr<uiPass> mUiPass;
+		// Voxel pass.
+		std::unique_ptr<voxelPass> mVoxelPass;
 
 		std::shared_ptr<vulkanContext> mVulkanCtx;
 		std::shared_ptr<resourceManager> mResourceManager;

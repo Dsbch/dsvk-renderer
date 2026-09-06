@@ -150,9 +150,13 @@ struct perDrawData
     float deltaTime;
     uint width;
     uint height;
+    float verticalFov;
+    float horizontalFov;
+    float nearPlane;
+    float farPlane;
     
-    uint voxelGridExtent;
-    uint voxelSceneUpperBound;
+    uint clipMapResolution;
+    uint voxelSceneExtent;
     float4x4 viewVoxel;
     float4x4 projectionVoxel;
     float4x4 viewProjectionVoxel;
@@ -640,4 +644,38 @@ float3 toSRGB(float3 color)
 bool hasFlag(uint mask, uint flag)
 {
     return (mask & flag) != 0;
+}
+
+bool isApproximatelyEqual(float a, float b)
+{
+    return abs(a - b) <= (abs(a) < abs(b) ? abs(b) : abs(a)) * EPSILON;
+}
+
+int3 worldPosToVoxel(float3 worldPos, perDrawData dData)
+{
+    int3 result;
+
+    worldPos += dData.voxelSceneExtent * 0.5f;
+    
+    result = clamp(int3(worldPos * dData.clipMapResolution / dData.voxelSceneExtent), 0, dData.clipMapResolution - 1);
+    
+    return result;
+}
+
+float3 pixelToRayDir(float2 pixel, perDrawData dData)
+{
+    float halfW = tan(radians(dData.horizontalFov * 0.5f));
+    float halfH = tan(radians(dData.verticalFov * 0.5f));
+
+    // NDC space of each pixel [-1, 1].
+    float2 ndc;
+    ndc.x = (pixel.x * 2.0f) / dData.width - 1.0f;
+    ndc.y = 1.0f - (pixel.y * 2.0f) / dData.height;
+
+    // Using world space front, up gives as world space dir.
+    float3 fwd = normalize(dData.cameraFront);
+    float3 up = normalize(dData.cameraUp);
+    float3 right = cross(fwd, up);
+
+    return normalize(right * (ndc.x * halfW) + up * (ndc.y * halfH) + fwd);
 }

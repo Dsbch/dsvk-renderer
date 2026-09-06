@@ -35,7 +35,7 @@ namespace engine
 		if (mErr)
 			return;
 
-		mErr = initRenderers(window);
+		mErr = initPasses(window);
 		if (mErr)
 			return;
 	}
@@ -46,15 +46,15 @@ namespace engine
 		if (result != VK_SUCCESS)
 			LOGERROR("~vulkanRenderer vkDeviceWaitIdle: {}", vkResultToStr(result));
 
-		error err = mUiRenderer->destroy();
+		error err = mUiPass->destroy();
 		if (err)
 			LOGERROR("~vulkanRenderer mUiRenderer.destroy: {}", err.err());
 
-		err = mMeshletRenderer->destroy();
+		err = mMeshletPass->destroy();
 		if (err)
 			LOGERROR("~vulkanRenderer mMeshletRenderer.destroy {}", err.err());
 
-		err = mLineRenderer->destroy();
+		err = mLinePass->destroy();
 		if (err)
 			LOGERROR("~vulkanRenderer mLineRenderer.destroy {}", err.err());
 
@@ -65,21 +65,101 @@ namespace engine
 		mPackage.reset();
 	}
 
-	error vulkanRenderer::initRenderers(std::shared_ptr<window> window)
+	error vulkanRenderer::drawAsRaster(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		mMeshletRenderer = std::make_unique<meshletRenderer>();
-		mLineRenderer = std::make_unique<lineRenderer>();
-		mUiRenderer = std::make_unique<uiRenderer>();
-
-		error err = mMeshletRenderer->init(mCtx, mVulkanCtx, mResourceManager);
+		error err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawOpaque", frameIndex);
 		if (err)
 			return err;
 
-		err = mLineRenderer->init(mCtx, mVulkanCtx, mResourceManager);
+		// Begin a render pass connected to our draw image and depth buffer.
+		err = drawOpaque(cmd, in, frameIndex);
 		if (err)
 			return err;
 
-		err = mUiRenderer->init(mCtx, mVulkanCtx, mResourceManager, window->getGLFWhandle());
+		mVulkanCtx->profiler.endTimestamp(cmd, "drawOpaque", frameIndex);
+
+		err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawTransperent", frameIndex);
+
+		err = drawTransperent(cmd, in, frameIndex);
+		if (err)
+			return err;
+
+		mVulkanCtx->profiler.endTimestamp(cmd, "drawTransperent", frameIndex);
+
+		// Transition to sample them as textures in composite pass.
+		mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		err = mVulkanCtx->profiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
+
+		err = compositeOpaqueAndTransperent(cmd, in, frameIndex);
+		if (err)
+			return err;
+
+		mVulkanCtx->profiler.endTimestamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
+
+		mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		return {};
+	}
+
+	error vulkanRenderer::drawAsVoxels(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
+	{
+		setViewportAndSciccors(
+			cmd,
+			VkExtent3D{
+				.width = mCtx->config.inner.graphics.clipMapResolution,
+				.height = mCtx->config.inner.graphics.clipMapResolution,
+				.depth = 1,
+			}
+			);
+
+		error err = mVulkanCtx->profiler.beginTimeStamp(cmd, "voxelizeScene", frameIndex);
+		if (err)
+			return err;
+
+		err = mVoxelPass->voxelizeScene(cmd, in, frameIndex);
+		if (err)
+			return err;
+
+		mVulkanCtx->profiler.endTimestamp(cmd, "voxelizeScene", frameIndex);
+
+		setViewportAndSciccors(cmd, mResourceManager->getColorAttachmentImage(false).img.extent);
+
+		err = mVulkanCtx->profiler.beginTimeStamp(cmd, "visualizeVoxelScene", frameIndex);
+		if (err)
+			return err;
+
+		err = mVoxelPass->visualizeVoxelScene(cmd, in, frameIndex);
+		if (err)
+			return err;
+
+		mVulkanCtx->profiler.endTimestamp(cmd, "visualizeVoxelScene", frameIndex);
+
+		return {};
+	}
+
+	error vulkanRenderer::initPasses(std::shared_ptr<window> window)
+	{
+		mMeshletPass = std::make_unique<meshletPass>();
+		mLinePass = std::make_unique<linePass>();
+		mUiPass = std::make_unique<uiPass>();
+		mVoxelPass = std::make_unique<voxelPass>();
+
+		error err = mMeshletPass->init(mCtx, mVulkanCtx, mResourceManager);
+		if (err)
+			return err;
+
+		err = mLinePass->init(mCtx, mVulkanCtx, mResourceManager);
+		if (err)
+			return err;
+
+		err = mUiPass->init(mCtx, mVulkanCtx, mResourceManager, window->getGLFWhandle());
+		if (err)
+			return err;
+
+		err = mVoxelPass->init(mCtx, mVulkanCtx, mResourceManager);
 		if (err)
 			return err;
 
@@ -88,14 +168,14 @@ namespace engine
 
 	error vulkanRenderer::drawOpaque(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		error err = mLineRenderer->drawLines(
+		error err = mLinePass->drawLines(
 			cmd,
 			frameIndex
 		);
 		if (err)
 			return err;
 
-		err = mMeshletRenderer->opaquePass(
+		err = mMeshletPass->opaquePass(
 			cmd,
 			in,
 			frameIndex
@@ -108,17 +188,17 @@ namespace engine
 
 	error vulkanRenderer::drawTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer->accumilationPass(cmd, in, frameIndex);
+		return mMeshletPass->accumilationPass(cmd, in, frameIndex);
 	}
 
 	error vulkanRenderer::compositeOpaqueAndTransperent(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
-		return mMeshletRenderer->compositePass(cmd, in, frameIndex);
+		return mMeshletPass->compositePass(cmd, in, frameIndex);
 	}
 
 	error vulkanRenderer::drawUI(VkCommandBuffer cmd)
 	{
-		return mUiRenderer->onRender(cmd, mProfInfo);
+		return mUiPass->drawUI(cmd, mProfInfo);
 	}
 
 	std::string vulkanRenderer::getVersion() const
@@ -167,7 +247,7 @@ namespace engine
 		if (err)
 			return err;
 
-		mUiRenderer->updateViewPortDependantDescriptors();
+		mUiPass->updateViewPortDependantDescriptors();
 
 		return {};
 	}
@@ -238,6 +318,10 @@ namespace engine
 					.deltaTime = deltaTime,
 					.width = params.width,
 					.height = params.height,
+					.verticalFov = params.verticalFov,
+					.horizontalFov = params.horizontalFov,
+					.nearPlane = params.nearPlane,
+					.farPlane = params.farPlane,
 					.voxelParams = getVoxelSceneParams(),
 				},
 				frameIndex
@@ -335,53 +419,16 @@ namespace engine
 				VK_ACCESS_2_SHADER_WRITE_BIT
 			);
 
-			// Just to test voxel scene.
-			{
-				err = mVulkanCtx->profiler.beginTimeStamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
-				if (err)
-					return err;
-
-				err = mMeshletRenderer->voxilizeOpaqueGeometry(cmd, params, frameIndex);
-				if (err)
-					return err;
-
-				mVulkanCtx->profiler.endTimestamp(cmd, "voxilizeOpaqueGeometry", frameIndex);
-			}
-
-			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawOpaque", frameIndex);
+			//err = drawAsRaster(cmd, params, frameIndex);
+			err = drawAsVoxels(cmd, params, frameIndex);
 			if (err)
 				return err;
-
-			// Begin a render pass connected to our draw image and depth buffer.
-			err = drawOpaque(cmd, params, frameIndex);
-			if (err)
-				return err;
-
-			mVulkanCtx->profiler.endTimestamp(cmd, "drawOpaque", frameIndex);
-
-			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawTransperent", frameIndex);
-
-			err = drawTransperent(cmd, params, frameIndex);
-			if (err)
-				return err;
-
-			mVulkanCtx->profiler.endTimestamp(cmd, "drawTransperent", frameIndex);
-
-			// Transition to sample them as textures in composite pass.
-			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
-
-			err = compositeOpaqueAndTransperent(cmd, params, frameIndex);
-			if (err)
-				return err;
-
-			mVulkanCtx->profiler.endTimestamp(cmd, "compositeOpaqueAndTransperent", frameIndex);
 
 			// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
 			mResourceManager->transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			mResourceManager->transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			err = mVulkanCtx->profiler.beginTimeStamp(cmd, "drawUI", frameIndex);
 
@@ -692,7 +739,7 @@ namespace engine
 
 			registerSceneMetrics(m);
 
-			err = mMeshletRenderer->createPipeline(m);
+			err = mMeshletPass->createPipeline(m);
 			if (err)
 				return err;
 
@@ -763,9 +810,9 @@ namespace engine
 	{
 		aabb box = getSceneBoundingBox();
 
-		glm::mat4 view = glm::translate(glm::mat4{ 1.0f }, -(box.max + box.min) * 0.5f);
+		glm::mat4 view = glm::mat4{ 1.0f };
 
-		const float halfExtent = float(mCtx->config.inner.graphics.voxelSceneUpperBound) * 0.5f;
+		const float halfExtent = float(mCtx->config.inner.graphics.voxelSceneExtent) * 0.5f;
 
 		glm::mat4 proj = glm::ortho(
 			-halfExtent, halfExtent,
@@ -773,8 +820,8 @@ namespace engine
 			-halfExtent, halfExtent);
 
 		voxelDrawParams result{
-			.voxelGridExtent = mCtx->config.inner.graphics.clipMapResolution,
-			.voxelSceneUpperBound = mCtx->config.inner.graphics.voxelSceneUpperBound,
+			.clipMapResolution = mCtx->config.inner.graphics.clipMapResolution,
+			.voxelSceneExtent = mCtx->config.inner.graphics.voxelSceneExtent,
 			.viewVoxel = view,
 			.projectionVoxel = proj,
 			.viewProjectionVoxel = proj * view,

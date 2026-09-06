@@ -35,6 +35,10 @@ namespace engine
 		withError<std::shared_ptr<const shader>> getHzbGenShader();
 		withError<std::shared_ptr<const shader>> getCullingShader();
 		withError<std::shared_ptr<const shader>> getDefaultLinePixelShader();
+		withError<std::shared_ptr<const shader>> getDefaultVoxelRayMarchPixelShader();
+		withError<std::shared_ptr<const shader>> getDefaultVoxelRayMarchTaskShader();
+		withError<std::shared_ptr<const shader>> getDefaultVoxelRayMarchMeshShader();
+		
 		withError<std::shared_ptr<const shader>> loadShader(const std::string& path);
 		withError<materialTextures> loadDetaultMaterial();
 		withError<std::shared_ptr<const texture>> loadTexture(const image& img);

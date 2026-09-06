@@ -1,6 +1,6 @@
 ﻿#include <pch.h>
 
-#include "uiRenderer.h"
+#include "uiPass.h"
 
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -8,7 +8,7 @@
 
 namespace engine
 {
-	error uiRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager, GLFWwindow* wnd)
+	error uiPass::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager, GLFWwindow* wnd)
 	{
 		mCtx = ctx;
 		mVulkanCtx = vulkanCtx;
@@ -60,7 +60,7 @@ namespace engine
 		return error();
 	}
 
-	error uiRenderer::destroy()
+	error uiPass::destroy()
 	{
 		for (auto& ds : mImGuiDescroptorSets)
 			ImGui_ImplVulkan_RemoveTexture(ds);
@@ -75,7 +75,7 @@ namespace engine
 		return {};
 	}
 
-	error uiRenderer::onRender(VkCommandBuffer cmd, const profilingInfo& profInfo)
+	error uiPass::drawUI(VkCommandBuffer cmd, const profilingInfo& profInfo)
 	{
 		// Imgui can't work with msaa color attachments.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
@@ -112,7 +112,7 @@ namespace engine
 		return {};
 	}
 
-	void uiRenderer::updateViewPortDependantDescriptors()
+	void uiPass::updateViewPortDependantDescriptors()
 	{
 		for (auto& ds : mImGuiDescroptorSets)
 			ImGui_ImplVulkan_RemoveTexture(ds);
@@ -157,7 +157,7 @@ namespace engine
 		}
 	}
 
-	void uiRenderer::renderProfilingInfo(const profilingInfo& profInfo)
+	void uiPass::renderProfilingInfo(const profilingInfo& profInfo)
 	{
 		// Style
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.08f, 1.0f));
@@ -338,7 +338,7 @@ namespace engine
 		ImGui::PopStyleColor(4);
 	}
 
-	void uiRenderer::renderAccumAndRevealImages()
+	void uiPass::renderAccumAndRevealImages()
 	{
 		// Style
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.08f, 1.0f));
@@ -403,7 +403,7 @@ namespace engine
 		ImGui::PopStyleColor(4);
 	}
 
-	void uiRenderer::renderHzbImages()
+	void uiPass::renderHzbImages()
 	{
 		const size_t baseAttachmentCount = 3;
 		if (mImGuiDescroptorSets.size() <= baseAttachmentCount)

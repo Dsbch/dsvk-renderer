@@ -345,8 +345,8 @@ namespace engine
 
 	struct voxelDrawParams
 	{
-		uint32_t voxelGridExtent;
-		uint32_t voxelSceneUpperBound;
+		uint32_t clipMapResolution;
+		uint32_t voxelSceneExtent;
 		glm::mat4 viewVoxel;
 		glm::mat4 projectionVoxel;
 		glm::mat4 viewProjectionVoxel;
@@ -371,6 +371,11 @@ namespace engine
 
 		uint32_t width;
 		uint32_t height;
+
+		float verticalFov;
+		float horizontalFov;
+		float nearPlane;
+		float farPlane;
 		
 		voxelDrawParams voxelParams;
 	};

@@ -56,6 +56,10 @@ namespace engine
 			frustum cameraFrustum;
 			uint32_t width;
 			uint32_t height;
+			float verticalFov;
+			float horizontalFov;
+			float nearPlane;
+			float farPlane;
 		};
 
 		struct sceneState

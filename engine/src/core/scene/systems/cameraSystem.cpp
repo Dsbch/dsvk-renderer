@@ -95,7 +95,7 @@ namespace engine
 
 		if (isDebugCameraPresent(registry))
 		{
-			auto newPos = getDebugCameraPos(registry);
+			auto newPos = getDebugPos(registry);
 			if (!newPos)
 				return newPos.err();
 
@@ -103,7 +103,7 @@ namespace engine
 		}
 		else
 		{
-			auto newPos = getCameraPos(registry);
+			auto newPos = getPos(registry);
 			if (!newPos)
 				return newPos.err();
 
@@ -124,25 +124,25 @@ namespace engine
 
 		renderCall.projection = projection.value();
 
-		auto cameraPos = getCameraPos(registry);
+		auto cameraPos = getPos(registry);
 		if (!cameraPos)
 			return cameraPos.err();
 
 		renderCall.cameraPos = cameraPos.value();
 
-		auto cameraFront = getCameraFront(registry);
+		auto cameraFront = getFront(registry);
 		if (!cameraFront)
 			return cameraFront.err();
 
 		renderCall.cameraFront = cameraFront.value();
 
-		auto cameraUp = getCameraUp(registry);
+		auto cameraUp = getUp(registry);
 		if (!cameraUp)
 			return cameraUp.err();
 
 		renderCall.cameraUp = cameraUp.value();
 
-		auto cameraFrustum = calculateCameraFrustum(registry);
+		auto cameraFrustum = calculateFrustum(registry);
 		if (!cameraFrustum)
 			return cameraFrustum.err();
 
@@ -154,6 +154,20 @@ namespace engine
 
 		renderCall.width = cameraWidthHeight.value().first;
 		renderCall.height = cameraWidthHeight.value().second;
+
+		auto fov = getFOV(registry);
+		if (!fov)
+			return fov.err();
+
+		renderCall.verticalFov = fov.value().first;
+		renderCall.horizontalFov = fov.value().second;
+
+		auto nearFar = getNearFar(registry);
+		if (!nearFar)
+			return nearFar.err();
+
+		renderCall.nearPlane = fov.value().first;
+		renderCall.farPlane = fov.value().second;
 
 		if (isDebugCameraPresent(registry))
 		{
@@ -168,6 +182,20 @@ namespace engine
 			renderCall.useDebugCamera = 1;
 			renderCall.debugCameraView = view.value();
 			renderCall.debugCameraProjection = projection.value();
+
+			fov = getDebugFOV(registry);
+			if (!fov)
+				return fov.err();
+
+			renderCall.verticalFov = fov.value().first;
+			renderCall.horizontalFov = fov.value().second;
+
+			nearFar = getDebugNearFar(registry);
+			if (!nearFar)
+				return nearFar.err();
+
+			renderCall.nearPlane = fov.value().first;
+			renderCall.farPlane = fov.value().second;
 		}
 
 		mRenderPackage->setRenderParams(renderCall);
@@ -271,7 +299,7 @@ namespace engine
 		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getCameraPos(std::shared_ptr<registryHandle> registry)
+	withError<glm::vec3> cameraSystem::getPos(std::shared_ptr<registryHandle> registry)
 	{
 		withError<glm::vec3> result = error{ "scene doesn't hold an active camera" };
 		registry->forEach<fpsCameraComponent, activeCameraComponent>(
@@ -282,7 +310,7 @@ namespace engine
 		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getDebugCameraPos(std::shared_ptr<registryHandle> registry)
+	withError<glm::vec3> cameraSystem::getDebugPos(std::shared_ptr<registryHandle> registry)
 	{
 		withError<glm::vec3> result = error{ "scene doesn't hold an active debug camera" };
 		registry->forEach<fpsCameraComponent, debugCameraComponent>(
@@ -293,7 +321,7 @@ namespace engine
 		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getCameraFront(std::shared_ptr<registryHandle> registry)
+	withError<glm::vec3> cameraSystem::getFront(std::shared_ptr<registryHandle> registry)
 	{
 		withError<glm::vec3> result = error{ "scene doesn't hold an active camera" };
 		registry->forEach<fpsCameraComponent, activeCameraComponent>(
@@ -304,7 +332,7 @@ namespace engine
 		return result;
 	}
 
-	withError<glm::vec3> cameraSystem::getCameraUp(std::shared_ptr<registryHandle> registry)
+	withError<glm::vec3> cameraSystem::getUp(std::shared_ptr<registryHandle> registry)
 	{
 		withError<glm::vec3> result = error{ "scene doesn't hold an active camera" };
 		registry->forEach<fpsCameraComponent, activeCameraComponent>(
@@ -315,7 +343,7 @@ namespace engine
 		return result;
 	}
 
-	withError<frustum> cameraSystem::calculateCameraFrustum(std::shared_ptr<registryHandle> registry)
+	withError<frustum> cameraSystem::calculateFrustum(std::shared_ptr<registryHandle> registry)
 	{
 		withError<frustum> result = error{ "scene doesn't hold an active camera" };
 		registry->forEach<fpsCameraComponent, activeCameraComponent>(
@@ -323,6 +351,58 @@ namespace engine
 			{
 				result = camera.camera->calculateCameraFrustum();
 			});
+		return result;
+	}
+
+	withError<std::pair<float, float>> cameraSystem::getFOV(std::shared_ptr<registryHandle> registry)
+	{
+		withError<std::pair<float, float>> result = error{ "scene doesn't hold an active camera" };
+
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getFOV();
+			});
+
+		return result;
+	}
+
+	withError<std::pair<float, float>> cameraSystem::getDebugFOV(std::shared_ptr<registryHandle> registry)
+	{
+		withError<std::pair<float, float>> result = error{ "scene doesn't hold an active debug camera" };
+
+		registry->forEach<fpsCameraComponent, debugCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getFOV();
+			});
+
+		return result;
+	}
+
+	withError<std::pair<float, float>> cameraSystem::getNearFar(std::shared_ptr<registryHandle> registry)
+	{
+		withError<std::pair<float, float>> result = error{ "scene doesn't hold an active camera" };
+
+		registry->forEach<fpsCameraComponent, activeCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getNearFar();
+			});
+
+		return result;
+	}
+
+	withError<std::pair<float, float>> cameraSystem::getDebugNearFar(std::shared_ptr<registryHandle> registry)
+	{
+		withError<std::pair<float, float>> result = error{ "scene doesn't hold an active debug camera" };
+
+		registry->forEach<fpsCameraComponent, debugCameraComponent>(
+			[&](entt::entity, fpsCameraComponent& camera)
+			{
+				result = camera.camera->getNearFar();
+			});
+
 		return result;
 	}
 

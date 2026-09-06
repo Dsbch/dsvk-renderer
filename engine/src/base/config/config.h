@@ -32,7 +32,7 @@ namespace engine
 		uint32_t anisotropicFiltering = 16;
 		uint32_t framesInFlight = 2;
 		uint32_t clipMapResolution = 128;
-		uint32_t voxelSceneUpperBound = 64;
+		uint32_t voxelSceneExtent = 8;
 	};
 
 	struct gameLoopCfg

@@ -198,4 +198,37 @@ if %errorlevel% neq 0 (
 
 echo.
 
+echo Compiling Voxel RayMarching Mesh Shader...
+dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshVoxelRayMarchMs.spv vkVoxelRayMarch.hlsl
+if %errorlevel% neq 0 (
+    echo Voxel RayMarching Mesh Shader compilation failed!
+    pause
+) else (
+    echo Voxel RayMarching Mesh Shader compiled successfully.
+)
+
+echo.
+
+echo Compiling Voxel RayMarching Pixel Shader...
+dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshVoxelRayMarchPs.spv vkVoxelRayMarch.hlsl
+if %errorlevel% neq 0 (
+    echo Voxel Pixel RayMarching compilation failed!
+    pause
+) else (
+    echo Voxel Pixel RayMarching compiled successfully.
+)
+
+echo.
+
+echo Compiling Voxel RayMarching Task Shader...
+dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshVoxelRayMarchAs.spv vkVoxelRayMarch.hlsl
+if %errorlevel% neq 0 (
+    echo Voxel Voxel RayMarching Task compilation failed!
+    pause
+) else (
+    echo Voxel Voxel RayMarching Task compiled successfully.
+)
+
+echo.
+
 pause

@@ -10,11 +10,11 @@
 
 namespace engine
 {
-	struct uiRenderer
+	struct uiPass
 	{
 		error init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager, GLFWwindow* wnd);
 		error destroy();
-		error onRender(VkCommandBuffer cmd, const profilingInfo& profInfo);
+		error drawUI(VkCommandBuffer cmd, const profilingInfo& profInfo);
 		
 		// Should be called when only viewport changed.
 		void updateViewPortDependantDescriptors();

@@ -128,7 +128,7 @@ namespace engine
 		j.at("framesInFlight").get_to(p.framesInFlight);
 		j.at("anisotropicFiltering").get_to(p.anisotropicFiltering);
 		j.at("clipMapResolution").get_to(p.clipMapResolution);
-		j.at("voxelSceneUpperBound").get_to(p.voxelSceneUpperBound);
+		j.at("voxelSceneUpperBound").get_to(p.voxelSceneExtent);
 	}
 
 	void to_json(nlohmann::json& j, const graphicsCfg& p)
@@ -138,7 +138,7 @@ namespace engine
 			{"framesInFlight", p.framesInFlight},
 			{"anisotropicFiltering", p.anisotropicFiltering},
 			{"clipMapResolution", p.clipMapResolution},
-			{"voxelSceneUpperBound", p.voxelSceneUpperBound},
+			{"voxelSceneUpperBound", p.voxelSceneExtent},
 		};
 	}
 

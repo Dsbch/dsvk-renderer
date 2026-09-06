@@ -7,7 +7,7 @@
 
 namespace engine
 {
-	struct lineRenderer
+	struct linePass
 	{
 	public:
 		error init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanCtx, std::shared_ptr<resourceManager> resourceManager);

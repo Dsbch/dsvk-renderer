@@ -751,9 +751,19 @@ namespace engine
 		return needResolve ? mRevealResolveImage : mRevealImage;
 	}
 
+	vulkanImage resourceManager::getClipMap() const
+	{
+		return mClipMap;
+	}
+
 	std::span<vulkanImage> resourceManager::getHZB()
 	{
 		return mHZBImages;
+	}
+
+	const std::unordered_map<uint32_t, commandBuffer>& resourceManager::getOpaqueCmdBuffers() const
+	{
+		return mOpaqueCommandBuffers;
 	}
 
 	const commandBuffer* resourceManager::getOpaqueCmdBuffer(uint32_t pixelShaderID) const
@@ -924,7 +934,7 @@ namespace engine
 				.depth = mCtx->config.inner.graphics.clipMapResolution,
 			},
 			VK_FORMAT_R8G8B8A8_UNORM,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 			false,
 			VK_SAMPLE_COUNT_1_BIT,
 			VK_IMAGE_LAYOUT_GENERAL,

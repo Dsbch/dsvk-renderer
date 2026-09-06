@@ -116,13 +116,11 @@ void msmain(
 
 void psmain(meshOutput input)
 {
-    input.worldPos += drawData[push.frameIndex].voxelSceneUpperBound * 0.5f;
-    
-    int3 gridCoords = clamp(int3(input.worldPos * drawData[push.frameIndex].voxelGridExtent / drawData[push.frameIndex].voxelSceneUpperBound), 0, drawData[push.frameIndex].voxelGridExtent - 1);
+    int3 voxelCoords = worldPosToVoxel(input.worldPos, drawData[push.frameIndex]);
     
     float4 albedo = materials[input.materialBase].SampleLevel(materialsSampler[input.materialBase], input.uv, 0);
     
-    clipMap[gridCoords] = albedo;
+    clipMap[voxelCoords] = float4(albedo.xyz, 1.0f);
 }
 
 // PIXEL SHADER END.

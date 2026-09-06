@@ -7,7 +7,7 @@
 
 namespace engine
 {
-	struct computeRenderer
+	struct cullingPass
 	{
 	public:
 		error init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager);

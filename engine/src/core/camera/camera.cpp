@@ -160,9 +160,18 @@ namespace engine
 		updateProjection();
 	}
 
-	float fpsCamera::getFOV()
+	std::pair<float, float> fpsCamera::getFOV()
 	{
-		return mFov;
+		float ratio = float(mWidth) / float(mHeight);
+		float verticalFOV = mFov;
+		float horizontalFOV = glm::degrees(2.0f * atan(tan(glm::radians(verticalFOV) * 0.5f) * ratio));
+
+		return { verticalFOV, horizontalFOV };
+	}
+
+	std::pair<float, float> fpsCamera::getNearFar()
+	{
+		return { mNearPlane, mFarPlane };
 	}
 
 	static std::pair<glm::vec3, float> calculatePlane(glm::vec3 fromCenter, glm::vec3 front, float angle, glm::vec3 axis)
@@ -195,9 +204,7 @@ namespace engine
 	{
 		frustum result{};
 
-		float ratio = float(mWidth) / float(mHeight);
-		float verticalFOV = mFov;
-		float horizontalFOV = glm::degrees(2.0f * atan(tan(glm::radians(verticalFOV) * 0.5f) * ratio));
+		auto [verticalFOV, horizontalFOV] = getFOV();
 
 		glm::vec3 fromCenter = mPos - glm::vec3(0.0f);
 		glm::vec3 right = glm::normalize(glm::cross(mFront, mUp));

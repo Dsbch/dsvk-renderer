@@ -85,7 +85,9 @@ namespace engine
 		vulkanImage getDepthImage(bool needResolve) const;
 		vulkanImage getAccumImage(bool needResolve) const;
 		vulkanImage getRevealImage(bool needResolve) const;
+		vulkanImage getClipMap() const;
 		std::span<vulkanImage> getHZB();
+		const std::unordered_map<uint32_t, commandBuffer>& getOpaqueCmdBuffers() const;
 		const commandBuffer* getOpaqueCmdBuffer(uint32_t pixelShaderID) const;
 		const commandBuffer& getAccumilationCmdBuffer() const;
 		const vulkanBuffer& getVisabilityBuffer(uint32_t frameIndex) const;

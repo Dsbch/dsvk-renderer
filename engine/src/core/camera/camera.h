@@ -39,7 +39,8 @@ namespace engine
 		void offsetYaw(float yaw);
 		void offsetPitch(float pitch);
 		void changeViewPort(uint32_t width, uint32_t height);
-		float getFOV();
+		std::pair<float, float> getFOV();
+		std::pair<float, float> getNearFar();
 		frustum calculateCameraFrustum();
 	private:
 		std::shared_ptr<context> mCtx;

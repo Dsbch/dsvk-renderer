@@ -1,10 +1,10 @@
 ﻿#include <pch.h>
 
-#include "meshletRenderer.h"
+#include "meshletPass.h"
 
 namespace engine
 {
-	error meshletRenderer::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
+	error meshletPass::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
 	{
 		mCtx = ctx;
 		mResourceManager = resourceManager;
@@ -14,25 +14,21 @@ namespace engine
 		if (err)
 			return err;
 
-		err = initVoxelPipelines();
-		if (err)
-			return err;
-
-		err = mComputeRenderer.init(mCtx, mVulkanCtx, mResourceManager);
+		err = mCullingPass.init(mCtx, mVulkanCtx, mResourceManager);
 		if (err)
 			return err;
 
 		return {};
 	}
 
-	error meshletRenderer::destroy()
+	error meshletPass::destroy()
 	{
-		mComputeRenderer.destroy();
+		mCullingPass.destroy();
 
 		return {};
 	}
 
-	error meshletRenderer::createPipeline(const model& m)
+	error meshletPass::createPipeline(const model& m)
 	{
 		if (!mOpaquePipelines.contains(m.mat.pixelShader->hash()))
 		{
@@ -68,7 +64,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::initBlendingPipelines()
+	error meshletPass::initBlendingPipelines()
 	{
 		auto meshlets = mCtx->mAmanager->getDefaultAccumilateMeshShader();
 		if (!meshlets)
@@ -129,40 +125,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::initVoxelPipelines()
-	{
-		auto meshlets = mCtx->mAmanager->getDefaultVoxelMeshShader();
-		if (!meshlets)
-			return meshlets.err();
-
-		auto task = mCtx->mAmanager->getDefaultVoxelTaskShader();
-		if (!task)
-			return task.err();
-
-		auto pixel = mCtx->mAmanager->getDefaultVoxelPixelShader();
-		if (!pixel)
-			return pixel.err();
-
-		mVoxelizationPipeline.init(mVulkanCtx->device, graphicsPipeline::pipelineType::voxelization);
-
-		error err = mVoxelizationPipeline.build(
-			pixel.value(),
-			meshlets.value(),
-			task.value(),
-			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
-			{},
-			{},
-			sampleCounts(mVulkanCtx->preset.msaa)
-		);
-		if (err)
-			return err;
-
-		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::graphicsPipe, .graphicsPipe = &mVoxelizationPipeline });
-
-		return {};
-	}
-
-	error meshletRenderer::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
+	error meshletPass::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		uint32_t cmdBufferIndex = 0;
 		for (auto& [k, v] : mOpaquePipelines)
@@ -182,10 +145,10 @@ namespace engine
 				// FIRST PASS.
 				{
 					// Dispatch indirect compute call for culling and lod level selection.
-					error err = mComputeRenderer.cullMeshlets(
+					error err = mCullingPass.cullMeshlets(
 						cmd,
 						in,
-						computeRenderer::cullMeshletsParams{
+						cullingPass::cullMeshletsParams{
 							.cmdBufferCount = cmdBufferCount,
 							.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
@@ -230,10 +193,10 @@ namespace engine
 					);
 
 					// Compact cmd buffer to visability buffer.
-					err = mComputeRenderer.compactCommandBuffer(
+					err = mCullingPass.compactCommandBuffer(
 						cmd,
 						in,
-						computeRenderer::compactCommandBufferParams{
+						cullingPass::compactCommandBufferParams{
 							.cmdBufferCount = cmdBufferCount,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 							.stage = FIRST_OPAQUE_PASS_FLAG_BIT,
@@ -320,7 +283,7 @@ namespace engine
 						VK_ACCESS_2_SHADER_READ_BIT
 					);
 
-					error err = mComputeRenderer.buildHZB(cmd, in, frameIndex);
+					error err = mCullingPass.buildHZB(cmd, in, frameIndex);
 					if (err)
 						return err;
 
@@ -340,10 +303,10 @@ namespace engine
 					}
 
 					// Dispatch compute call for culling and lod level selection.
-					err = mComputeRenderer.cullMeshlets(
+					err = mCullingPass.cullMeshlets(
 						cmd,
 						in,
-						computeRenderer::cullMeshletsParams{
+						cullingPass::cullMeshletsParams{
 							.cmdBufferCount = cmdBufferCount,
 							.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
@@ -389,10 +352,10 @@ namespace engine
 					);
 
 					// Compact cmd buffer to visability buffer.
-					err = mComputeRenderer.compactCommandBuffer(
+					err = mCullingPass.compactCommandBuffer(
 						cmd,
 						in,
-						computeRenderer::compactCommandBufferParams{
+						cullingPass::compactCommandBufferParams{
 							.cmdBufferCount = cmdBufferCount,
 							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
 							.stage = SECOND_OPAQUE_PASS_FLAG_BIT,
@@ -480,7 +443,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
+	error meshletPass::accumilationPass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		// Add image barier, need to wait for opaque pass to finish for early depth test in accumilation pass.
 		pipelineImageBarrier(
@@ -550,10 +513,10 @@ namespace engine
 		// Dispatch compute call for culling and lod level selection.
 		// For now it's only going to set falgs for each cmd buffer entry.
 		// Later I will need to implement prefix sum on GPU to increase amplification rate.
-		error err = mComputeRenderer.cullMeshlets(
+		error err = mCullingPass.cullMeshlets(
 			cmd,
 			in,
-			computeRenderer::cullMeshletsParams{
+			cullingPass::cullMeshletsParams{
 				.cmdBufferCount = cmdBufferCount,
 				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
 				.hzbLength = uint32_t(mResourceManager->getHZB().size()),
@@ -598,10 +561,10 @@ namespace engine
 		);
 
 		// Compact cmd buffer to visability buffer.
-		err = mComputeRenderer.compactCommandBuffer(
+		err = mCullingPass.compactCommandBuffer(
 			cmd,
 			in,
-			computeRenderer::compactCommandBufferParams{
+			cullingPass::compactCommandBufferParams{
 				.cmdBufferCount = cmdBufferCount,
 				.stage = ACCUMILATION_PASS_FLAG_BIT,
 				.compactRule = VISIBLE_FIRST_PASS_FLAG_BIT,
@@ -660,7 +623,7 @@ namespace engine
 		return {};
 	}
 
-	error meshletRenderer::compositePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
+	error meshletPass::compositePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		// Composite opaque and transperent.
 		VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
@@ -690,50 +653,6 @@ namespace engine
 		mVulkanCtx->vkCmdDrawMeshTasksEXT(cmd, 1, 1, 1);
 
 		vkCmdEndRendering(cmd);
-
-		return {};
-	}
-
-	error meshletRenderer::voxilizeOpaqueGeometry(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
-	{
-		uint32_t cmdBufferIndex = 0;
-		for (auto& [k, v] : mOpaquePipelines)
-		{
-			VkBuffer cmdBuf = mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getLoadedBytes());
-			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
-
-			// Has to render.  
-			if (cmdBufferCount > 0)
-			{
-				VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent);
-
-				vkCmdBeginRendering(cmd, &renderInfo);
-
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().first);
-
-				pushConstants pc{
-					.frameIndex = frameIndex,
-					.cmdBufferCount = cmdBufferCount,
-					.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
-				};
-
-				vkCmdPushConstants(cmd, mVoxelizationPipeline.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
-
-				mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().second);
-
-				mVulkanCtx->vkCmdDrawMeshTasksEXT(
-					cmd,
-					cmdBufferCount / mCtx->config.inner.render.shaderWorkGroup + 1,
-					1,
-					1
-				);
-
-				vkCmdEndRendering(cmd);
-			}
-
-			cmdBufferIndex++;
-		}
 
 		return {};
 	}

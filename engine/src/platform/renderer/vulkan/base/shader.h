@@ -25,9 +25,9 @@ namespace engine
 		VkShaderModule mShaderModule;
 
 		friend class vulkanRenderer;
-		friend struct computeRenderer;
-		friend struct meshletRenderer;
-		friend struct lineRenderer;
+		friend struct cullingPass;
+		friend struct meshletPass;
+		friend struct linePass;
 		friend struct graphicsPipeline;
 		friend struct pipelineRegistry;
 	};

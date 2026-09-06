@@ -372,6 +372,39 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
+	withError<std::shared_ptr<const shader>> aManager::getDefaultVoxelRayMarchPixelShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshVoxelRayMarchPs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<const shader>> aManager::getDefaultVoxelRayMarchTaskShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshVoxelRayMarchAs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<const shader>> aManager::getDefaultVoxelRayMarchMeshShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkMeshVoxelRayMarchMs.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
 	withError<std::shared_ptr<const model>> aManager::loadModelGLTF(
 		const std::string& path,
 		size_t maxVert,
