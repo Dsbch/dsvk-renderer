@@ -1,6 +1,8 @@
 #include <pch.h>
 #include "commandBuffer.h"
 
+#include "descriptorSet.h"
+
 namespace engine
 {
 	void commandBuffer::init(VkDevice device, VmaAllocator allocator, submit& is, uint32_t framesInFlight)
@@ -10,6 +12,7 @@ namespace engine
 		mFramesInFlight = framesInFlight;
 
 		mCmdBuffer.resize(framesInFlight);
+		mVisabilityBuffer.resize(framesInFlight);
 		mEntitiesToDelete.resize(framesInFlight);
 		mEntitiesToAdd.resize(framesInFlight);
 		mUploadedEntities.resize(framesInFlight);
@@ -23,6 +26,7 @@ namespace engine
 		for (uint32_t i = 0; i < mFramesInFlight; i++)
 		{
 			mCmdBuffer[i].init(device, allocator, mBufferMapFlags);
+			mVisabilityBuffer[i].init(device, allocator, mBufferMapFlags);
 		}
 	}
 
@@ -31,6 +35,10 @@ namespace engine
 		for (uint32_t i = 0; i < mFramesInFlight; i++)
 		{
 			error err = mCmdBuffer[i].build(is, nullptr, mCmdBufferSize, 0);
+			if (err)
+				return err;
+
+			err = mVisabilityBuffer[i].build(is, nullptr, mCmdBufferSize, 0, false, packUint2(NOT_VISIBLE_FLAG_BIT, 1));
 			if (err)
 				return err;
 		}
@@ -43,7 +51,11 @@ namespace engine
 		for (auto& b : mCmdBuffer)
 			b.destroy();
 
+		for (auto& b : mVisabilityBuffer)
+			b.destroy();
+
 		mCmdBuffer.clear();
+		mVisabilityBuffer.clear();
 	}
 
 	error commandBuffer::addInstance(const addInstanceParams& params)
@@ -69,8 +81,6 @@ namespace engine
 							.meshletOffset4 = i < m.meshlets.data.size() - m.meshlets.fourth ? baseOffset + i + m.meshlets.fourth : std::numeric_limits<uint32_t>::max(),
 							.meshIndex = m.meshHandle.bufferIndex,
 							.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
-							.visabilityBit = NOT_VISIBLE_FLAG_BIT,
-							.selectedLod = 1,
 						}
 					);
 				}
@@ -116,16 +126,16 @@ namespace engine
 		{
 			if (!mUploadedEntities[params.frameIndex].contains(k))
 			{
-				size_t size = v.size() * sizeof(meshletShaderCMD);
-				size_t offset = mCmdBuffer[params.frameIndex].getLoadedBytes() + cmdToAdd.size() * sizeof(meshletShaderCMD);
+				size_t indexOffset = mCmdBuffer[params.frameIndex].getLoadedBytes() / sizeof(meshletShaderCMD) + cmdToAdd.size();
 
 				for (auto& c : v)
 					cmdToAdd.push_back(c);
 
-				mUploadedEntities[params.frameIndex][k] = { offset, offset + size };
+				mUploadedEntities[params.frameIndex][k] = { indexOffset, indexOffset + v.size() };
 			}
 		}
 
+		// Upload command buffer data.
 		error err = mCmdBuffer[params.frameIndex].updateBuffer(params.is, cmdToAdd.data(), cmdToAdd.size() * sizeof(meshletShaderCMD), mCmdBuffer[params.frameIndex].getLoadedBytes());
 		if (err && err.is(errCodeBufferOverFlow))
 		{
@@ -150,6 +160,36 @@ namespace engine
 
 			mCmdBuffer[params.frameIndex] = std::move(newBuf);
 		}
+		else if (err)
+			return err;
+
+		// Upload nothing to visability, just move byte counter.
+		err = mVisabilityBuffer[params.frameIndex].updateBuffer(params.is, nullptr, cmdToAdd.size() * sizeof(visabilityData), mVisabilityBuffer[params.frameIndex].getLoadedBytes());
+		if (err && err.is(errCodeBufferOverFlow))
+		{
+			mNeedDescriptorUpdate = true;
+
+			mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
+			uint32_t minSize = uint32_t(cmdToAdd.size() * sizeof(visabilityData) + mCmdBuffer[params.frameIndex].getLoadedBytes());
+
+			if (mCmdBufferSize < minSize)
+				mCmdBufferSize = minSize;
+
+			vulkanBuffer newBuf{};
+
+			newBuf.init(params.device, params.allocator, mBufferMapFlags);
+			err = newBuf.build(params.is, mVisabilityBuffer[params.frameIndex], mCmdBufferSize, true, packUint2(NOT_VISIBLE_FLAG_BIT, 1));
+			if (err)
+				return err;
+
+			err = newBuf.updateBuffer(params.is, nullptr, cmdToAdd.size() * sizeof(visabilityData), mVisabilityBuffer[params.frameIndex].getLoadedBytes());
+			if (err)
+				return err;
+
+			mVisabilityBuffer[params.frameIndex] = std::move(newBuf);
+		}
+		else if (err)
+			return err;
 
 		mEntitiesToAdd[params.frameIndex].clear();
 
@@ -159,14 +199,24 @@ namespace engine
 
 			if (uploadedEnity != mUploadedEntities[params.frameIndex].end())
 			{
-				if (mCmdBuffer[params.frameIndex].getLoadedBytes() != uploadedEnity->second.second)
+				if (mCmdBuffer[params.frameIndex].getLoadedBytes() / sizeof(meshletShaderCMD) != uploadedEnity->second.second)
 				{
-					error err = mCmdBuffer[params.frameIndex].shiftData(params.is, uploadedEnity->second.first, uploadedEnity->second.second);
+					// Shift both buffer.
+					error err = mCmdBuffer[params.frameIndex].shiftData(params.is, uploadedEnity->second.first * sizeof(meshletShaderCMD), uploadedEnity->second.second * sizeof(meshletShaderCMD));
+					if (err)
+						return err;
+
+					err = mVisabilityBuffer[params.frameIndex].shiftData(params.is, uploadedEnity->second.first * sizeof(visabilityData), uploadedEnity->second.second * sizeof(visabilityData));
 					if (err)
 						return err;
 				}
 				else
-					mCmdBuffer[params.frameIndex].markBytesAsDead(uploadedEnity->second.second - uploadedEnity->second.first);
+				{
+					size_t deletedElements = uploadedEnity->second.second - uploadedEnity->second.first;
+
+					mCmdBuffer[params.frameIndex].markBytesAsDead(deletedElements * sizeof(meshletShaderCMD));
+					mVisabilityBuffer[params.frameIndex].markBytesAsDead(deletedElements * sizeof(visabilityData));
+				}
 
 				size_t deletedSize = uploadedEnity->second.second - uploadedEnity->second.first;
 
@@ -204,14 +254,18 @@ namespace engine
 		return false;
 	}
 
-	std::vector<VkDescriptorBufferInfo> commandBuffer::getBufferInfo()
+	std::pair<std::vector<VkDescriptorBufferInfo>, std::vector<VkDescriptorBufferInfo>> commandBuffer::getBufferInfo()
 	{
-		mBufferInfo.clear();
+		mCmdBufferInfo.clear();
+		mVisabilityBufferInfo.clear();
 
 		for (auto& b : mCmdBuffer)
-			mBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+			mCmdBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 
-		return mBufferInfo;
+		for (auto& b : mVisabilityBuffer)
+			mVisabilityBufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+
+		return { mCmdBufferInfo, mVisabilityBufferInfo };
 	}
 
 	bool commandBuffer::needDescriptorUpdate() const
@@ -224,9 +278,14 @@ namespace engine
 		mNeedDescriptorUpdate = false;
 	}
 
-	vulkanBuffer commandBuffer::getBuffer(uint32_t frameIndex) const
+	vulkanBuffer commandBuffer::getCmdBuffer(uint32_t frameIndex) const
 	{
 		return mCmdBuffer[frameIndex];
+	}
+
+	vulkanBuffer commandBuffer::getVisabilityBuffer(uint32_t frameIndex) const
+	{
+		return mVisabilityBuffer[frameIndex];
 	}
 
 	uint32_t commandBuffer::getCommandBufferLoadedSize(uint32_t frameIndex) const

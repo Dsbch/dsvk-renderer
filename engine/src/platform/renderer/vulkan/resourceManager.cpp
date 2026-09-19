@@ -50,7 +50,7 @@ namespace engine
 				VkDescriptorBufferInfo{.buffer = mLineBuffer.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE}
 			};
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.lineBuffer, bufferInfo);
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.lineBufferBinding, bufferInfo);
 			mBufferDescriptorSet.updateWrite(writeInfo);
 
 			mLineBuffer.setUpdated();
@@ -90,17 +90,21 @@ namespace engine
 		// update cmd opaque buffer.
 		if (needUpdate)
 		{
-			std::vector<VkDescriptorBufferInfo> buffersInfo{};
+			std::vector<VkDescriptorBufferInfo> cmdBuffersInfo{};
+			std::vector<VkDescriptorBufferInfo> visabilityBuffersInfo{};
 
 			for (auto& [_, p] : mOpaqueCommandBuffers)
 			{
 				auto info = p.getBufferInfo();
-				buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
+				cmdBuffersInfo.insert(cmdBuffersInfo.end(), info.first.begin(), info.first.end());
+				visabilityBuffersInfo.insert(visabilityBuffersInfo.end(), info.second.begin(), info.second.end());
 			}
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, buffersInfo);
+			auto cmdWriteInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, cmdBuffersInfo);
+			auto vsabilityWriteInfo = descriptorSet::getWriteInfo(mBindings.opaqueVisabilityBufferBinding, visabilityBuffersInfo);
 
-			mBufferDescriptorSet.updateWrite(writeInfo);
+			mBufferDescriptorSet.updateWrite(cmdWriteInfo);
+			mBufferDescriptorSet.updateWrite(vsabilityWriteInfo);
 
 			for (auto& [_, p] : mOpaqueCommandBuffers)
 				p.setUpdated();
@@ -109,14 +113,18 @@ namespace engine
 		// update cmd accumilation buffer.
 		if (mAccumilationCommandBuffer.needDescriptorUpdate())
 		{
-			std::vector<VkDescriptorBufferInfo> buffersInfo{};
+			std::vector<VkDescriptorBufferInfo> cmdBuffersInfo{};
+			std::vector<VkDescriptorBufferInfo> visabilityBuffersInfo{};
 
 			auto info = mAccumilationCommandBuffer.getBufferInfo();
-			buffersInfo.insert(buffersInfo.end(), info.begin(), info.end());
+			cmdBuffersInfo.insert(cmdBuffersInfo.end(), info.first.begin(), info.first.end());
+			visabilityBuffersInfo.insert(visabilityBuffersInfo.end(), info.second.begin(), info.second.end());
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, buffersInfo);
+			auto cmdWriteInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, cmdBuffersInfo);
+			auto visabilityWriteInfo = descriptorSet::getWriteInfo(mBindings.accumilationVisabilityBufferBinding, visabilityBuffersInfo);
 
-			mBufferDescriptorSet.updateWrite(writeInfo);
+			mBufferDescriptorSet.updateWrite(cmdWriteInfo);
+			mBufferDescriptorSet.updateWrite(visabilityWriteInfo);
 
 			mAccumilationCommandBuffer.setUpdated();
 		}
@@ -172,7 +180,6 @@ namespace engine
 
 		if (mMeshletRegistry.needDescriptorUpdate())
 		{
-			auto bufInfo = mMeshletRegistry.getBufferInfo();
 			auto writeInfo = mMeshletRegistry.getWriteInfo(mBindings.meshletBinding);
 			mBufferDescriptorSet.updateWrite(writeInfo);
 			mMeshletRegistry.setUpdated();
@@ -180,7 +187,6 @@ namespace engine
 
 		if (mMeshletAttributesRegistry.needDescriptorUpdate())
 		{
-			auto bufInfo = mMeshletAttributesRegistry.getBufferInfo();
 			auto writeInfo = mMeshletAttributesRegistry.getWriteInfo(mBindings.meshletAttributesBinding);
 			mBufferDescriptorSet.updateWrite(writeInfo);
 			mMeshletAttributesRegistry.setUpdated();
@@ -188,7 +194,6 @@ namespace engine
 
 		if (mPerInstanceRegistry.needDescriptorUpdate())
 		{
-			auto bufInfo = mPerInstanceRegistry.getBufferInfo();
 			auto writeInfo = mPerInstanceRegistry.getWriteInfo(mBindings.perInstanceBinding);
 			mBufferDescriptorSet.updateWrite(writeInfo);
 			mPerInstanceRegistry.setUpdated();
@@ -203,7 +208,6 @@ namespace engine
 
 		if (mPerMeshRegistry.needDescriptorUpdate())
 		{
-			auto bufInfo = mPerMeshRegistry.getBufferInfo();
 			auto writeInfo = mPerMeshRegistry.getWriteInfo(mBindings.perMeshBinding);
 			mBufferDescriptorSet.updateWrite(writeInfo);
 			mPerMeshRegistry.setUpdated();
@@ -218,22 +222,22 @@ namespace engine
 		}
 
 		// Resize visability buffer if needed.
-		if (uint32_t max = getMaxCmdBufferSize(frameIndex) * sizeof(uint32_t) / sizeof(meshletShaderCMD); max > (mVisabilityBuffer[frameIndex].getSize() - 4 * sizeof(uint32_t)))
+		if (uint32_t max = getMaxCmdBufferSize(frameIndex) * sizeof(uint32_t) / sizeof(meshletShaderCMD); max > (mCompactBuffer[frameIndex].getSize() - 4 * sizeof(uint32_t)))
 		{
-			mVisabilityBuffer[frameIndex].destroy();
+			mCompactBuffer[frameIndex].destroy();
 
 			std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
 
-			error err = mVisabilityBuffer[frameIndex].build(mVulkanCtx->iSubmit, visDispatch.data(), max + 4 * sizeof(uint32_t), sizeof(uint32_t) * 4, true);
+			error err = mCompactBuffer[frameIndex].build(mVulkanCtx->iSubmit, visDispatch.data(), max + 4 * sizeof(uint32_t), sizeof(uint32_t) * 4, true);
 			if (err)
 				return err;
 
 			std::vector<VkDescriptorBufferInfo> bufferInfo{};
 
-			for (auto& b : mVisabilityBuffer)
+			for (auto& b : mCompactBuffer)
 				bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.compactBufferBinding, bufferInfo);
 			mBufferDescriptorSet.updateWrite(writeInfo);
 		}
 
@@ -810,7 +814,7 @@ namespace engine
 
 	const vulkanBuffer& resourceManager::getVisabilityBuffer(uint32_t frameIndex) const
 	{
-		return mVisabilityBuffer[frameIndex];
+		return mCompactBuffer[frameIndex];
 	}
 
 	const vulkanBuffer& resourceManager::getLinebuffer() const
@@ -915,17 +919,17 @@ namespace engine
 		// Init visability buffers.
 		std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
 
-		mVisabilityBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
+		mCompactBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
 
 		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
 		{
-			mVisabilityBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator);
+			mCompactBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator);
 
-			err = mVisabilityBuffer[i].build(mVulkanCtx->iSubmit, visDispatch.data(), 2 << 24, sizeof(uint32_t) * 4, true);
+			err = mCompactBuffer[i].build(mVulkanCtx->iSubmit, visDispatch.data(), 2 << 24, sizeof(uint32_t) * 4, true);
 			if (err)
 				return err;
 
-			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mVisabilityBuffer[i] });
+			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mCompactBuffer[i] });
 		}
 
 		mUboPerDrawBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
@@ -1157,7 +1161,19 @@ namespace engine
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
+				mBindings.opaqueVisabilityBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mBufferDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
 				mBindings.cmdAccumilationBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mBufferDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.accumilationVisabilityBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
@@ -1199,13 +1215,13 @@ namespace engine
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.visabilityBuffer, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.compactBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.lineBuffer, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.lineBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
@@ -1271,10 +1287,10 @@ namespace engine
 
 		bufferInfo = {};
 
-		for (auto& b : mVisabilityBuffer)
+		for (auto& b : mCompactBuffer)
 			bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 
-		writeInfo = descriptorSet::getWriteInfo(mBindings.visabilityBuffer, bufferInfo);
+		writeInfo = descriptorSet::getWriteInfo(mBindings.compactBufferBinding, bufferInfo);
 		mBufferDescriptorSet.updateWrite(writeInfo);
 
 		std::vector<VkDescriptorImageInfo> clipMapInfo{ VkDescriptorImageInfo{} };

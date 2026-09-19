@@ -135,8 +135,8 @@ namespace engine
 			if (!mResourceManager->getOpaqueCmdBuffer(k))
 				continue;
 
-			VkBuffer cmdBuf = mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(mResourceManager->getOpaqueCmdBuffer(k)->getBuffer(frameIndex).getLoadedBytes());
+			VkBuffer cmdBuf = mResourceManager->getOpaqueCmdBuffer(k)->getCmdBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(mResourceManager->getOpaqueCmdBuffer(k)->getCmdBuffer(frameIndex).getLoadedBytes());
 			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 			// Has to render.
@@ -497,8 +497,8 @@ namespace engine
 
 		auto [pipeline, pipelineLayout] = mAccumilationPipeline.getPipeline();
 
-		VkBuffer cmdBuf = mResourceManager->getAccumilationCmdBuffer().getBuffer(frameIndex).getBuffer().buffer;
-		uint32_t cmdBufSize = uint32_t(mResourceManager->getAccumilationCmdBuffer().getBuffer(frameIndex).getLoadedBytes());
+		VkBuffer cmdBuf = mResourceManager->getAccumilationCmdBuffer().getCmdBuffer(frameIndex).getBuffer().buffer;
+		uint32_t cmdBufSize = uint32_t(mResourceManager->getAccumilationCmdBuffer().getCmdBuffer(frameIndex).getLoadedBytes());
 		uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 		// Nothing to render.

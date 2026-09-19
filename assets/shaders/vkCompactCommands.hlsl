@@ -37,13 +37,15 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
 
     if (dtid < push.meshletCount)
     {
-        command cmd;
+        uint visData;
         if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
-            cmd = commandAccumilationBuffer[push.cmdOpaqueBufferIndex][dtid];
+            visData = accumilationVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid];
         else
-            cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
+            visData = opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid];
 
-        visible = hasFlag(cmd.visabilityBit, push.compactRule);
+        uint2 unpacked = unpackUint2(visData);
+        
+        visible = hasFlag(unpacked.x, push.compactRule);
     }
 
     uint laneSlot = WavePrefixCountBits(visible);
@@ -58,15 +60,15 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
 
     if (gtid == 0 && groupVisibleCount > 0)
     {
-        InterlockedAdd(visabilityBuffer[push.frameIndex][0], groupVisibleCount, groupBase);
+        InterlockedAdd(compactBuffer[push.frameIndex][0], groupVisibleCount, groupBase);
 
         uint groupsNeeded = (groupBase + groupVisibleCount + THREADS_COUNT - 1) / THREADS_COUNT;
-        InterlockedMax(visabilityBuffer[push.frameIndex][1], groupsNeeded);
+        InterlockedMax(compactBuffer[push.frameIndex][1], groupsNeeded);
     }
 
     GroupMemoryBarrierWithGroupSync();
 
     if (visible)
-        visabilityBuffer[push.frameIndex][4 + groupBase + waveBaseInGroup + laneSlot] = dtid;
+        compactBuffer[push.frameIndex][4 + groupBase + waveBaseInGroup + laneSlot] = dtid;
 }
  

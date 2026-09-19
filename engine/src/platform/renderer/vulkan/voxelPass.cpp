@@ -112,8 +112,8 @@ namespace engine
 		uint32_t cmdBufferIndex = 0;
 		for (auto& [_, v] : mResourceManager->getOpaqueCmdBuffers())
 		{
-			VkBuffer cmdBuf = v.getBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(v.getBuffer(frameIndex).getLoadedBytes());
+			VkBuffer cmdBuf = v.getCmdBuffer(frameIndex).getBuffer().buffer;
+			uint32_t cmdBufSize = uint32_t(v.getCmdBuffer(frameIndex).getLoadedBytes());
 			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
 
 			// Has to render.  

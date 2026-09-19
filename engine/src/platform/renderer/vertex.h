@@ -51,15 +51,15 @@ namespace engine
 
 		uint32_t meshIndex;
 		uint32_t meshOffset;
-
-		// Setted by GPU in compute.
-		uint32_t visabilityBit;
-		uint32_t selectedLod;
 	};
 
-	struct visabilityBitCMD
+	uint32_t packUint2(uint32_t x, uint32_t y);
+
+	struct visabilityData
 	{
-		uint32_t visabilityBit;
+		// Setted by GPU in compute.
+		// First two bytes visability bit, second two selected LOD.
+		uint32_t visabilityLod;
 	};
 
 	struct perInstanceAttr

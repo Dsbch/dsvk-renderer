@@ -41,9 +41,9 @@ namespace engine
 		};
 
 		void init(VkDevice device, VmaAllocator allocator, mapFlags flags = {false, false});
-		error build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, bool dispatchBuffer = false);
-		error build(submit& is, vulkanBuffer& buf, size_t sizeInBytes, bool destroyBuffer = false);
-		error buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes);
+		error build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, bool dispatchBuffer = false, uint32_t zeroValue = 0);
+		error build(submit& is, vulkanBuffer& buf, size_t sizeInBytes, bool destroyBuffer = false, uint32_t zeroValue = 0);
+		error buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, uint32_t zeroValue = 0);
 		error updateBuffer(submit& is, const void* data, size_t sizeInBytes, size_t offset);
 		error shiftData(submit& is, size_t dstOffset, size_t srcOffset);
 		void destroy();

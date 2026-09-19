@@ -105,9 +105,6 @@ struct command
     
     uint meshIndex;
     uint meshOffset;
-    
-    uint visabilityBit;
-    uint selectedLod;
 };
 
 struct perMeshAttributes
@@ -183,20 +180,24 @@ StructuredBuffer<float4> tangenBuffer[] : register(t2, space0);
 StructuredBuffer<uint4> jointIndexBuffer[] : register(t3, space0);
 StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
 
-RWStructuredBuffer<command> commandOpaqueBuffer[] : register(u5, space0);
-RWStructuredBuffer<command> commandAccumilationBuffer[] : register(u6, space0);
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t7, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t8, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t9, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t10, space0);
-StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t11, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t12, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t13, space0);
-ConstantBuffer<perDrawData> drawData[] : register(b14, space0);
+StructuredBuffer<command> commandOpaqueBuffer[] : register(t5, space0);
+StructuredBuffer<command> commandAccumilationBuffer[] : register(t6, space0);
+// VisabilityBit on first two bytes on second two bytes selected lod.
+RWStructuredBuffer<uint> opaqueVisabilityBuffer[] : register(u7, space0);
+// VisabilityBit on first two bytes on second two bytes selected lod.
+RWStructuredBuffer<uint> accumilationVisabilityBuffer[] : register(u8, space0);
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t9, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t10, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t11, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t12, space0);
+StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t13, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t14, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t15, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b16, space0);
 // [0] = visibleCount                                  
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ     
-RWStructuredBuffer<uint> visabilityBuffer[] : register(u15, space0);
-StructuredBuffer<float3> lineBuffer : register(t16, space0);
+RWStructuredBuffer<uint> compactBuffer[] : register(u17, space0);
+StructuredBuffer<float3> lineBuffer : register(t18, space0);
 
 // Texture bindings.
 Texture2D materials[] : register(t0, space1);
@@ -533,7 +534,7 @@ bool isInFrustum(perDrawData drawData, meshletBounds bounds)
 // Since we repacked those 3 bytes to a 32-bit uint, our offset is now
 // aligned to 4 and we can easily grab it as a uint without any 
 // additional offset math.
-uint3 unpackUint(uint packed)
+uint3 unpackUint3(uint packed)
 {
     uint3 result;
     
@@ -542,6 +543,19 @@ uint3 unpackUint(uint packed)
     result.z = (packed >> 16) & 0xFF;
     
     return result;
+}
+
+uint2 unpackUint2(uint packed)
+{
+    uint2 result;
+    result.x = (packed >> 0) & 0xFFFF;
+    result.y = (packed >> 16) & 0xFFFF;
+    return result;
+}
+
+uint packUint2(uint x, uint y)
+{
+    return (x & 0xFFFF) | (y << 16);
 }
 
 bool isBackface(perDrawData drawData, transform modelTransform, float3 v1, float3 v2, float3 v3)

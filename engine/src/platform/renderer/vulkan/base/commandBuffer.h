@@ -10,6 +10,9 @@
 
 namespace engine
 {
+	// Command buffer holds two buffers under the hood.
+	// First is actual command buffer.
+	// Second is visability buffer.
 	struct commandBuffer
 	{
 	public:
@@ -59,10 +62,11 @@ namespace engine
 
 		bool meshIsUsed(uint32_t id, uint32_t frameIndex) const;
 		bool instanceExists(uint32_t id, uint32_t frameIndex) const;
-		std::vector<VkDescriptorBufferInfo> getBufferInfo();
+		std::pair<std::vector<VkDescriptorBufferInfo>, std::vector<VkDescriptorBufferInfo>> getBufferInfo();
 		bool needDescriptorUpdate() const;
 		void setUpdated();
-		vulkanBuffer getBuffer(uint32_t frameIndex) const;
+		vulkanBuffer getCmdBuffer(uint32_t frameIndex) const;
+		vulkanBuffer getVisabilityBuffer(uint32_t frameIndex) const;
 		uint32_t getCommandBufferLoadedSize(uint32_t frameIndex) const;
 	private:
 		uint32_t mFramesInFlight;
@@ -72,11 +76,13 @@ namespace engine
 		uint32_t mCmdBufferSize;
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		std::vector<vulkanBuffer> mCmdBuffer;
+		std::vector<vulkanBuffer> mVisabilityBuffer;
 		
 		std::vector<std::set<uint32_t>> mEntitiesToDelete;
 		std::vector<std::map<uint32_t, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
 		std::vector<std::map<uint32_t, std::pair<size_t, size_t>>> mUploadedEntities;
 		std::vector<std::map<uint32_t, uint32_t>> mMeshCount;
-		std::vector<VkDescriptorBufferInfo> mBufferInfo;
+		std::vector<VkDescriptorBufferInfo> mCmdBufferInfo;
+		std::vector<VkDescriptorBufferInfo> mVisabilityBufferInfo;
 	};
 }

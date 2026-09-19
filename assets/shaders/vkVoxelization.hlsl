@@ -41,8 +41,8 @@ void asmain(
     if (visible)
     {
         command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
-        uint meshletOffset = getMeshletOffset(cmd, cmd.selectedLod);
-    
+        uint2 unpacked = unpackUint2(opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][compactBuffer[push.frameIndex][dtid + 4]]);
+        uint meshletOffset = getMeshletOffset(cmd, unpacked.x);
         uint index = WavePrefixCountBits(visible);
         
         payload.perInstanceIndex[index] = cmd.instanceIndex + push.frameIndex;
@@ -105,7 +105,7 @@ void msmain(
     {
         uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
          
-        uint3 unpacked = unpackUint(packed);
+        uint3 unpacked = unpackUint3(packed);
         
         triangles[gtid] = unpacked;
     }

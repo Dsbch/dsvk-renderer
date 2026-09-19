@@ -14,7 +14,7 @@ namespace engine
 		mNeedDescriptorUpdate = false;
 	}
 
-	error vulkanBuffer::build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, bool dispatchBuffer)
+	error vulkanBuffer::build(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, bool dispatchBuffer, uint32_t zeroValue)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -79,11 +79,21 @@ namespace engine
 					return err;
 			}
 		}
+		else
+		{
+			error err = is.queue(
+				[=](VkCommandBuffer cmd)
+				{
+					vkCmdFillBuffer(cmd, mBuffer.buffer, 0, VK_WHOLE_SIZE, zeroValue);
+				},
+				[]() {}
+			);
+		}
 
 		return {};
 	}
 
-	error vulkanBuffer::build(submit& is, vulkanBuffer& buf, size_t sizeInBytes, bool destroyBuffer)
+	error vulkanBuffer::build(submit& is, vulkanBuffer& buf, size_t sizeInBytes, bool destroyBuffer, uint32_t zeroValue)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -105,6 +115,27 @@ namespace engine
 			return createBufRes.err();
 
 		mBuffer = createBufRes.value();
+
+		if (sizeInBytes > mLoadedBytes)
+		{
+			size_t tailOffset = mLoadedBytes;
+			size_t tailSize = sizeInBytes - mLoadedBytes;
+
+			if (mMapFlags.mapped)
+				std::fill_n((uint32_t*)mBuffer.info.pMappedData + tailOffset / 4, tailSize / 4, zeroValue);
+			else
+			{
+				error err = is.queue(
+					[crntBuf = mBuffer, tailOffset, tailSize, zeroValue](VkCommandBuffer cmd)
+					{
+						vkCmdFillBuffer(cmd, crntBuf.buffer, tailOffset, tailSize, zeroValue);
+					},
+					[]() {}
+				);
+				if (err)
+					return err;
+			}
+		}
 
 		if (buf.getBuffer().buffer != VK_NULL_HANDLE)
 		{
@@ -149,8 +180,7 @@ namespace engine
 		return {};
 	}
 
-
-	error vulkanBuffer::buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes)
+	error vulkanBuffer::buildAsUBO(submit& is, const void* data, size_t sizeInBytes, size_t validBytes, uint32_t zeroValue)
 	{
 		if (mBuffer.buffer != VK_NULL_HANDLE)
 			return error{ "buffer already created" };
@@ -210,6 +240,16 @@ namespace engine
 					return err;
 			}
 		}
+		else
+		{
+			error err = is.queue(
+				[=](VkCommandBuffer cmd)
+				{
+					vkCmdFillBuffer(cmd, mBuffer.buffer, 0, VK_WHOLE_SIZE, zeroValue);
+				},
+				[]() {}
+			);
+		}
 
 		return {};
 	}
@@ -222,39 +262,42 @@ namespace engine
 		if (sizeInBytes + mLoadedBytes > mByteSize)
 			return error{ errCodeBufferOverFlow, "buffer overflow" };
 
-		if (mMapFlags.mapped)
+		if (data)
 		{
-			VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, offset, sizeInBytes);
-			if (res != VK_SUCCESS)
-				return { vkResultToStr(res) };
-		}
-		else
-		{
-			auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, { true, false });
-			if (!stagingBuffer)
-				return stagingBuffer.err();
+			if (mMapFlags.mapped)
+			{
+				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, mBuffer.allocation, offset, sizeInBytes);
+				if (res != VK_SUCCESS)
+					return { vkResultToStr(res) };
+			}
+			else
+			{
+				auto stagingBuffer = createBuffer(mAllocator, mDevice, sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST, { true, false });
+				if (!stagingBuffer)
+					return stagingBuffer.err();
 
-			VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, stagingBuffer.value().allocation, 0, sizeInBytes);
-			if (res != VK_SUCCESS)
-				return { vkResultToStr(res) };
+				VkResult res = vmaCopyMemoryToAllocation(mAllocator, data, stagingBuffer.value().allocation, 0, sizeInBytes);
+				if (res != VK_SUCCESS)
+					return { vkResultToStr(res) };
 
-			error err = is.queue(
-				[=](VkCommandBuffer cmd)
-				{
-					VkBufferCopy copy{};
-					copy.dstOffset = offset;
-					copy.srcOffset = 0;
-					copy.size = sizeInBytes;
+				error err = is.queue(
+					[=](VkCommandBuffer cmd)
+					{
+						VkBufferCopy copy{};
+						copy.dstOffset = offset;
+						copy.srcOffset = 0;
+						copy.size = sizeInBytes;
 
-					vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
-				},
-				[allocator = mAllocator, buffer = stagingBuffer.value()]()
-				{
-					destroyBuffer(allocator, buffer);
-				}
-			);
-			if (err)
-				return err;
+						vkCmdCopyBuffer(cmd, stagingBuffer.value().buffer, mBuffer.buffer, 1, &copy);
+					},
+					[allocator = mAllocator, buffer = stagingBuffer.value()]()
+					{
+						destroyBuffer(allocator, buffer);
+					}
+				);
+				if (err)
+					return err;
+			}
 		}
 
 		mLoadedBytes += sizeInBytes;

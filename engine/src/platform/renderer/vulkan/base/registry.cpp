@@ -200,13 +200,6 @@ namespace engine
 
 	std::vector<VkWriteDescriptorSet> bufferRegistry::getWriteInfo(uint32_t binding)
 	{
-		getBufferInfo();
-
-		return descriptorSet::getWriteInfo(binding, mBuffersInfo);
-	}
-
-	std::vector<VkDescriptorBufferInfo> bufferRegistry::getBufferInfo()
-	{
 		mBuffersInfo.clear();
 
 		for (auto& buffs : mBuffers)
@@ -215,7 +208,7 @@ namespace engine
 				mBuffersInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 		}
 
-		return mBuffersInfo;
+		return descriptorSet::getWriteInfo(binding, mBuffersInfo);
 	}
 
 	void bufferRegistry::setUpdated()
@@ -366,10 +359,5 @@ namespace engine
 	std::vector<VkWriteDescriptorSet> materialRegistry::getWriteInfo(uint32_t binding)
 	{
 		return descriptorSet::getWriteInfo(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, mImagesInfo);
-	}
-
-	std::vector<VkDescriptorImageInfo> materialRegistry::getImagesInfo()
-	{
-		return mImagesInfo;
 	}
 }

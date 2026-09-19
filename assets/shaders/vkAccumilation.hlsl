@@ -40,13 +40,14 @@ void asmain(
     uint gid : SV_GroupID
 )
 {
-    bool visible = dtid < visabilityBuffer[push.frameIndex][0];
+    bool visible = dtid < compactBuffer[push.frameIndex][0];
     
     // Not overdraw.
     if (visible)
     {
-        command cmd = commandAccumilationBuffer[push.cmdOpaqueBufferIndex][visabilityBuffer[push.frameIndex][dtid + 4]];
-        uint meshletOffset = getMeshletOffset(cmd, cmd.selectedLod);
+        command cmd = commandAccumilationBuffer[push.cmdOpaqueBufferIndex][compactBuffer[push.frameIndex][dtid + 4]];
+        uint2 unpacked = unpackUint2(accumilationVisabilityBuffer[push.cmdOpaqueBufferIndex][compactBuffer[push.frameIndex][dtid + 4]]);
+        uint meshletOffset = getMeshletOffset(cmd, unpacked.y);
     
         uint index = WavePrefixCountBits(visible);
         
@@ -84,7 +85,7 @@ void msmain(
     {
         uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
          
-        uint3 unpacked = unpackUint(packed);
+        uint3 unpacked = unpackUint3(packed);
         
         triangles[gtid] = unpacked;
     }

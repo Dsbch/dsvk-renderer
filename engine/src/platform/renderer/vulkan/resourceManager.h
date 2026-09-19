@@ -107,7 +107,7 @@ namespace engine
 		
 		struct descriptorsBindings
 		{
-			uint32_t storageBufferBindings = 16;
+			uint32_t storageBufferBindings = 18;
 			uint32_t uniformBufferBindings = 1;
 			
 			uint32_t storageImageBindings = 2;
@@ -121,16 +121,18 @@ namespace engine
 			uint32_t weightBinding = 4;
 			uint32_t cmdOpaqueBufferBinding = 5;
 			uint32_t cmdAccumilationBufferBinding = 6;
-			uint32_t perInstanceBinding = 7;
-			uint32_t indexBinding = 8;
-			uint32_t primitiveBinding = 9;
-			uint32_t meshletBinding = 10;
-			uint32_t meshletAttributesBinding = 11;
-			uint32_t jointsBinding = 12;
-			uint32_t perMeshBinding = 13;
-			uint32_t perDrawBufferUboBinding = 14;
-			uint32_t visabilityBuffer = 15;
-			uint32_t lineBuffer = 16;
+			uint32_t opaqueVisabilityBufferBinding = 7;
+			uint32_t accumilationVisabilityBufferBinding = 8;
+			uint32_t perInstanceBinding = 9;
+			uint32_t indexBinding = 10;
+			uint32_t primitiveBinding = 11;
+			uint32_t meshletBinding = 12;
+			uint32_t meshletAttributesBinding = 13;
+			uint32_t jointsBinding = 14;
+			uint32_t perMeshBinding = 15;
+			uint32_t perDrawBufferUboBinding = 16;
+			uint32_t compactBufferBinding = 17;
+			uint32_t lineBufferBinding = 18;
 
 			// Texture bindings.
 			uint32_t materialArrayBinding = 0;
@@ -165,7 +167,7 @@ namespace engine
 		bufferRegistry mJointRegistry;
 		vulkanBuffer mLineBuffer;
 		std::vector<vulkanBuffer> mUboPerDrawBuffer;
-		std::vector<vulkanBuffer> mVisabilityBuffer;
+		std::vector<vulkanBuffer> mCompactBuffer;
 
 		// Texture buffers.
 		materialRegistry mMaterialRegistry;

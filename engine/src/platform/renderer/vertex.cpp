@@ -102,4 +102,9 @@ namespace engine
 			* glm::mat4_cast(trs.rotation)
 			* glm::scale(glm::mat4(1.0f), trs.scale);
 	}
+
+	uint32_t packUint2(uint32_t x, uint32_t y)
+	{
+		return (x & 0xFFFF) | (y << 16);
+	}
 }
