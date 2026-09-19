@@ -16,7 +16,7 @@ namespace engine
 
 	std::vector<uint32_t> repackPrimitives(
 		const std::vector<uint8_t>& primitives,
-		std::vector<meshlet>& meshlets
+		std::vector<meshletData>& meshlets
 	);
 
 	std::pair<glm::vec3, float> calculateBoundingSphere(const std::vector<glm::vec3>& positions);
@@ -27,7 +27,7 @@ namespace engine
 	error generateMeshlets(
 		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t>& indicies,
-		std::vector<meshlet>& mOut,
+		std::vector<meshletData>& mOut,
 		std::vector<uint8_t>& pOut,
 		std::vector<uint32_t>& iOut,
 		size_t maxVert, size_t maxTriangles, float coneWieght,
@@ -40,7 +40,7 @@ namespace engine
 	error generateLodLevel(
 		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t> i,
-		std::vector<meshlet>& meshletsOut,
+		std::vector<meshletData>& meshletsOut,
 		std::vector<uint32_t>& indicesOut,
 		std::vector<uint32_t>& repackedPrimitivesOut,
 		size_t targetIndexCount,

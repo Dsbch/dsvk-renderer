@@ -49,9 +49,17 @@ struct meshletBounds
     float coneCutoff; /* = cos(angle/2) */
 };
 
-struct meshlet
+// meshletAttributes and meshlet SHOULD HAVE IDENTICAL SIZE.
+struct meshletAttributes
 {
     uint alphaType;
+    meshletBounds bounds;
+    uint perMeshBufferIndex;
+    uint perMeshBufferOffset;
+};
+
+struct meshlet
+{
     uint localMaterialOffset;
 
     uint indexBufferIndex;
@@ -67,11 +75,6 @@ struct meshlet
     uint triangleBufferIndex;
     uint triangleBufferOffset;
     uint triangleCount;
-    
-    uint perMeshBufferIndex;
-    uint perMeshBufferOffset;
-    
-    meshletBounds bounds;
 };
 
 struct transform
@@ -112,9 +115,7 @@ struct perMeshAttributes
     float bsRadius;
     float3 bsCenter;
     uint isSkinned;
-    float4x4 meshLocalTransform;
     float4x4 meshGlobalTransform;
-    float3x3 meshLocalNormal;
     float3x3 meshGlobalNormal;
 };
 
@@ -175,24 +176,27 @@ struct meshOutput
 };
 
 // Buffers bindigs.
+// Vertex attribs.
 StructuredBuffer<float4> positionBuffer[] : register(t0, space0);
 StructuredBuffer<float4> normalBuffer[] : register(t1, space0);
 StructuredBuffer<float4> tangenBuffer[] : register(t2, space0);
 StructuredBuffer<uint4> jointIndexBuffer[] : register(t3, space0);
 StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
+
 RWStructuredBuffer<command> commandOpaqueBuffer[] : register(u5, space0);
 RWStructuredBuffer<command> commandAccumilationBuffer[] : register(u6, space0);
 StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t7, space0);
 StructuredBuffer<uint> vertexIndexBuffer[] : register(t8, space0);
 StructuredBuffer<uint> primitiveBuffer[] : register(t9, space0);
 StructuredBuffer<meshlet> meshletBuffer[] : register(t10, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t11, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t12, space0);
-ConstantBuffer<perDrawData> drawData[] : register(b13, space0);
+StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t11, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t12, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t13, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b14, space0);
 // [0] = visibleCount                                  
 // [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ     
-RWStructuredBuffer<uint> visabilityBuffer[] : register(u14, space0);
-StructuredBuffer<float3> lineBuffer : register(t15, space0);
+RWStructuredBuffer<uint> visabilityBuffer[] : register(u15, space0);
+StructuredBuffer<float3> lineBuffer : register(t16, space0);
 
 // Texture bindings.
 Texture2D materials[] : register(t0, space1);

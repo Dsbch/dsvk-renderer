@@ -20,11 +20,6 @@ namespace engine
 #define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
 #define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
 
-	typedef uint32_t entityHash;
-	typedef uint32_t pixelShaderHash;
-	typedef uint32_t meshHash;
-	typedef uint32_t textureHash;
-
 	bool hasFlag(uint32_t mask, uint32_t flag);
 
 	struct transform
@@ -62,6 +57,11 @@ namespace engine
 		uint32_t selectedLod;
 	};
 
+	struct visabilityBitCMD
+	{
+		uint32_t visabilityBit;
+	};
+
 	struct perInstanceAttr
 	{
 		// Per instance transform + materials.
@@ -82,9 +82,17 @@ namespace engine
 		float coneCutoff; /* = cos(angle/2) */
 	};
 
-	struct meshlet
+	struct meshletAttributes
 	{
 		uint32_t alphaType;
+		meshletBounds bounds;
+
+		uint32_t perMeshBufferIndex;
+		uint32_t perMeshBufferOffset;
+	};
+
+	struct meshlet
+	{
 		uint32_t localMaterialOffset;
 
 		uint32_t indexBufferIndex;
@@ -100,11 +108,12 @@ namespace engine
 		uint32_t triangleBufferIndex;
 		uint32_t triangleBufferOffset;
 		uint32_t triangleCount;
+	};
 
-		uint32_t perMeshBufferIndex;
-		uint32_t perMeshBufferOffset;
-
-		meshletBounds bounds;
+	struct meshletData
+	{
+		meshlet m;
+		meshletAttributes attributes;
 	};
 
 	template<class T>
@@ -130,7 +139,7 @@ namespace engine
 		// Meshlets data.
 		dataWithLodLevels<uint32_t> indices;
 		dataWithLodLevels<uint32_t> primitives;
-		dataWithLodLevels<meshlet> meshlets;
+		dataWithLodLevels<meshletData> meshlets;
 
 		uint32_t meshHash = 0;
 
@@ -261,9 +270,7 @@ namespace engine
 		glm::vec3 bsCenter;
 
 		uint32_t isSkinned;
-		glm::mat4 meshLocalTransform;
 		glm::mat4 meshGlobalTransform;
-		glm::mat3 meshLocalNormal;
 		glm::mat3 meshGlobalNormal;
 	};
 
@@ -418,3 +425,4 @@ static_assert(std::is_trivially_constructible_v<engine::meshletShaderCMD>&& std:
 static_assert(std::is_trivially_constructible_v<engine::meshlet>&& std::is_standard_layout_v<engine::meshlet>);
 static_assert(std::is_trivially_constructible_v<engine::meshletBounds>&& std::is_standard_layout_v<engine::meshletBounds>);
 static_assert(std::is_trivially_constructible_v<engine::perMeshAttributes>&& std::is_standard_layout_v<engine::perMeshAttributes>);
+static_assert(sizeof(engine::meshlet) == sizeof(engine::meshletAttributes));

@@ -178,6 +178,14 @@ namespace engine
 			mMeshletRegistry.setUpdated();
 		}
 
+		if (mMeshletAttributesRegistry.needDescriptorUpdate())
+		{
+			auto bufInfo = mMeshletAttributesRegistry.getBufferInfo();
+			auto writeInfo = mMeshletAttributesRegistry.getWriteInfo(mBindings.meshletAttributesBinding);
+			mBufferDescriptorSet.updateWrite(writeInfo);
+			mMeshletAttributesRegistry.setUpdated();
+		}
+
 		if (mPerInstanceRegistry.needDescriptorUpdate())
 		{
 			auto bufInfo = mPerInstanceRegistry.getBufferInfo();
@@ -365,7 +373,17 @@ namespace engine
 			if (!perMeshHandle)
 				return perMeshHandle.err();
 
-			std::vector<meshlet> meshlets = crntMesh.meshlets.data;
+			std::vector<meshlet> meshlets{};
+			std::vector<meshletAttributes> meshletAttrs{};
+
+			meshlets.reserve(crntMesh.meshlets.data.size());
+			meshletAttrs.reserve(crntMesh.meshlets.data.size());
+
+			for (auto& m : crntMesh.meshlets.data)
+			{
+				meshlets.push_back(m.m);
+				meshletAttrs.push_back(m.attributes);
+			}
 
 			auto indexHandle = mIndexRegistry.addBlock(
 				crntMesh.meshHash,
@@ -390,8 +408,7 @@ namespace engine
 				// Set offset + index for vertex attribs.
 				m.vertexBufferOffset = vertexHandle.offset / sizeof(glm::vec4);
 				m.vertexBufferIndex = vertexHandle.bufferIndex;
-				m.perMeshBufferOffset = perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
-				m.perMeshBufferIndex = perMeshHandle.value().bufferIndex;
+
 				// Set offset + index for vertex anim attribs.
 				m.weightBufferOffset = weightHandle.offset / sizeof(glm::vec4);
 				m.weightBufferIndex = weightHandle.bufferIndex;
@@ -402,6 +419,21 @@ namespace engine
 				m.indexBufferOffset += indexHandle.value().offset / uint32_t(sizeof(uint32_t));
 				m.indexBufferIndex = indexHandle.value().bufferIndex;
 			}
+
+			for (auto& a : meshletAttrs)
+			{
+				a.perMeshBufferOffset = perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
+				a.perMeshBufferIndex = perMeshHandle.value().bufferIndex;
+			}
+
+			handle = mMeshletAttributesRegistry.addBlock(
+				crntMesh.meshHash,
+				meshletAttrs.data(),
+				meshletAttrs.size() * sizeof(meshletAttributes),
+				mVulkanCtx->iSubmit
+			);
+			if (!handle)
+				return handle.err();
 
 			handle = mMeshletRegistry.addBlock(
 				crntMesh.meshHash,
@@ -434,7 +466,6 @@ namespace engine
 		error err = mOpaqueCommandBuffers[m.mat.pixelShader->hash()].addInstance(addParams);
 		if (err)
 			return err;
-
 
 		return {};
 	}
@@ -850,6 +881,7 @@ namespace engine
 		mIndexRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
 		mPrimitiveRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
 		mMeshletRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
+		mMeshletAttributesRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
 		mPerMeshRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator);
 		// Updated each frame used as MAPPED.
 		mPerInstanceRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
@@ -873,6 +905,7 @@ namespace engine
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mIndexRegistry });
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPrimitiveRegistry });
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mMeshletRegistry });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mMeshletAttributesRegistry });
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerInstanceRegistry });
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mJointRegistry });
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerMeshRegistry });
@@ -1143,6 +1176,12 @@ namespace engine
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mBindings.meshletBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mBufferDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.meshletAttributesBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 

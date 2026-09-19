@@ -55,28 +55,27 @@ void main(uint dtid : SV_DispatchThreadID)
 
         perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
 
-            // Get first lod level to reference a meshlet.
+        // Get first lod level to reference a meshlet.
         uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
-        meshlet mesh = meshletBuffer[cmd.meshletIndex][meshletOffsetFirstLodLevel];
-        perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+        perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
         
         uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
         uint meshletOffset = getMeshletOffset(cmd, selectedLod);
             
-            // Overdraw for current lod level.
+        // Overdraw for current lod level.
         if (meshletOffset == MAX_UINT)
         {
             commandAccumilationBuffer[push.frameIndex][dtid].visabilityBit = NOT_VISIBLE_FLAG_BIT;
             return;
         }
             
-        mesh = meshletBuffer[cmd.meshletIndex][meshletOffset];
+        meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-        meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
+        meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
             
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
-        bool visible = mesh.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, dData);
+        bool visible = attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, dData);
              
         commandAccumilationBuffer[push.frameIndex][dtid].selectedLod = selectedLod;
         commandAccumilationBuffer[push.frameIndex][dtid].visabilityBit = visible ? VISIBLE_FIRST_PASS_FLAG_BIT : NOT_VISIBLE_FLAG_BIT;
@@ -110,9 +109,9 @@ void main(uint dtid : SV_DispatchThreadID)
             return;
         }
             
-        meshlet mesh = meshletBuffer[cmd.meshletIndex][meshletOffset];
+        meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-        meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
+        meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
             
         // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
         bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);
@@ -136,8 +135,7 @@ void main(uint dtid : SV_DispatchThreadID)
 
             // Get first lod level to reference a meshlet.
             uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
-            meshlet mesh = meshletBuffer[cmd.meshletIndex][meshletOffsetFirstLodLevel];
-            perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+            perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
         
             uint meshletOffset = getMeshletOffset(cmd, cmd.selectedLod);
             
@@ -148,9 +146,9 @@ void main(uint dtid : SV_DispatchThreadID)
                 return;
             }
             
-            mesh = meshletBuffer[cmd.meshletIndex][meshletOffset];
+            meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-            meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
+            meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
                 
             cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
@@ -179,9 +177,9 @@ void main(uint dtid : SV_DispatchThreadID)
                 return;
             }
             
-            meshlet mesh = meshletBuffer[cmd.meshletIndex][meshletOffset];
+            meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-            meshletBounds worldBounds = worldSpaceMeshletBounds(mesh.bounds, instanceAttr.modelTransform, meshAttr);
+            meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
                     
             // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
             bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);

@@ -133,7 +133,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling HZB Compute Shader...
-dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkHzbCs.spv vkComputeHZB.hlsl
+dxc -T cs_6_9 -E main -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkHzbCs.spv vkComputeHZB.hlsl
 if %errorlevel% neq 0 (
     echo HZB Compute Shader compilation failed!
     pause
@@ -144,7 +144,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Compute Culling Shader...
-dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -fspv-debug=vulkan-with-source -Fo vkCompiled/vkComputeCulling.spv vkComputeCulling.hlsl
+dxc -T cs_6_9 -E main -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkComputeCulling.spv vkComputeCulling.hlsl
 if %errorlevel% neq 0 (
     echo Compute Culling Shader compilation failed!
     pause
@@ -155,7 +155,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Compute compactCommands Shader...
-dxc -T cs_6_9 -E main -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkCompactCommands.spv vkCompactCommands.hlsl
+dxc -T cs_6_9 -E main -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkCompactCommands.spv vkCompactCommands.hlsl
 if %errorlevel% neq 0 (
     echo Compute compactCommands Shader compilation failed!
     pause
@@ -166,7 +166,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Voxel Task Shader...
-dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationAs.spv vkVoxelization.hlsl
+dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationAs.spv vkVoxelization.hlsl
 if %errorlevel% neq 0 (
     echo Voxel Task Shader compilation failed!
     pause
@@ -177,7 +177,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Voxel Mesh Shader...
-dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationMs.spv vkVoxelization.hlsl
+dxc -T ms_6_9 -E msmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationMs.spv vkVoxelization.hlsl
 if %errorlevel% neq 0 (
     echo Voxel Mesh Shader compilation failed!
     pause
@@ -188,7 +188,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Voxel Pixel Shader...
-dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkVoxelizationPs.spv vkVoxelization.hlsl
+dxc -T ps_6_9 -E psmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkVoxelizationPs.spv vkVoxelization.hlsl
 if %errorlevel% neq 0 (
     echo Voxel Pixel compilation failed!
     pause
@@ -199,7 +199,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Voxel RayMarching Mesh Shader...
-dxc -T ms_6_9 -E msmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshVoxelRayMarchMs.spv vkVoxelRayMarch.hlsl
+dxc -T ms_6_9 -E msmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshVoxelRayMarchMs.spv vkVoxelRayMarch.hlsl
 if %errorlevel% neq 0 (
     echo Voxel RayMarching Mesh Shader compilation failed!
     pause
@@ -210,7 +210,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Voxel RayMarching Pixel Shader...
-dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshVoxelRayMarchPs.spv vkVoxelRayMarch.hlsl
+dxc -T ps_6_9 -E psmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshVoxelRayMarchPs.spv vkVoxelRayMarch.hlsl
 if %errorlevel% neq 0 (
     echo Voxel Pixel RayMarching compilation failed!
     pause
@@ -221,7 +221,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo Compiling Voxel RayMarching Task Shader...
-dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshVoxelRayMarchAs.spv vkVoxelRayMarch.hlsl
+dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshVoxelRayMarchAs.spv vkVoxelRayMarch.hlsl
 if %errorlevel% neq 0 (
     echo Voxel Voxel RayMarching Task compilation failed!
     pause

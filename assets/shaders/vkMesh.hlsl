@@ -82,8 +82,9 @@ void msmain(
     out primitives meshletPrimitiveOut primitives[THREADS_COUNT])
 {
     meshlet mesh = meshletBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
+    meshletAttributes meshAttributes = meshletAttributesBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
     perInstanceAttr instanceAttr = perInstanceBuffer[payload.perInstanceIndex[gid]][payload.perInstanceOffset[gid]];
-    perMeshAttributes meshAttr = perMeshBuffer[mesh.perMeshBufferIndex][mesh.perMeshBufferOffset];
+    perMeshAttributes meshAttr = perMeshBuffer[meshAttributes.perMeshBufferIndex][meshAttributes.perMeshBufferOffset];
     perDrawData dData = drawData[push.frameIndex];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);

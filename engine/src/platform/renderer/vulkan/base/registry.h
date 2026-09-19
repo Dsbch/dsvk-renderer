@@ -102,7 +102,7 @@ namespace engine
 			uint32_t size;
 			VmaVirtualAllocation allocation;
 		};
-		std::map<textureHash, virtualTextureBlock> mUploadedMaterials;
+		std::map<uint32_t, virtualTextureBlock> mUploadedMaterials;
 
 		std::vector<VkDescriptorImageInfo> mImagesInfo;
 		VkSampler mSampler;

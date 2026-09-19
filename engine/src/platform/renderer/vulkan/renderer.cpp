@@ -599,7 +599,7 @@ namespace engine
 				mProfInfo.sceneInfo.maxLodMeshlets -= mesh.meshlets.second;
 
 				for (uint32_t i = 0; i < mesh.meshlets.second; i++)
-					mProfInfo.sceneInfo.maxLodTriangles -= mesh.meshlets.data[i].triangleCount;
+					mProfInfo.sceneInfo.maxLodTriangles -= mesh.meshlets.data[i].m.triangleCount;
 			}
 
 			mProfInfo.sceneInfo.entities--;
@@ -616,7 +616,7 @@ namespace engine
 				mProfInfo.sceneInfo.maxLodMeshlets += mesh.meshlets.second;
 
 				for (uint32_t i = 0; i < mesh.meshlets.second; i++)
-					mProfInfo.sceneInfo.maxLodTriangles += mesh.meshlets.data[i].triangleCount;
+					mProfInfo.sceneInfo.maxLodTriangles += mesh.meshlets.data[i].m.triangleCount;
 			}
 
 			mProfInfo.sceneInfo.entities++;

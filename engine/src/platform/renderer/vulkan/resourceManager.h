@@ -107,7 +107,7 @@ namespace engine
 		
 		struct descriptorsBindings
 		{
-			uint32_t storageBufferBindings = 15;
+			uint32_t storageBufferBindings = 16;
 			uint32_t uniformBufferBindings = 1;
 			
 			uint32_t storageImageBindings = 2;
@@ -125,11 +125,12 @@ namespace engine
 			uint32_t indexBinding = 8;
 			uint32_t primitiveBinding = 9;
 			uint32_t meshletBinding = 10;
-			uint32_t jointsBinding = 11;
-			uint32_t perMeshBinding = 12;
-			uint32_t perDrawBufferUboBinding = 13;
-			uint32_t visabilityBuffer = 14;
-			uint32_t lineBuffer = 15;
+			uint32_t meshletAttributesBinding = 11;
+			uint32_t jointsBinding = 12;
+			uint32_t perMeshBinding = 13;
+			uint32_t perDrawBufferUboBinding = 14;
+			uint32_t visabilityBuffer = 15;
+			uint32_t lineBuffer = 16;
 
 			// Texture bindings.
 			uint32_t materialArrayBinding = 0;
@@ -158,6 +159,7 @@ namespace engine
 		bufferRegistry mIndexRegistry;
 		bufferRegistry mPrimitiveRegistry;
 		bufferRegistry mMeshletRegistry;
+		bufferRegistry mMeshletAttributesRegistry;
 		bufferRegistry mPerMeshRegistry;
 		bufferRegistry mPerInstanceRegistry;
 		bufferRegistry mJointRegistry;

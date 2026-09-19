@@ -26,7 +26,7 @@ namespace engine
 			uint32_t meshID;
 			bufferHandle meshHandle;
 			bufferHandle meshletHandle;
-			const dataWithLodLevels<meshlet>& meshlets;
+			const dataWithLodLevels<meshletData>& meshlets;
 		};
 
 		struct addInstanceParams
@@ -73,10 +73,10 @@ namespace engine
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		std::vector<vulkanBuffer> mCmdBuffer;
 		
-		std::vector<std::set<entityHash>> mEntitiesToDelete;
-		std::vector<std::map<entityHash, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
-		std::vector<std::map<entityHash, std::pair<size_t, size_t>>> mUploadedEntities;
-		std::vector<std::map<meshHash, uint32_t>> mMeshCount;
+		std::vector<std::set<uint32_t>> mEntitiesToDelete;
+		std::vector<std::map<uint32_t, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
+		std::vector<std::map<uint32_t, std::pair<size_t, size_t>>> mUploadedEntities;
+		std::vector<std::map<uint32_t, uint32_t>> mMeshCount;
 		std::vector<VkDescriptorBufferInfo> mBufferInfo;
 	};
 }

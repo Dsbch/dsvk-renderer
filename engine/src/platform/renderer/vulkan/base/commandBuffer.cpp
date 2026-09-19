@@ -72,7 +72,7 @@ namespace engine
 							.visabilityBit = NOT_VISIBLE_FLAG_BIT,
 							.selectedLod = 1,
 						}
-						);
+					);
 				}
 			}
 		}
@@ -96,7 +96,7 @@ namespace engine
 
 	error commandBuffer::updateCommandBuffer(const updateCommandBufferParams& params)
 	{
-		std::vector<entityHash> toRemove;
+		std::vector<uint32_t> toRemove;
 
 		for (auto& instanceID : mEntitiesToDelete[params.frameIndex])
 		{

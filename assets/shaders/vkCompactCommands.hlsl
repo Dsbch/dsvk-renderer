@@ -69,3 +69,4 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
     if (visible)
         visabilityBuffer[push.frameIndex][4 + groupBase + waveBaseInGroup + laneSlot] = dtid;
 }
+ 

@@ -85,7 +85,7 @@ namespace engine
 
 	std::vector<uint32_t> repackPrimitives(
 		const std::vector<uint8_t>& primitives,
-		std::vector<meshlet>& meshlets
+		std::vector<meshletData>& meshlets
 	)
 	{
 		std::vector<uint32_t> repacked{};
@@ -97,11 +97,11 @@ namespace engine
 			uint32_t triangleOffset = uint32_t((repacked.size()));
 
 			// Repack to uint32_t
-			for (uint32_t k = 0; k < m.triangleCount; ++k)
+			for (uint32_t k = 0; k < m.m.triangleCount; ++k)
 			{
-				uint32_t i0 = 3 * k + 0 + m.triangleBufferOffset;
-				uint32_t i1 = 3 * k + 1 + m.triangleBufferOffset;
-				uint32_t i2 = 3 * k + 2 + m.triangleBufferOffset;
+				uint32_t i0 = 3 * k + 0 + m.m.triangleBufferOffset;
+				uint32_t i1 = 3 * k + 1 + m.m.triangleBufferOffset;
+				uint32_t i2 = 3 * k + 2 + m.m.triangleBufferOffset;
 
 				uint8_t  vIdx0 = primitives[i0];
 				uint8_t  vIdx1 = primitives[i1];
@@ -114,7 +114,7 @@ namespace engine
 			}
 
 			// Update triangle offset for current meshlet
-			m.triangleBufferOffset = triangleOffset;
+			m.m.triangleBufferOffset = triangleOffset;
 		}
 
 		return repacked;
@@ -282,7 +282,7 @@ namespace engine
 	error generateMeshlets(
 		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t>& indicies,
-		std::vector<meshlet>& mOut,
+		std::vector<meshletData>& mOut,
 		std::vector<uint8_t>& pOut,
 		std::vector<uint32_t>& iOut,
 		size_t maxVert, size_t maxTriangles, float coneWieght,
@@ -364,29 +364,33 @@ namespace engine
 			);
 
 			mOut.push_back(
-				meshlet{
-					.alphaType = uint32_t(alphaType),
-					.localMaterialOffset = materialOffset,
-					.indexBufferIndex = 0,
-					.indexBufferOffset = m.vertex_offset,
-					.weightBufferOffset = 0,
-					.weightBufferIndex = 0,
-					.vertexBufferIndex = 0,
-					.vertexBufferOffset = 0,
-					.vertexCount = m.vertex_count,
-					.triangleBufferIndex = 0,
-					.triangleBufferOffset = m.triangle_offset,
-					.triangleCount = m.triangle_count,
-					.perMeshBufferIndex = 0,
-					.perMeshBufferOffset = 0,
-					.bounds = meshletBounds{
-						.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
-						.radius = bounds.radius,
-						.coneAxis = { bounds.cone_axis[0], bounds.cone_axis[1], bounds.cone_axis[2] },
-						.coneCutoff = bounds.cone_cutoff,
+				meshletData{
+					.m = meshlet{
+						.localMaterialOffset = materialOffset,
+						.indexBufferIndex = 0,
+						.indexBufferOffset = m.vertex_offset,
+						.weightBufferOffset = 0,
+						.weightBufferIndex = 0,
+						.vertexBufferIndex = 0,
+						.vertexBufferOffset = 0,
+						.vertexCount = m.vertex_count,
+						.triangleBufferIndex = 0,
+						.triangleBufferOffset = m.triangle_offset,
+						.triangleCount = m.triangle_count,
 					},
+					.attributes = meshletAttributes{
+						.alphaType = uint32_t(alphaType),
+						.bounds = meshletBounds{
+							.center = { bounds.center[0], bounds.center[1], bounds.center[2] },
+							.radius = bounds.radius,
+							.coneAxis = { bounds.cone_axis[0], bounds.cone_axis[1], bounds.cone_axis[2] },
+							.coneCutoff = bounds.cone_cutoff,
+						},
+						.perMeshBufferIndex = 0,
+						.perMeshBufferOffset = 0,
+					}
 				}
-				);
+			);
 		}
 
 		return {};
@@ -395,7 +399,7 @@ namespace engine
 	error generateLodLevel(
 		const std::vector<glm::vec4>& positions,
 		const std::vector<uint32_t> i,
-		std::vector<meshlet>& meshletsOut,
+		std::vector<meshletData>& meshletsOut,
 		std::vector<uint32_t>& indicesOut,
 		std::vector<uint32_t>& repackedPrimitivesOut,
 		size_t targetIndexCount,
@@ -407,7 +411,7 @@ namespace engine
 		alphaModeType alphaMode
 	)
 	{
-		std::vector<meshlet> meshlets;
+		std::vector<meshletData> meshlets;
 		std::vector<uint32_t> indices;
 		std::vector<uint8_t> primitives;
 
@@ -455,9 +459,9 @@ namespace engine
 	{
 		auto addLodLevels = [](
 			mesh& crntMesh,
-			std::vector<meshlet>& meshletLod1,
-			std::vector<meshlet>& meshletLod2,
-			std::vector<meshlet>& meshletLod3,
+			std::vector<meshletData>& meshletLod1,
+			std::vector<meshletData>& meshletLod2,
+			std::vector<meshletData>& meshletLod3,
 			std::vector<uint32_t>& indicesLod1,
 			std::vector<uint32_t>& indicesLod2,
 			std::vector<uint32_t>& indicesLod3,
@@ -468,8 +472,8 @@ namespace engine
 			{
 				for (auto& m : meshletLod1)
 				{
-					m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
 				}
 
 				crntMesh.indices.second = uint32_t(crntMesh.indices.data.size());
@@ -496,8 +500,8 @@ namespace engine
 
 				for (auto& m : meshletLod2)
 				{
-					m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
 				}
 
 				crntMesh.indices.third = uint32_t(crntMesh.indices.data.size());
@@ -524,8 +528,8 @@ namespace engine
 
 				for (auto& m : meshletLod3)
 				{
-					m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
 				}
 
 				crntMesh.indices.fourth = uint32_t(crntMesh.indices.data.size());
@@ -566,9 +570,7 @@ namespace engine
 
 			perMeshAttributes crntMeshAttrs = {};
 			crntMeshAttrs.meshGlobalTransform = getNodeWorldTransformMat4(node);
-			crntMeshAttrs.meshLocalTransform = getNodeLocalTransformMat4(node);
 			crntMeshAttrs.meshGlobalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshGlobalTransform)));
-			crntMeshAttrs.meshLocalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshLocalTransform)));
 			crntMeshAttrs.isSkinned = uint32_t(node->skin != nullptr);
 
 			uint32_t jointOffset = 0;
@@ -586,15 +588,15 @@ namespace engine
 			}
 
 			// For lod levels.
-			std::vector<meshlet> meshletLod1{};
+			std::vector<meshletData> meshletLod1{};
 			std::vector<uint32_t> indicesLod1{};
 			std::vector<uint32_t> primitivesLod1{};
 
-			std::vector<meshlet> meshletLod2{};
+			std::vector<meshletData> meshletLod2{};
 			std::vector<uint32_t> indicesLod2{};
 			std::vector<uint32_t> primitivesLod2{};
 
-			std::vector<meshlet> meshletLod3{};
+			std::vector<meshletData> meshletLod3{};
 			std::vector<uint32_t> indicesLod3{};
 			std::vector<uint32_t> primitivesLod3{};
 
@@ -632,7 +634,8 @@ namespace engine
 					break;
 				}
 
-				std::vector<meshlet> meshlets;
+				std::vector<meshletData> meshlets;
+				std::vector<meshletAttributes> meshletAttributes;
 				std::vector<uint32_t> indices;
 				std::vector<uint8_t> primitives;
 
@@ -658,8 +661,8 @@ namespace engine
 
 				for (auto& m : meshlets)
 				{
-					m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
 				}
 
 				size_t vertexBase = crntMesh.positions.size();
@@ -730,8 +733,8 @@ namespace engine
 
 				for (size_t m = meshletLod1Before; m < meshletLod1.size(); m++)
 				{
-					meshletLod1[m].indexBufferOffset += uint32_t(indexLod1Before);
-					meshletLod1[m].triangleBufferOffset += uint32_t(primLod1Before);
+					meshletLod1[m].m.indexBufferOffset += uint32_t(indexLod1Before);
+					meshletLod1[m].m.triangleBufferOffset += uint32_t(primLod1Before);
 				}
 				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
 				indicesLod1.insert(indicesLod1.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
@@ -747,8 +750,8 @@ namespace engine
 
 				for (size_t m = meshletLod2Before; m < meshletLod2.size(); m++)
 				{
-					meshletLod2[m].indexBufferOffset += uint32_t(indexLod2Before);
-					meshletLod2[m].triangleBufferOffset += uint32_t(primLod2Before);
+					meshletLod2[m].m.indexBufferOffset += uint32_t(indexLod2Before);
+					meshletLod2[m].m.triangleBufferOffset += uint32_t(primLod2Before);
 				}
 				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
 				indicesLod2.insert(indicesLod2.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
@@ -764,8 +767,8 @@ namespace engine
 
 				for (size_t m = meshletLod3Before; m < meshletLod3.size(); m++)
 				{
-					meshletLod3[m].indexBufferOffset += uint32_t(indexLod3Before);
-					meshletLod3[m].triangleBufferOffset += uint32_t(primLod3Before);
+					meshletLod3[m].m.indexBufferOffset += uint32_t(indexLod3Before);
+					meshletLod3[m].m.triangleBufferOffset += uint32_t(primLod3Before);
 				}
 
 				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
@@ -1122,7 +1125,7 @@ namespace engine
 		{
 			glm::vec3 center = (sp.first + sp.second) / 2.0f;
 
-			skinnedVertexBS.push_back(glm::vec4{ center, glm::length(center - sp.first)});
+			skinnedVertexBS.push_back(glm::vec4{ center, glm::length(center - sp.first) });
 		}
 
 		for (uint32_t i = 0; i < m.meshlets.data.size(); i++)
@@ -1130,19 +1133,19 @@ namespace engine
 			auto& crntMeshlet = m.meshlets.data[i];
 
 			std::vector<glm::vec4> meshletBS{};
-			meshletBS.reserve(crntMeshlet.vertexCount);
+			meshletBS.reserve(crntMeshlet.m.vertexCount);
 
 			std::vector<uint32_t> meshletIndices;
 
-			for (uint32_t v = 0; v < crntMeshlet.vertexCount; v++)
+			for (uint32_t v = 0; v < crntMeshlet.m.vertexCount; v++)
 			{
-				uint32_t idx = m.indices.data[crntMeshlet.indexBufferOffset + v];
+				uint32_t idx = m.indices.data[crntMeshlet.m.indexBufferOffset + v];
 				meshletBS.push_back(skinnedVertexBS[idx]);
 			}
 
-			for (uint32_t t = 0; t < crntMeshlet.triangleCount; t++)
+			for (uint32_t t = 0; t < crntMeshlet.m.triangleCount; t++)
 			{
-				uint32_t packed = m.primitives.data[crntMeshlet.triangleBufferOffset + t];
+				uint32_t packed = m.primitives.data[crntMeshlet.m.triangleBufferOffset + t];
 				uint8_t v0 = (packed >> 0) & 0xFF;
 				uint8_t v1 = (packed >> 8) & 0xFF;
 				uint8_t v2 = (packed >> 16) & 0xFF;
@@ -1152,13 +1155,13 @@ namespace engine
 				meshletIndices.push_back(v2);
 			}
 
-			glm::vec4 sphere = mergeSpheres(meshletBS); 
-			crntMeshlet.bounds.center = glm::vec3{ sphere };
-			crntMeshlet.bounds.radius = sphere.w;
+			glm::vec4 sphere = mergeSpheres(meshletBS);
+			crntMeshlet.attributes.bounds.center = glm::vec3{ sphere };
+			crntMeshlet.attributes.bounds.radius = sphere.w;
 
 			auto [coneAxis, coneCutoff] = calculateMeshletCone(skinnedPositions, meshletIndices);
-			crntMeshlet.bounds.coneAxis = coneAxis;
-			crntMeshlet.bounds.coneCutoff = coneCutoff;
+			crntMeshlet.attributes.bounds.coneAxis = coneAxis;
+			crntMeshlet.attributes.bounds.coneCutoff = coneCutoff;
 		}
 
 		// Calculate BS for mesh.
