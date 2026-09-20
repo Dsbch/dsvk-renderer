@@ -44,7 +44,7 @@ bool isOcluded(cullingData occData, perDrawData dData)
     return !((occData.closestDepth >= minDepth) || occData.closestDepth < 0.0f);
 }
 
-[numthreads(THREADS_COUNT, 1, 1)]
+[numthreads(128, 1, 1)]
 void main(uint dtid : SV_DispatchThreadID)
 {
     // Accumilation runs on entire CMD buffer, no compaction.

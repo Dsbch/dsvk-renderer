@@ -93,7 +93,7 @@ namespace engine
 		vkCmdPushConstants(cmd, mCullingPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
 
 		// For accumilation pass we do not use indirect for culling.
-		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / mCtx->config.inner.render.shaderWorkGroup + 1, 1, 1);
+		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / 128 + 1, 1, 1);
 
 		return {};
 	}
