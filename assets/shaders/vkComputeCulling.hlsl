@@ -85,12 +85,12 @@ void main(uint dtid : SV_DispatchThreadID)
     // First opaque pass only frustum test.
     if (dtid < push.cmdBufferCount && hasFlag(push.cullingPassFlagBit, FIRST_OPAQUE_PASS_FLAG_BIT))
     {
-        uint2 unpacked = unpackUint2(opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid]);
+        uint2 unpacked = unpackUint2(opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid]);
         
         if (!hasFlag(unpacked.x, VISIBLE_FIRST_PASS_FLAG_BIT | VISIBLE_SECOND_PASS_FLAG_BIT))
             return;
         
-        command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
+        command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
         perDrawData dData = drawData[push.frameIndex];
             
         perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
@@ -106,7 +106,7 @@ void main(uint dtid : SV_DispatchThreadID)
         // Overdraw for current lod level.
         if (meshletOffset == MAX_UINT)
         {
-            opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, selectedLod);
+            opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, selectedLod);
             return;
         }
             
@@ -117,7 +117,7 @@ void main(uint dtid : SV_DispatchThreadID)
         // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
         bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);
         
-        opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid] = packUint2(visible ? VISIBLE_FIRST_PASS_FLAG_BIT : NOT_VISIBLE_FLAG_BIT, selectedLod);
+        opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid] = packUint2(visible ? VISIBLE_FIRST_PASS_FLAG_BIT : NOT_VISIBLE_FLAG_BIT, selectedLod);
             
         return;
     }
@@ -125,12 +125,12 @@ void main(uint dtid : SV_DispatchThreadID)
     // Second pass frustum + oclussion cull.
     if (dtid < push.cmdBufferCount && hasFlag(push.cullingPassFlagBit, SECOND_OPAQUE_PASS_FLAG_BIT))
     {
-        uint2 unpacked = unpackUint2(opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid]);
+        uint2 unpacked = unpackUint2(opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid]);
         
         // Retest each meshlet that was drawn in first PASS. 
         if (hasFlag(unpacked.x, VISIBLE_FIRST_PASS_FLAG_BIT))
         {
-            command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
+            command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
             perDrawData dData = drawData[push.frameIndex];
             
             perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
@@ -144,7 +144,7 @@ void main(uint dtid : SV_DispatchThreadID)
             // Overdraw for current lod level.
             if (meshletOffset == MAX_UINT)
             {
-                opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, unpacked.y);
+                opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, unpacked.y);
                 return;
             }
             
@@ -154,14 +154,14 @@ void main(uint dtid : SV_DispatchThreadID)
                 
             cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
-            opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid] = packUint2(isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : VISIBLE_FIRST_PASS_FLAG_BIT, unpacked.y);
+            opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid] = packUint2(isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : VISIBLE_FIRST_PASS_FLAG_BIT, unpacked.y);
             
             return;
         }
         
         if (hasFlag(unpacked.x, NOT_VISIBLE_FLAG_BIT))
         {
-            command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex][dtid];
+            command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
             perDrawData dData = drawData[push.frameIndex];
             
             // Meshlet was invisible prev frame so we process it.
@@ -178,7 +178,7 @@ void main(uint dtid : SV_DispatchThreadID)
             // Overdraw for current lod level.
             if (meshletOffset == MAX_UINT)
             {
-                opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, selectedLod);
+                opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, selectedLod);
                 return;
             }
             
@@ -191,13 +191,13 @@ void main(uint dtid : SV_DispatchThreadID)
         
             if (!visible)
             {
-                opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, selectedLod);
+                opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid] = packUint2(NOT_VISIBLE_FLAG_BIT, selectedLod);
                 return;
             }
                 
             cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
         
-            opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid] = packUint2(isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : (hasFlag(unpacked.x, VISIBLE_FIRST_PASS_FLAG_BIT)) ? VISIBLE_FIRST_PASS_FLAG_BIT : VISIBLE_SECOND_PASS_FLAG_BIT, selectedLod);
+            opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid] = packUint2(isOcluded(occData, dData) ? NOT_VISIBLE_FLAG_BIT : (hasFlag(unpacked.x, VISIBLE_FIRST_PASS_FLAG_BIT)) ? VISIBLE_FIRST_PASS_FLAG_BIT : VISIBLE_SECOND_PASS_FLAG_BIT, selectedLod);
             
             return;
         }

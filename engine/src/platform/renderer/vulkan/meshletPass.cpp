@@ -36,10 +36,6 @@ namespace engine
 			if (!meshShader)
 				return meshShader.err();
 
-			auto taskShader = mCtx->mAmanager->getDefaultTaskShader();
-			if (!taskShader)
-				return taskShader.err();
-
 			graphicsPipeline pipeline{};
 
 			pipeline.init(mVulkanCtx->device, graphicsPipeline::pipelineType::opaque);
@@ -47,7 +43,7 @@ namespace engine
 			error err = pipeline.build(
 				m.mat.pixelShader,
 				meshShader.value(),
-				taskShader.value(),
+				nullptr,
 				{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
 				mResourceManager->getDepthImage(false).img.format,
 				{ mResourceManager->getColorAttachmentImage(false).img.format },
@@ -70,10 +66,6 @@ namespace engine
 		if (!meshlets)
 			return meshlets.err();
 
-		auto task = mCtx->mAmanager->getDefaultAccumilateTaskShader();
-		if (!task)
-			return task.err();
-
 		auto pixel = mCtx->mAmanager->getDefaultAccumilatePixelShader();
 		if (!pixel)
 			return pixel.err();
@@ -83,7 +75,7 @@ namespace engine
 		error err = mAccumilationPipeline.build(
 			pixel.value(),
 			meshlets.value(),
-			task.value(),
+			nullptr,
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
 			mResourceManager->getDepthImage(false).img.format,
 			{ mResourceManager->getAccumImage(false).img.format, mResourceManager->getRevealImage(false).img.format },
@@ -98,7 +90,7 @@ namespace engine
 		if (!meshlets)
 			return meshlets.err();
 
-		task = mCtx->mAmanager->getDefaultCompositeTaskShader();
+		auto task = mCtx->mAmanager->getDefaultCompositeTaskShader();
 		if (!task)
 			return task.err();
 
@@ -151,7 +143,7 @@ namespace engine
 						cullingPass::cullMeshletsParams{
 							.cmdBufferCount = cmdBufferCount,
 							.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
+							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
 						},
 						frameIndex
 						);
@@ -171,7 +163,7 @@ namespace engine
 					);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 						VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -180,10 +172,10 @@ namespace engine
 						0
 					);
 
-					vkCmdFillBuffer(cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+					vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
 						VK_ACCESS_2_TRANSFER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -198,7 +190,7 @@ namespace engine
 						in,
 						cullingPass::compactCommandBufferParams{
 							.cmdBufferCount = cmdBufferCount,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
+							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
 							.stage = FIRST_OPAQUE_PASS_FLAG_BIT,
 							.compactRule = VISIBLE_FIRST_PASS_FLAG_BIT,
 						},
@@ -209,12 +201,12 @@ namespace engine
 
 					pipelineBufferBarier(
 						cmd,
-						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
 						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getLoadedBytes()),
+						uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
 						0
 					);
 
@@ -248,7 +240,7 @@ namespace engine
 					pushConstants pc{
 						.frameIndex = frameIndex,
 						.cmdBufferCount = cmdBufferCount,
-						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
+						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
 					};
 
 					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -261,7 +253,7 @@ namespace engine
 
 					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 						cmd,
-						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						sizeof(uint32_t),
 						1,
 						12
@@ -309,7 +301,7 @@ namespace engine
 						cullingPass::cullMeshletsParams{
 							.cmdBufferCount = cmdBufferCount,
 							.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
+							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
 							.hzbLength = uint32_t(mResourceManager->getHZB().size()),
 						},
 						frameIndex
@@ -330,7 +322,7 @@ namespace engine
 					);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_MEMORY_READ_BIT,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -339,10 +331,10 @@ namespace engine
 						0
 					);
 
-					vkCmdFillBuffer(cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+					vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 					pipelineBufferBarier(
-						cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_CLEAR_BIT,
 						VK_ACCESS_2_TRANSFER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -357,7 +349,7 @@ namespace engine
 						in,
 						cullingPass::compactCommandBufferParams{
 							.cmdBufferCount = cmdBufferCount,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
+							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
 							.stage = SECOND_OPAQUE_PASS_FLAG_BIT,
 							.compactRule = VISIBLE_SECOND_PASS_FLAG_BIT,
 						},
@@ -368,12 +360,12 @@ namespace engine
 
 					pipelineBufferBarier(
 						cmd,
-						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_SHADER_WRITE_BIT,
 						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getLoadedBytes()),
+						uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
 						0
 					);
 
@@ -414,7 +406,7 @@ namespace engine
 					pushConstants pc{
 						.frameIndex = frameIndex,
 						.cmdBufferCount = cmdBufferCount,
-						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight + frameIndex,
+						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
 					};
 
 					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -427,7 +419,7 @@ namespace engine
 
 					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 						cmd,
-						mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 						sizeof(uint32_t),
 						1,
 						12
@@ -539,7 +531,7 @@ namespace engine
 		);
 
 		pipelineBufferBarier(
-			cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+			cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
@@ -548,10 +540,10 @@ namespace engine
 			0
 		);
 
-		vkCmdFillBuffer(cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+		vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
 
 		pipelineBufferBarier(
-			cmd, mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+			cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
@@ -576,23 +568,23 @@ namespace engine
 
 		pipelineBufferBarier(
 			cmd,
-			mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+			mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getSize()),
+			uint32_t(mResourceManager->getCompactBuffer(frameIndex).getSize()),
 			0
 		);
 
 		pipelineBufferBarier(
 			cmd,
-			mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+			mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT,
+			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(mResourceManager->getVisabilityBuffer(frameIndex).getLoadedBytes()),
+			uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
 			0
 		);
 
@@ -603,7 +595,6 @@ namespace engine
 		pushConstants pc{
 			.frameIndex = frameIndex,
 			.cmdBufferCount = cmdBufferCount,
-			.cmdOpaqueBufferIndex = frameIndex,
 		};
 
 		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -612,7 +603,7 @@ namespace engine
 
 		mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 			cmd,
-			mResourceManager->getVisabilityBuffer(frameIndex).getBuffer().buffer,
+			mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 			sizeof(uint32_t),
 			1,
 			12

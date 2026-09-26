@@ -90,7 +90,7 @@ namespace engine
 		const std::unordered_map<uint32_t, commandBuffer>& getOpaqueCmdBuffers() const;
 		const commandBuffer* getOpaqueCmdBuffer(uint32_t pixelShaderID) const;
 		const commandBuffer& getAccumilationCmdBuffer() const;
-		const vulkanBuffer& getVisabilityBuffer(uint32_t frameIndex) const;
+		const vulkanBuffer& getCompactBuffer(uint32_t frameIndex) const;
 		const vulkanBuffer& getLinebuffer() const;
 	private:
 		void destroyViewPortDependantResources();

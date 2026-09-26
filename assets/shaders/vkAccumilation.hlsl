@@ -21,47 +21,6 @@ pushConstant push;
 
 // INPUT END.
 
-// TS START.
-
-struct MeshShaderPayload
-{
-    uint meshletIndex[THREADS_COUNT];
-    uint meshletOffset[THREADS_COUNT];
-    uint perInstanceIndex[THREADS_COUNT];
-    uint perInstanceOffset[THREADS_COUNT];
-};
-
-groupshared MeshShaderPayload payload;
-
-[numthreads(THREADS_COUNT, 1, 1)]
-void asmain(
-    uint gtid : SV_GroupThreadID,
-    uint dtid : SV_DispatchThreadID,
-    uint gid : SV_GroupID
-)
-{
-    bool visible = dtid < compactBuffer[push.frameIndex][0];
-    
-    // Not overdraw.
-    if (visible)
-    {
-        command cmd = commandAccumilationBuffer[push.cmdOpaqueBufferIndex][compactBuffer[push.frameIndex][dtid + 4]];
-        uint2 unpacked = unpackUint2(accumilationVisabilityBuffer[push.cmdOpaqueBufferIndex][compactBuffer[push.frameIndex][dtid + 4]]);
-        uint meshletOffset = getMeshletOffset(cmd, unpacked.y);
-    
-        uint index = WavePrefixCountBits(visible);
-        
-        payload.perInstanceIndex[index] = cmd.instanceIndex + push.frameIndex;
-        payload.perInstanceOffset[index] = cmd.instanceOffset;
-        payload.meshletIndex[index] = cmd.meshletIndex;
-        payload.meshletOffset[index] = meshletOffset;
-    }
-    
-    uint visibleCount = WaveActiveCountBits(visible);
-    DispatchMesh(visibleCount, 1, 1, payload);
-}
-// TS END.
-
 // MS START.
 
 [outputtopology("triangle")]
@@ -69,13 +28,14 @@ void asmain(
 void msmain(
                  uint gtid : SV_GroupThreadID,
                  uint gid : SV_GroupID,
-    in payload MeshShaderPayload payload,
     out indices uint3 triangles[THREADS_COUNT],
     out vertices meshOutput vertices[THREADS_COUNT])
 {
-    meshlet mesh = meshletBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
-    meshletAttributes meshAttributes = meshletAttributesBuffer[payload.meshletIndex[gid]][payload.meshletOffset[gid]];
-    perInstanceAttr instanceAttr = perInstanceBuffer[payload.perInstanceIndex[gid]][payload.perInstanceOffset[gid]];
+    uint4 asData = compactBuffer[push.frameIndex][gid + 1];
+    
+    meshlet mesh = meshletBuffer[asData.x][asData.y];
+    meshletAttributes meshAttributes = meshletAttributesBuffer[asData.x][asData.y];
+    perInstanceAttr instanceAttr = perInstanceBuffer[asData.z][asData.w];
     perMeshAttributes meshAttr = perMeshBuffer[meshAttributes.perMeshBufferIndex][meshAttributes.perMeshBufferOffset];
     perDrawData dData = drawData[push.frameIndex];
     

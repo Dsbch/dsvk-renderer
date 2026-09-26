@@ -194,9 +194,9 @@ StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t13, sp
 StructuredBuffer<float4x4> jointBuffer[] : register(t14, space0);
 StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t15, space0);
 ConstantBuffer<perDrawData> drawData[] : register(b16, space0);
-// [0] = visibleCount                                  
-// [1] = groupCountX, [2] = groupCountY, [3] = groupCountZ     
-RWStructuredBuffer<uint> compactBuffer[] : register(u17, space0);
+// First uint4 is:
+// x = visibleCount y = groupCountX, z = groupCountY, w = groupCountZ     
+RWStructuredBuffer<uint4> compactBuffer[] : register(u17, space0);
 StructuredBuffer<float3> lineBuffer : register(t18, space0);
 
 // Texture bindings.

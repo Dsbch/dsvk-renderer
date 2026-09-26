@@ -20,8 +20,13 @@ namespace engine
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
-			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end() && !mBlockScheduledToDelete.contains(id))
+			if (auto handle = mBuffers[i].bufferHandles.find(bufferHandle{ .id = id }); handle != mBuffers[i].bufferHandles.end())
+			{
+				for (auto& sd : mBlockScheduledToDelete)
+					sd.second.erase(id);
+
 				return *handle;
+			}
 		}
 
 		for (uint32_t i = 0; i < mBuffers.size(); i++)

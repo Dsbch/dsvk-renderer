@@ -60,7 +60,7 @@ namespace engine
 		std::vector<bufferWithHandles> mBuffers;
 		std::vector<VkDescriptorBufferInfo> mBuffersInfo;
 
-		std::map<uint32_t, std::set<uint32_t>> mBlockScheduledToDelete;
+		std::unordered_map<uint32_t, std::set<uint32_t>> mBlockScheduledToDelete;
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;

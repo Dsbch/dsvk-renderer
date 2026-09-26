@@ -66,7 +66,7 @@ namespace engine
 		bool needDescriptorUpdate() const;
 		void setUpdated();
 		vulkanBuffer getCmdBuffer(uint32_t frameIndex) const;
-		vulkanBuffer getVisabilityBuffer(uint32_t frameIndex) const;
+		vulkanBuffer getCompactBuffer(uint32_t frameIndex) const;
 		uint32_t getCommandBufferLoadedSize(uint32_t frameIndex) const;
 	private:
 		uint32_t mFramesInFlight;

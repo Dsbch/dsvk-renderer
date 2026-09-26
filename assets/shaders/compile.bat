@@ -33,17 +33,6 @@ if %errorlevel% neq 0 (
 
 echo.
 
-echo Compiling Task Shader...
-dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fvk-use-scalar-layout -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
-if %errorlevel% neq 0 (
-    echo Task shader compilation failed!
-    pause
-) else (
-    echo Task shader compiled successfully.
-)
-
-echo.
-
 echo Compiling Vertex line Shader...
 dxc -T vs_6_9 -E vsmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkLineVs.spv vkLine.hlsl
 if %errorlevel% neq 0 (
@@ -84,17 +73,6 @@ if %errorlevel% neq 0 (
     pause
 ) else (
     echo Pixel shader compiled successfully.
-)
-
-echo.
-
-echo Compiling Accumulation Task Shader...
-dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAccumilationAs.spv vkAccumilation.hlsl
-if %errorlevel% neq 0 (
-    echo Task shader compilation failed!
-    pause
-) else (
-    echo Task shader compiled successfully.
 )
 
 echo.
@@ -161,17 +139,6 @@ if %errorlevel% neq 0 (
     pause
 ) else (
     echo Compute compactCommands Shader compiled successfully.
-)
-
-echo.
-
-echo Compiling Voxel Task Shader...
-dxc -T as_6_9 -E asmain -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkVoxelizationAs.spv vkVoxelization.hlsl
-if %errorlevel% neq 0 (
-    echo Voxel Task Shader compilation failed!
-    pause
-) else (
-    echo Voxel Task Shader compiled successfully.
 )
 
 echo.

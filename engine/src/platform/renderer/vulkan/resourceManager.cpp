@@ -221,14 +221,14 @@ namespace engine
 			mMaterialRegistry.setUpdated();
 		}
 
-		// Resize visability buffer if needed.
-		if (uint32_t max = getMaxCmdBufferSize(frameIndex) * sizeof(uint32_t) / sizeof(meshletShaderCMD); max > (mCompactBuffer[frameIndex].getSize() - 4 * sizeof(uint32_t)))
+		// Resize compact buffer if needed.
+		if (uint32_t max = (getMaxCmdBufferSize(frameIndex) / sizeof(meshletShaderCMD)) * sizeof(glm::uvec4); max > ((mCompactBuffer[frameIndex].getSize() - 4) * sizeof(glm::uvec4)))
 		{
 			mCompactBuffer[frameIndex].destroy();
 
-			std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
+			constexpr glm::uvec4 visDispatch{ 0, 0, 1, 1 };
 
-			error err = mCompactBuffer[frameIndex].build(mVulkanCtx->iSubmit, visDispatch.data(), max + 4 * sizeof(uint32_t), sizeof(uint32_t) * 4, true);
+			error err = mCompactBuffer[frameIndex].build(mVulkanCtx->iSubmit, &visDispatch, max + sizeof(glm::uvec4), sizeof(glm::uvec4), true);
 			if (err)
 				return err;
 
@@ -521,6 +521,9 @@ namespace engine
 		mIndexRegistry.deleteScheduledBlocks(frameIndex);
 		mPrimitiveRegistry.deleteScheduledBlocks(frameIndex);
 		mMeshletRegistry.deleteScheduledBlocks(frameIndex);
+		// Has to be freed in lockstep with mMeshletRegistry: meshletOffset is derived from the
+		// meshlet handle and used to index both buffers.
+		mMeshletAttributesRegistry.deleteScheduledBlocks(frameIndex);
 		mPerMeshRegistry.deleteScheduledBlocks(frameIndex);
 		mPerInstanceRegistry.deleteScheduledBlocks(frameIndex);
 		mJointRegistry.deleteScheduledBlocks(frameIndex);
@@ -579,6 +582,8 @@ namespace engine
 				mPrimitiveRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
 				mMeshletRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
+
+				mMeshletAttributesRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
 				mMaterialRegistry.scheduleDeleteMaterials(m.mat.hash, frameIndex);
 
@@ -812,7 +817,7 @@ namespace engine
 		return mAccumilationCommandBuffer;
 	}
 
-	const vulkanBuffer& resourceManager::getVisabilityBuffer(uint32_t frameIndex) const
+	const vulkanBuffer& resourceManager::getCompactBuffer(uint32_t frameIndex) const
 	{
 		return mCompactBuffer[frameIndex];
 	}
@@ -917,7 +922,7 @@ namespace engine
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mLineBuffer });
 
 		// Init visability buffers.
-		std::vector<uint32_t> visDispatch{ 0, 0, 1, 1 };
+		constexpr glm::uvec4 visDispatch{ 0, 0, 1, 1 };
 
 		mCompactBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
 
@@ -925,7 +930,7 @@ namespace engine
 		{
 			mCompactBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator);
 
-			err = mCompactBuffer[i].build(mVulkanCtx->iSubmit, visDispatch.data(), 2 << 24, sizeof(uint32_t) * 4, true);
+			err = mCompactBuffer[i].build(mVulkanCtx->iSubmit, &visDispatch, 2 << 24, sizeof(glm::uvec4), true);
 			if (err)
 				return err;
 

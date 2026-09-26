@@ -40,9 +40,9 @@ namespace engine
 	)
 	{
 		setShaders(
-			static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule,
-			static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule
+			taskShader ? static_cast<vulkanShader*>(const_cast<shader*>(taskShader.get()))->mShaderModule : VK_NULL_HANDLE,
+			meshShader ? static_cast<vulkanShader*>(const_cast<shader*>(meshShader.get()))->mShaderModule : VK_NULL_HANDLE,
+			pixelShader ? static_cast<vulkanShader*>(const_cast<shader*>(pixelShader.get()))->mShaderModule : VK_NULL_HANDLE
 		);
 
 		setInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);

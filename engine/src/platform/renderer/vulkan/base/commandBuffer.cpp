@@ -283,7 +283,7 @@ namespace engine
 		return mCmdBuffer[frameIndex];
 	}
 
-	vulkanBuffer commandBuffer::getVisabilityBuffer(uint32_t frameIndex) const
+	vulkanBuffer commandBuffer::getCompactBuffer(uint32_t frameIndex) const
 	{
 		return mVisabilityBuffer[frameIndex];
 	}

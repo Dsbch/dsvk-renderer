@@ -31,19 +31,22 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
         groupVisibleCount = 0;
         groupBase = 0;
     }
+    
     GroupMemoryBarrierWithGroupSync();
 
     bool visible = false;
+    
+    uint2 unpacked;
 
     if (dtid < push.meshletCount)
     {
         uint visData;
         if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
-            visData = accumilationVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid];
+            visData = accumilationVisabilityBuffer[push.frameIndex][dtid];
         else
-            visData = opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex][dtid];
+            visData = opaqueVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
 
-        uint2 unpacked = unpackUint2(visData);
+        unpacked = unpackUint2(visData);
         
         visible = hasFlag(unpacked.x, push.compactRule);
     }
@@ -60,15 +63,27 @@ void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
 
     if (gtid == 0 && groupVisibleCount > 0)
     {
-        InterlockedAdd(compactBuffer[push.frameIndex][0], groupVisibleCount, groupBase);
+        InterlockedAdd(compactBuffer[push.frameIndex][0].x, groupVisibleCount, groupBase);
 
-        uint groupsNeeded = (groupBase + groupVisibleCount + THREADS_COUNT - 1) / THREADS_COUNT;
-        InterlockedMax(compactBuffer[push.frameIndex][1], groupsNeeded);
+        uint groupsNeeded = (groupBase + groupVisibleCount);
+
+        InterlockedMax(compactBuffer[push.frameIndex][0].y, groupsNeeded);
     }
 
     GroupMemoryBarrierWithGroupSync();
-
+    
     if (visible)
-        compactBuffer[push.frameIndex][4 + groupBase + waveBaseInGroup + laneSlot] = dtid;
+    {
+        command cmd;
+    
+        if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
+            cmd = commandAccumilationBuffer[push.frameIndex][dtid];
+        else
+            cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
+        
+        uint meshletOffset = getMeshletOffset(cmd, unpacked.y);
+    
+        compactBuffer[push.frameIndex][1 + groupBase + waveBaseInGroup + laneSlot] = uint4(cmd.meshletIndex, meshletOffset, cmd.instanceIndex + push.frameIndex, cmd.instanceOffset);
+    }
 }
  
