@@ -225,8 +225,8 @@ namespace engine
 	struct skin
 	{
 		std::vector<joint> skinJoints;
-
 		std::vector<glm::mat4> getJointMatrices() const;
+		glm::mat4 rootParentWorld;
 	};
 
 	enum animationType
@@ -268,10 +268,6 @@ namespace engine
 	{
 		float	  bsRadius;
 		glm::vec3 bsCenter;
-
-		uint32_t isSkinned;
-		glm::mat4 meshGlobalTransform;
-		glm::mat3 meshGlobalNormal;
 	};
 
 	struct animations
@@ -316,12 +312,9 @@ namespace engine
 				glm::vec3 sphereCenter{ pm.bsCenter };
 				float sphereRadius{ pm.bsRadius };
 
-				float uniformScale = maxScale(pm.meshGlobalTransform);
+				sphereCenter = glm::vec4{ sphereCenter, 1.0f };
 
-				sphereCenter = pm.meshGlobalTransform * glm::vec4{ sphereCenter, 1.0f };
-				sphereRadius *= uniformScale;
-
-				uniformScale = std::max(instanceAttributes.modelTransform.scale.x, std::max(instanceAttributes.modelTransform.scale.y, instanceAttributes.modelTransform.scale.z));
+				float uniformScale = std::max(instanceAttributes.modelTransform.scale.x, std::max(instanceAttributes.modelTransform.scale.y, instanceAttributes.modelTransform.scale.z));
 
 				sphereCenter = instanceAttributes.modelTransform.translation + (instanceAttributes.modelTransform.rotation * (instanceAttributes.modelTransform.scale * sphereCenter));
 				sphereRadius *= uniformScale;

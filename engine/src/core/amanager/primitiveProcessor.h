@@ -18,7 +18,7 @@ namespace engine
 		std::vector<glm::vec4> normal;
 		std::vector<glm::uvec4> jointIndices;
 		std::vector<glm::vec4> weights;
-		
+
 		std::vector<uint32_t> indicies;
 	};
 
@@ -26,5 +26,5 @@ namespace engine
 	glm::mat4 getNodeLocalTransformMat4(const cgltf_node* node);
 	transform getNodeLocalTransform(const cgltf_node* node);
 
-	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t jointOffset);
+	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t jointOffset, glm::mat4 worldTransform = glm::mat4{ 1.0f });
 }

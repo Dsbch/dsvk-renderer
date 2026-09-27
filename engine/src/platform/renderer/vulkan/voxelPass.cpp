@@ -14,10 +14,6 @@ namespace engine
 		if (!meshlets)
 			return meshlets.err();
 
-		auto task = mCtx->mAmanager->getDefaultVoxelTaskShader();
-		if (!task)
-			return task.err();
-
 		auto pixel = mCtx->mAmanager->getDefaultVoxelPixelShader();
 		if (!pixel)
 			return pixel.err();
@@ -27,7 +23,7 @@ namespace engine
 		error err = mVoxelizationPipeline.build(
 			pixel.value(),
 			meshlets.value(),
-			task.value(),
+			nullptr,
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second },
 			{},
 			{},
@@ -42,7 +38,7 @@ namespace engine
 		if (!meshlets)
 			return meshlets.err();
 
-		task = mCtx->mAmanager->getDefaultVoxelRayMarchTaskShader();
+		auto task = mCtx->mAmanager->getDefaultVoxelRayMarchTaskShader();
 		if (!task)
 			return task.err();
 
@@ -137,7 +133,7 @@ namespace engine
 
 				mVulkanCtx->vkCmdDrawMeshTasksEXT(
 					cmd,
-					cmdBufferCount / mCtx->config.inner.render.shaderWorkGroup + 1,
+					cmdBufferCount,
 					1,
 					1
 				);

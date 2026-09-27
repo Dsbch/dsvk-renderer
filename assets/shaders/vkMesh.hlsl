@@ -10,7 +10,7 @@
 // Push constant START.
 struct pushConstant
 {
-	uint frameIndex;
+    uint frameIndex;
     uint cmdBufferCount;
     uint cmdOpaqueBufferIndex;
 };
@@ -43,12 +43,14 @@ void msmain(
     uint4 asData = compactBuffer[push.frameIndex][gid + 1];
     
     meshlet mesh = meshletBuffer[asData.x][asData.y];
-    meshletAttributes meshAttributes = meshletAttributesBuffer[asData.x][asData.y];
     perInstanceAttr instanceAttr = perInstanceBuffer[asData.z][asData.w];
-    perMeshAttributes meshAttr = perMeshBuffer[meshAttributes.perMeshBufferIndex][meshAttributes.perMeshBufferOffset];
     perDrawData dData = drawData[push.frameIndex];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
+    
+    uint packed = 0;
+    if (gtid < mesh.triangleCount)
+        packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
         
     if (gtid < mesh.vertexCount)
     {
@@ -57,11 +59,11 @@ void msmain(
         
         instanceAttr.jointIndex += push.frameIndex;
         
-        skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
+        skinnedVertex skVertex = skinVertex(mesh.weightBufferIndex != MAX_UINT, instanceAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
         
         float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
-        sharedPositions[gtid] = skVertex.position;
+        sharedPositions[gtid] = worldPos.xyz;
         
         vertices[gtid].position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, worldPos);
         
@@ -76,19 +78,16 @@ void msmain(
     
     if (gtid < mesh.triangleCount)
     {
-        uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
-         
         uint3 unpacked = unpackUint3(packed);
         
         triangles[gtid] = unpacked;
         
         primitives[gtid].cullPrimitive = isBackface(
                 dData,
-                instanceAttr.modelTransform,
                 sharedPositions[unpacked.x],
                 sharedPositions[unpacked.y],
                 sharedPositions[unpacked.z]
-            );
+        );
     }
 }
 
@@ -99,6 +98,12 @@ void msmain(
 // All calculations are made in tangent space.
 float4 psmain(meshOutput input) : SV_TARGET
 {
+    float4 albedo = materials[input.materialBase].Sample(materialsSampler[input.materialBase], input.uv);
+    
+    // Discard non solid geometry, in case for cutoff.
+    if (albedo.a < 0.99f)
+        discard;
+    
     // Model rotation is already baked into tangent and normal.
     float3x3 TBN = calculateTBN(float4(0, 0, 0, 1), input.tangent, input.normal);
     perDrawData dData = drawData[push.frameIndex];
@@ -108,17 +113,12 @@ float4 psmain(meshOutput input) : SV_TARGET
     float3 cameraFront = normalize(mul(dData.cameraFront, TBN));
     
     float4 metalicRoughnes = materials[input.materialBase + 2].Sample(materialsSampler[input.materialBase + 2], input.uv);
-
-    float4 albedo = materials[input.materialBase].Sample(materialsSampler[input.materialBase], input.uv);
+    
     float4 normalTexture = materials[input.materialBase + 1].Sample(materialsSampler[input.materialBase + 1], input.uv);
     float3 normal = normalTexture.rgb * 2.0f - 1.0f;
     float metalic = metalicRoughnes.b;
     float roughnes = metalicRoughnes.g;
     
-    // Discard non solid geometry, in case for cutoff.
-    if (albedo.a < 0.99f)
-        discard;
-   
     normal = normalize(normal);
 
     albedo = float4(toRGB(albedo.rgb), albedo.a);

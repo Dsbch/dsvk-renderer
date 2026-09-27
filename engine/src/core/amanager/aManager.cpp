@@ -447,7 +447,7 @@ namespace engine
 
 		for (int i = 0; i < meshes.value().first.size(); i++)
 		{
-			if (meshes.value().second[i].isSkinned)
+			if (meshes.value().first[i].weights.size() != 0)
 				recalculateMeshletBounds(meshes.value().first[i], meshes.value().second[i], animations, skins);
 		}
 

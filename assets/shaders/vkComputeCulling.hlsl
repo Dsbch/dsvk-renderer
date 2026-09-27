@@ -71,7 +71,7 @@ void main(uint dtid : SV_DispatchThreadID)
             
         meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-        meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
+        meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform);
             
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
@@ -112,7 +112,7 @@ void main(uint dtid : SV_DispatchThreadID)
             
         meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-        meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
+        meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform);
             
         // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
         bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);
@@ -150,7 +150,7 @@ void main(uint dtid : SV_DispatchThreadID)
             
             meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-            meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
+            meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform);
                 
             cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
             
@@ -184,7 +184,7 @@ void main(uint dtid : SV_DispatchThreadID)
             
             meshletAttributes attrs = meshletAttributesBuffer[cmd.meshletIndex][meshletOffset];
             
-            meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform, meshAttr);
+            meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform);
                     
             // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
             bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);

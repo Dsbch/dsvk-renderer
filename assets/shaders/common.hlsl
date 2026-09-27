@@ -111,9 +111,6 @@ struct perMeshAttributes
 {
     float bsRadius;
     float3 bsCenter;
-    uint isSkinned;
-    float4x4 meshGlobalTransform;
-    float3x3 meshGlobalNormal;
 };
 
 // UBO START.
@@ -248,7 +245,7 @@ float4 getWieghts(uint index, uint offset)
 }
 
 // Skins all vertex attributes if needed.
-skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uint index, uint offset, uint weightOffset, uint weightIndex)
+skinnedVertex skinVertex(bool isSkinned, perInstanceAttr perInst, uint index, uint offset, uint weightOffset, uint weightIndex)
 {
     skinnedVertex result;
     
@@ -257,14 +254,8 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
     result.normal = getNormal(index, offset);
     result.tangent = getTangent(index, offset);
     
-    if (!perMesh.isSkinned)
-    {
-        result.position = mul(perMesh.meshGlobalTransform, float4(result.position, 1.0f)).xyz;
-        result.normal = normalize(mul(perMesh.meshGlobalNormal, result.normal));
-        result.tangent = float4(normalize(mul((float3x3) perMesh.meshGlobalTransform, result.tangent.xyz).xyz), result.tangent.w);
-
+    if (!isSkinned)
         return result;
-    }
     
     float4 weights = getWieghts(weightIndex, weightOffset);
     uint4 jointIndices = getJointIndices(weightIndex, weightOffset);
@@ -277,7 +268,7 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
     skinnedPos += weights[2] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], bindPos);
     skinnedPos += weights[3] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], bindPos);
     
-    result.position = mul(perMesh.meshGlobalTransform, float4(skinnedPos.xyz, 1.0f)).xyz;
+    result.position = skinnedPos.xyz;
     
     result.normal = normalize(
             weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], result.normal) +
@@ -286,8 +277,6 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
             weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.normal)
         );
     
-    result.normal = normalize(mul(perMesh.meshGlobalNormal, result.normal));
-
     float3 skinnedTangent = normalize(
             weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], result.tangent.xyz) +
             weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[1]], result.tangent.xyz) +
@@ -295,10 +284,7 @@ skinnedVertex skinVertex(perInstanceAttr perInst, perMeshAttributes perMesh, uin
             weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.tangent.xyz)
         );
     
-    result.tangent = float4(
-        normalize(mul((float3x3) perMesh.meshGlobalTransform, skinnedTangent)).xyz,
-        result.tangent.w
-    );
+    result.tangent = float4(skinnedTangent.xyz, result.tangent.w);
     
     return result;
 }
@@ -426,19 +412,13 @@ cullingData calculateCullingData(float4 worldSpaceSphere, perDrawData dData)
     return result;
 }
 
-meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTransform, perMeshAttributes meshAttr)
+meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTransform)
 {
     meshletBounds result = bounds;
    
-    result.coneAxis = normalize(mul(meshAttr.meshGlobalNormal, result.coneAxis));
     result.coneAxis = normalize(rotate(modelTransform.rotation, result.coneAxis));
     
-    float uniformScale = maxScale(meshAttr.meshGlobalTransform);
-    
-    result.center = mul(meshAttr.meshGlobalTransform, float4(result.center, 1.0f)).xyz;
-    result.radius *= uniformScale;
-                    
-    uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
+    float uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
     
     result.center = transformPoint(modelTransform, result.center);
     result.radius *= uniformScale;
@@ -475,12 +455,7 @@ uint selectLodLevel(
     transform modelTransform
 )
 {
-    float uniformScale = maxScale(meshAttr.meshGlobalTransform);
-
-    meshAttr.bsCenter = mul(meshAttr.meshGlobalTransform, float4(meshAttr.bsCenter, 1.0f)).xyz;
-    meshAttr.bsRadius *= uniformScale;
-    
-    uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
+    float uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
     
     meshAttr.bsCenter = transformPoint(modelTransform, meshAttr.bsCenter);
     meshAttr.bsRadius *= uniformScale;
@@ -564,6 +539,15 @@ bool isBackface(perDrawData drawData, transform modelTransform, float3 v1, float
     v2 = transformPoint(modelTransform, v2);
     v3 = transformPoint(modelTransform, v3);
     
+    float3 normal = cross(v2 - v1, v3 - v1);
+    
+    float3 center = (v1 + v2 + v3) / 3;
+    
+    return dot(normal, drawData.cameraPos - center) < 0;
+}
+
+bool isBackface(perDrawData drawData, float3 v1, float3 v2, float3 v3)
+{
     float3 normal = cross(v2 - v1, v3 - v1);
     
     float3 center = (v1 + v2 + v3) / 3;

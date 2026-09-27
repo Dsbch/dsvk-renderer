@@ -556,7 +556,7 @@ namespace engine
 			};
 
 		std::pair<std::vector<mesh>, std::vector<perMeshAttributes>> result{};
-		std::map<cgltf_skin*, std::pair<uint32_t, uint32_t>> skinOffsets{};
+		std::unordered_map<cgltf_skin*, std::pair<uint32_t, uint32_t>> skinOffsets{};
 
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
 		{
@@ -569,12 +569,10 @@ namespace engine
 			mesh crntMesh = {};
 
 			perMeshAttributes crntMeshAttrs = {};
-			crntMeshAttrs.meshGlobalTransform = getNodeWorldTransformMat4(node);
-			crntMeshAttrs.meshGlobalNormal = glm::transpose(glm::inverse(glm::mat3(crntMeshAttrs.meshGlobalTransform)));
-			crntMeshAttrs.isSkinned = uint32_t(node->skin != nullptr);
+			bool isSkinned = uint32_t(node->skin != nullptr);
 
 			uint32_t jointOffset = 0;
-			if (crntMeshAttrs.isSkinned && skinOffsets.size() != 0)
+			if (isSkinned && skinOffsets.size() != 0)
 			{
 				if (auto found = skinOffsets.find(node->skin); found != skinOffsets.end())
 				{
@@ -604,8 +602,9 @@ namespace engine
 			{
 				auto crntPrimitive = processPrimitive(
 					gtlfMesh.primitives[pri],
-					crntMeshAttrs.isSkinned,
-					jointOffset
+					isSkinned,
+					jointOffset,
+					isSkinned ? glm::mat4{ 1.0f } : getNodeWorldTransformMat4(node)
 				);
 				if (!crntPrimitive)
 					return crntPrimitive.err();
@@ -614,7 +613,7 @@ namespace engine
 
 				error err = remapMesh(
 					crntPrimitive.value(),
-					crntMeshAttrs.isSkinned
+					isSkinned
 				);
 				if (err)
 					return err;
@@ -706,7 +705,7 @@ namespace engine
 					std::move_iterator(crntPrimitive.value().normal.end())
 				);
 
-				if (crntMeshAttrs.isSkinned)
+				if (isSkinned)
 				{
 					crntMesh.weights.insert(
 						crntMesh.weights.end(),
@@ -783,12 +782,33 @@ namespace engine
 
 			addLodLevels(crntMesh, meshletLod1, meshletLod2, meshletLod3, indicesLod1, indicesLod2, indicesLod3, primitivesLod1, primitivesLod2, primitivesLod3);
 
+			// Need to bake node world transform into bounds for mesh and meshlets for skinned meshes.
+			if (isSkinned)
+			{
+				glm::mat4 M = getNodeWorldTransformMat4(node);
+				glm::mat3 N = glm::transpose(glm::inverse(glm::mat3{ M }));
+				float s = std::max(glm::length(glm::vec3{ M[0] }),
+					std::max(glm::length(glm::vec3{ M[1] }), glm::length(glm::vec3{ M[2] })));
+
+				for (auto& md : crntMesh.meshlets.data)
+				{
+					meshletBounds& b = md.attributes.bounds;
+					b.center = glm::vec3{ M * glm::vec4{b.center, 1.0f} };
+					b.radius *= s;
+					if (b.coneAxis != glm::vec3{ 0.0f })
+						b.coneAxis = glm::normalize(N * b.coneAxis);
+				}
+
+				crntMeshAttrs.bsCenter = glm::vec3{ M * glm::vec4{crntMeshAttrs.bsCenter, 1.0f} };
+				crntMeshAttrs.bsRadius *= s;
+			}
+
 			crntMesh.generateHashes();
 
 			result.first.push_back(std::move(crntMesh));
 			result.second.push_back(std::move(crntMeshAttrs));
 
-			if (crntMeshAttrs.isSkinned)
+			if (isSkinned)
 				skinOffsets[node->skin] = { jointOffset, uint32_t(node->skin->joints_count) };
 		}
 
@@ -902,6 +922,10 @@ namespace engine
 				skin crntSkin{};
 
 				processSkinNode(root, sk, data, crntSkin, -1, nodeToJoint);
+
+				crntSkin.rootParentWorld = root->parent
+					? getNodeWorldTransformMat4(root->parent)
+					: glm::mat4(1.0f);
 
 				result.second.push_back(crntSkin);
 			}

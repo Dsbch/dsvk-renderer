@@ -18,11 +18,6 @@ pushConstant push;
 
 // MS START.
 
-struct meshletPrimitiveOut
-{
-    bool cullPrimitive : SV_CULLPRIMITIVE;
-};
-
 [outputtopology("triangle")]
 [numthreads(THREADS_COUNT, 1, 1)]
 void msmain(
@@ -32,16 +27,22 @@ void msmain(
     out vertices meshOutput vertices[THREADS_COUNT]
 )
 {
-    uint4 asData = compactBuffer[push.frameIndex][gid + 1];
-    
-    meshlet mesh = meshletBuffer[asData.x][asData.y];
-    meshletAttributes meshAttributes = meshletAttributesBuffer[asData.x][asData.y];
-    perInstanceAttr instanceAttr = perInstanceBuffer[asData.z][asData.w];
-    perMeshAttributes meshAttr = perMeshBuffer[meshAttributes.perMeshBufferIndex][meshAttributes.perMeshBufferOffset];
+    command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][gid];
+    meshlet mesh = meshletBuffer[cmd.meshletIndex][cmd.meshletOffset1];
+    perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
     perDrawData dData = drawData[push.frameIndex];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
+     
+    if (gtid < mesh.triangleCount)
+    {
+        uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
+         
+        uint3 unpacked = unpackUint3(packed);
         
+        triangles[gtid] = unpacked;
+    }
+    
     if (gtid < mesh.vertexCount)
     {
         uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
@@ -49,7 +50,7 @@ void msmain(
         
         instanceAttr.jointIndex += push.frameIndex;
         
-        skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
+        skinnedVertex skVertex = skinVertex(mesh.weightBufferIndex != MAX_UINT, instanceAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
         
         float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
@@ -60,15 +61,6 @@ void msmain(
         vertices[gtid].worldPos = mul(dData.viewVoxel, worldPos).xyz;
         vertices[gtid].normal = rotate(instanceAttr.modelTransform.rotation, skVertex.normal);
         vertices[gtid].tangent = float4(rotate(instanceAttr.modelTransform.rotation, skVertex.tangent.xyz), skVertex.tangent.w);
-    }
-    
-    if (gtid < mesh.triangleCount)
-    {
-        uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
-         
-        uint3 unpacked = unpackUint3(packed);
-        
-        triangles[gtid] = unpacked;
     }
 }
 

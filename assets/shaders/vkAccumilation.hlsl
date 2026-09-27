@@ -34,13 +34,11 @@ void msmain(
     uint4 asData = compactBuffer[push.frameIndex][gid + 1];
     
     meshlet mesh = meshletBuffer[asData.x][asData.y];
-    meshletAttributes meshAttributes = meshletAttributesBuffer[asData.x][asData.y];
     perInstanceAttr instanceAttr = perInstanceBuffer[asData.z][asData.w];
-    perMeshAttributes meshAttr = perMeshBuffer[meshAttributes.perMeshBufferIndex][meshAttributes.perMeshBufferOffset];
     perDrawData dData = drawData[push.frameIndex];
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
-        
+    
     if (gtid < mesh.triangleCount)
     {
         uint packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
@@ -57,7 +55,7 @@ void msmain(
         
         instanceAttr.jointIndex += push.frameIndex;
         
-        skinnedVertex skVertex = skinVertex(instanceAttr, meshAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
+        skinnedVertex skVertex = skinVertex(mesh.weightBufferIndex != MAX_UINT, instanceAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
         
         float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
@@ -86,6 +84,7 @@ struct PSOutput
 PSOutput psmain(meshOutput input)
 {
     float4 albedo = materials[input.materialBase].Sample(materialsSampler[input.materialBase], input.uv);
+    
     // Discard solid geometry.
     if (albedo.a >= 0.99f)
         discard;

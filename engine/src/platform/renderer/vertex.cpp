@@ -26,7 +26,7 @@ namespace engine
 				: worldMats[j.parentIdx] * local;
 
 			if (j.isSkinJoint)
-				result.push_back(worldMats[i] * j.inverseBind);
+				result.push_back(rootParentWorld * worldMats[i] * j.inverseBind);
 		}
 
 		return result;

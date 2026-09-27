@@ -79,6 +79,14 @@ namespace engine
 					return err;
 			}
 		}
+		else if (mMapFlags.mapped)
+		{
+			std::fill_n((uint32_t*)mBuffer.info.pMappedData, sizeInBytes / 4, zeroValue);
+
+			VkResult res = vmaFlushAllocation(mAllocator, mBuffer.allocation, 0, VK_WHOLE_SIZE);
+			if (res != VK_SUCCESS)
+				return { vkResultToStr(res) };
+		}
 		else
 		{
 			error err = is.queue(
@@ -88,6 +96,8 @@ namespace engine
 				},
 				[]() {}
 			);
+			if (err)
+				return err;
 		}
 
 		return {};

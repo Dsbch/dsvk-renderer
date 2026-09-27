@@ -54,7 +54,7 @@ namespace engine
 		return getNodeWorldTransformMat4(node->parent) * getNodeLocalTransformMat4(node);
 	}
 
-	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t jointOffset)
+	withError<primitive> processPrimitive(const cgltf_primitive& prim, bool skinned, uint32_t jointOffset, glm::mat4 worldTransform)
 	{
 		primitive result{};
 
@@ -116,14 +116,14 @@ namespace engine
 
 				for (size_t i = 0; i < positionAccessor->count; ++i)
 				{
-					float pos[3]{};
+					float position[3]{};
 					float normal[3]{};
 					float uv[2]{};
 
 					uint32_t joints[4]{};
 					float weights[4]{};
 
-					if (!positionAccessor || !cgltf_accessor_read_float(positionAccessor, i, pos, 3))
+					if (!positionAccessor || !cgltf_accessor_read_float(positionAccessor, i, position, 3))
 						return error{ "can't read position" };
 
 					if (!normalAccessor || !cgltf_accessor_read_float(normalAccessor, i, normal, 3))
@@ -140,8 +140,11 @@ namespace engine
 					joints[2] += jointOffset;
 					joints[3] += jointOffset;
 
-					result.positions.push_back(glm::vec4{ pos[0], pos[1], pos[2], uv[0] });
-					result.normal.push_back(glm::vec4{ normal[0], normal[1], normal[2], uv[1] });
+					glm::vec3 nor = glm::normalize(glm::transpose(glm::inverse(glm::mat3{ worldTransform })) * glm::vec3{ normal[0], normal[1], normal[2] });
+					glm::vec3 pos = glm::vec3{ worldTransform * glm::vec4{ position[0], position[1], position[2], 1.0f } };
+
+					result.positions.push_back(glm::vec4{ pos, uv[0] });
+					result.normal.push_back(glm::vec4{ nor, uv[1]});
 
 					if (skinned)
 					{

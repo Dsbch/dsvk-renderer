@@ -637,12 +637,10 @@ namespace engine
 				glm::vec3 pos = mesh.positions[i];
 				glm::vec3 normal = mesh.normal[i];
 
-				pos = perMeshAttr.meshGlobalTransform * glm::vec4{ pos, 1.0f };
 				pos = glm::vec3(
 					m.instanceAttributes.modelTransform.translation + m.instanceAttributes.modelTransform.rotation * m.instanceAttributes.modelTransform.scale * pos
 				);
 
-				normal = glm::transpose(glm::inverse(glm::mat3(perMeshAttr.meshGlobalTransform))) * normal;
 				normal = glm::normalize(m.instanceAttributes.modelTransform.rotation * normal);
 
 				mResourceManager->addLine(

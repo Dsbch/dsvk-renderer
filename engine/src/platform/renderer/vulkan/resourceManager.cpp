@@ -222,7 +222,7 @@ namespace engine
 		}
 
 		// Resize compact buffer if needed.
-		if (uint32_t max = (getMaxCmdBufferSize(frameIndex) / sizeof(meshletShaderCMD)) * sizeof(glm::uvec4); max > ((mCompactBuffer[frameIndex].getSize() - 4) * sizeof(glm::uvec4)))
+		if (uint32_t max = (getMaxCmdBufferSize(frameIndex) / sizeof(meshletShaderCMD)) * sizeof(glm::uvec4); max + sizeof(glm::uvec4) > mCompactBuffer[frameIndex].getSize())
 		{
 			mCompactBuffer[frameIndex].destroy();
 
@@ -343,9 +343,11 @@ namespace engine
 
 			vertexHandle = handle.value();
 
-			bufferHandle weightHandle{};
+			bufferHandle weightHandle{
+				.bufferIndex = std::numeric_limits<uint32_t>::max(),
+			};
 			// Upload skin data if needed.
-			if (crntMeshAttrs.isSkinned && !crntMesh.jointIndices.empty() && !crntMesh.weights.empty())
+			if (!crntMesh.jointIndices.empty() && !crntMesh.weights.empty())
 			{
 				handle = mJointIndexRegistry.addBlock(
 					crntMesh.meshHash,
@@ -571,11 +573,8 @@ namespace engine
 
 				mTangentRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
-				if (crntMeshAttrs.isSkinned)
-				{
-					mJointIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-					mWeightRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
-				}
+				mJointIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
+				mWeightRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
 				mIndexRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 
