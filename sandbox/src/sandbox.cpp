@@ -213,7 +213,7 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				// 40^3 = 64K models total, ~1 trillion triangles (raw).
+				// 40^3 = 64K models total, ~1 billion triangles (raw).
 				const int gridCount = 40;
 
 				// Increase these bounds to spread the models further apart

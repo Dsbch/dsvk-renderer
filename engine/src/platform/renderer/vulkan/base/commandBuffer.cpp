@@ -19,6 +19,7 @@ namespace engine
 		mMeshCount.resize(framesInFlight);
 
 		mCmdBufferSize = 2 << 24;
+		mVisabilityBufferSize = 2 << 24;
 
 		// Buffer is mapped and CPU readback if turned off to faster access.
 		mBufferMapFlags = { true, false };
@@ -38,7 +39,7 @@ namespace engine
 			if (err)
 				return err;
 
-			err = mVisabilityBuffer[i].build(is, nullptr, mCmdBufferSize, 0, false, packUint2(NOT_VISIBLE_FLAG_BIT, 1));
+			err = mVisabilityBuffer[i].build(is, nullptr, mVisabilityBufferSize, 0, false, packUint2(NOT_VISIBLE_FLAG_BIT, 1));
 			if (err)
 				return err;
 		}
@@ -169,16 +170,16 @@ namespace engine
 		{
 			mNeedDescriptorUpdate = true;
 
-			mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
-			uint32_t minSize = uint32_t(cmdToAdd.size() * sizeof(visabilityData) + mCmdBuffer[params.frameIndex].getLoadedBytes());
+			mVisabilityBufferSize = uint32_t(float(mVisabilityBufferSize) * 1.5f);
+			uint32_t minSize = uint32_t(cmdToAdd.size() * sizeof(visabilityData) + mVisabilityBuffer[params.frameIndex].getLoadedBytes());
 
-			if (mCmdBufferSize < minSize)
-				mCmdBufferSize = minSize;
+			if (mVisabilityBufferSize < minSize)
+				mVisabilityBufferSize = minSize;
 
 			vulkanBuffer newBuf{};
 
 			newBuf.init(params.device, params.allocator, mBufferMapFlags);
-			err = newBuf.build(params.is, mVisabilityBuffer[params.frameIndex], mCmdBufferSize, true, packUint2(NOT_VISIBLE_FLAG_BIT, 1));
+			err = newBuf.build(params.is, mVisabilityBuffer[params.frameIndex], mVisabilityBufferSize, true, packUint2(NOT_VISIBLE_FLAG_BIT, 1));
 			if (err)
 				return err;
 

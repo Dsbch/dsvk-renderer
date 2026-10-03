@@ -74,6 +74,7 @@ namespace engine
 		bool mNeedDescriptorUpdate;
 
 		uint32_t mCmdBufferSize;
+		uint32_t mVisabilityBufferSize;
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		std::vector<vulkanBuffer> mCmdBuffer;
 		std::vector<vulkanBuffer> mVisabilityBuffer;
