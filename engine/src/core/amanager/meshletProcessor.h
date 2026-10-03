@@ -52,7 +52,7 @@ namespace engine
 		alphaModeType alphaMode
 	);
 
-	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel);
+	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxTriangles, size_t maxVert,float coneWeight, float errorLevel);
 	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data);
 
 	// Need to calculate conservative meshlet bounds and cones for animated meshes.

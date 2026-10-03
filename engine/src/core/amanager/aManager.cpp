@@ -407,8 +407,8 @@ namespace engine
 
 	withError<std::shared_ptr<const model>> aManager::loadModelGLTF(
 		const std::string& path,
-		size_t maxVert,
-		size_t maxTriangles,
+		uint32_t maxTriangles,
+		uint32_t maxVertices,
 		float coneWieght,
 		float errorLevel
 	)
@@ -439,7 +439,7 @@ namespace engine
 
 		std::shared_ptr<model> result = std::make_shared<model>(model{ .id = genUID() });
 
-		auto meshes = proccessMeshes(data, maxVert, maxTriangles, coneWieght, errorLevel);
+		auto meshes = proccessMeshes(data, maxTriangles, maxVertices, coneWieght, errorLevel);
 		if (!meshes)
 			return meshes.err();
 

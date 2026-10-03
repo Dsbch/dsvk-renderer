@@ -32,7 +32,13 @@ namespace sandbox
 	engine::error sandboxSystem::onAttach(std::shared_ptr<engine::registryHandle> registry)
 	{
 #ifdef RELEASE
-		auto marble = mCtx->mAmanager->loadModelGLTF("../assets/marble.glb");
+		auto marble = mCtx->mAmanager->loadModelGLTF(
+			"../assets/marble.glb",
+			mCtx->config.inner.meshlets.maxTriangles,
+			mCtx->config.inner.meshlets.maxVert,
+			mCtx->config.inner.meshlets.coneWieght,
+			mCtx->config.inner.meshlets.errorLevel
+		);
 		if (!marble)
 			return marble.err();
 
@@ -75,7 +81,13 @@ namespace sandbox
 		occluder.addComponent<engine::meshComponent>(marble.value()->meshData, marble.value()->perMeshData);
 		occluder.addComponent<engine::newEntityComponent>();
 
-		auto alphaTest = mCtx->mAmanager->loadModelGLTF("../assets/AlphaBlendModeTest.glb");
+		auto alphaTest = mCtx->mAmanager->loadModelGLTF(
+			"../assets/AlphaBlendModeTest.glb",
+			mCtx->config.inner.meshlets.maxTriangles,
+			mCtx->config.inner.meshlets.maxVert,
+			mCtx->config.inner.meshlets.coneWieght,
+			mCtx->config.inner.meshlets.errorLevel
+		);
 		if (!alphaTest)
 			return alphaTest.err();
 
@@ -122,8 +134,8 @@ namespace sandbox
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/catapult.glb",
-					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.coneWieght,
 					mCtx->config.inner.meshlets.errorLevel
 				);
@@ -145,8 +157,8 @@ namespace sandbox
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/black_rat.glb",
-					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.coneWieght,
 					mCtx->config.inner.meshlets.errorLevel
 				);
@@ -168,8 +180,8 @@ namespace sandbox
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/mira.glb",
-					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.coneWieght,
 					mCtx->config.inner.meshlets.errorLevel
 				);
@@ -193,20 +205,20 @@ namespace sandbox
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/marble.glb",
-					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.coneWieght,
 					mCtx->config.inner.meshlets.errorLevel
 				);
 				if (!loadedModel)
 					return loadedModel.err();
 
-				// 22^3 = 10,648 models total
-				const int gridCount = 25;
+				// 40^3 = 64K models total, ~1 trillion triangles (raw).
+				const int gridCount = 40;
 
 				// Increase these bounds to spread the models further apart
-				const float minExtent = -10.0f;
-				const float maxExtent = 10.0f;
+				const float minExtent = -15.0f;
+				const float maxExtent = 15.0f;
 				const float extentRange = maxExtent - minExtent;
 
 				glm::vec3 scale = glm::vec3(1.0f);
@@ -241,8 +253,8 @@ namespace sandbox
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/magnifying_glass.glb",
-					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.coneWieght,
 					mCtx->config.inner.meshlets.errorLevel
 				);
@@ -262,8 +274,8 @@ namespace sandbox
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
 					"../assets/cube.glb",
-					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.coneWieght,
 					mCtx->config.inner.meshlets.errorLevel
 				);
@@ -281,7 +293,13 @@ namespace sandbox
 
 			if (keyPressedEvent->getKey() == engine::key::r)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/pbr_kabuto_samurai_helmet4k.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/pbr_kabuto_samurai_helmet4k.glb",
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
 				if (!loadedModel)
 					return loadedModel.err();
 
@@ -296,7 +314,13 @@ namespace sandbox
 
 			if (keyPressedEvent->getKey() == engine::key::o)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/AlphaBlendModeTest.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/AlphaBlendModeTest.glb",
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
 				if (!loadedModel)
 					return loadedModel.err();
 
@@ -312,7 +336,13 @@ namespace sandbox
 
 			if (keyPressedEvent->getKey() == engine::key::y)
 			{
-				auto loadedModel = mCtx->mAmanager->loadModelGLTF("../assets/bistro_outside.glb");
+				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
+					"../assets/bistro_outside.glb",
+					mCtx->config.inner.meshlets.maxTriangles,
+					mCtx->config.inner.meshlets.maxVert,
+					mCtx->config.inner.meshlets.coneWieght,
+					mCtx->config.inner.meshlets.errorLevel
+				);
 				if (!loadedModel)
 					return loadedModel.err();
 

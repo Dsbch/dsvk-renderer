@@ -455,7 +455,7 @@ namespace engine
 		return {};
 	}
 
-	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxVert, size_t maxTriangles, float coneWeight, float errorLevel)
+	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxTriangles, size_t maxVert, float coneWeight, float errorLevel)
 	{
 		auto addLodLevels = [](
 			mesh& crntMesh,
@@ -744,7 +744,7 @@ namespace engine
 				size_t indexLod2Before = indicesLod2.size();
 				size_t primLod2Before = primitivesLod2.size();
 
-				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod2, crntLodIndices, primitivesLod2, crntPrimitive.value().indicies.size() / 3, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
+				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod2, crntLodIndices, primitivesLod2, crntPrimitive.value().indicies.size() / 8, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
 				for (size_t m = meshletLod2Before; m < meshletLod2.size(); m++)
@@ -761,7 +761,7 @@ namespace engine
 				size_t indexLod3Before = indicesLod3.size();
 				size_t primLod3Before = primitivesLod3.size();
 
-				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod3, crntLodIndices, primitivesLod3, crntPrimitive.value().indicies.size() / 4, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
+				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod3, crntLodIndices, primitivesLod3, crntPrimitive.value().indicies.size() / 64, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
 				if (err) return err;
 
 				for (size_t m = meshletLod3Before; m < meshletLod3.size(); m++)

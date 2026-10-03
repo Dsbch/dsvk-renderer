@@ -18,7 +18,7 @@ struct pushConstant
 DEFINE_AS_PUSH_CONSTANT
 pushConstant push;
 
-[numthreads(THREADS_COUNT, THREADS_COUNT, 1)]
+[numthreads(32, 32, 1)]
 void main(uint2 dtid : SV_DispatchThreadID)
 {
     if (dtid.x >= push.mipWidth || dtid.y >= push.mipHeight)

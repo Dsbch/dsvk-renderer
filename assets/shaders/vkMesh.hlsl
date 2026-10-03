@@ -2,7 +2,6 @@
 //  dxc -T ps_6_9 -E psmain -spirv -fvk-use-scalar-layout -Fo vkCompiled/vkMeshPs.spv vkMesh.hlsl
 //  dxc -T as_6_9 -E asmain -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_mesh_shader -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkMeshAs.spv vkMesh.hlsl
 //  add -fspv-debug=vulkan-with-source flag only for debug.
-#define NEED_BINDINGS
 #include "common.hlsl"
 
 // DescriptorSets END.
@@ -24,7 +23,7 @@ pushConstant push;
 
 // MS START.
 
-groupshared float3 sharedPositions[THREADS_COUNT];
+groupshared float3 sharedPositions[VERTICES_PER_MESHLET];
 
 struct meshletPrimitiveOut
 {
@@ -32,13 +31,13 @@ struct meshletPrimitiveOut
 };
 
 [outputtopology("triangle")]
-[numthreads(THREADS_COUNT, 1, 1)]
+[numthreads(MESHLET_THREAD_COUNT, 1, 1)]
 void msmain(
                  uint gtid : SV_GroupThreadID,
                  uint gid : SV_GroupID,
-    out indices uint3 triangles[THREADS_COUNT],
-    out vertices meshOutput vertices[THREADS_COUNT],
-    out primitives meshletPrimitiveOut primitives[THREADS_COUNT])
+    out indices uint3 triangles[TRIANGLES_PER_MESHLET],
+    out vertices meshOutput vertices[VERTICES_PER_MESHLET],
+    out primitives meshletPrimitiveOut primitives[TRIANGLES_PER_MESHLET])
 {
     uint4 asData = compactBuffer[push.frameIndex][gid + 1];
     
@@ -46,43 +45,62 @@ void msmain(
     perInstanceAttr instanceAttr = perInstanceBuffer[asData.z][asData.w];
     perDrawData dData = drawData[push.frameIndex];
     
+    instanceAttr.jointIndex += push.frameIndex;
+    
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
     
-    uint packed = 0;
-    if (gtid < mesh.triangleCount)
-        packed = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + gtid];
-        
-    if (gtid < mesh.vertexCount)
+    uint triangleID = gtid * 3;
+    uint vertexID = gtid * 2;
+    uint packedTriangles[3];
+    
+    [unroll]
+    for (uint i = 0; i < TRIANGLE_LOOPS; i++)
     {
-        uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.vertexBufferOffset;
-        uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + gtid] + mesh.weightBufferOffset;
+        if ((triangleID + i)  >= mesh.triangleCount)
+            break;
         
-        instanceAttr.jointIndex += push.frameIndex;
+        packedTriangles[i] = primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + triangleID + i];
+    }
+            
+    [loop]
+    for (uint k = 0; k < VERTEX_LOOPS; k++)
+    {
+        uint idx = vertexID + k;
+        
+        if (idx >= mesh.vertexCount)
+            break;
+            
+        uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + idx] + mesh.vertexBufferOffset;
+        uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + idx] + mesh.weightBufferOffset;
         
         skinnedVertex skVertex = skinVertex(mesh.weightBufferIndex != MAX_UINT, instanceAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
         
         float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
-        sharedPositions[gtid] = worldPos.xyz;
+        sharedPositions[idx] = worldPos.xyz;
         
-        vertices[gtid].position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, worldPos);
+        vertices[idx].position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, worldPos);
         
-        vertices[gtid].uv = skVertex.textureCoords;
-        vertices[gtid].materialBase = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
-        vertices[gtid].worldPos = worldPos.xyz;
-        vertices[gtid].normal = rotate(instanceAttr.modelTransform.rotation, skVertex.normal);
-        vertices[gtid].tangent = float4(rotate(instanceAttr.modelTransform.rotation, skVertex.tangent.xyz), skVertex.tangent.w);
+        vertices[idx].uv = skVertex.textureCoords;
+        vertices[idx].materialBase = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;
+        vertices[idx].worldPos = worldPos.xyz;
+        vertices[idx].normal = rotate(instanceAttr.modelTransform.rotation, skVertex.normal);
+        vertices[idx].tangent = float4(rotate(instanceAttr.modelTransform.rotation, skVertex.tangent.xyz), skVertex.tangent.w);
     }
     
     GroupMemoryBarrierWithGroupSync();
     
-    if (gtid < mesh.triangleCount)
+    [unroll]
+    for (uint d = 0; d < TRIANGLE_LOOPS; d++)
     {
-        uint3 unpacked = unpackUint3(packed);
+        if ((triangleID + d) >= mesh.triangleCount)
+            break;
         
-        triangles[gtid] = unpacked;
+        uint3 unpacked = unpackUint3(packedTriangles[d]);
         
-        primitives[gtid].cullPrimitive = isBackface(
+        triangles[triangleID + d] = unpacked;
+        
+        primitives[triangleID + d].cullPrimitive = isBackface(
                 dData,
                 sharedPositions[unpacked.x],
                 sharedPositions[unpacked.y],

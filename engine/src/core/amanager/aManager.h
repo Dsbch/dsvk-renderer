@@ -48,10 +48,10 @@ namespace engine
 
 		withError<std::shared_ptr<const model>> loadModelGLTF(
 			const std::string& path,
-			size_t maxVert = 32,
-			size_t maxTriangles = 32,
-			float coneWieght = 0.0f,
-			float errorLevel = 0.01f
+			uint32_t maxTriangles,
+			uint32_t maxVertices,
+			float coneWieght,
+			float errorLevel
 		);
 	private:
 		std::function<withError<std::shared_ptr<const shader>>(const std::vector<uint32_t>& src)> makeShader;

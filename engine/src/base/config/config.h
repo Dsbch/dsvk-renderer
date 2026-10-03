@@ -7,9 +7,9 @@ namespace engine
 {
 	struct meshletCfg
 	{
-		uint32_t maxVert = 32;
-		uint32_t maxTriangles = 32;
-		float coneWieght = 0.0f;
+		uint32_t maxVert = 64;
+		uint32_t maxTriangles = 96;
+		float coneWieght = 0.25f;
 		float errorLevel = 0.01f;
 	};
 

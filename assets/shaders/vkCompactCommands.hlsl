@@ -2,8 +2,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-#define COMPACT_THREADS 256
-
 struct pushConstant
 {
     uint frameIndex;
@@ -23,7 +21,7 @@ pushConstant push;
 groupshared uint groupVisibleCount;
 groupshared uint groupBase;
 
-[numthreads(COMPACT_THREADS, 1, 1)]
+[numthreads(COMPACT_THREAD_COUNT, 1, 1)]
 void main(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupIndex)
 {
     if (gtid == 0)
