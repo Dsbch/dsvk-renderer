@@ -120,316 +120,347 @@ namespace engine
 	error meshletPass::opaquePass(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex)
 	{
 		uint32_t cmdBufferIndex = 0;
-		for (auto& [k, v] : mOpaquePipelines)
+		for (auto& [k, cmdBuffer] : mResourceManager->getOpaqueCmdBuffers())
 		{
-			auto [pipeline, pipelineLayout] = v.getPipeline();
-
-			if (!mResourceManager->getOpaqueCmdBuffer(k))
-				continue;
-
-			VkBuffer cmdBuf = mResourceManager->getOpaqueCmdBuffer(k)->getCmdBuffer(frameIndex).getBuffer().buffer;
-			uint32_t cmdBufSize = uint32_t(mResourceManager->getOpaqueCmdBuffer(k)->getCmdBuffer(frameIndex).getLoadedBytes());
-			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
-
-			// Has to render.
-			if (cmdBufferCount > 0)
+			if (auto it = mOpaquePipelines.find(k); it != mOpaquePipelines.end())
 			{
-				// FIRST PASS.
+				auto [pipeline, pipelineLayout] = it->second.getPipeline();
+
+				uint32_t cmdBufSize = uint32_t(cmdBuffer.getCmdBuffer(frameIndex).getLoadedBytes());
+				uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
+
+				// Has to render.
+				if (cmdBufferCount > 0)
 				{
-					// Dispatch indirect compute call for culling and lod level selection.
-					error err = mCullingPass.cullMeshlets(
-						cmd,
-						in,
-						cullingPass::cullMeshletsParams{
-							.cmdBufferCount = cmdBufferCount,
-							.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-						},
-						frameIndex
-						);
-					if (err)
-						return err;
-
-					// Wait for compute call to finish it writes.
-					pipelineBufferBarier(
-						cmd,
-						cmdBuf,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_READ_BIT,
-						cmdBufSize,
-						0
-					);
-
-					pipelineBufferBarier(
-						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-						VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_CLEAR_BIT,
-						VK_ACCESS_2_TRANSFER_WRITE_BIT,
-						uint32_t(sizeof(uint32_t) * 2),
-						0
-					);
-
-					vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
-
-					pipelineBufferBarier(
-						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						VK_PIPELINE_STAGE_2_CLEAR_BIT,
-						VK_ACCESS_2_TRANSFER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(sizeof(uint32_t) * 2),
-						0
-					);
-
-					// Compact cmd buffer to visability buffer.
-					err = mCullingPass.compactCommandBuffer(
-						cmd,
-						in,
-						cullingPass::compactCommandBufferParams{
-							.cmdBufferCount = cmdBufferCount,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-							.stage = FIRST_OPAQUE_PASS_FLAG_BIT,
-							.compactRule = VISIBLE_FIRST_PASS_FLAG_BIT,
-						},
-						frameIndex
-						);
-					if (err)
-						return err;
-
-					pipelineBufferBarier(
-						cmd,
-						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
-						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
-						0
-					);
-
-					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
-						mResourceManager->getColorAttachmentImage(false).img.view,
-						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
-						getResolveMode(mVulkanCtx->preset.msaa),
-						nullptr,
-						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-					);
-					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
-						mResourceManager->getDepthImage(false).img.view,
-						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-						getResolveMode(mVulkanCtx->preset.msaa),
-						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-						false
-					);
-
-					std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
-
-					VkRenderingInfo renderInfo = renderingInfo(
-						mResourceManager->getColorAttachmentImage(false).img.extent,
-						colorAttachments,
-						&depthAttachment
-					);
-
-					vkCmdBeginRendering(cmd, &renderInfo);
-
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-					pushConstants pc{
-						.frameIndex = frameIndex,
-						.cmdBufferCount = cmdBufferCount,
-						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-					};
-
-					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
-
-					mResourceManager->bindDescriptorSets(
-						cmd,
-						VK_PIPELINE_BIND_POINT_GRAPHICS,
-						pipelineLayout
-					);
-
-					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
-						cmd,
-						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						sizeof(uint32_t),
-						1,
-						12
-					);
-
-					vkCmdEndRendering(cmd);
-				}
-
-				// SECOND PASS.
-				{
-					// Build HZB.					
-					mResourceManager->transitionDepthImage(
-						cmd,
-						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-						VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_READ_BIT
-					);
-
-					error err = mCullingPass.buildHZB(cmd, in, frameIndex);
-					if (err)
-						return err;
-
-					// Wait for HZB to generate.
-					for (auto& hzb : mResourceManager->getHZB())
+					// FIRST PASS.
 					{
-						pipelineImageBarrier(
+						vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+						pipelineBufferBarier(
+							cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_CLEAR_BIT,
+							VK_ACCESS_2_TRANSFER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(sizeof(uint32_t) * 2),
+							0
+						);
+
+						error err = mCullingPass.cullMeshes(
 							cmd,
-							hzb.img.image,
-							hzb.img.format,
-							VK_IMAGE_LAYOUT_GENERAL,
+							in,
+							cullingPass::cullMeshletsParams{
+								.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
+								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.meshCount = cmdBufferCount,
+								.compactCapacity = mResourceManager->getCompactCapacity(),
+							},
+							frameIndex
+							);
+						if (err)
+							return err;
+
+						// Wait for compute call to finish it writes into job buffer.
+						pipelineBufferBarier(
+							cmd, 
+							mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+							VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(mResourceManager->getJobBuffer(frameIndex).getSize()), 
+							0
+						);
+
+						vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+						pipelineBufferBarier(
+							cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_CLEAR_BIT,
+							VK_ACCESS_2_TRANSFER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(sizeof(uint32_t) * 2),
+							0
+						);
+
+						// Compact cmd buffer to visability buffer.
+						err = mCullingPass.cullMeshlets(
+							cmd,
+							in,
+							cullingPass::cullMeshletsParams{
+								.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
+								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.meshCount = cmdBufferCount,
+								.compactCapacity = mResourceManager->getCompactCapacity(),
+								.dispatchBuffer = mResourceManager->getJobBuffer(frameIndex),
+							},
+							frameIndex
+							);
+						if (err)
+							return err;
+
+						pipelineBufferBarier(
+							cmd,
+							mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
+							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
+							0
+						);
+
+						VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
+							mResourceManager->getColorAttachmentImage(false).img.view,
+							mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+							getResolveMode(mVulkanCtx->preset.msaa),
+							nullptr,
+							VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+						);
+
+						VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
+							mResourceManager->getDepthImage(false).img.view,
+							mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+							getResolveMode(mVulkanCtx->preset.msaa),
+							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+							false
+						);
+
+						std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+						VkRenderingInfo renderInfo = renderingInfo(
+							mResourceManager->getColorAttachmentImage(false).img.extent,
+							colorAttachments,
+							&depthAttachment
+						);
+
+						vkCmdBeginRendering(cmd, &renderInfo);
+
+						vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+						pushConstants pc{
+							.frameIndex = frameIndex,
+							.meshCount = cmdBufferCount,
+							.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+						};
+
+						vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+
+						mResourceManager->bindDescriptorSets(
+							cmd,
+							VK_PIPELINE_BIND_POINT_GRAPHICS,
+							pipelineLayout
+						);
+
+						mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
+							cmd,
+							mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+							sizeof(uint32_t),
+							1,
+							12
+						);
+
+						vkCmdEndRendering(cmd);
+					}
+
+					// SECOND PASS.
+					{
+						// Build HZB.					
+						mResourceManager->transitionDepthImage(
+							cmd,
+							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+							VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+							VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+							VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_READ_BIT
 						);
+
+						error err = mCullingPass.buildHZB(cmd, in, frameIndex);
+						if (err)
+							return err;
+
+						// Wait for HZB to generate.
+						for (auto& hzb : mResourceManager->getHZB())
+						{
+							pipelineImageBarrier(
+								cmd,
+								hzb.img.image,
+								hzb.img.format,
+								VK_IMAGE_LAYOUT_GENERAL,
+								VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+								VK_ACCESS_2_SHADER_WRITE_BIT,
+								VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+								VK_ACCESS_2_SHADER_READ_BIT
+							);
+						}
+
+						pipelineBufferBarier(
+							cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_CLEAR_BIT,
+							VK_ACCESS_2_TRANSFER_WRITE_BIT,
+							uint32_t(sizeof(uint32_t) * 2),
+							0
+						);
+
+						vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+						pipelineBufferBarier(
+							cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_CLEAR_BIT,
+							VK_ACCESS_2_TRANSFER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(sizeof(uint32_t) * 2),
+							0
+						);
+
+						// Dispatch compute call for culling and lod level selection.
+						err = mCullingPass.cullMeshes(
+							cmd,
+							in,
+							cullingPass::cullMeshletsParams{
+								.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
+								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.meshCount = cmdBufferCount,
+								.compactCapacity = mResourceManager->getCompactCapacity(),
+							},
+							frameIndex
+							);
+						if (err)
+							return err;
+
+						// Wait for compute call to finish it writes.
+						pipelineBufferBarier(
+							cmd,
+							mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+							VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(mResourceManager->getJobBuffer(frameIndex).getSize()),
+							0
+						);
+
+						pipelineBufferBarier(
+							cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_CLEAR_BIT,
+							VK_ACCESS_2_TRANSFER_WRITE_BIT,
+							uint32_t(sizeof(uint32_t) * 2),
+							0
+						);
+
+						vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+						pipelineBufferBarier(
+							cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_CLEAR_BIT,
+							VK_ACCESS_2_TRANSFER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(sizeof(uint32_t) * 2),
+							0
+						);
+
+						// Dispatch compute call for culling and lod level selection.
+						err = mCullingPass.cullMeshlets(
+							cmd,
+							in,
+							cullingPass::cullMeshletsParams{
+								.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
+								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.meshCount = cmdBufferCount,
+								.compactCapacity = mResourceManager->getCompactCapacity(),
+								.dispatchBuffer = mResourceManager->getJobBuffer(frameIndex),
+							},
+							frameIndex
+							);
+						if (err)
+							return err;
+
+						pipelineBufferBarier(
+							cmd,
+							mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_WRITE_BIT,
+							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
+							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+							uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
+							0
+						);
+
+						// Transition depth after build HZB.
+						mResourceManager->transitionDepthImage(
+							cmd,
+							VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+							VK_ACCESS_2_SHADER_READ_BIT,
+							VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+							VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+						);
+
+						VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
+							mResourceManager->getColorAttachmentImage(false).img.view,
+							mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
+							getResolveMode(mVulkanCtx->preset.msaa),
+							nullptr,
+							VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+						);
+						VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
+							mResourceManager->getDepthImage(false).img.view,
+							mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
+							getResolveMode(mVulkanCtx->preset.msaa),
+							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+							false
+						);
+
+						std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
+
+						VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent, colorAttachments, &depthAttachment);
+
+						vkCmdBeginRendering(cmd, &renderInfo);
+
+						vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+						pushConstants pc{
+							.frameIndex = frameIndex,
+							.meshCount = cmdBufferCount,
+							.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+						};
+
+						vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
+
+						mResourceManager->bindDescriptorSets(
+							cmd,
+							VK_PIPELINE_BIND_POINT_GRAPHICS,
+							pipelineLayout
+						);
+
+						mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
+							cmd,
+							mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+							sizeof(uint32_t),
+							1,
+							12
+						);
+
+						vkCmdEndRendering(cmd);
 					}
-
-					// Dispatch compute call for culling and lod level selection.
-					err = mCullingPass.cullMeshlets(
-						cmd,
-						in,
-						cullingPass::cullMeshletsParams{
-							.cmdBufferCount = cmdBufferCount,
-							.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-							.hzbLength = uint32_t(mResourceManager->getHZB().size()),
-						},
-						frameIndex
-						);
-					if (err)
-						return err;
-
-					// Wait for compute call to finish it writes.
-					pipelineBufferBarier(
-						cmd,
-						cmdBuf,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_READ_BIT,
-						cmdBufSize,
-						0
-					);
-
-					pipelineBufferBarier(
-						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_MEMORY_READ_BIT,
-						VK_PIPELINE_STAGE_2_CLEAR_BIT,
-						VK_ACCESS_2_TRANSFER_WRITE_BIT,
-						uint32_t(sizeof(uint32_t) * 2),
-						0
-					);
-
-					vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
-
-					pipelineBufferBarier(
-						cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						VK_PIPELINE_STAGE_2_CLEAR_BIT,
-						VK_ACCESS_2_TRANSFER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(sizeof(uint32_t) * 2),
-						0
-					);
-
-					// Compact cmd buffer to visability buffer.
-					err = mCullingPass.compactCommandBuffer(
-						cmd,
-						in,
-						cullingPass::compactCommandBufferParams{
-							.cmdBufferCount = cmdBufferCount,
-							.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-							.stage = SECOND_OPAQUE_PASS_FLAG_BIT,
-							.compactRule = VISIBLE_SECOND_PASS_FLAG_BIT,
-						},
-						frameIndex
-						);
-					if (err)
-						return err;
-
-					pipelineBufferBarier(
-						cmd,
-						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-						uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
-						0
-					);
-
-					// Transition depth after build HZB.
-					mResourceManager->transitionDepthImage(
-						cmd,
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-						VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-						VK_ACCESS_2_SHADER_READ_BIT,
-						VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-						VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-					);
-
-					VkRenderingAttachmentInfo colorAttachment = attachmentInfo(
-						mResourceManager->getColorAttachmentImage(false).img.view,
-						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getColorAttachmentImage(true).img.view,
-						getResolveMode(mVulkanCtx->preset.msaa),
-						nullptr,
-						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-					);
-					VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
-						mResourceManager->getDepthImage(false).img.view,
-						mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-						getResolveMode(mVulkanCtx->preset.msaa),
-						VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-						false
-					);
-
-					std::vector<VkRenderingAttachmentInfo> colorAttachments = { colorAttachment };
-
-					VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent, colorAttachments, &depthAttachment);
-
-					vkCmdBeginRendering(cmd, &renderInfo);
-
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-					pushConstants pc{
-						.frameIndex = frameIndex,
-						.cmdBufferCount = cmdBufferCount,
-						.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-					};
-
-					vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
-
-					mResourceManager->bindDescriptorSets(
-						cmd,
-						VK_PIPELINE_BIND_POINT_GRAPHICS,
-						pipelineLayout
-					);
-
-					mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
-						cmd,
-						mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-						sizeof(uint32_t),
-						1,
-						12
-					);
-
-					vkCmdEndRendering(cmd);
 				}
-			}
 
-			cmdBufferIndex++;
+
+				cmdBufferIndex++;
+			}
 		}
 
 		return {};
@@ -502,38 +533,58 @@ namespace engine
 			return {};
 		}
 
-		// Dispatch compute call for culling and lod level selection.
-		// For now it's only going to set falgs for each cmd buffer entry.
-		// Later I will need to implement prefix sum on GPU to increase amplification rate.
-		error err = mCullingPass.cullMeshlets(
+		pipelineBufferBarier(
+			cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_CLEAR_BIT,
+			VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			uint32_t(sizeof(uint32_t) * 2),
+			0
+		);
+
+		vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+
+		pipelineBufferBarier(
+			cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+			VK_PIPELINE_STAGE_2_CLEAR_BIT,
+			VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+			uint32_t(sizeof(uint32_t) * 2),
+			0
+		);
+
+		error err = mCullingPass.cullMeshes(
 			cmd,
 			in,
 			cullingPass::cullMeshletsParams{
-				.cmdBufferCount = cmdBufferCount,
 				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
 				.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+				.meshCount = cmdBufferCount,
+				.compactCapacity = mResourceManager->getCompactCapacity(),
 			},
 			frameIndex
-			);
+		);
 		if (err)
 			return err;
 
-		// Wait for compute call to finish it writes.
+		// Wait for compute call to finish it writes into job buffer.
 		pipelineBufferBarier(
 			cmd,
-			cmdBuf,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
 			VK_ACCESS_2_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-			VK_ACCESS_2_SHADER_READ_BIT,
-			cmdBufSize,
+			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+			uint32_t(mResourceManager->getJobBuffer(frameIndex).getSize()),
 			0
 		);
 
 		pipelineBufferBarier(
 			cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-			VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			uint32_t(sizeof(uint32_t) * 2),
@@ -552,30 +603,20 @@ namespace engine
 			0
 		);
 
-		// Compact cmd buffer to visability buffer.
-		err = mCullingPass.compactCommandBuffer(
+		err = mCullingPass.cullMeshlets(
 			cmd,
 			in,
-			cullingPass::compactCommandBufferParams{
-				.cmdBufferCount = cmdBufferCount,
-				.stage = ACCUMILATION_PASS_FLAG_BIT,
-				.compactRule = VISIBLE_FIRST_PASS_FLAG_BIT,
+			cullingPass::cullMeshletsParams{
+				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
+				.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+				.meshCount = cmdBufferCount,
+				.compactCapacity = mResourceManager->getCompactCapacity(),
+				.dispatchBuffer = mResourceManager->getJobBuffer(frameIndex),
 			},
 			frameIndex
 			);
 		if (err)
 			return err;
-
-		pipelineBufferBarier(
-			cmd,
-			mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-			VK_ACCESS_2_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
-			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(mResourceManager->getCompactBuffer(frameIndex).getSize()),
-			0
-		);
 
 		pipelineBufferBarier(
 			cmd,
@@ -594,7 +635,7 @@ namespace engine
 
 		pushConstants pc{
 			.frameIndex = frameIndex,
-			.cmdBufferCount = cmdBufferCount,
+			.meshCount = cmdBufferCount,
 		};
 
 		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);

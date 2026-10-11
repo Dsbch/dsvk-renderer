@@ -12,10 +12,6 @@
 
 namespace engine
 {
-#define VISIBLE_FIRST_PASS_FLAG_BIT         (1 << 0)
-#define VISIBLE_SECOND_PASS_FLAG_BIT        (1 << 1)
-#define NOT_VISIBLE_FLAG_BIT                (1 << 2)
-
 #define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
 #define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
 #define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
@@ -48,19 +44,13 @@ namespace engine
 		uint32_t meshletOffset2;
 		uint32_t meshletOffset3;
 		uint32_t meshletOffset4;
+		uint32_t meshletEndOffset;
 
 		uint32_t meshIndex;
 		uint32_t meshOffset;
 	};
 
 	uint32_t packUint2(uint32_t x, uint32_t y);
-
-	struct visabilityData
-	{
-		// Setted by GPU in compute.
-		// First two bytes visability bit, second two selected LOD.
-		uint32_t visabilityLod;
-	};
 
 	struct perInstanceAttr
 	{
@@ -383,7 +373,7 @@ namespace engine
 	struct pushConstants
 	{
 		uint32_t frameIndex;
-		uint32_t cmdBufferCount;
+		uint32_t meshCount;
 		uint32_t cmdOpaqueBufferIndex;
 	};
 
@@ -395,9 +385,20 @@ namespace engine
 		uint32_t mipHeight;
 		uint32_t cullingPassFlagBit;
 		uint32_t cmdOpaqueBufferIndex;
-		uint32_t cmdBufferCount;
+		uint32_t meshCount;
 		uint32_t hzbLength;
-		uint32_t compactRule;
+		uint32_t compactCapacity;
+	};
+
+	// Meshes that survived culling.
+	// Need that buffer to fan out meshes -> meshlets. (found that approach in Niagara renderer https://github.com/zeux/niagara).
+	struct meshJob
+	{
+		uint32_t instanceIndex;
+		uint32_t instanceOffset;
+		uint32_t meshletIndex;
+		uint32_t firstMeshletOffset;
+		uint32_t meshletsInJob;
 	};
 
 	struct linePushConstant

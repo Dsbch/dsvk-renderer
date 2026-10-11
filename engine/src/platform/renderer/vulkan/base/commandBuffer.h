@@ -20,7 +20,7 @@ namespace engine
 
 		commandBuffer(const commandBuffer&) = delete;
 
-		void init(VkDevice device, VmaAllocator allocator, submit& is, uint32_t framesInFlight);
+		void init(std::shared_ptr<context> ctx, VkDevice device, VmaAllocator allocator, submit& is, uint32_t framesInFlight);
 		error build(submit& is);
 		void destroy();
 
@@ -36,7 +36,7 @@ namespace engine
 		{
 			uint32_t instanceID;
 			bufferHandle perInstanceHandle;
-			std::vector<meshes> meshesData;
+			std::vector<meshes>& meshesData;
 			bool isBlendGeometry;
 			uint32_t frameIndex;
 		};
@@ -44,7 +44,7 @@ namespace engine
 		struct removeInstanceParams
 		{
 			uint32_t instanceID;
-			uint32_t meshID;
+			std::vector<meshes>& meshesData;
 			uint32_t frameIndex;
 		};
 
@@ -61,29 +61,29 @@ namespace engine
 		error updateCommandBuffer(const updateCommandBufferParams& params);
 
 		bool meshIsUsed(uint32_t id, uint32_t frameIndex) const;
+		uint32_t getMaxJobCount(uint32_t frameIndex) const;
 		bool instanceExists(uint32_t id, uint32_t frameIndex) const;
-		std::pair<std::vector<VkDescriptorBufferInfo>, std::vector<VkDescriptorBufferInfo>> getBufferInfo();
+		std::vector<VkDescriptorBufferInfo> getBufferInfo();
 		bool needDescriptorUpdate() const;
 		void setUpdated();
 		vulkanBuffer getCmdBuffer(uint32_t frameIndex) const;
-		vulkanBuffer getCompactBuffer(uint32_t frameIndex) const;
 		uint32_t getCommandBufferLoadedSize(uint32_t frameIndex) const;
 	private:
+		std::shared_ptr<context> mCtx;
+
 		uint32_t mFramesInFlight;
 
 		bool mNeedDescriptorUpdate;
 
 		uint32_t mCmdBufferSize;
-		uint32_t mVisabilityBufferSize;
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		std::vector<vulkanBuffer> mCmdBuffer;
-		std::vector<vulkanBuffer> mVisabilityBuffer;
 		
 		std::vector<std::set<uint32_t>> mEntitiesToDelete;
 		std::vector<std::map<uint32_t, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
 		std::vector<std::map<uint32_t, std::pair<size_t, size_t>>> mUploadedEntities;
 		std::vector<std::map<uint32_t, uint32_t>> mMeshCount;
+		std::vector<std::map<uint32_t, uint32_t>> mJobCount;
 		std::vector<VkDescriptorBufferInfo> mCmdBufferInfo;
-		std::vector<VkDescriptorBufferInfo> mVisabilityBufferInfo;
 	};
 }

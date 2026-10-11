@@ -272,6 +272,9 @@ namespace engine
 			if (mWindowMinimized)
 				return {};
 
+			// Wait on render fence for current frame index.
+			// After wait we can be sure that GPU doesn't access per frame buffers so they can be:
+			// resized and worked on.
 			auto waitResult = mVulkanCtx->sChain.waitOnRenderFence();
 			if (waitResult)
 				return waitResult.err();

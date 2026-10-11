@@ -27,13 +27,13 @@ namespace engine
 		withError<std::shared_ptr<const shader>> getDefaultAccumilateTaskShader();
 		withError<std::shared_ptr<const shader>> getDefaultAccumilateMeshShader();
 		withError<std::shared_ptr<const shader>> getDefaultAccumilatePixelShader();
-		withError<std::shared_ptr<const shader>> getDefaultComputeCompactShader();
 		withError<std::shared_ptr<const shader>> getDefaultTaskShader();
 		withError<std::shared_ptr<const shader>> getDefaultMeshShader();
 		withError<std::shared_ptr<const shader>> getDefaultPixelShader();
 		withError<std::shared_ptr<const shader>> getDefaultLineVertexShader();
 		withError<std::shared_ptr<const shader>> getHzbGenShader();
-		withError<std::shared_ptr<const shader>> getCullingShader();
+		withError<std::shared_ptr<const shader>> getCullingMeshShader();
+		withError<std::shared_ptr<const shader>> getCullingMeshletShader();
 		withError<std::shared_ptr<const shader>> getDefaultLinePixelShader();
 		withError<std::shared_ptr<const shader>> getDefaultVoxelRayMarchPixelShader();
 		withError<std::shared_ptr<const shader>> getDefaultVoxelRayMarchTaskShader();

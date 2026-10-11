@@ -123,7 +123,7 @@ namespace engine
 
 				pushConstants pc{
 					.frameIndex = frameIndex,
-					.cmdBufferCount = cmdBufferCount,
+					.meshCount = cmdBufferCount,
 					.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
 				};
 

@@ -284,17 +284,6 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<const shader>> aManager::getDefaultComputeCompactShader()
-	{
-#ifdef VULKAN
-			const std::string path = "../assets/shaders/vkCompiled/vkCompactCommands.spv";
-
-		return loadShader(path);
-#endif // VULKAN
-
-		return error{ "not implemented" };
-	}
-
 	withError<std::shared_ptr<const shader>> aManager::getDefaultTaskShader()
 	{
 #ifdef VULKAN
@@ -350,10 +339,21 @@ namespace engine
 		return error{ "not implemented" };
 	}
 
-	withError<std::shared_ptr<const shader>> aManager::getCullingShader()
+	withError<std::shared_ptr<const shader>> aManager::getCullingMeshShader()
 	{
 #ifdef VULKAN
-		const std::string path = "../assets/shaders/vkCompiled/vkComputeCulling.spv";
+		const std::string path = "../assets/shaders/vkCompiled/vkComputeCullingMesh.spv";
+
+		return loadShader(path);
+#endif // VULKAN
+
+		return error{ "not implemented" };
+	}
+
+	withError<std::shared_ptr<const shader>> aManager::getCullingMeshletShader()
+	{
+#ifdef VULKAN
+		const std::string path = "../assets/shaders/vkCompiled/vkComputeCullingMeshlet.spv";
 
 		return loadShader(path);
 #endif // VULKAN

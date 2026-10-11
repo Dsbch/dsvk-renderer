@@ -121,8 +121,8 @@ if %errorlevel% neq 0 (
 
 echo.
 
-echo Compiling Compute Culling Shader...
-dxc -T cs_6_9 -E main -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkComputeCulling.spv vkComputeCulling.hlsl
+echo Compiling Compute Culling Mesh Shader...
+dxc -T cs_6_9 -E main -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkComputeCullingMesh.spv vkComputeCullingMesh.hlsl
 if %errorlevel% neq 0 (
     echo Compute Culling Shader compilation failed!
     pause
@@ -132,13 +132,13 @@ if %errorlevel% neq 0 (
 
 echo.
 
-echo Compiling Compute compactCommands Shader...
-dxc -T cs_6_9 -E main -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkCompactCommands.spv vkCompactCommands.hlsl
+echo Compiling Compute Culling Meshlet Shader...
+dxc -T cs_6_9 -E main -fspv-debug=vulkan-with-source -spirv -fspv-target-env=vulkan1.3 -fvk-use-scalar-layout -fspv-extension=SPV_EXT_descriptor_indexing -Fo vkCompiled/vkComputeCullingMeshlet.spv vkComputeCullingMeshlet.hlsl
 if %errorlevel% neq 0 (
-    echo Compute compactCommands Shader compilation failed!
+    echo Compute Culling Shader compilation failed!
     pause
 ) else (
-    echo Compute compactCommands Shader compiled successfully.
+    echo Compute Culling Shader compiled successfully.
 )
 
 echo.

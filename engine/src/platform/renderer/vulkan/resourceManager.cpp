@@ -7,6 +7,8 @@ namespace engine
 	{
 		mCtx = ctx;
 		mVulkanCtx = vulkanCtx;
+
+		mCompactCapacity = 2 << 24;
 	}
 
 	error resourceManager::build(uint32_t width, uint32_t height)
@@ -91,20 +93,16 @@ namespace engine
 		if (needUpdate)
 		{
 			std::vector<VkDescriptorBufferInfo> cmdBuffersInfo{};
-			std::vector<VkDescriptorBufferInfo> visabilityBuffersInfo{};
 
 			for (auto& [_, p] : mOpaqueCommandBuffers)
 			{
 				auto info = p.getBufferInfo();
-				cmdBuffersInfo.insert(cmdBuffersInfo.end(), info.first.begin(), info.first.end());
-				visabilityBuffersInfo.insert(visabilityBuffersInfo.end(), info.second.begin(), info.second.end());
+				cmdBuffersInfo.insert(cmdBuffersInfo.end(), info.begin(), info.end());
 			}
 
 			auto cmdWriteInfo = descriptorSet::getWriteInfo(mBindings.cmdOpaqueBufferBinding, cmdBuffersInfo);
-			auto vsabilityWriteInfo = descriptorSet::getWriteInfo(mBindings.opaqueVisabilityBufferBinding, visabilityBuffersInfo);
 
 			mBufferDescriptorSet.updateWrite(cmdWriteInfo);
-			mBufferDescriptorSet.updateWrite(vsabilityWriteInfo);
 
 			for (auto& [_, p] : mOpaqueCommandBuffers)
 				p.setUpdated();
@@ -114,19 +112,40 @@ namespace engine
 		if (mAccumilationCommandBuffer.needDescriptorUpdate())
 		{
 			std::vector<VkDescriptorBufferInfo> cmdBuffersInfo{};
-			std::vector<VkDescriptorBufferInfo> visabilityBuffersInfo{};
 
 			auto info = mAccumilationCommandBuffer.getBufferInfo();
-			cmdBuffersInfo.insert(cmdBuffersInfo.end(), info.first.begin(), info.first.end());
-			visabilityBuffersInfo.insert(visabilityBuffersInfo.end(), info.second.begin(), info.second.end());
+			cmdBuffersInfo.insert(cmdBuffersInfo.end(), info.begin(), info.end());
 
 			auto cmdWriteInfo = descriptorSet::getWriteInfo(mBindings.cmdAccumilationBufferBinding, cmdBuffersInfo);
-			auto visabilityWriteInfo = descriptorSet::getWriteInfo(mBindings.accumilationVisabilityBufferBinding, visabilityBuffersInfo);
 
 			mBufferDescriptorSet.updateWrite(cmdWriteInfo);
-			mBufferDescriptorSet.updateWrite(visabilityWriteInfo);
 
 			mAccumilationCommandBuffer.setUpdated();
+		}
+
+		// Resize visability if needed.
+		for (auto& vb : mOpaqueMeshVisabilityBuffer)
+		{
+			if (uint32_t max = (getMaxCmdBufferSize(frameIndex) / sizeof(meshletShaderCMD)); max > vb.second[frameIndex].getSize() * 8)
+			{
+				vb.second[frameIndex].destroy();
+
+				error err = vb.second[frameIndex].build(mVulkanCtx->iSubmit, nullptr, max, 0);
+				if (err)
+					return err;
+			}
+		}
+
+		// Resize job buffer if needed.
+		if (size_t max = (size_t(getMaxJobCount(frameIndex)) + 1) * sizeof(meshJob); max > mJobBuffer[frameIndex].getSize())
+		{
+			constexpr glm::uvec4 visDispatch{ 0, 0, 1, 1 };
+
+			mJobBuffer[frameIndex].destroy();
+
+			error err = mJobBuffer[frameIndex].build(mVulkanCtx->iSubmit, &visDispatch, max, sizeof(glm::uvec4), true);
+			if (err)
+				return err;
 		}
 
 		if (mPositionRegistry.needDescriptorUpdate())
@@ -221,24 +240,46 @@ namespace engine
 			mMaterialRegistry.setUpdated();
 		}
 
-		// Resize compact buffer if needed.
-		if (uint32_t max = (getMaxCmdBufferSize(frameIndex) / sizeof(meshletShaderCMD)) * sizeof(glm::uvec4); max + sizeof(glm::uvec4) > mCompactBuffer[frameIndex].getSize())
+		bool needDescriptorsUpdate = false;
+
+		for (auto& buf : mJobBuffer)
+			needDescriptorsUpdate |= buf.needDescriptorUpdate();
+
+		if (needDescriptorsUpdate)
 		{
-			mCompactBuffer[frameIndex].destroy();
-
-			constexpr glm::uvec4 visDispatch{ 0, 0, 1, 1 };
-
-			error err = mCompactBuffer[frameIndex].build(mVulkanCtx->iSubmit, &visDispatch, max + sizeof(glm::uvec4), sizeof(glm::uvec4), true);
-			if (err)
-				return err;
-
 			std::vector<VkDescriptorBufferInfo> bufferInfo{};
 
-			for (auto& b : mCompactBuffer)
+			for (auto& b : mJobBuffer)
 				bufferInfo.push_back(VkDescriptorBufferInfo{ .buffer = b.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
 
-			auto writeInfo = descriptorSet::getWriteInfo(mBindings.compactBufferBinding, bufferInfo);
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.jobBufferBinding, bufferInfo);
 			mBufferDescriptorSet.updateWrite(writeInfo);
+
+			for (auto& b : mJobBuffer)
+				b.setUpdated();
+		}
+
+		needDescriptorsUpdate = false;
+
+		for (auto& vb : mOpaqueMeshVisabilityBuffer)
+			for (auto& buf : vb.second)
+				needDescriptorsUpdate |= buf.needDescriptorUpdate();
+
+		if (needDescriptorsUpdate)
+		{
+			std::vector<VkDescriptorBufferInfo> visabilityBuffersInfo{};
+
+			for (auto& bv : mOpaqueMeshVisabilityBuffer)
+				for (auto& buf : bv.second)
+					visabilityBuffersInfo.push_back(VkDescriptorBufferInfo{ .buffer = buf.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
+
+			auto visabilityWriteInfo = descriptorSet::getWriteInfo(mBindings.opaqueMeshVisabilityBufferBinding, visabilityBuffersInfo);
+
+			mBufferDescriptorSet.updateWrite(visabilityWriteInfo);
+		
+			for (auto& vb : mOpaqueMeshVisabilityBuffer)
+				for (auto& b : vb.second)
+					b.setUpdated();
 		}
 
 		return {};
@@ -250,7 +291,7 @@ namespace engine
 		{
 			commandBuffer cmd{};
 
-			cmd.init(mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, mCtx->config.inner.graphics.framesInFlight);
+			cmd.init(mCtx, mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, mCtx->config.inner.graphics.framesInFlight);
 			error err = cmd.build(mVulkanCtx->iSubmit);
 			if (err)
 				return err;
@@ -258,6 +299,19 @@ namespace engine
 			mOpaqueCommandBuffers[m.mat.pixelShader->hash()] = cmd;
 
 			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mOpaqueCommandBuffers[m.mat.pixelShader->hash()] });
+
+			mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()].resize(mCtx->config.inner.graphics.framesInFlight);
+
+			for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
+			{
+				mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()][i].init(mVulkanCtx->device, mVulkanCtx->allocator, { false, false });
+
+				error err = mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()][i].build(mVulkanCtx->iSubmit, nullptr, 2 << 24, 0);
+				if (err)
+					return err;
+
+				mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()][i] });
+			}
 		}
 
 		if (mOpaqueCommandBuffers[m.mat.pixelShader->hash()].instanceExists(m.id, frameIndex))
@@ -299,11 +353,13 @@ namespace engine
 		if (!perInstanceHandle)
 			return perInstanceHandle.err();
 
+		std::vector<commandBuffer::meshes> meshes{};
+		meshes.reserve(m.meshData->size());
+
 		commandBuffer::addInstanceParams addParams{
 			.instanceID = m.id,
 			.perInstanceHandle = perInstanceHandle.value(),
-			.meshesData = {},
-			.isBlendGeometry = m.mat.hasBlendMaterials(),
+			.meshesData = meshes,
 			.frameIndex = frameIndex,
 		};
 
@@ -460,7 +516,7 @@ namespace engine
 				);
 		}
 
-		if (addParams.isBlendGeometry)
+		if (m.mat.hasBlendMaterials())
 		{
 			error err = mAccumilationCommandBuffer.addInstance(addParams);
 			if (err)
@@ -537,29 +593,44 @@ namespace engine
 
 		mPerInstanceRegistry.scheduleDeleteBlock(m.id, frameIndex);
 
+		std::vector<commandBuffer::meshes> meshes{};
+		meshes.reserve(m.meshData->size());
+
+		for (int i = 0; i < m.meshData->size(); i++)
+		{
+
+			const mesh& crntMesh = m.meshData->operator[](i);
+
+			meshes.push_back(
+				commandBuffer::meshes{
+					.meshID = crntMesh.meshHash,
+					.meshlets = crntMesh.meshlets,
+				}
+				);
+		}
+
+		// Remove instance.
+		mOpaqueCommandBuffers[m.mat.pixelShader->hash()].removeInstance(
+			commandBuffer::removeInstanceParams{
+				.instanceID = m.id,
+				.meshesData = meshes,
+				.frameIndex = frameIndex,
+			}
+			);
+
+		mAccumilationCommandBuffer.removeInstance(
+			commandBuffer::removeInstanceParams{
+				.instanceID = m.id,
+				.meshesData = meshes,
+				.frameIndex = frameIndex,
+			}
+			);
+
 		for (int i = 0; i < m.meshData->size(); i++)
 		{
 			auto& cmd = mOpaqueCommandBuffers[m.mat.pixelShader->hash()];
 
 			const mesh& crntMesh = m.meshData->operator[](i);
-			const perMeshAttributes crntMeshAttrs = m.perMeshData->operator[](i);
-
-			// Remove instance.
-			cmd.removeInstance(
-				commandBuffer::removeInstanceParams{
-					.instanceID = m.id,
-					.meshID = crntMesh.meshHash,
-					.frameIndex = frameIndex,
-				}
-				);
-
-			mAccumilationCommandBuffer.removeInstance(
-				commandBuffer::removeInstanceParams{
-					.instanceID = m.id,
-					.meshID = crntMesh.meshHash,
-					.frameIndex = frameIndex,
-				}
-				);
 
 			// Remove animation data.
 			mJointRegistry.scheduleDeleteBlock(m.id, frameIndex);
@@ -800,7 +871,7 @@ namespace engine
 		return mHZBImages;
 	}
 
-	const std::unordered_map<uint32_t, commandBuffer>& resourceManager::getOpaqueCmdBuffers() const
+	const std::map<uint32_t, commandBuffer>& resourceManager::getOpaqueCmdBuffers() const
 	{
 		return mOpaqueCommandBuffers;
 	}
@@ -821,9 +892,19 @@ namespace engine
 		return mCompactBuffer[frameIndex];
 	}
 
+	const vulkanBuffer& resourceManager::getJobBuffer(uint32_t frameIndex) const
+	{
+		return mJobBuffer[frameIndex];
+	}
+
 	const vulkanBuffer& resourceManager::getLinebuffer() const
 	{
 		return mLineBuffer;
+	}
+
+	const uint32_t resourceManager::getCompactCapacity() const
+	{
+		return mCompactCapacity / sizeof(glm::uvec4);
 	}
 
 	error resourceManager::changeViewPort(uint32_t width, uint32_t height)
@@ -894,7 +975,7 @@ namespace engine
 		// Updated each frame used as MAPPED.
 		mPerInstanceRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
 		mJointRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
-		mAccumilationCommandBuffer.init(mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, mCtx->config.inner.graphics.framesInFlight);
+		mAccumilationCommandBuffer.init(mCtx, mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, mCtx->config.inner.graphics.framesInFlight);
 		mLineBuffer.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false });
 
 		error err = mAccumilationCommandBuffer.build(mVulkanCtx->iSubmit);
@@ -929,7 +1010,7 @@ namespace engine
 		{
 			mCompactBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator);
 
-			err = mCompactBuffer[i].build(mVulkanCtx->iSubmit, &visDispatch, 2 << 24, sizeof(glm::uvec4), true);
+			err = mCompactBuffer[i].build(mVulkanCtx->iSubmit, &visDispatch, mCompactCapacity, sizeof(glm::uvec4), true);
 			if (err)
 				return err;
 
@@ -938,7 +1019,6 @@ namespace engine
 
 		mUboPerDrawBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
 
-		// Init per draw buffer.
 		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
 		{
 			mUboPerDrawBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false });
@@ -948,6 +1028,19 @@ namespace engine
 				return err;
 
 			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mUboPerDrawBuffer[i] });
+		}
+
+		mJobBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
+
+		for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
+		{
+			mJobBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator, { false, false });
+
+			error err = mJobBuffer[i].build(mVulkanCtx->iSubmit, &visDispatch, 2 << 24, sizeof(glm::uvec4), true);
+			if (err)
+				return err;
+
+			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mJobBuffer[i] });
 		}
 
 		// Textures.
@@ -1165,19 +1258,19 @@ namespace engine
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.opaqueVisabilityBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+				mBindings.opaqueMeshVisabilityBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
+		mBufferDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.jobBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mBindings.cmdAccumilationBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mBufferDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.accumilationVisabilityBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
@@ -1376,5 +1469,14 @@ namespace engine
 			opaque += v.getCommandBufferLoadedSize(frameIndex);
 
 		return std::max(opaque, mAccumilationCommandBuffer.getCommandBufferLoadedSize(frameIndex));
+	}
+
+	uint32_t resourceManager::getMaxJobCount(uint32_t frameIndex) const
+	{
+		uint32_t opaque{};
+		for (auto& [_, v] : mOpaqueCommandBuffers)
+			opaque += v.getMaxJobCount(frameIndex);
+
+		return std::max(opaque, mAccumilationCommandBuffer.getMaxJobCount(frameIndex));
 	}
 }

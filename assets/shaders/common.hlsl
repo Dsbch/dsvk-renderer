@@ -6,7 +6,7 @@
 #define DEFINE_AS_PUSH_CONSTANT
 #endif
 
-#define COMPACT_THREAD_COUNT 256
+#define CULLING_THREAD_COUNT 128
 #define MESHLET_THREAD_COUNT 32
 #define TRIANGLES_PER_MESHLET 96
 #define VERTICES_PER_MESHLET 64
@@ -20,10 +20,6 @@
 #define EPSILON 0.00001f
 
 #define MAX_UINT 4294967295
-    
-#define VISIBLE_FIRST_PASS_FLAG_BIT         (1 << 0)
-#define VISIBLE_SECOND_PASS_FLAG_BIT        (1 << 1)
-#define NOT_VISIBLE_FLAG_BIT                (1 << 2)
 
 #define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
 #define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
@@ -107,6 +103,7 @@ struct command
     uint meshletOffset2;
     uint meshletOffset3;
     uint meshletOffset4;
+    uint meshletEndOffset;
     
     uint meshIndex;
     uint meshOffset;
@@ -162,6 +159,17 @@ struct perDrawData
     float4x4 viewProjectionVoxel;
 };
 
+// Meshes that survived culling.
+// Need that buffer to fan out meshes -> meshlets. (found that approach in Niagara renderer https://github.com/zeux/niagara).
+struct meshJob
+{
+    uint instanceIndex;
+    uint instanceOffset;
+    uint meshletIndex;
+    uint firstMeshletOffset;
+    uint meshletsInJob;
+};
+
 struct meshOutput
 {
     float4 position : SV_POSITION;
@@ -184,22 +192,25 @@ StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
 
 StructuredBuffer<command> commandOpaqueBuffer[] : register(t5, space0);
 StructuredBuffer<command> commandAccumilationBuffer[] : register(t6, space0);
-// VisabilityBit on first two bytes on second two bytes selected lod.
-RWStructuredBuffer<uint> opaqueVisabilityBuffer[] : register(u7, space0);
-// VisabilityBit on first two bytes on second two bytes selected lod.
-RWStructuredBuffer<uint> accumilationVisabilityBuffer[] : register(u8, space0);
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t9, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t10, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t11, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t12, space0);
-StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t13, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t14, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t15, space0);
-ConstantBuffer<perDrawData> drawData[] : register(b16, space0);
-// First uint4 is:
-// x = visibleCount y = groupCountX, z = groupCountY, w = groupCountZ     
-RWStructuredBuffer<uint4> compactBuffer[] : register(u17, space0);
-StructuredBuffer<float3> lineBuffer : register(t18, space0);
+
+// VisabilityBit only one BIT for each mesh.
+RWStructuredBuffer<uint> opaqueMeshVisabilityBuffer[] : register(u7, space0);
+
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t8, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t9, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t10, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t11, space0);
+StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t12, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t13, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t14, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b15, space0);
+// First slot is:
+// x = visibleCount y = groupCountX, z = groupCountY, w = groupCountZ.
+RWStructuredBuffer<uint4> compactBuffer[] : register(u16, space0);
+StructuredBuffer<float3> lineBuffer : register(t17, space0);
+// First slot is:
+// x = jobCount y = groupCountX, z = groupCountY, w = groupCountZ, and garbage uint.
+RWStructuredBuffer<meshJob> jobBuffer[] : register(u18, space0);
 
 // Texture bindings.
 Texture2D materials[] : register(t0, space1);
@@ -431,6 +442,29 @@ meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTrans
     return result;
 }
 
+uint meshletsInLod(command cmd, uint lodLevel)
+{
+    uint result;
+    
+    switch (lodLevel)
+    {
+        case 2:
+            result = cmd.meshletOffset3 - cmd.meshletOffset2;
+            break;
+        case 3:
+            result = cmd.meshletOffset4 - cmd.meshletOffset3;
+            break;
+        case 4:
+            result = cmd.meshletEndOffset - cmd.meshletOffset4;
+            break;
+        default:
+            result = cmd.meshletOffset2 - cmd.meshletOffset1;
+            break;
+    }
+    
+    return result;
+}
+
 uint getMeshletOffset(command cmd, uint lodLevel)
 {
     uint result;
@@ -454,21 +488,30 @@ uint getMeshletOffset(command cmd, uint lodLevel)
     return result;
 }
 
+float4 worldSpaceBS(float4 bs, transform modelTransform)
+{
+    float4 result = bs;
+    
+    float uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
+    
+    result.xyz = transformPoint(modelTransform, bs.xyz);
+    result.w *= uniformScale;
+    
+    return result;
+}
+
 uint selectLodLevel(
     perMeshAttributes meshAttr,
     perDrawData drawData,
     transform modelTransform
 )
 {
-    float uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
+    float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), modelTransform);
     
-    meshAttr.bsCenter = transformPoint(modelTransform, meshAttr.bsCenter);
-    meshAttr.bsRadius *= uniformScale;
-    
-    if (length(drawData.cameraPos - meshAttr.bsCenter) <= meshAttr.bsRadius)
+    if (length(drawData.cameraPos - worldBs.xyz) <= worldBs.w)
         return 1;
     
-    float ndcRadius = sphereNdcRadius(float4(meshAttr.bsCenter, meshAttr.bsRadius), drawData);
+    float ndcRadius = sphereNdcRadius(float4(worldBs.xyz, worldBs.w), drawData);
     
     if (ndcRadius >= 0.2f)   // ~10% of screen.
         return 1;
@@ -508,6 +551,18 @@ bool isInFrustum(perDrawData drawData, meshletBounds bounds)
     return front && back && right && left && top && bottom;
 }
 
+bool isInFrustum(perDrawData drawData, float4 bs)
+{
+    bool front = dot(bs.w * drawData.cameraFrustum.worldFrontN + bs.xyz, drawData.cameraFrustum.worldFrontN) - drawData.cameraFrustum.frontDistance > 0;
+    bool back = dot(bs.w * drawData.cameraFrustum.worldBackN + bs.xyz, drawData.cameraFrustum.worldBackN) - drawData.cameraFrustum.backDistance > 0;
+    bool right = dot(bs.w * drawData.cameraFrustum.worldRightN + bs.xyz, drawData.cameraFrustum.worldRightN) - drawData.cameraFrustum.rightDistance > 0;
+    bool left = dot(bs.w * drawData.cameraFrustum.worldLeftN + bs.xyz, drawData.cameraFrustum.worldLeftN) - drawData.cameraFrustum.leftDistance > 0;
+    bool top = dot(bs.w * drawData.cameraFrustum.worldTopN + bs.xyz, drawData.cameraFrustum.worldTopN) - drawData.cameraFrustum.topDistance > 0;
+    bool bottom = dot(bs.w * drawData.cameraFrustum.worldBottomN + bs.xyz, drawData.cameraFrustum.worldBottomN) - drawData.cameraFrustum.bottomDistance > 0;
+    
+    return front && back && right && left && top && bottom;
+}
+
 // meshopt stores the triangle offset in bytes since it stores the
 // triangle indices as 3 consecutive bytes. 
 //
@@ -536,6 +591,23 @@ uint2 unpackUint2(uint packed)
 uint packUint2(uint x, uint y)
 {
     return (x & 0xFFFF) | (y << 16);
+}
+
+bool isVisabilityBitSet(uint word, uint index)
+{
+    return ((word >> (index & 31)) & 1) != 0;
+}
+
+// Uses atomic.
+void writeMeshVisibilityBit(uint bufferIndex, uint index, bool value)
+{
+    uint mask = 1u << (index & 31); 
+    uint word = index >> 5; 
+
+    if (value)
+        InterlockedOr(opaqueMeshVisabilityBuffer[bufferIndex][word], mask);
+    else
+        InterlockedAnd(opaqueMeshVisabilityBuffer[bufferIndex][word], ~mask);
 }
 
 bool isBackface(perDrawData drawData, transform modelTransform, float3 v1, float3 v2, float3 v3)
@@ -685,4 +757,30 @@ float3 pixelToRayDir(float2 pixel, perDrawData dData)
     float3 right = cross(fwd, up);
 
     return normalize(right * (ndc.x * halfW) + up * (ndc.y * halfH) + fwd);
+}
+
+bool isOcluded(cullingData occData, perDrawData dData, uint hzbLength)
+{
+    // Floor, because we will sample 2x2 texels for that sphere.
+    uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
+                    
+    neededChain = min(hzbLength - 1, neededChain);
+                    
+    // drawData.width >> neededChain => divide by 2 in power of neededChain.
+    // drawData.width / 2 because zero mip starts with drawData.width / 2.
+    int mipWidth = max(1, int(dData.width / 2) >> (neededChain));
+    int mipHeight = max(1, int(dData.height / 2) >> (neededChain));
+
+    float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
+
+    int2 topLeftTexel = clamp(int2(floor(mipTexelCoords)), int2(0, 0), int2(mipWidth - 2, mipHeight - 2));
+
+    float d00 = hzbChain[neededChain][topLeftTexel + int2(0, 0)];
+    float d10 = hzbChain[neededChain][topLeftTexel + int2(1, 0)];
+    float d01 = hzbChain[neededChain][topLeftTexel + int2(0, 1)];
+    float d11 = hzbChain[neededChain][topLeftTexel + int2(1, 1)];
+
+    float minDepth = min(min(d00, d10), min(d01, d11));
+                
+    return !((occData.closestDepth >= minDepth) || occData.closestDepth < 0.0f);
 }

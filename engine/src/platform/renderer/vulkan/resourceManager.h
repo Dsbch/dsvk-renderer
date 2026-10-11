@@ -87,11 +87,13 @@ namespace engine
 		vulkanImage getRevealImage(bool needResolve) const;
 		vulkanImage getClipMap() const;
 		std::span<vulkanImage> getHZB();
-		const std::unordered_map<uint32_t, commandBuffer>& getOpaqueCmdBuffers() const;
+		const std::map<uint32_t, commandBuffer>& getOpaqueCmdBuffers() const;
 		const commandBuffer* getOpaqueCmdBuffer(uint32_t pixelShaderID) const;
 		const commandBuffer& getAccumilationCmdBuffer() const;
 		const vulkanBuffer& getCompactBuffer(uint32_t frameIndex) const;
+		const vulkanBuffer& getJobBuffer(uint32_t frameIndex) const;
 		const vulkanBuffer& getLinebuffer() const;
+		const uint32_t getCompactCapacity() const;
 	private:
 		void destroyViewPortDependantResources();
 		error buildResources(uint32_t width, uint32_t height);
@@ -100,6 +102,7 @@ namespace engine
 		void updateWriteAfterViewPortChange();
 
 		uint32_t getMaxCmdBufferSize(uint32_t frameIndex) const;
+		uint32_t getMaxJobCount(uint32_t frameIndex) const;
 
 		// Control fields.
 		std::shared_ptr<context> mCtx;
@@ -121,18 +124,18 @@ namespace engine
 			uint32_t weightBinding = 4;
 			uint32_t cmdOpaqueBufferBinding = 5;
 			uint32_t cmdAccumilationBufferBinding = 6;
-			uint32_t opaqueVisabilityBufferBinding = 7;
-			uint32_t accumilationVisabilityBufferBinding = 8;
-			uint32_t perInstanceBinding = 9;
-			uint32_t indexBinding = 10;
-			uint32_t primitiveBinding = 11;
-			uint32_t meshletBinding = 12;
-			uint32_t meshletAttributesBinding = 13;
-			uint32_t jointsBinding = 14;
-			uint32_t perMeshBinding = 15;
-			uint32_t perDrawBufferUboBinding = 16;
-			uint32_t compactBufferBinding = 17;
-			uint32_t lineBufferBinding = 18;
+			uint32_t opaqueMeshVisabilityBufferBinding = 7;
+			uint32_t perInstanceBinding = 8;
+			uint32_t indexBinding = 9;
+			uint32_t primitiveBinding = 10;
+			uint32_t meshletBinding = 11;
+			uint32_t meshletAttributesBinding = 12;
+			uint32_t jointsBinding = 13;
+			uint32_t perMeshBinding = 14;
+			uint32_t perDrawBufferUboBinding = 15;
+			uint32_t compactBufferBinding = 16;
+			uint32_t lineBufferBinding = 17;
+			uint32_t jobBufferBinding = 18;
 
 			// Texture bindings.
 			uint32_t materialArrayBinding = 0;
@@ -152,7 +155,7 @@ namespace engine
 
 		// Buffers.
 		commandBuffer mAccumilationCommandBuffer;
-		std::unordered_map<uint32_t, commandBuffer> mOpaqueCommandBuffers;
+		std::map<uint32_t, commandBuffer> mOpaqueCommandBuffers;
 		bufferRegistry mPositionRegistry;
 		bufferRegistry mNormalRegistry;
 		bufferRegistry mTangentRegistry;
@@ -167,6 +170,9 @@ namespace engine
 		bufferRegistry mJointRegistry;
 		vulkanBuffer mLineBuffer;
 		std::vector<vulkanBuffer> mUboPerDrawBuffer;
+		std::map<uint32_t, std::vector<vulkanBuffer>> mOpaqueMeshVisabilityBuffer;
+		std::vector<vulkanBuffer> mJobBuffer;
+		uint32_t mCompactCapacity;
 		std::vector<vulkanBuffer> mCompactBuffer;
 
 		// Texture buffers.

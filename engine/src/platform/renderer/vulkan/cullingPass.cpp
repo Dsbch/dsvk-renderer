@@ -72,53 +72,63 @@ namespace engine
 		return {};
 	}
 
-	error cullingPass::cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullingPass::cullMeshletsParams params, uint32_t frameIndex)
+	error cullingPass::cullMeshes(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params, uint32_t frameIndex)
 	{
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingPipeline.getPipeline().first);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingMeshPipeline.getPipeline().first);
 
 		mResourceManager->bindDescriptorSets(
 			cmd,
 			VK_PIPELINE_BIND_POINT_COMPUTE,
-			mBuildHzbPipeline.getPipeline().second
+			mCullingMeshPipeline.getPipeline().second
 		);
 
 		computePushConstants pc{
 			.frameIndex = frameIndex,
 			.cullingPassFlagBit = params.cullStage,
 			.cmdOpaqueBufferIndex = params.opaqueCmdBufferIndex,
-			.cmdBufferCount = params.cmdBufferCount,
+			.meshCount = params.meshCount,
 			.hzbLength = params.hzbLength,
+			.compactCapacity = params.compactCapacity,
 		};
 
-		vkCmdPushConstants(cmd, mCullingPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
+		vkCmdPushConstants(cmd, mCullingMeshPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
 
-		// For accumilation pass we do not use indirect for culling.
-		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / 128 + 1, 1, 1);
+		vkCmdDispatch(
+			cmd,
+			params.meshCount / mCtx->config.inner.render.cullingThreadCount + 1,
+			1,
+			1
+		);
 
 		return {};
 	}
 
-	error cullingPass::compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex)
+	error cullingPass::cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullingPass::cullMeshletsParams params, uint32_t frameIndex)
 	{
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCompactCommandsPipeline.getPipeline().first);
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, mCullingMeshletPipeline.getPipeline().first);
 
 		mResourceManager->bindDescriptorSets(
 			cmd,
 			VK_PIPELINE_BIND_POINT_COMPUTE,
-			mBuildHzbPipeline.getPipeline().second
+			mCullingMeshletPipeline.getPipeline().second
 		);
 
 		computePushConstants pc{
 			.frameIndex = frameIndex,
-			.cullingPassFlagBit = params.stage,
+			.cullingPassFlagBit = params.cullStage,
 			.cmdOpaqueBufferIndex = params.opaqueCmdBufferIndex,
-			.cmdBufferCount = params.cmdBufferCount,
-			.compactRule = params.compactRule,
+			.meshCount = params.meshCount,
+			.hzbLength = params.hzbLength,
+			.compactCapacity = params.compactCapacity,
 		};
 
-		vkCmdPushConstants(cmd, mCompactCommandsPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
+		vkCmdPushConstants(cmd, mCullingMeshletPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
 
-		vkCmdDispatch(cmd, uint32_t(pc.cmdBufferCount) / mCtx->config.inner.render.compactWorkGroup + 1, 1, 1);
+		vkCmdDispatchIndirect(
+			cmd, 
+			params.dispatchBuffer.getBuffer().buffer,
+			sizeof(uint32_t)
+		);
 
 		return {};
 	}
@@ -150,53 +160,53 @@ namespace engine
 
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mBuildHzbPipeline });
 
-		// Init culling pipeline.
-		VkShaderModule cullingModule;
-		auto csCullingShader = mCtx->mAmanager->getCullingShader();
-		if (!csCullingShader)
-			return csCullingShader.err();
+		// Init culling meshlet pipeline.
+		VkShaderModule cullingMeshletModule;
+		auto csCullingMeshletShader = mCtx->mAmanager->getCullingMeshletShader();
+		if (!csCullingMeshletShader)
+			return csCullingMeshletShader.err();
 
-		cullingModule = static_cast<vulkanShader*>(const_cast<shader*>(csCullingShader.value().get()))->mShaderModule;
+		cullingMeshletModule = static_cast<vulkanShader*>(const_cast<shader*>(csCullingMeshletShader.value().get()))->mShaderModule;
 
-		mCullingPipeline.init(mVulkanCtx->device);
-		mCullingPipeline.setShader(cullingModule);
+		mCullingMeshletPipeline.init(mVulkanCtx->device);
+		mCullingMeshletPipeline.setShader(cullingMeshletModule);
 
 		pc.offset = 0;
 		pc.size = sizeof(computePushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-		buildErr = mCullingPipeline.build(
+		buildErr = mCullingMeshletPipeline.build(
 			&pc, 
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second }
 		);
 		if (buildErr)
 			return buildErr;
 
-		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCullingPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCullingMeshletPipeline });
 
-		// Init compact pipeline.
-		VkShaderModule compactModule;
-		auto compactShader = mCtx->mAmanager->getDefaultComputeCompactShader();
-		if (!compactShader)
-			return compactShader.err();
+		// Init culling mesh pipeline.
+		VkShaderModule cullingMeshModule;
+		auto csCullingMeshShader = mCtx->mAmanager->getCullingMeshShader();
+		if (!csCullingMeshShader)
+			return csCullingMeshShader.err();
 
-		compactModule = static_cast<vulkanShader*>(const_cast<shader*>(compactShader.value().get()))->mShaderModule;
+		cullingMeshModule = static_cast<vulkanShader*>(const_cast<shader*>(csCullingMeshShader.value().get()))->mShaderModule;
 
-		mCompactCommandsPipeline.init(mVulkanCtx->device);
-		mCompactCommandsPipeline.setShader(compactModule);
+		mCullingMeshPipeline.init(mVulkanCtx->device);
+		mCullingMeshPipeline.setShader(cullingMeshModule);
 
 		pc.offset = 0;
 		pc.size = sizeof(computePushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-		buildErr = mCompactCommandsPipeline.build(
-			&pc, 
+		buildErr = mCullingMeshPipeline.build(
+			&pc,
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second }
 		);
 		if (buildErr)
 			return buildErr;
 
-		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCompactCommandsPipeline });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::computePipe, .computePipe = &mCullingMeshPipeline });
 
 		return {};
 	}

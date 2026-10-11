@@ -17,31 +17,24 @@ namespace engine
 
 		struct cullMeshletsParams
 		{
-			uint32_t cmdBufferCount;
 			uint32_t cullStage;
 			uint32_t opaqueCmdBufferIndex;
 			uint32_t hzbLength;
+			uint32_t meshCount;
+			uint32_t compactCapacity;
+			vulkanBuffer dispatchBuffer;
 		};
 
+		error cullMeshes(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params, uint32_t frameIndex);
 		error cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params, uint32_t frameIndex);
-
-		struct compactCommandBufferParams
-		{
-			uint32_t cmdBufferCount;
-			uint32_t opaqueCmdBufferIndex;
-			uint32_t stage;
-			uint32_t compactRule;
-		};
-
-		error compactCommandBuffer(VkCommandBuffer cmd, renderer::renderParams in, compactCommandBufferParams params, uint32_t frameIndex);
 	private:
 		std::shared_ptr<context> mCtx;
 		std::shared_ptr<resourceManager> mResourceManager;
 		std::shared_ptr<vulkanContext> mVulkanCtx;
 
 		computePipeline mBuildHzbPipeline;
-		computePipeline mCullingPipeline;
-		computePipeline mCompactCommandsPipeline;
+		computePipeline mCullingMeshPipeline;
+		computePipeline mCullingMeshletPipeline;
 
 		error initComputePipeline();
 	};
