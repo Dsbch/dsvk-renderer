@@ -49,10 +49,7 @@ namespace engine
 		error updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex);
 		void removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex);
 
-		aabb getSceneBoundingBox() const;
 		voxelDrawParams getVoxelSceneParams() const;
-
-		std::unordered_map<uint32_t, aabb> mSceneAABB;
 
 		bool mWindowMinimized;
 		profilingInfo mProfInfo;

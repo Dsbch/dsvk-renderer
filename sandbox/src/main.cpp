@@ -2,6 +2,15 @@
 #include <co/all.h>
 #include "sandbox.h"
 
+
+// Optimizations:
+// 1. Fix UUID collision make uuid 64bit.
+// 2. Add visability buffer for EACH meshlet.
+// 3. Make compact buffer resizable need to figure out GPU readback after culling.
+// 4. Go to TASK shaders and remove computeMeshletCulling shader.
+// 5. Profile it!
+
+// Voxelization:
 // 1. Calculate scene bounding box.
 // 2. Write new voxel renderer, that will voxelize a scene (depth test off, culling off, ortho projection) into 3D texture.
 // 2.1. Need to implement triangle swizling in mesh shader.

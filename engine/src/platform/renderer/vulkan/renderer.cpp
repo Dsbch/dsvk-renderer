@@ -509,7 +509,15 @@ namespace engine
 			signalInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, mVulkanCtx->sChain.getRenderSemaphore()));
 
 			for (auto& sema : waitSema)
-				waitInfo.push_back(semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT, sema));
+				waitInfo.push_back(semaphoreSubmitInfo(
+					VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT |
+					VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+					VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT |
+					VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT |
+					VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+					sema
+				));
 
 			VkSubmitInfo2 submit = submitInfo(&cmdinfo, signalInfo, waitInfo);
 
@@ -744,8 +752,6 @@ namespace engine
 		error err = {};
 		for (auto& m : addedEntities)
 		{
-			mSceneAABB[m.id] = m.calculateWorldSpaceAABB();
-
 			registerSceneMetrics(m);
 
 			err = mMeshletPass->createPipeline(m);
@@ -796,29 +802,8 @@ namespace engine
 		}
 	}
 
-	aabb vulkanRenderer::getSceneBoundingBox() const
-	{
-		aabb result{
-			.min = glm::vec3{std::numeric_limits<float>::max()},
-			.max = glm::vec3{std::numeric_limits<float>::lowest()},
-		};
-
-		if (mSceneAABB.size() == 0)
-			return aabb{};
-
-		for (auto& [_, v] : mSceneAABB)
-		{
-			result.max = glm::max(result.max, v.max);
-			result.min = glm::min(result.min, v.min);
-		}
-
-		return result;
-	}
-
 	voxelDrawParams vulkanRenderer::getVoxelSceneParams() const
 	{
-		aabb box = getSceneBoundingBox();
-
 		glm::mat4 view = glm::mat4{ 1.0f };
 
 		const float halfExtent = float(mCtx->config.inner.graphics.voxelSceneExtent) * 0.5f;

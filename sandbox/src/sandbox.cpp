@@ -213,12 +213,12 @@ namespace sandbox
 				if (!loadedModel)
 					return loadedModel.err();
 
-				// 40^3 = 64K models total, ~1 billion triangles (raw).
-				const int gridCount = 40;
+				// 100^3 = 64K models total, ~4 billion triangles (raw) 144fps.
+				const int gridCount = 100;
 
 				// Increase these bounds to spread the models further apart
-				const float minExtent = -15.0f;
-				const float maxExtent = 15.0f;
+				const float minExtent = -20.0f;
+				const float maxExtent = 20.0f;
 				const float extentRange = maxExtent - minExtent;
 
 				glm::vec3 scale = glm::vec3(1.0f);
