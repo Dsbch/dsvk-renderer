@@ -16,7 +16,7 @@ namespace engine
 		mBuffersPerBlock = buffersPerBlock;
 	}
 
-	withError<bufferHandle> bufferRegistry::addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize)
+	withError<bufferHandle> bufferRegistry::addBlock(UID id, const void* data, size_t sizeInBytes, submit& is, size_t newSize)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
@@ -114,7 +114,7 @@ namespace engine
 		return handle;
 	}
 
-	withError<bufferHandle> bufferRegistry::findBlock(uint32_t id)
+	withError<bufferHandle> bufferRegistry::findBlock(UID id)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
@@ -125,7 +125,7 @@ namespace engine
 		return error{ "block not found" };
 	}
 
-	error bufferRegistry::updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, uint32_t frameIndex)
+	error bufferRegistry::updateBlock(UID id, const void* data, size_t sizeInBytes, submit& is, uint32_t frameIndex)
 	{
 		bool found{};
 		for (auto& sd : mBlockScheduledToDelete)
@@ -149,7 +149,7 @@ namespace engine
 		return {};
 	}
 
-	bool bufferRegistry::deleteBlock(uint32_t id)
+	bool bufferRegistry::deleteBlock(UID id)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
@@ -169,7 +169,7 @@ namespace engine
 		return false;
 	}
 
-	bool bufferRegistry::scheduleDeleteBlock(uint32_t id, uint32_t frameIndex)
+	bool bufferRegistry::scheduleDeleteBlock(UID id, uint32_t frameIndex)
 	{
 		for (uint32_t i = 0; i < mBuffers.size(); i++)
 		{
@@ -325,12 +325,12 @@ namespace engine
 		mMaterialsScheduledToDelete[frameIndex].clear();
 	}
 
-	void materialRegistry::scheduleDeleteMaterials(uint32_t hash, uint32_t frameIndex)
+	void materialRegistry::scheduleDeleteMaterials(UID hash, uint32_t frameIndex)
 	{
 		mMaterialsScheduledToDelete[frameIndex].insert(hash);
 	}
 
-	void materialRegistry::deleteMaterials(uint32 hash)
+	void materialRegistry::deleteMaterials(UID hash)
 	{
 		if (auto found = mUploadedMaterials.find(hash); found != mUploadedMaterials.end())
 		{

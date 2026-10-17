@@ -127,7 +127,7 @@ namespace engine
 		vkCmdDispatchIndirect(
 			cmd,
 			params.dispatchBuffer.getBuffer().buffer,
-			sizeof(uint32_t)
+			0
 		);
 
 		return {};

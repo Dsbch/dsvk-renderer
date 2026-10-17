@@ -26,7 +26,7 @@ namespace engine
 
 		struct meshes
 		{
-			uint32_t meshID;
+			UID meshID;
 			bufferHandle meshHandle;
 			bufferHandle meshletHandle;
 			const dataWithLodLevels<meshletData>& meshlets;
@@ -34,7 +34,7 @@ namespace engine
 
 		struct addInstanceParams
 		{
-			uint32_t instanceID;
+			UID instanceID;
 			bufferHandle perInstanceHandle;
 			std::vector<meshes>& meshesData;
 			bool isBlendGeometry;
@@ -43,7 +43,7 @@ namespace engine
 
 		struct removeInstanceParams
 		{
-			uint32_t instanceID;
+			UID instanceID;
 			std::vector<meshes>& meshesData;
 			uint32_t frameIndex;
 		};
@@ -60,9 +60,9 @@ namespace engine
 		void removeInstance(const removeInstanceParams& params);
 		error updateCommandBuffer(const updateCommandBufferParams& params);
 
-		bool meshIsUsed(uint32_t id, uint32_t frameIndex) const;
+		bool meshIsUsed(UID id, uint32_t frameIndex) const;
 		uint32_t getMaxJobCount(uint32_t frameIndex) const;
-		bool instanceExists(uint32_t id, uint32_t frameIndex) const;
+		bool instanceExists(UID id, uint32_t frameIndex) const;
 		std::vector<VkDescriptorBufferInfo> getBufferInfo();
 		bool needDescriptorUpdate() const;
 		void setUpdated();
@@ -79,11 +79,11 @@ namespace engine
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		std::vector<vulkanBuffer> mCmdBuffer;
 		
-		std::vector<std::set<uint32_t>> mEntitiesToDelete;
-		std::vector<std::map<uint32_t, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
-		std::vector<std::map<uint32_t, std::pair<size_t, size_t>>> mUploadedEntities;
-		std::vector<std::map<uint32_t, uint32_t>> mMeshCount;
-		std::vector<std::map<uint32_t, uint32_t>> mJobCount;
+		std::vector<std::set<UID>> mEntitiesToDelete;
+		std::vector<std::map<UID, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
+		std::vector<std::map<UID, std::pair<size_t, size_t>>> mUploadedEntities;
+		std::vector<std::map<UID, uint32_t>> mMeshCount;
+		std::vector<std::map<UID, uint32_t>> mJobCount;
 		std::vector<VkDescriptorBufferInfo> mCmdBufferInfo;
 	};
 }

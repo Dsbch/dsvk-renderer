@@ -34,7 +34,7 @@ namespace engine
 		if (!loadShaderModule(mSrc, mDevice, &mShaderModule))
 			mErr = error{"can't create shader"};
 
-		mHash = crc32(reinterpret_cast<const uint8_t*>(mSrc.data()), mSrc.size());
+		mHash = crc64(reinterpret_cast<const uint8_t*>(mSrc.data()), mSrc.size());
 	}
 
 	vulkanShader::~vulkanShader()
@@ -42,7 +42,7 @@ namespace engine
 		vkDestroyShaderModule(mDevice, mShaderModule, nullptr);
 	}
 
-	uint32_t vulkanShader::hash() const
+	UID vulkanShader::hash() const
 	{
 		return mHash;
 	}

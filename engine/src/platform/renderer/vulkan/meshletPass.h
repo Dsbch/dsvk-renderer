@@ -14,7 +14,12 @@ namespace engine
 		meshletPass() = default;
 		meshletPass(const meshletPass&) = delete;
 
-		error init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager);
+		error init(
+			std::shared_ptr<context> ctx, 
+			std::shared_ptr<vulkanContext> vulkanContext, 
+			std::shared_ptr<resourceManager> resourceManager,
+			std::shared_ptr<cullingPass> mCullingPass
+		);
 		error destroy();
 
 		error createPipeline(const model& m);
@@ -31,8 +36,8 @@ namespace engine
 
 		graphicsPipeline mCompositePipeline;
 		graphicsPipeline mAccumilationPipeline;
-		std::unordered_map<uint32_t, graphicsPipeline> mOpaquePipelines;
+		std::unordered_map<UID, graphicsPipeline> mOpaquePipelines;
 
-		cullingPass mCullingPass;
+		std::shared_ptr<cullingPass> mCullingPass;
 	};
 }

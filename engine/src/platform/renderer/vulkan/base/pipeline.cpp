@@ -26,7 +26,6 @@ namespace engine
 		mRenderInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
 
 		mShaderStages.clear();
-		mID = genUID();
 	}
 
 	error graphicsPipeline::build(

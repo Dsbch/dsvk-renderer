@@ -35,9 +35,9 @@ namespace engine
 		return s.str();
 	}
 
-	static uint32_t key(const std::string& path)
+	static UID key(const std::string& path)
 	{
-		return crc32(reinterpret_cast<const uint8_t*>(std::filesystem::canonical(path).string().data()), std::filesystem::canonical(path).string().size());
+		return crc64(reinterpret_cast<const uint8_t*>(std::filesystem::canonical(path).string().data()), std::filesystem::canonical(path).string().size());
 	}
 
 	withError<std::shared_ptr<const shader>> aManager::loadShader(const std::string& path)

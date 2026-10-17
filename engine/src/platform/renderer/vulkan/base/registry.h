@@ -15,7 +15,7 @@ namespace engine
 
 	struct bufferHandle
 	{
-		uint32_t id;
+		UID id;
 		uint32_t offset;
 		uint32_t bufferIndex;
 		size_t size;
@@ -41,10 +41,10 @@ namespace engine
 		bufferRegistry(const bufferRegistry&) = delete;
 
 		void init(VkDevice device, VmaAllocator allocator, vulkanBuffer::mapFlags flags = {false, false}, uint32_t buffersPerBlock = 1);
-		withError<bufferHandle> addBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, size_t newSize = newBufferSize);
-		withError<bufferHandle> findBlock(uint32_t id);
-		error updateBlock(uint32_t id, const void* data, size_t sizeInBytes, submit& is, uint32_t frameIndex = 0);
-		bool scheduleDeleteBlock(uint32_t id, uint32_t frameIndex);
+		withError<bufferHandle> addBlock(UID id, const void* data, size_t sizeInBytes, submit& is, size_t newSize = newBufferSize);
+		withError<bufferHandle> findBlock(UID id);
+		error updateBlock(UID id, const void* data, size_t sizeInBytes, submit& is, uint32_t frameIndex = 0);
+		bool scheduleDeleteBlock(UID id, uint32_t frameIndex);
 		void deleteScheduledBlocks(uint32_t frameIndex);
 		
 		void destroy();
@@ -53,14 +53,14 @@ namespace engine
 
 		std::vector<VkWriteDescriptorSet> getWriteInfo(uint32_t binding);
 	private:
-		bool deleteBlock(uint32_t id);
+		bool deleteBlock(UID id);
 
 		uint32_t mBuffersPerBlock;
 		vulkanBuffer::mapFlags mBufferMapFlags;
 		std::vector<bufferWithHandles> mBuffers;
 		std::vector<VkDescriptorBufferInfo> mBuffersInfo;
 
-		std::unordered_map<uint32_t, std::set<uint32_t>> mBlockScheduledToDelete;
+		std::unordered_map<uint32_t, std::set<UID>> mBlockScheduledToDelete;
 
 		VkDevice mDevice;
 		VmaAllocator mAllocator;
@@ -83,12 +83,12 @@ namespace engine
 
 		withError<uint32_t> addMaterials(const materials& materials);
 		withError<uint32_t> getMaterialsOffset(const materials& materials);
-		void scheduleDeleteMaterials(uint32 hash, uint32_t frameIndex);
+		void scheduleDeleteMaterials(UID hash, uint32_t frameIndex);
 		void deleteScheduledMaterials(uint32_t frameIndex);
 	private:
-		void deleteMaterials(uint32 hash);
+		void deleteMaterials(UID hash);
 
-		std::map<uint32_t, std::set<uint32_t>> mMaterialsScheduledToDelete;
+		std::map<uint32_t, std::set<UID>> mMaterialsScheduledToDelete;
 
 		materialTextures mDefaultMat;
 
@@ -100,7 +100,7 @@ namespace engine
 			uint32_t size;
 			VmaVirtualAllocation allocation;
 		};
-		std::map<uint32_t, virtualTextureBlock> mUploadedMaterials;
+		std::map<UID, virtualTextureBlock> mUploadedMaterials;
 
 		std::vector<VkDescriptorImageInfo> mImagesInfo;
 		VkSampler mSampler;

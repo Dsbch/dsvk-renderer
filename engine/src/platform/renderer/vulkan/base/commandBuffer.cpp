@@ -62,7 +62,8 @@ namespace engine
 
 				mEntitiesToAdd[params.frameIndex][params.instanceID].push_back(
 					meshletShaderCMD{
-						.instanceIndex = params.perInstanceHandle.bufferIndex,
+						.meshInstanceIndex = packUint2(m.meshHandle.bufferIndex, params.perInstanceHandle.bufferIndex),
+						.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
 						.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
 						.meshletIndex = m.meshletHandle.bufferIndex,
 						.meshletOffset1 = baseOffset,
@@ -70,8 +71,6 @@ namespace engine
 						.meshletOffset3 = baseOffset + m.meshlets.third,
 						.meshletOffset4 = baseOffset + m.meshlets.fourth,
 						.meshletEndOffset = baseOffset + uint32_t(m.meshlets.data.size()),
-						.meshIndex = m.meshHandle.bufferIndex,
-						.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
 					}
 				);
 			}
@@ -102,7 +101,7 @@ namespace engine
 
 	error commandBuffer::updateCommandBuffer(const updateCommandBufferParams& params)
 	{
-		std::vector<uint32_t> toRemove;
+		std::vector<UID> toRemove;
 
 		for (auto& instanceID : mEntitiesToDelete[params.frameIndex])
 		{
@@ -200,7 +199,7 @@ namespace engine
 		return {};
 	}
 
-	bool commandBuffer::meshIsUsed(uint32_t id, uint32_t frameIndex) const
+	bool commandBuffer::meshIsUsed(UID id, uint32_t frameIndex) const
 	{
 		if (auto found = mMeshCount[frameIndex].find(id); found != mMeshCount[frameIndex].end() && found->second != 0)
 			return true;
@@ -218,7 +217,7 @@ namespace engine
 		return result;
 	}
 
-	bool commandBuffer::instanceExists(uint32_t id, uint32_t frameIndex) const
+	bool commandBuffer::instanceExists(UID id, uint32_t frameIndex) const
 	{
 		if (mUploadedEntities[frameIndex].find(id) != mUploadedEntities[frameIndex].end())
 			return true;

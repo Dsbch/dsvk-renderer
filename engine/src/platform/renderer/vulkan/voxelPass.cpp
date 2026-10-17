@@ -4,11 +4,17 @@
 
 namespace engine
 {
-	error engine::voxelPass::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
+	error engine::voxelPass::init(
+		std::shared_ptr<context> ctx, 
+		std::shared_ptr<vulkanContext> vulkanContext, 
+		std::shared_ptr<resourceManager> resourceManager,
+		std::shared_ptr<cullingPass> cullPass	
+	)
 	{
 		mCtx = ctx;
 		mResourceManager = resourceManager;
 		mVulkanCtx = vulkanContext;
+		mCullingPass = cullPass;
 
 		auto meshlets = mCtx->mAmanager->getDefaultVoxelMeshShader();
 		if (!meshlets)
@@ -78,7 +84,7 @@ namespace engine
 			.baseMipLevel = 0,
 			.levelCount = VK_REMAINING_MIP_LEVELS,
 			.baseArrayLayer = 0,
-			.layerCount = 1,        // 3D images always have arrayLayers = 1
+			.layerCount = 1,
 		};
 
 		pipelineImageBarrier(
@@ -115,6 +121,85 @@ namespace engine
 			// Has to render.  
 			if (cmdBufferCount > 0)
 			{
+				vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t), 0u);
+
+				pipelineBufferBarier(
+					cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_CLEAR_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+					uint32_t(sizeof(uint32_t)),
+					0
+				);
+
+				error err = mCullingPass->cullMeshes(
+					cmd,
+					in,
+					cullingPass::cullMeshletsParams{
+						.cullStage = VOXEL_PASS_FLAG_BIT,
+						.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+						.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
+						.meshCount = cmdBufferCount,
+						.compactCapacity = mResourceManager->getCompactCapacity(),
+					},
+					frameIndex
+					);
+				if (err)
+					return err;
+
+				// Wait for compute call to finish it writes into job buffer.
+				pipelineBufferBarier(
+					cmd,
+					mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+					uint32_t(mResourceManager->getJobBuffer(frameIndex).getSize()),
+					0
+				);
+
+				vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t), 0u);
+
+				pipelineBufferBarier(
+					cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_CLEAR_BIT,
+					VK_ACCESS_2_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+					uint32_t(sizeof(uint32_t)),
+					0
+				);
+
+				// Compact cmd buffer to visability buffer.
+				err = mCullingPass->cullMeshlets(
+					cmd,
+					in,
+					cullingPass::cullMeshletsParams{
+						.cullStage = VOXEL_PASS_FLAG_BIT,
+						.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+						.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
+						.meshCount = cmdBufferCount,
+						.compactCapacity = mResourceManager->getCompactCapacity(),
+						.dispatchBuffer = mResourceManager->getJobBuffer(frameIndex),
+					},
+					frameIndex
+					);
+				if (err)
+					return err;
+
+				pipelineBufferBarier(
+					cmd,
+					mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+					VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+					VK_ACCESS_2_SHADER_WRITE_BIT,
+					VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT,
+					VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
+					uint32_t(mResourceManager->getCompactBuffer(frameIndex).getLoadedBytes()),
+					0
+				);
+
 				VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent);
 
 				vkCmdBeginRendering(cmd, &renderInfo);
@@ -131,11 +216,12 @@ namespace engine
 
 				mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mVoxelizationPipeline.getPipeline().second);
 
-				mVulkanCtx->vkCmdDrawMeshTasksEXT(
+				mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 					cmd,
-					cmdBufferCount,
+					mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
+					0,
 					1,
-					1
+					12
 				);
 
 				vkCmdEndRendering(cmd);

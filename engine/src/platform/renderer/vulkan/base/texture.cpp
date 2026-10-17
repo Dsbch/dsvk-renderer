@@ -34,7 +34,7 @@ namespace engine
 		mImage.destroy();
 	}
 
-	uint32_t vulkanTexture::hash() const
+	UID vulkanTexture::hash() const
 	{
 		return mHash;
 	}

@@ -367,14 +367,8 @@ namespace engine
 				meshletData{
 					.m = meshlet{
 						.localMaterialOffset = materialOffset,
-						.indexBufferIndex = 0,
 						.indexBufferOffset = m.vertex_offset,
-						.weightBufferOffset = 0,
-						.weightBufferIndex = 0,
-						.vertexBufferIndex = 0,
-						.vertexBufferOffset = 0,
 						.vertexCount = m.vertex_count,
-						.triangleBufferIndex = 0,
 						.triangleBufferOffset = m.triangle_offset,
 						.triangleCount = m.triangle_count,
 					},
@@ -386,8 +380,6 @@ namespace engine
 							.coneAxis = { bounds.cone_axis[0], bounds.cone_axis[1], bounds.cone_axis[2] },
 							.coneCutoff = bounds.cone_cutoff,
 						},
-						.perMeshBufferIndex = 0,
-						.perMeshBufferOffset = 0,
 					}
 				}
 			);

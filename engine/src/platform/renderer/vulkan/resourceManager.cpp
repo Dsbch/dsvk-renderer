@@ -126,11 +126,11 @@ namespace engine
 		// Resize job buffer if needed.
 		if (size_t max = (size_t(getMaxJobCount(frameIndex)) + 1) * sizeof(meshJob); max > mJobBuffer[frameIndex].getSize())
 		{
-			constexpr glm::uvec4 visDispatch{ 0, 0, 1, 1 };
+			constexpr glm::uvec3 visDispatch{ 0, 1, 1 };
 
 			mJobBuffer[frameIndex].destroy();
 
-			error err = mJobBuffer[frameIndex].build(mVulkanCtx->iSubmit, &visDispatch, max, sizeof(glm::uvec4), true);
+			error err = mJobBuffer[frameIndex].build(mVulkanCtx->iSubmit, &visDispatch, max, sizeof(glm::uvec3), true);
 			if (err)
 				return err;
 		}
@@ -418,25 +418,13 @@ namespace engine
 
 			for (auto& m : meshlets)
 			{
-				// Set offset + index for vertex attribs.
 				m.vertexBufferOffset = vertexHandle.offset / sizeof(glm::vec4);
-				m.vertexBufferIndex = vertexHandle.bufferIndex;
-
-				// Set offset + index for vertex anim attribs.
 				m.weightBufferOffset = weightHandle.offset / sizeof(glm::vec4);
-				m.weightBufferIndex = weightHandle.bufferIndex;
-
-				m.triangleBufferOffset += primitivesHandle.value().offset / uint32_t(sizeof(uint32_t));
-				m.triangleBufferIndex = primitivesHandle.value().bufferIndex;
-
+				m.triangleBufferOffset += primitivesHandle.value().offset / uint32_t(sizeof(uint32_t));				
 				m.indexBufferOffset += indexHandle.value().offset / uint32_t(sizeof(uint32_t));
-				m.indexBufferIndex = indexHandle.value().bufferIndex;
-			}
 
-			for (auto& a : meshletAttrs)
-			{
-				a.perMeshBufferOffset = perMeshHandle.value().offset / uint32_t(sizeof(perMeshAttributes));
-				a.perMeshBufferIndex = perMeshHandle.value().bufferIndex;
+				m.vertexTriangleIndex = packUint2(vertexHandle.bufferIndex, primitivesHandle.value().bufferIndex);
+				m.indexWeightIndex = packUint2(indexHandle.value().bufferIndex, weightHandle.bufferIndex);
 			}
 
 			handle = mMeshletAttributesRegistry.addBlock(
@@ -845,12 +833,12 @@ namespace engine
 		return mCurrentFrameHZB;
 	}
 
-	const std::map<uint32_t, commandBuffer>& resourceManager::getOpaqueCmdBuffers() const
+	const std::map<UID, commandBuffer>& resourceManager::getOpaqueCmdBuffers() const
 	{
 		return mOpaqueCommandBuffers;
 	}
 
-	const commandBuffer* resourceManager::getOpaqueCmdBuffer(uint32_t pixelShaderID) const
+	const commandBuffer* resourceManager::getOpaqueCmdBuffer(UID pixelShaderID) const
 	{
 		auto it = mOpaqueCommandBuffers.find(pixelShaderID);
 		return it == mOpaqueCommandBuffers.end() ? nullptr : &it->second;
@@ -976,7 +964,7 @@ namespace engine
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mLineBuffer });
 
 		// Init visability buffers.
-		constexpr glm::uvec4 visDispatch{ 0, 0, 1, 1 };
+		constexpr glm::uvec3 visDispatch{ 0, 1, 1 };
 
 		mCompactBuffer.resize(mCtx->config.inner.graphics.framesInFlight);
 
@@ -984,7 +972,7 @@ namespace engine
 		{
 			mCompactBuffer[i].init(mVulkanCtx->device, mVulkanCtx->allocator);
 
-			err = mCompactBuffer[i].build(mVulkanCtx->iSubmit, &visDispatch, mCompactCapacity, sizeof(glm::uvec4), true);
+			err = mCompactBuffer[i].build(mVulkanCtx->iSubmit, &visDispatch, mCompactCapacity, sizeof(glm::uvec3), true);
 			if (err)
 				return err;
 

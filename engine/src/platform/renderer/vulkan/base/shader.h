@@ -17,9 +17,9 @@ namespace engine
 		vulkanShader(VkDevice device, const std::vector<uint32_t>& src);
 		~vulkanShader();
 
-		uint32_t hash() const;
+		UID hash() const;
 	private:
-		uint32_t mHash;
+		UID mHash;
 		const std::vector<std::uint32_t> mSrc;
 		VkDevice mDevice;
 		VkShaderModule mShaderModule;

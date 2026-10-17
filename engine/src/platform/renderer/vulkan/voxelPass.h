@@ -3,6 +3,7 @@
 #include <pch.h>
 
 #include "resourceManager.h"
+#include "cullingPass.h"
 #include "base/include.h"
 
 namespace engine
@@ -13,7 +14,12 @@ namespace engine
 		voxelPass() = default;
 		voxelPass(const voxelPass&) = delete;
 
-		error init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager);
+		error init(
+			std::shared_ptr<context> ctx, 
+			std::shared_ptr<vulkanContext> vulkanContext, 
+			std::shared_ptr<resourceManager> resourceManager,
+			std::shared_ptr<cullingPass> cullPass
+		);
 		error destroy();
 
 		error voxelizeScene(VkCommandBuffer cmd, renderer::renderParams in, uint32_t frameIndex);
@@ -25,5 +31,6 @@ namespace engine
 
 		graphicsPipeline mVoxelizationPipeline;
 		graphicsPipeline mVoxelRayMarchingPipeline;
+		std::shared_ptr<cullingPass> mCullingPass;
 	};
 }

@@ -27,7 +27,7 @@ namespace engine
 
 	struct profilingInfo
 	{
-		std::set<uint32_t> inScene;
+		std::set<UID> inScene;
 
 		sceneMetrics sceneInfo;
 		globalMetrics globalInfo;

@@ -15,11 +15,17 @@ void msmain(
     out vertices meshOutput vertices[VERTICES_PER_MESHLET]
 )
 {
-    command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][gid];
-    meshlet mesh = meshletBuffer[cmd.meshletIndex][cmd.meshletOffset1];
-    perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
+    uint3 asData = compactBuffer[push.frameIndex][gid + 1];
+
+    uint2 instanceMeshletIndex = unpackUint2(asData.x);
+
+    meshlet mesh = meshletBuffer[instanceMeshletIndex.y][asData.y];
+    perInstanceAttr instanceAttr = perInstanceBuffer[instanceMeshletIndex.x][asData.z];
     perDrawData dData = drawData[push.frameIndex];
-    
+
+    uint2 indexWeightIndex = unpackUint2(mesh.indexWeightIndex);
+    uint2 vertexTriangleIndex = unpackUint2(mesh.vertexTriangleIndex);
+
     instanceAttr.jointIndex += push.frameIndex;
     
     SetMeshOutputCounts(mesh.vertexCount, mesh.triangleCount);
@@ -34,7 +40,7 @@ void msmain(
         if ((triangleID + i) >= mesh.triangleCount)
             break;
                                                                                                                    
-        triangles[triangleID + i] = unpackUint3(primitiveBuffer[mesh.triangleBufferIndex][mesh.triangleBufferOffset + triangleID + i]);
+        triangles[triangleID + i] = unpackUint3(primitiveBuffer[vertexTriangleIndex.y][mesh.triangleBufferOffset + triangleID + i]);
     }
     
     [loop]
@@ -45,14 +51,14 @@ void msmain(
         if (idx >= mesh.vertexCount)
             break;
             
-        uint vertexOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + idx] + mesh.vertexBufferOffset;
-        uint weightOffset = vertexIndexBuffer[mesh.indexBufferIndex][mesh.indexBufferOffset + idx] + mesh.weightBufferOffset;
-        
-        skinnedVertex skVertex = skinVertex(mesh.weightBufferIndex != MAX_UINT, instanceAttr, mesh.vertexBufferIndex, vertexOffset, weightOffset, mesh.weightBufferIndex);
+        uint vertexOffset = vertexIndexBuffer[indexWeightIndex.x][mesh.indexBufferOffset + idx] + mesh.vertexBufferOffset;
+        uint weightOffset = vertexIndexBuffer[indexWeightIndex.x][mesh.indexBufferOffset + idx] + mesh.weightBufferOffset;
+
+        skinnedVertex skVertex = skinVertex(indexWeightIndex.y != MAX_UINT16, instanceAttr, vertexTriangleIndex.x, vertexOffset, weightOffset, indexWeightIndex.y);
         
         float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
         
-        vertices[idx].position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, worldPos);
+        vertices[idx].position = mul(dData.viewProjectionVoxel, worldPos);
         
         vertices[idx].uv = skVertex.textureCoords;
         vertices[idx].materialBase = instanceAttr.globalMaterialOffset + mesh.localMaterialOffset * 3;

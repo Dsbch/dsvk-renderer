@@ -4,17 +4,19 @@
 
 namespace engine
 {
-	error meshletPass::init(std::shared_ptr<context> ctx, std::shared_ptr<vulkanContext> vulkanContext, std::shared_ptr<resourceManager> resourceManager)
+	error meshletPass::init(
+		std::shared_ptr<context> ctx,
+		std::shared_ptr<vulkanContext> vulkanContext,
+		std::shared_ptr<resourceManager> resourceManager,
+		std::shared_ptr<cullingPass> cullPass
+	)
 	{
 		mCtx = ctx;
 		mResourceManager = resourceManager;
 		mVulkanCtx = vulkanContext;
+		mCullingPass = cullPass;
 
 		error err = initBlendingPipelines();
-		if (err)
-			return err;
-
-		err = mCullingPass.init(mCtx, mVulkanCtx, mResourceManager);
 		if (err)
 			return err;
 
@@ -23,8 +25,6 @@ namespace engine
 
 	error meshletPass::destroy()
 	{
-		mCullingPass.destroy();
-
 		return {};
 	}
 
@@ -134,7 +134,7 @@ namespace engine
 				{
 					// FIRST PASS.
 					{
-						vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+						vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t), 0u);
 
 						pipelineBufferBarier(
 							cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
@@ -142,11 +142,11 @@ namespace engine
 							VK_ACCESS_2_TRANSFER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-							uint32_t(sizeof(uint32_t) * 2),
+							uint32_t(sizeof(uint32_t)),
 							0
 						);
 
-						error err = mCullingPass.cullMeshes(
+						error err = mCullingPass->cullMeshes(
 							cmd,
 							in,
 							cullingPass::cullMeshletsParams{
@@ -173,7 +173,7 @@ namespace engine
 							0
 						);
 
-						vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+						vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t), 0u);
 
 						pipelineBufferBarier(
 							cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
@@ -181,12 +181,12 @@ namespace engine
 							VK_ACCESS_2_TRANSFER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-							uint32_t(sizeof(uint32_t) * 2),
+							uint32_t(sizeof(uint32_t)),
 							0
 						);
 
 						// Compact cmd buffer to visability buffer.
-						err = mCullingPass.cullMeshlets(
+						err = mCullingPass->cullMeshlets(
 							cmd,
 							in,
 							cullingPass::cullMeshletsParams{
@@ -261,7 +261,7 @@ namespace engine
 						mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 							cmd,
 							mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-							sizeof(uint32_t),
+							0,
 							1,
 							12
 						);
@@ -282,7 +282,7 @@ namespace engine
 							VK_ACCESS_2_SHADER_READ_BIT
 						);
 
-						error err = mCullingPass.buildHZB(cmd, in, frameIndex);
+						error err = mCullingPass->buildHZB(cmd, in, frameIndex);
 						if (err)
 							return err;
 
@@ -308,12 +308,12 @@ namespace engine
 							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-							uint32_t(sizeof(uint32_t) * 2),
+							uint32_t(sizeof(uint32_t)),
 							0
 						);
 
 						// Dispatch compute call for culling and lod level selection.
-						err = mCullingPass.cullMeshes(
+						err = mCullingPass->cullMeshes(
 							cmd,
 							in,
 							cullingPass::cullMeshletsParams{
@@ -346,11 +346,11 @@ namespace engine
 							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_CLEAR_BIT,
 							VK_ACCESS_2_TRANSFER_WRITE_BIT,
-							uint32_t(sizeof(uint32_t) * 2),
+							uint32_t(sizeof(uint32_t)),
 							0
 						);
 
-						vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+						vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t), 0u);
 
 						pipelineBufferBarier(
 							cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
@@ -358,12 +358,12 @@ namespace engine
 							VK_ACCESS_2_TRANSFER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-							uint32_t(sizeof(uint32_t) * 2),
+							uint32_t(sizeof(uint32_t)),
 							0
 						);
 
 						// Dispatch compute call for culling and lod level selection.
-						err = mCullingPass.cullMeshlets(
+						err = mCullingPass->cullMeshlets(
 							cmd,
 							in,
 							cullingPass::cullMeshletsParams{
@@ -444,7 +444,7 @@ namespace engine
 						mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 							cmd,
 							mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-							sizeof(uint32_t),
+							0,
 							1,
 							12
 						);
@@ -533,11 +533,11 @@ namespace engine
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
-			uint32_t(sizeof(uint32_t) * 2),
+			uint32_t(sizeof(uint32_t)),
 			0
 		);
 
-		vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+		vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t), 0u);
 
 		pipelineBufferBarier(
 			cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
@@ -545,11 +545,11 @@ namespace engine
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(sizeof(uint32_t) * 2),
+			uint32_t(sizeof(uint32_t)),
 			0
 		);
 
-		error err = mCullingPass.cullMeshes(
+		error err = mCullingPass->cullMeshes(
 			cmd,
 			in,
 			cullingPass::cullMeshletsParams{
@@ -581,11 +581,11 @@ namespace engine
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_CLEAR_BIT,
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
-			uint32_t(sizeof(uint32_t) * 2),
+			uint32_t(sizeof(uint32_t)),
 			0
 		);
 
-		vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
+		vkCmdFillBuffer(cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t), 0u);
 
 		pipelineBufferBarier(
 			cmd, mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
@@ -593,11 +593,11 @@ namespace engine
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-			uint32_t(sizeof(uint32_t) * 2),
+			uint32_t(sizeof(uint32_t)),
 			0
 		);
 
-		err = mCullingPass.cullMeshlets(
+		err = mCullingPass->cullMeshlets(
 			cmd,
 			in,
 			cullingPass::cullMeshletsParams{
@@ -642,7 +642,7 @@ namespace engine
 		mVulkanCtx->vkCmdDrawMeshTasksIndirectEXT(
 			cmd,
 			mResourceManager->getCompactBuffer(frameIndex).getBuffer().buffer,
-			sizeof(uint32_t),
+			0,
 			1,
 			12
 		);

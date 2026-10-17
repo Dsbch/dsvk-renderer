@@ -15,6 +15,7 @@ namespace engine
 #define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
 #define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
 #define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
+#define VOXEL_PASS_FLAG_BIT						(1 << 4)
 
 	bool hasFlag(uint32_t mask, uint32_t flag);
 
@@ -36,7 +37,11 @@ namespace engine
 	// Task/Amplification shader cmd buffer.
 	struct meshletShaderCMD
 	{
-		uint32_t instanceIndex;
+		// 2 bytes meshlet, 2 bytes instance index.
+		uint32_t meshInstanceIndex;
+
+		uint32_t meshOffset;
+
 		uint32_t instanceOffset;
 
 		uint32_t meshletIndex;
@@ -45,9 +50,6 @@ namespace engine
 		uint32_t meshletOffset3;
 		uint32_t meshletOffset4;
 		uint32_t meshletEndOffset;
-
-		uint32_t meshIndex;
-		uint32_t meshOffset;
 	};
 
 	uint32_t packUint2(uint32_t x, uint32_t y);
@@ -76,28 +78,27 @@ namespace engine
 	{
 		uint32_t alphaType;
 		meshletBounds bounds;
-
-		uint32_t perMeshBufferIndex;
-		uint32_t perMeshBufferOffset;
 	};
 
 	struct meshlet
 	{
 		uint32_t localMaterialOffset;
 
-		uint32_t indexBufferIndex;
+		// 2 bytes index 2 bytes weight indices.
+		uint32_t indexWeightIndex;
+
 		uint32_t indexBufferOffset;
 
-		uint32_t weightBufferOffset;
-		uint32_t weightBufferIndex;
+		// 2 bytes vertex 2 bytes triagnle indices.
+		uint32_t vertexTriangleIndex;
 
-		uint32_t vertexBufferIndex;
 		uint32_t vertexBufferOffset;
 		uint32_t vertexCount;
 
-		uint32_t triangleBufferIndex;
 		uint32_t triangleBufferOffset;
 		uint32_t triangleCount;
+
+		uint32_t weightBufferOffset;
 	};
 
 	struct meshletData
@@ -131,28 +132,28 @@ namespace engine
 		dataWithLodLevels<uint32_t> primitives;
 		dataWithLodLevels<meshletData> meshlets;
 
-		uint32_t meshHash = 0;
+		UID meshHash = 0;
 
 		void generateHashes()
 		{
 			if (meshHash != 0)
 				return;
 
-			uint32_t posHash = crc32(reinterpret_cast<const uint8_t*>(positions.data()), positions.size() * sizeof(glm::vec4) / sizeof(uint8_t));
-			uint32_t normalHash = crc32(reinterpret_cast<const uint8_t*>(normal.data()), normal.size() * sizeof(glm::vec4) / sizeof(uint8_t));
-			uint32_t tangentHash = crc32(reinterpret_cast<const uint8_t*>(tangent.data()), tangent.size() * sizeof(glm::vec4) / sizeof(uint8_t));
-			uint32_t jointsIndicesHash = crc32(reinterpret_cast<const uint8_t*>(jointIndices.data()), jointIndices.size() * sizeof(glm::uvec4) / sizeof(uint8_t));
-			uint32_t weightsHash = crc32(reinterpret_cast<const uint8_t*>(weights.data()), weights.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+			UID posHash = crc64(reinterpret_cast<const uint8_t*>(positions.data()), positions.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+			UID normalHash = crc64(reinterpret_cast<const uint8_t*>(normal.data()), normal.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+			UID tangentHash = crc64(reinterpret_cast<const uint8_t*>(tangent.data()), tangent.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+			UID jointsIndicesHash = crc64(reinterpret_cast<const uint8_t*>(jointIndices.data()), jointIndices.size() * sizeof(glm::uvec4) / sizeof(uint8_t));
+			UID weightsHash = crc64(reinterpret_cast<const uint8_t*>(weights.data()), weights.size() * sizeof(glm::vec4) / sizeof(uint8_t));
 
-			uint32_t vertexHash = mergeCrc32({ posHash, normalHash, tangentHash, jointsIndicesHash, weightsHash });
+			UID vertexHash = mergeCrc64({ posHash, normalHash, tangentHash, jointsIndicesHash, weightsHash });
 
-			uint32_t indexHash = crc32(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
+			UID indexHash = crc64(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
 
-			uint32_t primitiveHash = crc32(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
+			UID primitiveHash = crc64(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
 
-			uint32_t meshletHash = crc32(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
+			UID meshletHash = crc64(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
 
-			meshHash = mergeCrc32({ vertexHash, meshletHash, indexHash, primitiveHash });
+			meshHash = mergeCrc64({ vertexHash, meshletHash, indexHash, primitiveHash });
 		}
 	};
 
@@ -176,14 +177,14 @@ namespace engine
 		std::shared_ptr<const shader> pixelShader;
 		std::vector<materialTextures> textures;
 
-		uint32_t hash = 0;
+		UID hash = 0;
 
 		void generateHash()
 		{
 			if (hash != 0)
 				return;
 
-			std::vector<uint32_t> crcVals;
+			std::vector<UID> crcVals;
 			for (const auto& t : textures)
 			{
 				crcVals.push_back(t.albedo->hash());
@@ -191,7 +192,7 @@ namespace engine
 				crcVals.push_back(t.metallicRoughness->hash());
 			}
 
-			hash = mergeCrc32(crcVals);
+			hash = mergeCrc64(crcVals);
 		}
 
 		bool hasBlendMaterials() const
@@ -269,7 +270,7 @@ namespace engine
 
 	struct model
 	{
-		uint32_t id;
+		UID id;
 		perInstanceAttr instanceAttributes;
 		std::shared_ptr<const std::vector<mesh>> meshData;
 		std::shared_ptr<const std::vector<perMeshAttributes>> perMeshData;
@@ -390,12 +391,11 @@ namespace engine
 	// Need that buffer to fan out meshes -> meshlets. (found that approach in Niagara renderer https://github.com/zeux/niagara).
 	struct meshJob
 	{
-		uint32_t instanceIndex;
+		uint32_t instanceMeshletIndex;
 		uint32_t instanceOffset;
-		uint32_t meshletIndex;
 		uint32_t firstMeshletOffset;
-		uint32_t meshletsInJob;
-		uint32_t isFirstPassJob;
+		// meshlets in jobs first 2 second 2 isFirstJob.
+		uint32_t meshletsInJobIsFirstPass;
 	};
 
 	struct line

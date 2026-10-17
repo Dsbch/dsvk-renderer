@@ -103,8 +103,6 @@ namespace engine
 		VkPipelineDepthStencilStateCreateInfo mDepthStencil;
 		VkPipelineRenderingCreateInfo mRenderInfo;
 		std::vector<VkFormat> mColorAttachmentformats;
-
-		uint32_t mID;
 	};
 
 	struct computePipeline

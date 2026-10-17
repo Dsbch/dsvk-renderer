@@ -10,7 +10,7 @@ namespace engine
 {
 	struct uidComponent
 	{
-		uint32_t uid;
+		UID uid;
 
 		uidComponent()
 			: uid(genUID()) {
@@ -60,7 +60,7 @@ namespace engine
 
 	struct meshComponent
 	{
-		uint32_t uid;
+		UID uid;
 		std::shared_ptr<const std::vector<mesh>> meshData;
 		std::shared_ptr<const std::vector<perMeshAttributes>> meshAttributes;
 
@@ -82,7 +82,7 @@ namespace engine
 
 	struct animationComponent
 	{
-		uint32_t uid;
+		UID uid;
 		std::shared_ptr<std::vector<animation>> animations;
 		std::shared_ptr<std::vector<skin>> skins;
 		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;

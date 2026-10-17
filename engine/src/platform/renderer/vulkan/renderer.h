@@ -62,6 +62,8 @@ namespace engine
 		std::unique_ptr<uiPass> mUiPass;
 		// Voxel pass.
 		std::unique_ptr<voxelPass> mVoxelPass;
+		// Culling pass is shared.
+		std::shared_ptr<cullingPass> mCullingPass;
 
 		std::shared_ptr<vulkanContext> mVulkanCtx;
 		std::shared_ptr<resourceManager> mResourceManager;

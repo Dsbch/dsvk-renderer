@@ -14,9 +14,9 @@ namespace engine
 		vulkanTexture(VkDevice device, VmaAllocator allocator, submit& is, const image& img);
 		vulkanTexture(VkDevice device, VmaAllocator allocator, submit& is, const imageWithMipLevels& img);
 		~vulkanTexture();
-		uint32_t hash() const;
+		UID hash() const;
 	private:
-		uint32_t mHash;
+		UID mHash;
 		vulkanImage mImage;
 
 		friend class vulkanRenderer;

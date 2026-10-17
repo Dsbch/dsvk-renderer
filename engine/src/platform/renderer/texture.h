@@ -12,12 +12,12 @@ namespace engine
 		int channels;
 		bool compressed;
 
-		uint32_t hash() const
+		UID hash() const
 		{
 			if (compressed)
-				return crc32(data.data(), w * h * channels / 4);
+				return crc64(data.data(), w * h * channels / 4);
 
-			return crc32(data.data(), w * h * channels);
+			return crc64(data.data(), w * h * channels);
 		}
 
 		size_t getSize() const
@@ -87,7 +87,7 @@ namespace engine
 		texture(const image& img) : mWidth(img.w), mHeight(img.h), mChannel(intToChannel(img.channels)) {};
 		texture(const imageWithMipLevels& img) : mWidth(img.main.w), mHeight(img.main.h), mChannel(intToChannel(img.main.channels)) {};
 		virtual ~texture() = default;
-		virtual uint32_t hash() const = 0;
+		virtual UID hash() const = 0;
 		error checkError() const { return mErr; };
 	protected:
 		error mErr;

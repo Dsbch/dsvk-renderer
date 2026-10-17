@@ -97,8 +97,8 @@ namespace engine
 		vulkanImage getClipMap() const;
 		std::span<vulkanImage> getPrevFrameHZB();
 		std::span<vulkanImage> getCurrentFrameHZB();
-		const std::map<uint32_t, commandBuffer>& getOpaqueCmdBuffers() const;
-		const commandBuffer* getOpaqueCmdBuffer(uint32_t pixelShaderID) const;
+		const std::map<UID, commandBuffer>& getOpaqueCmdBuffers() const;
+		const commandBuffer* getOpaqueCmdBuffer(UID pixelShaderID) const;
 		const commandBuffer& getAccumilationCmdBuffer() const;
 		const vulkanBuffer& getCompactBuffer(uint32_t frameIndex) const;
 		const vulkanBuffer& getJobBuffer(uint32_t frameIndex) const;
@@ -166,7 +166,7 @@ namespace engine
 
 		// Buffers.
 		commandBuffer mAccumilationCommandBuffer;
-		std::map<uint32_t, commandBuffer> mOpaqueCommandBuffers;
+		std::map<UID, commandBuffer> mOpaqueCommandBuffers;
 		bufferRegistry mPositionRegistry;
 		bufferRegistry mNormalRegistry;
 		bufferRegistry mTangentRegistry;

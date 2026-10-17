@@ -15,7 +15,7 @@ namespace engine
 		virtual ~shader() = default;
 
 		virtual error checkError() const { return mErr; };
-		virtual uint32_t hash() const = 0;
+		virtual UID hash() const = 0;
 		bool operator<(const shader& other) const
 		{
 			return other.hash() < hash();

@@ -20,10 +20,12 @@
 #define EPSILON 0.00001f
 
 #define MAX_UINT 4294967295
+#define MAX_UINT16 0xFFFF
 
 #define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
 #define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
 #define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
+#define VOXEL_PASS_FLAG_BIT                     (1 << 4)
 
 #define BLEND_ALPHA_MODE 1
 
@@ -71,27 +73,27 @@ struct meshletAttributes
 {
     uint alphaType;
     meshletBounds bounds;
-    uint perMeshBufferIndex;
-    uint perMeshBufferOffset;
 };
 
 struct meshlet
 {
     uint localMaterialOffset;
 
-    uint indexBufferIndex;
+    // 2 bytes index 2 bytes weight indices.
+    uint indexWeightIndex;
+    
     uint indexBufferOffset;
     
-    uint weightBufferOffset;
-    uint weightBufferIndex;
+    // 2 bytes vertex 2 bytes triagnle indices.
+    uint vertexTriangleIndex;
     
-    uint vertexBufferIndex;
     uint vertexBufferOffset;
     uint vertexCount;
     
-    uint triangleBufferIndex;
     uint triangleBufferOffset;
     uint triangleCount;
+    
+    uint weightBufferOffset;
 };
 
 struct transform
@@ -111,7 +113,11 @@ struct perInstanceAttr
 
 struct command
 {
-    uint instanceIndex;
+    // 2 bytes meshlet, 2 bytes instance index.
+    uint meshInstanceIndex;
+    
+    uint meshOffset;
+    
     uint instanceOffset;
     
     uint meshletIndex;
@@ -120,9 +126,6 @@ struct command
     uint meshletOffset3;
     uint meshletOffset4;
     uint meshletEndOffset;
-    
-    uint meshIndex;
-    uint meshOffset;
 };
 
 struct perMeshAttributes
@@ -182,12 +185,11 @@ struct perDrawData
 // Need that buffer to fan out meshes -> meshlets. (found that approach in Niagara renderer https://github.com/zeux/niagara).
 struct meshJob
 {
-    uint instanceIndex;
+    uint instanceMeshletIndex;
     uint instanceOffset;
-    uint meshletIndex;
     uint firstMeshletOffset;
-    uint meshletsInJob;
-    uint isFirstPassJob;
+    // meshlets in jobs first 2 second 2 isFirstJob.
+    uint meshletsInJobIsFirstPass;
 };
 
 struct meshOutput
@@ -223,7 +225,7 @@ StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t13, space0);
 ConstantBuffer<perDrawData> drawData[] : register(b14, space0);
 // First slot is:
 // x = visibleCount y = groupCountX, z = groupCountY, w = groupCountZ.
-RWStructuredBuffer<uint4> compactBuffer[] : register(u15, space0);
+RWStructuredBuffer<uint3> compactBuffer[] : register(u15, space0);
 StructuredBuffer<float3> lineBuffer : register(t16, space0);
 // First slot is:
 // x = jobCount y = groupCountX, z = groupCountY, w = groupCountZ, and garbage uint.
@@ -775,9 +777,14 @@ bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, u
 
 bool isMeshletVisible(uint tid, meshJob job)
 {
-    meshletAttributes attrs = meshletAttributesBuffer[job.meshletIndex][job.firstMeshletOffset + tid];
+    if (hasFlag(push.cullingPassFlagBit, VOXEL_PASS_FLAG_BIT))
+        return true;
+    
+    uint2 instanceMeshletIndex = unpackUint2(job.instanceMeshletIndex);
+
+    meshletAttributes attrs = meshletAttributesBuffer[instanceMeshletIndex.y][job.firstMeshletOffset + tid];
     perDrawData dData = drawData[push.frameIndex];
-    perInstanceAttr instanceAttr = perInstanceBuffer[job.instanceIndex][job.instanceOffset];
+    perInstanceAttr instanceAttr = perInstanceBuffer[instanceMeshletIndex.x][job.instanceOffset];
     meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform);
     
     // Accumilation runs on entire CMD buffer, no compaction.
@@ -804,7 +811,7 @@ bool isMeshletVisible(uint tid, meshJob job)
 
         float4 sphere = float4(worldBounds.center, worldBounds.radius);
 
-        if (job.isFirstPassJob)
+        if (unpackUint2(job.meshletsInJobIsFirstPass).y)
         {
             cullingData prevOcc = calculateCullingData(sphere, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
 

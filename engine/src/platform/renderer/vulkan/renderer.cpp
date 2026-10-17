@@ -58,6 +58,10 @@ namespace engine
 		if (err)
 			LOGERROR("~vulkanRenderer mLineRenderer.destroy {}", err.err());
 
+		err = mCullingPass->destroy();
+		if (err)
+			LOGERROR("~vulkanRenderer mLineRenderer.destroy {}", err.err());
+
 		mResourceManager->destroy();
 
 		mVulkanCtx->delQueue.flushDeletonQueue();
@@ -113,7 +117,7 @@ namespace engine
 				.height = mCtx->config.inner.graphics.clipMapResolution,
 				.depth = 1,
 			}
-			);
+		);
 
 		error err = mVulkanCtx->profiler.beginTimeStamp(cmd, "voxelizeScene", frameIndex);
 		if (err)
@@ -146,8 +150,13 @@ namespace engine
 		mLinePass = std::make_unique<linePass>();
 		mUiPass = std::make_unique<uiPass>();
 		mVoxelPass = std::make_unique<voxelPass>();
+		mCullingPass = std::make_shared<cullingPass>();
 
-		error err = mMeshletPass->init(mCtx, mVulkanCtx, mResourceManager);
+		error err = mCullingPass->init(mCtx, mVulkanCtx, mResourceManager);
+		if (err)
+			return err;
+
+		err = mMeshletPass->init(mCtx, mVulkanCtx, mResourceManager, mCullingPass);
 		if (err)
 			return err;
 
@@ -159,7 +168,7 @@ namespace engine
 		if (err)
 			return err;
 
-		err = mVoxelPass->init(mCtx, mVulkanCtx, mResourceManager);
+		err = mVoxelPass->init(mCtx, mVulkanCtx, mResourceManager, mCullingPass);
 		if (err)
 			return err;
 
