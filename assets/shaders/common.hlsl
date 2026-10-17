@@ -744,11 +744,10 @@ float3 pixelToRayDir(float2 pixel, perDrawData dData)
     return normalize(right * (ndc.x * halfW) + up * (ndc.y * halfH) + fwd);
 }
 
-bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, uint height, uint hzbLength)
+bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, uint height, uint hzbLength, bool offscreenIsOccluded)
 {
-    // Sphere center outside the HZB image -> no information, treat as visible.
     if (any(occData.sphereCenterUV < 0.0f) || any(occData.sphereCenterUV > 1.0f))
-        return false;
+        return offscreenIsOccluded;
     
     // Floor, because we will sample 2x2 texels for that sphere.
     uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
@@ -786,7 +785,7 @@ bool isMeshletVisible(uint tid, meshJob job)
     {
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.projection, dData.view, dData.width, dData.height);
             
-        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
+        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
     }
     
     // First opaque pass.
@@ -794,7 +793,7 @@ bool isMeshletVisible(uint tid, meshJob job)
     {
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
         
-        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength);
+        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true);
     }
     
     // Second opaque pass.
@@ -809,13 +808,13 @@ bool isMeshletVisible(uint tid, meshJob job)
         {
             cullingData prevOcc = calculateCullingData(sphere, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
 
-            if (!isOcluded(prevOcc, prevFrameHzbChain, dData.width, dData.height, push.hzbLength))
+            if (!isOcluded(prevOcc, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true))
                 return false;
         }
 
         cullingData occData = calculateCullingData(sphere, dData.projection, dData.view, dData.width, dData.height);
 
-        return !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
+        return !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
     }
     
     return false;

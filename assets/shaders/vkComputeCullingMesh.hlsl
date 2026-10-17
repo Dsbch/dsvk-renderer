@@ -24,7 +24,7 @@ meshJob cullMesh(uint dtid)
         
         cullingData occData = calculateCullingData(worldBs, dData.projection, dData.view, dData.width, dData.height);
 
-        if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength))
+        if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false))
             return job;
 
         uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
@@ -53,7 +53,7 @@ meshJob cullMesh(uint dtid)
         
         cullingData occData = calculateCullingData(worldBs, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
         
-        if (isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength))
+        if (isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true))
             return job;
         
         uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
@@ -83,14 +83,14 @@ meshJob cullMesh(uint dtid)
             
         cullingData occData = calculateCullingData(worldBs, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
         
-        bool drawnFirstPass = !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength);
+        bool drawnFirstPass = !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true);
         
         if (drawnFirstPass)
             return job;
         
         occData = calculateCullingData(worldBs, dData.projection, dData.view, dData.width, dData.height);
         
-        if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength))
+        if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false))
             return job;
         
         uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
