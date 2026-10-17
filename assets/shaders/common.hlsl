@@ -29,6 +29,22 @@
 
 // INPUT START.
 
+struct pushConstant
+{
+    uint frameIndex;
+    uint hzbMipLevel;
+    uint mipWidth;
+    uint mipHeight;
+    uint cullingPassFlagBit;
+    uint cmdOpaqueBufferIndex;
+    uint meshCount;
+    uint hzbLength;
+    uint compactCapacity;
+};
+
+DEFINE_AS_PUSH_CONSTANT
+pushConstant push;
+
 // DescriptorSet START.
 
 struct skinnedVertex
@@ -277,33 +293,17 @@ skinnedVertex skinVertex(bool isSkinned, perInstanceAttr perInst, uint index, ui
     
     float4 weights = getWieghts(weightIndex, weightOffset);
     uint4 jointIndices = getJointIndices(weightIndex, weightOffset);
-    
-    float4 bindPos = float4(result.position, 1.0f);
-    float4 skinnedPos = float4(0, 0, 0, 0);
-        
-    skinnedPos += weights[0] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], bindPos);
-    skinnedPos += weights[1] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[1]], bindPos);
-    skinnedPos += weights[2] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], bindPos);
-    skinnedPos += weights[3] * mul(jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], bindPos);
-    
-    result.position = skinnedPos.xyz;
-    
-    result.normal = normalize(
-            weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], result.normal) +
-            weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[1]], result.normal) +
-            weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], result.normal) +
-            weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.normal)
-        );
-    
-    float3 skinnedTangent = normalize(
-            weights[0] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[0]], result.tangent.xyz) +
-            weights[1] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[1]], result.tangent.xyz) +
-            weights[2] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[2]], result.tangent.xyz) +
-            weights[3] * mul((float3x3) jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[3]], result.tangent.xyz)
-        );
-    
-    result.tangent = float4(skinnedTangent.xyz, result.tangent.w);
-    
+
+    float4x4 skin = (float4x4) 0;
+
+    [loop]
+    for (uint i = 0; i < 4; i++)
+        skin += weights[i] * jointBuffer[perInst.jointIndex][perInst.jointOffset + jointIndices[i]];
+
+    result.position = mul(skin, float4(result.position, 1.0f)).xyz;
+    result.normal = normalize(mul((float3x3) skin, result.normal));
+    result.tangent = float4(normalize(mul((float3x3) skin, result.tangent.xyz)), result.tangent.w);
+
     return result;
 }
 
@@ -772,4 +772,51 @@ bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, u
     float minDepth = min(min(d00, d10), min(d01, d11));
                 
     return !((occData.closestDepth >= minDepth) || occData.closestDepth < 0.0f);
+}
+
+bool isMeshletVisible(uint tid, meshJob job)
+{
+    meshletAttributes attrs = meshletAttributesBuffer[job.meshletIndex][job.firstMeshletOffset + tid];
+    perDrawData dData = drawData[push.frameIndex];
+    perInstanceAttr instanceAttr = perInstanceBuffer[job.instanceIndex][job.instanceOffset];
+    meshletBounds worldBounds = worldSpaceMeshletBounds(attrs.bounds, instanceAttr.modelTransform);
+    
+    // Accumilation runs on entire CMD buffer, no compaction.
+    if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
+    {
+        cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.projection, dData.view, dData.width, dData.height);
+            
+        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
+    }
+    
+    // First opaque pass.
+    if (hasFlag(push.cullingPassFlagBit, FIRST_OPAQUE_PASS_FLAG_BIT))
+    {
+        cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
+        
+        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength);
+    }
+    
+    // Second opaque pass.
+    if (hasFlag(push.cullingPassFlagBit, SECOND_OPAQUE_PASS_FLAG_BIT))
+    {
+        if (!isFrontfaceMeshlet(dData, worldBounds) || !isInFrustum(dData, worldBounds))
+            return false;
+
+        float4 sphere = float4(worldBounds.center, worldBounds.radius);
+
+        if (job.isFirstPassJob)
+        {
+            cullingData prevOcc = calculateCullingData(sphere, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
+
+            if (!isOcluded(prevOcc, prevFrameHzbChain, dData.width, dData.height, push.hzbLength))
+                return false;
+        }
+
+        cullingData occData = calculateCullingData(sphere, dData.projection, dData.view, dData.width, dData.height);
+
+        return !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
+    }
+    
+    return false;
 }

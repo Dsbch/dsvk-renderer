@@ -54,14 +54,14 @@ namespace engine
 			uint32_t mipWidth = std::max(1u, in.width >> (i + 1));
 			uint32_t mipHeight = std::max(1u, in.height >> (i + 1));
 
-			computePushConstants pc{
+			pushConstants pc{
 				.frameIndex = frameIndex,
 				.hzbMipLevel = i,
 				.mipWidth = mipWidth,
 				.mipHeight = mipHeight,
 			};
 
-			vkCmdPushConstants(cmd, mBuildHzbPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
+			vkCmdPushConstants(cmd, mBuildHzbPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushConstants), &pc);
 
 			uint32_t groupCountX = (mipWidth) / 32 + 1;
 			uint32_t groupCountY = (mipHeight) / 32 + 1;
@@ -82,7 +82,7 @@ namespace engine
 			mCullingMeshPipeline.getPipeline().second
 		);
 
-		computePushConstants pc{
+		pushConstants pc{
 			.frameIndex = frameIndex,
 			.cullingPassFlagBit = params.cullStage,
 			.cmdOpaqueBufferIndex = params.opaqueCmdBufferIndex,
@@ -91,7 +91,7 @@ namespace engine
 			.compactCapacity = params.compactCapacity,
 		};
 
-		vkCmdPushConstants(cmd, mCullingMeshPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
+		vkCmdPushConstants(cmd, mCullingMeshPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushConstants), &pc);
 
 		vkCmdDispatch(
 			cmd,
@@ -113,7 +113,7 @@ namespace engine
 			mCullingMeshletPipeline.getPipeline().second
 		);
 
-		computePushConstants pc{
+		pushConstants pc{
 			.frameIndex = frameIndex,
 			.cullingPassFlagBit = params.cullStage,
 			.cmdOpaqueBufferIndex = params.opaqueCmdBufferIndex,
@@ -122,10 +122,10 @@ namespace engine
 			.compactCapacity = params.compactCapacity,
 		};
 
-		vkCmdPushConstants(cmd, mCullingMeshletPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(computePushConstants), &pc);
+		vkCmdPushConstants(cmd, mCullingMeshletPipeline.getPipeline().second, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushConstants), &pc);
 
 		vkCmdDispatchIndirect(
-			cmd, 
+			cmd,
 			params.dispatchBuffer.getBuffer().buffer,
 			sizeof(uint32_t)
 		);
@@ -148,11 +148,11 @@ namespace engine
 
 		VkPushConstantRange pc{};
 		pc.offset = 0;
-		pc.size = sizeof(computePushConstants);
+		pc.size = sizeof(pushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 		error buildErr = mBuildHzbPipeline.build(
-			&pc, 
+			&pc,
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second }
 		);
 		if (buildErr)
@@ -172,11 +172,11 @@ namespace engine
 		mCullingMeshletPipeline.setShader(cullingMeshletModule);
 
 		pc.offset = 0;
-		pc.size = sizeof(computePushConstants);
+		pc.size = sizeof(pushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 		buildErr = mCullingMeshletPipeline.build(
-			&pc, 
+			&pc,
 			{ mResourceManager->getBufferDescriptorSet().second, mResourceManager->getTextureDescriptorSet().second }
 		);
 		if (buildErr)
@@ -196,7 +196,7 @@ namespace engine
 		mCullingMeshPipeline.setShader(cullingMeshModule);
 
 		pc.offset = 0;
-		pc.size = sizeof(computePushConstants);
+		pc.size = sizeof(pushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 		buildErr = mCullingMeshPipeline.build(

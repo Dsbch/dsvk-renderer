@@ -123,8 +123,8 @@ namespace engine
 
 				pushConstants pc{
 					.frameIndex = frameIndex,
-					.meshCount = cmdBufferCount,
 					.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+					.meshCount = cmdBufferCount,
 				};
 
 				vkCmdPushConstants(cmd, mVoxelizationPipeline.getPipeline().second, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);

@@ -4,16 +4,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-struct pushConstant
-{
-    uint frameIndex;
-    uint cmdBufferCount;
-    uint cmdOpaqueBufferIndex;
-};
-
-DEFINE_AS_PUSH_CONSTANT
-pushConstant push;
-
 // TS START.
 
 struct Payload

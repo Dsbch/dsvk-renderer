@@ -242,9 +242,12 @@ namespace engine
 						vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 						pushConstants pc{
-							.frameIndex = frameIndex,
-							.meshCount = cmdBufferCount,
-							.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+								.frameIndex = frameIndex,
+								.cullingPassFlagBit = FIRST_OPAQUE_PASS_FLAG_BIT,
+								.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+								.meshCount = cmdBufferCount,
+								.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
+								.compactCapacity = mResourceManager->getCompactCapacity(),
 						};
 
 						vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -423,8 +426,11 @@ namespace engine
 
 						pushConstants pc{
 							.frameIndex = frameIndex,
-							.meshCount = cmdBufferCount,
+							.cullingPassFlagBit = SECOND_OPAQUE_PASS_FLAG_BIT,
 							.cmdOpaqueBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
+							.meshCount = cmdBufferCount,
+							.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
+							.compactCapacity = mResourceManager->getCompactCapacity(),
 						};
 
 						vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -623,7 +629,10 @@ namespace engine
 
 		pushConstants pc{
 			.frameIndex = frameIndex,
+			.cullingPassFlagBit = ACCUMILATION_PASS_FLAG_BIT,
 			.meshCount = cmdBufferCount,
+			.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
+			.compactCapacity = mResourceManager->getCompactCapacity(),
 		};
 
 		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);

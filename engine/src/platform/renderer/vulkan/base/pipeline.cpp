@@ -124,7 +124,7 @@ namespace engine
 
 		VkPushConstantRange pc{};
 		pc.offset = 0;
-		pc.size = sizeof(linePushConstant);
+		pc.size = sizeof(pushConstants);
 		pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
 		error buildErr = create(&pc, descriptorSets);

@@ -2,22 +2,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-struct pushConstant
-{
-    uint frameIndex;
-    uint hzbMipLevel;
-    uint mipWidth;
-    uint mipHeight;
-    uint cullingPassFlagBit;
-    uint cmdOpaqueBufferIndex;
-    uint meshCount;
-    uint hzbLength;
-    uint compactCapacity;
-};
-
-DEFINE_AS_PUSH_CONSTANT
-pushConstant push;
-
 meshJob cullMesh(uint dtid)
 {
     meshJob job;

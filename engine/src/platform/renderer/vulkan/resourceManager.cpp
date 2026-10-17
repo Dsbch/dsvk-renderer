@@ -1529,6 +1529,17 @@ namespace engine
 			region.extent = src.extent;
 
 			vkCmdCopyImage(cmd, src.image, VK_IMAGE_LAYOUT_GENERAL, dst.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+
+			pipelineImageBarrier(
+				cmd,
+				dst.image,
+				dst.format,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_2_COPY_BIT,
+				VK_ACCESS_2_TRANSFER_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT
+			);
 		}
 	}
 }

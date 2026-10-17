@@ -2,17 +2,6 @@
 //  dxc -T ps_6_9 -E psmain -spirv -Fo -fvk-use-scalar-layout -Fo vkCompiled/vkLinePs.spv vkLine.hlsl
 #include "common.hlsl"
 
-// INPUT START.
-
-// Push constant START.
-struct pushConstant
-{
-    uint frameIndex;
-};
-
-DEFINE_AS_PUSH_CONSTANT
-pushConstant push;
-
 // VS START.
 
 struct vertexOutput

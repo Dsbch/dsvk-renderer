@@ -376,13 +376,6 @@ namespace engine
 	struct pushConstants
 	{
 		uint32_t frameIndex;
-		uint32_t meshCount;
-		uint32_t cmdOpaqueBufferIndex;
-	};
-
-	struct computePushConstants
-	{
-		uint32_t frameIndex;
 		uint32_t hzbMipLevel;
 		uint32_t mipWidth;
 		uint32_t mipHeight;
@@ -403,11 +396,6 @@ namespace engine
 		uint32_t firstMeshletOffset;
 		uint32_t meshletsInJob;
 		uint32_t isFirstPassJob;
-	};
-
-	struct linePushConstant
-	{
-		uint32_t frameIndex;
 	};
 
 	struct line

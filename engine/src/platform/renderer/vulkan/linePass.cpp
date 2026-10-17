@@ -54,11 +54,11 @@ namespace engine
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.getPipeline().first);
 
-		linePushConstant pc{
+		pushConstants pc{
 			.frameIndex = frameIndex,
 		};
 
-		vkCmdPushConstants(cmd, mPipeline.getPipeline().second, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(linePushConstant), &pc);
+		vkCmdPushConstants(cmd, mPipeline.getPipeline().second, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants), &pc);
 
 		mResourceManager->bindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline.getPipeline().second);
 

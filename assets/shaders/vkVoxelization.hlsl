@@ -4,18 +4,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-// DescriptorSets END.
-
-struct pushConstant
-{
-    uint frameIndex;
-    uint cmdBufferCount;
-    uint cmdOpaqueBufferIndex;
-};
-
-DEFINE_AS_PUSH_CONSTANT
-pushConstant push;
-
 // MS START.
 
 [outputtopology("triangle")]

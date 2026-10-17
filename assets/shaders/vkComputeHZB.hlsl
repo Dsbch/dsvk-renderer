@@ -2,22 +2,6 @@
 //  add -fspv-debug=vulkan-with-source flag only for debug.
 #include "common.hlsl"
 
-struct pushConstant
-{
-	uint frameIndex;
-    uint hzbMipLevel;
-    uint mipWidth;
-    uint mipHeight;
-    uint cullingPassFlagBit;
-    uint cmdOpaqueBufferIndex;
-    uint cmdBufferCount;
-    uint hzbLength;
-    uint compactRule;
-};
-
-DEFINE_AS_PUSH_CONSTANT
-pushConstant push;
-
 [numthreads(32, 32, 1)]
 void main(uint2 dtid : SV_DispatchThreadID)
 {
