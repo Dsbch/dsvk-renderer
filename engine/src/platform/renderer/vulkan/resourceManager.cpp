@@ -8,7 +8,7 @@ namespace engine
 		mCtx = ctx;
 		mVulkanCtx = vulkanCtx;
 
-		mCompactCapacity = 2 << 24;
+		mCompactCapacity = 2 << 25;
 	}
 
 	error resourceManager::build(uint32_t width, uint32_t height)
