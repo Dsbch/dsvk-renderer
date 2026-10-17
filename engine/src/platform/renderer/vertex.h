@@ -366,7 +366,10 @@ namespace engine
 		float horizontalFov;
 		float nearPlane;
 		float farPlane;
-		
+
+		glm::mat4 prevFrameView;
+		glm::mat4 prevFrameProjection;
+
 		voxelDrawParams voxelParams;
 	};
 
@@ -399,6 +402,7 @@ namespace engine
 		uint32_t meshletIndex;
 		uint32_t firstMeshletOffset;
 		uint32_t meshletsInJob;
+		uint32_t isFirstPassJob;
 	};
 
 	struct linePushConstant

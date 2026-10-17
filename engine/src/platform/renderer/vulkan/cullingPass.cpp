@@ -34,7 +34,7 @@ namespace engine
 			mBuildHzbPipeline.getPipeline().second
 		);
 
-		auto hzbBuf = mResourceManager->getHZB();
+		auto hzbBuf = mResourceManager->getCurrentFrameHZB();
 		for (uint32_t i = 0; i < hzbBuf.size(); i++)
 		{
 			if (i > 0)

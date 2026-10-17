@@ -9,6 +9,7 @@
 // 3. Make compact buffer resizable need to figure out GPU readback after culling.
 // 4. Go to TASK shaders and remove computeMeshletCulling shader.
 // 5. Profile it!
+// 6. Fix voxelization.
 
 // Voxelization:
 // 1. Calculate scene bounding box.

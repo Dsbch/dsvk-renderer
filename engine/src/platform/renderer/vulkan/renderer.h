@@ -65,5 +65,7 @@ namespace engine
 
 		std::shared_ptr<vulkanContext> mVulkanCtx;
 		std::shared_ptr<resourceManager> mResourceManager;
+
+		renderer::renderParams mPrevFrameRenderParams;
 	};
 }

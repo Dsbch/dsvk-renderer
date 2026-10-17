@@ -152,7 +152,7 @@ namespace engine
 							cullingPass::cullMeshletsParams{
 								.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
 								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 								.meshCount = cmdBufferCount,
 								.compactCapacity = mResourceManager->getCompactCapacity(),
 							},
@@ -192,7 +192,7 @@ namespace engine
 							cullingPass::cullMeshletsParams{
 								.cullStage = FIRST_OPAQUE_PASS_FLAG_BIT,
 								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 								.meshCount = cmdBufferCount,
 								.compactCapacity = mResourceManager->getCompactCapacity(),
 								.dispatchBuffer = mResourceManager->getJobBuffer(frameIndex),
@@ -284,7 +284,7 @@ namespace engine
 							return err;
 
 						// Wait for HZB to generate.
-						for (auto& hzb : mResourceManager->getHZB())
+						for (auto& hzb : mResourceManager->getCurrentFrameHZB())
 						{
 							pipelineImageBarrier(
 								cmd,
@@ -298,22 +298,11 @@ namespace engine
 							);
 						}
 
+						// Wait on first pass to end it's writes to job buffer.
 						pipelineBufferBarier(
 							cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
 							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
-							VK_PIPELINE_STAGE_2_CLEAR_BIT,
-							VK_ACCESS_2_TRANSFER_WRITE_BIT,
-							uint32_t(sizeof(uint32_t) * 2),
-							0
-						);
-
-						vkCmdFillBuffer(cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer, 0, sizeof(uint32_t) * 2, 0u);
-
-						pipelineBufferBarier(
-							cmd, mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
-							VK_PIPELINE_STAGE_2_CLEAR_BIT,
-							VK_ACCESS_2_TRANSFER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
 							uint32_t(sizeof(uint32_t) * 2),
@@ -327,7 +316,7 @@ namespace engine
 							cullingPass::cullMeshletsParams{
 								.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
 								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 								.meshCount = cmdBufferCount,
 								.compactCapacity = mResourceManager->getCompactCapacity(),
 							},
@@ -340,7 +329,7 @@ namespace engine
 						pipelineBufferBarier(
 							cmd,
 							mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
-							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
@@ -377,7 +366,7 @@ namespace engine
 							cullingPass::cullMeshletsParams{
 								.cullStage = SECOND_OPAQUE_PASS_FLAG_BIT,
 								.opaqueCmdBufferIndex = cmdBufferIndex * mCtx->config.inner.graphics.framesInFlight,
-								.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+								.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 								.meshCount = cmdBufferCount,
 								.compactCapacity = mResourceManager->getCompactCapacity(),
 								.dispatchBuffer = mResourceManager->getJobBuffer(frameIndex),
@@ -457,7 +446,6 @@ namespace engine
 						vkCmdEndRendering(cmd);
 					}
 				}
-
 
 				cmdBufferIndex++;
 			}
@@ -560,12 +548,12 @@ namespace engine
 			in,
 			cullingPass::cullMeshletsParams{
 				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
-				.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+				.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 				.meshCount = cmdBufferCount,
 				.compactCapacity = mResourceManager->getCompactCapacity(),
 			},
 			frameIndex
-		);
+			);
 		if (err)
 			return err;
 
@@ -573,7 +561,7 @@ namespace engine
 		pipelineBufferBarier(
 			cmd,
 			mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
-			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+			VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 			VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
@@ -608,7 +596,7 @@ namespace engine
 			in,
 			cullingPass::cullMeshletsParams{
 				.cullStage = ACCUMILATION_PASS_FLAG_BIT,
-				.hzbLength = uint32_t(mResourceManager->getHZB().size()),
+				.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 				.meshCount = cmdBufferCount,
 				.compactCapacity = mResourceManager->getCompactCapacity(),
 				.dispatchBuffer = mResourceManager->getJobBuffer(frameIndex),

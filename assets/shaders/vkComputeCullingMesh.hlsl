@@ -18,141 +18,106 @@ struct pushConstant
 DEFINE_AS_PUSH_CONSTANT
 pushConstant push;
 
-meshJob cullMeshes(uint dtid)
+meshJob cullMesh(uint dtid)
 {
     meshJob job;
     
     job.meshletsInJob = MAX_UINT;
+    job.isFirstPassJob = 0;
     
     // Accumilation runs on entire CMD buffer, no compaction.
     if (dtid < push.meshCount && hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
     {
         command cmd = commandAccumilationBuffer[push.frameIndex][dtid];
         perDrawData dData = drawData[push.frameIndex];
-
         perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
-
-        // Get first lod level to reference a meshlet.
-        uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
         perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
-        
-        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
         
         float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
         
-        cullingData occData = calculateCullingData(worldBs, dData);
-            
-        if (isInFrustum(dData, worldBs) && !isOcluded(occData, dData, push.hzbLength))
-        {
-            job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
-            job.instanceIndex = cmd.instanceIndex + push.frameIndex;
-            job.instanceOffset = cmd.instanceOffset;
-            job.meshletIndex = cmd.meshletIndex;
-            job.meshletsInJob = meshletsInLod(cmd, selectedLod);
-        }
+        if (!isInFrustum(dData, worldBs))
+            return job;
+        
+        cullingData occData = calculateCullingData(worldBs, dData.projection, dData.view, dData.width, dData.height);
+
+        if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength))
+            return job;
+
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
+        
+        job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
+        job.instanceIndex = cmd.instanceIndex + push.frameIndex;
+        job.instanceOffset = cmd.instanceOffset;
+        job.meshletIndex = cmd.meshletIndex;
+        job.meshletsInJob = meshletsInLod(cmd, selectedLod);
         
         return job;
     }
     
-    // First opaque pass only frustum test.
+    // First opaque pass.
     if (dtid < push.meshCount && hasFlag(push.cullingPassFlagBit, FIRST_OPAQUE_PASS_FLAG_BIT))
     {
-        bool visible = isVisabilityBitSet(opaqueMeshVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid / 32], dtid);
-        
-        if (!visible)
-            return job;
-        
         command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
         perDrawData dData = drawData[push.frameIndex];
-            
         perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
-
-        // Get first lod level to reference a mesh.
-        uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
         perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
+        
+        float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
+             
+        if (!isInFrustum(dData, worldBs))
+            return job;
+        
+        cullingData occData = calculateCullingData(worldBs, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
+        
+        if (isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength))
+            return job;
         
         uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
         
-        float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
-            
-        visible = isInFrustum(dData, worldBs);
-        
-        if (!visible)
-            writeMeshVisibilityBit(push.cmdOpaqueBufferIndex + push.frameIndex, dtid, visible);
-        else
-        {
-            job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
-            job.instanceIndex = cmd.instanceIndex + push.frameIndex;
-            job.instanceOffset = cmd.instanceOffset;
-            job.meshletIndex = cmd.meshletIndex;
-            job.meshletsInJob = meshletsInLod(cmd, selectedLod);
-        }
+        job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
+        job.instanceIndex = cmd.instanceIndex + push.frameIndex;
+        job.instanceOffset = cmd.instanceOffset;
+        job.meshletIndex = cmd.meshletIndex;
+        job.meshletsInJob = meshletsInLod(cmd, selectedLod);
+        job.isFirstPassJob = 1;
         
         return job;
     }
     
-    // Second pass frustum + oclussion cull.
+    // Second opaque pass.
     if (dtid < push.meshCount && hasFlag(push.cullingPassFlagBit, SECOND_OPAQUE_PASS_FLAG_BIT))
     {
-        bool visible = isVisabilityBitSet(opaqueMeshVisabilityBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid / 32], dtid);
+        command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
+        perDrawData dData = drawData[push.frameIndex];
+        perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
+        perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
+            
+        float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
         
-        // Retest each mesh that was drawn in first PASS. 
-        if (visible)
-        {
-            command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
-            perDrawData dData = drawData[push.frameIndex];
-            
-            perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
-
-            // Get first lod level to reference a meshlet.
-            uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
-            perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
-            
-            float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
-                
-            cullingData occData = calculateCullingData(worldBs, dData);
-            
-            visible = !isOcluded(occData, dData, push.hzbLength);
-            
-            if (!visible)
-                writeMeshVisibilityBit(push.cmdOpaqueBufferIndex + push.frameIndex, dtid, visible);
-            
+        if (!isInFrustum(dData, worldBs))
             return job;
-        }
+            
+        cullingData occData = calculateCullingData(worldBs, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
         
-        if (!visible)
-        {
-            command cmd = commandOpaqueBuffer[push.cmdOpaqueBufferIndex + push.frameIndex][dtid];
-            perDrawData dData = drawData[push.frameIndex];
-            
-            // Meshlet was invisible prev frame so we process it.
-            perInstanceAttr instanceAttr = perInstanceBuffer[cmd.instanceIndex + push.frameIndex][cmd.instanceOffset];
-
-            // Get first lod level to reference a meshlet.
-            uint meshletOffsetFirstLodLevel = getMeshletOffset(cmd, 1);
-            perMeshAttributes meshAttr = perMeshBuffer[cmd.meshIndex][cmd.meshOffset];
+        bool drawnFirstPass = !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength);
         
-            uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
-    
-            float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
-            
-            cullingData occData = calculateCullingData(worldBs, dData);
-            
-            visible = isInFrustum(dData, worldBs) && !isOcluded(occData, dData, push.hzbLength);
-            
-            if (visible)
-            {
-                writeMeshVisibilityBit(push.cmdOpaqueBufferIndex + push.frameIndex, dtid, visible);
-                
-                job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
-                job.instanceIndex = cmd.instanceIndex + push.frameIndex;
-                job.instanceOffset = cmd.instanceOffset;
-                job.meshletIndex = cmd.meshletIndex;
-                job.meshletsInJob = meshletsInLod(cmd, selectedLod);
-            }
+        if (drawnFirstPass)
+            return job;
+        
+        occData = calculateCullingData(worldBs, dData.projection, dData.view, dData.width, dData.height);
+        
+        if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength))
+            return job;
+        
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
+        
+        job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
+        job.instanceIndex = cmd.instanceIndex + push.frameIndex;
+        job.instanceOffset = cmd.instanceOffset;
+        job.meshletIndex = cmd.meshletIndex;
+        job.meshletsInJob = meshletsInLod(cmd, selectedLod);
                     
-            return job;
-        }
+        return job;
     }
     
     return job;
@@ -161,11 +126,11 @@ meshJob cullMeshes(uint dtid)
 [numthreads(CULLING_THREAD_COUNT, 1, 1)]
 void main(uint dtid : SV_DispatchThreadID)
 {
-    meshJob mesh = cullMeshes(dtid);
+    meshJob mesh = cullMesh(dtid);
 
     if (mesh.meshletsInJob == MAX_UINT)
         return;
-
+    
     uint meshCount = mesh.meshletsInJob;
     uint jobCount = (meshCount + CULLING_THREAD_COUNT - 1) / CULLING_THREAD_COUNT;
 

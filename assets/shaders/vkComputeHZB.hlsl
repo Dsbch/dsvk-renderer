@@ -38,13 +38,13 @@ void main(uint2 dtid : SV_DispatchThreadID)
     }
     else
     {
-        float d0 = hzbChain[push.hzbMipLevel - 1][srcCoord + uint2(0, 0)];
-        float d1 = hzbChain[push.hzbMipLevel - 1][srcCoord + uint2(1, 0)];
-        float d2 = hzbChain[push.hzbMipLevel - 1][srcCoord + uint2(0, 1)];
-        float d3 = hzbChain[push.hzbMipLevel - 1][srcCoord + uint2(1, 1)];
+        float d0 = currentFrameHzbChain[push.hzbMipLevel - 1][srcCoord + uint2(0, 0)];
+        float d1 = currentFrameHzbChain[push.hzbMipLevel - 1][srcCoord + uint2(1, 0)];
+        float d2 = currentFrameHzbChain[push.hzbMipLevel - 1][srcCoord + uint2(0, 1)];
+        float d3 = currentFrameHzbChain[push.hzbMipLevel - 1][srcCoord + uint2(1, 1)];
 
         depth = depth = min(min(d0, d1), min(d2, d3));
     }
 
-    hzbChain[push.hzbMipLevel][dtid] = depth;
+    currentFrameHzbChain[push.hzbMipLevel][dtid] = depth;
 }

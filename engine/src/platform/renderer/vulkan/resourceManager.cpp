@@ -123,19 +123,6 @@ namespace engine
 			mAccumilationCommandBuffer.setUpdated();
 		}
 
-		// Resize visability if needed.
-		for (auto& vb : mOpaqueMeshVisabilityBuffer)
-		{
-			if (uint32_t max = (getMaxCmdBufferSize(frameIndex) / sizeof(meshletShaderCMD)); max > vb.second[frameIndex].getSize() * 8)
-			{
-				vb.second[frameIndex].destroy();
-
-				error err = vb.second[frameIndex].build(mVulkanCtx->iSubmit, nullptr, max, 0);
-				if (err)
-					return err;
-			}
-		}
-
 		// Resize job buffer if needed.
 		if (size_t max = (size_t(getMaxJobCount(frameIndex)) + 1) * sizeof(meshJob); max > mJobBuffer[frameIndex].getSize())
 		{
@@ -259,29 +246,6 @@ namespace engine
 				b.setUpdated();
 		}
 
-		needDescriptorsUpdate = false;
-
-		for (auto& vb : mOpaqueMeshVisabilityBuffer)
-			for (auto& buf : vb.second)
-				needDescriptorsUpdate |= buf.needDescriptorUpdate();
-
-		if (needDescriptorsUpdate)
-		{
-			std::vector<VkDescriptorBufferInfo> visabilityBuffersInfo{};
-
-			for (auto& bv : mOpaqueMeshVisabilityBuffer)
-				for (auto& buf : bv.second)
-					visabilityBuffersInfo.push_back(VkDescriptorBufferInfo{ .buffer = buf.getBuffer().buffer, .offset = 0, .range = VK_WHOLE_SIZE });
-
-			auto visabilityWriteInfo = descriptorSet::getWriteInfo(mBindings.opaqueMeshVisabilityBufferBinding, visabilityBuffersInfo);
-
-			mBufferDescriptorSet.updateWrite(visabilityWriteInfo);
-		
-			for (auto& vb : mOpaqueMeshVisabilityBuffer)
-				for (auto& b : vb.second)
-					b.setUpdated();
-		}
-
 		return {};
 	}
 
@@ -299,19 +263,6 @@ namespace engine
 			mOpaqueCommandBuffers[m.mat.pixelShader->hash()] = cmd;
 
 			mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mOpaqueCommandBuffers[m.mat.pixelShader->hash()] });
-
-			mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()].resize(mCtx->config.inner.graphics.framesInFlight);
-
-			for (uint32_t i = 0; i < mCtx->config.inner.graphics.framesInFlight; i++)
-			{
-				mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()][i].init(mVulkanCtx->device, mVulkanCtx->allocator, { false, false });
-
-				error err = mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()][i].build(mVulkanCtx->iSubmit, nullptr, 2 << 24, 0);
-				if (err)
-					return err;
-
-				mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mOpaqueMeshVisabilityBuffer[m.mat.pixelShader->hash()][i] });
-			}
 		}
 
 		if (mOpaqueCommandBuffers[m.mat.pixelShader->hash()].instanceExists(m.id, frameIndex))
@@ -823,9 +774,27 @@ namespace engine
 		}
 	}
 
-	void resourceManager::transitionHzbChainImages(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) const
+	void resourceManager::transitionCurrentFrameHzbChainImages(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) const
 	{
-		for (auto& hzb : mHZBImages)
+		for (auto& hzb : mCurrentFrameHZB)
+		{
+			transitionImage(
+				cmd,
+				hzb.img.image,
+				hzb.img.format,
+				current,
+				newLayout,
+				srcStageMask,
+				srcAccessMask,
+				dstStageMask,
+				dstAccessMask
+			);
+		}
+	}
+
+	void resourceManager::transitionPrevFrameHzbChainImages(VkCommandBuffer cmd, VkImageLayout current, VkImageLayout newLayout, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) const
+	{
+		for (auto& hzb : mPrevFrameHZB)
 		{
 			transitionImage(
 				cmd,
@@ -866,9 +835,14 @@ namespace engine
 		return mClipMap;
 	}
 
-	std::span<vulkanImage> resourceManager::getHZB()
+	std::span<vulkanImage> resourceManager::getPrevFrameHZB()
 	{
-		return mHZBImages;
+		return mPrevFrameHZB;
+	}
+
+	std::span<vulkanImage> resourceManager::getCurrentFrameHZB()
+	{
+		return mCurrentFrameHZB;
 	}
 
 	const std::map<uint32_t, commandBuffer>& resourceManager::getOpaqueCmdBuffers() const
@@ -1154,7 +1128,7 @@ namespace engine
 
 		uint32_t hzbMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)(mip0Width, mip0Height))));
 
-		mHZBImages.resize(hzbMipLevels);
+		mCurrentFrameHZB.resize(hzbMipLevels);
 
 		VkExtent3D mipExtent = { mip0Width, mip0Height, 1 };
 
@@ -1170,11 +1144,32 @@ namespace engine
 			mipExtent.width = mipWidth;
 			mipExtent.height = mipHeight;
 
-			err = currentDepth.build(mVulkanCtx->iSubmit, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
+			err = currentDepth.build(mVulkanCtx->iSubmit, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
 			if (err)
 				return err;
 
-			mHZBImages[l] = std::move(currentDepth);
+			mCurrentFrameHZB[l] = std::move(currentDepth);
+		}
+
+		mPrevFrameHZB.resize(hzbMipLevels);
+
+		for (uint32_t l = 0; l < hzbMipLevels; l++)
+		{
+			const uint32_t mipWidth = (std::max)(1u, width >> (l + 1));
+			const uint32_t mipHeight = (std::max)(1u, height >> (l + 1));
+
+			vulkanImage currentDepth{};
+
+			currentDepth.init(mVulkanCtx->device, mVulkanCtx->allocator);
+
+			mipExtent.width = mipWidth;
+			mipExtent.height = mipHeight;
+
+			err = currentDepth.build(mVulkanCtx->iSubmit, mipExtent, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, false, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_GENERAL);
+			if (err)
+				return err;
+
+			mPrevFrameHZB[l] = std::move(currentDepth);
 		}
 
 		return {};
@@ -1253,12 +1248,6 @@ namespace engine
 		mBufferDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
 				mBindings.cmdOpaqueBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-			)
-		);
-
-		mBufferDescriptorSet.addBinding(
-			descriptorSet::getLayoutBindingInfo(
-				mBindings.opaqueMeshVisabilityBufferBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			)
 		);
 
@@ -1361,7 +1350,13 @@ namespace engine
 
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
-				mBindings.hzbBinding, mVulkanCtx->deviceLimits.maxRWImage / mBindings.storageImageBindings, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+				mBindings.prevFrameHzbBinding, mVulkanCtx->deviceLimits.maxRWImage / mBindings.storageImageBindings, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			)
+		);
+
+		mTextureDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.currentFrameHzbBinding, mVulkanCtx->deviceLimits.maxRWImage / mBindings.storageImageBindings, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
 			)
 		);
 
@@ -1415,7 +1410,7 @@ namespace engine
 
 		std::vector<VkDescriptorImageInfo> hzbInfo{};
 
-		for (auto& h : mHZBImages)
+		for (auto& h : mPrevFrameHZB)
 		{
 			VkDescriptorImageInfo imgInfo{
 				.imageView = h.img.view,
@@ -1425,7 +1420,23 @@ namespace engine
 			hzbInfo.push_back(std::move(imgInfo));
 		}
 
-		wSet = descriptorSet::getWriteInfo(mBindings.hzbBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, hzbInfo);
+		wSet = descriptorSet::getWriteInfo(mBindings.prevFrameHzbBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, hzbInfo);
+
+		mTextureDescriptorSet.updateWrite(wSet);
+
+		hzbInfo.clear();
+
+		for (auto& h : mCurrentFrameHZB)
+		{
+			VkDescriptorImageInfo imgInfo{
+				.imageView = h.img.view,
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+			};
+
+			hzbInfo.push_back(std::move(imgInfo));
+		}
+
+		wSet = descriptorSet::getWriteInfo(mBindings.currentFrameHzbBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, hzbInfo);
 
 		mTextureDescriptorSet.updateWrite(wSet);
 
@@ -1458,7 +1469,10 @@ namespace engine
 		mDepthImage.destroy();
 		mDepthResolveImage.destroy();
 
-		for (auto& v : mHZBImages)
+		for (auto& v : mPrevFrameHZB)
+			v.destroy();
+
+		for (auto& v : mCurrentFrameHZB)
 			v.destroy();
 	}
 
@@ -1478,5 +1492,43 @@ namespace engine
 			opaque += v.getMaxJobCount(frameIndex);
 
 		return std::max(opaque, mAccumilationCommandBuffer.getMaxJobCount(frameIndex));
+	}
+
+	void resourceManager::copyCurrentHzbToPrev(VkCommandBuffer cmd) const
+	{
+		for (size_t l = 0; l < mCurrentFrameHZB.size(); l++)
+		{
+			const allocatedImage& src = mCurrentFrameHZB[l].img;
+			const allocatedImage& dst = mPrevFrameHZB[l].img;
+
+			pipelineImageBarrier(
+				cmd, 
+				src.image, 
+				src.format, 
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_COPY_BIT, 
+				VK_ACCESS_2_TRANSFER_READ_BIT
+			);
+
+			pipelineImageBarrier(
+				cmd, 
+				dst.image, 
+				dst.format, 
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+				VK_PIPELINE_STAGE_2_COPY_BIT, 
+				VK_ACCESS_2_TRANSFER_WRITE_BIT
+			);
+
+			VkImageCopy region{};
+			region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			region.extent = src.extent;
+
+			vkCmdCopyImage(cmd, src.image, VK_IMAGE_LAYOUT_GENERAL, dst.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+		}
 	}
 }

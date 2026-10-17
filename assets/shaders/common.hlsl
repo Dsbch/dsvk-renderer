@@ -152,6 +152,9 @@ struct perDrawData
     float nearPlane;
     float farPlane;
     
+    float4x4 prevFrameView;
+    float4x4 prevFrameProjection;
+    
     uint clipMapResolution;
     uint voxelSceneExtent;
     float4x4 viewVoxel;
@@ -168,6 +171,7 @@ struct meshJob
     uint meshletIndex;
     uint firstMeshletOffset;
     uint meshletsInJob;
+    uint isFirstPassJob;
 };
 
 struct meshOutput
@@ -193,24 +197,21 @@ StructuredBuffer<float4> weightBuffer[] : register(t4, space0);
 StructuredBuffer<command> commandOpaqueBuffer[] : register(t5, space0);
 StructuredBuffer<command> commandAccumilationBuffer[] : register(t6, space0);
 
-// VisabilityBit only one BIT for each mesh.
-RWStructuredBuffer<uint> opaqueMeshVisabilityBuffer[] : register(u7, space0);
-
-StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t8, space0);
-StructuredBuffer<uint> vertexIndexBuffer[] : register(t9, space0);
-StructuredBuffer<uint> primitiveBuffer[] : register(t10, space0);
-StructuredBuffer<meshlet> meshletBuffer[] : register(t11, space0);
-StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t12, space0);
-StructuredBuffer<float4x4> jointBuffer[] : register(t13, space0);
-StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t14, space0);
-ConstantBuffer<perDrawData> drawData[] : register(b15, space0);
+StructuredBuffer<perInstanceAttr> perInstanceBuffer[] : register(t7, space0);
+StructuredBuffer<uint> vertexIndexBuffer[] : register(t8, space0);
+StructuredBuffer<uint> primitiveBuffer[] : register(t9, space0);
+StructuredBuffer<meshlet> meshletBuffer[] : register(t10, space0);
+StructuredBuffer<meshletAttributes> meshletAttributesBuffer[] : register(t11, space0);
+StructuredBuffer<float4x4> jointBuffer[] : register(t12, space0);
+StructuredBuffer<perMeshAttributes> perMeshBuffer[] : register(t13, space0);
+ConstantBuffer<perDrawData> drawData[] : register(b14, space0);
 // First slot is:
 // x = visibleCount y = groupCountX, z = groupCountY, w = groupCountZ.
-RWStructuredBuffer<uint4> compactBuffer[] : register(u16, space0);
-StructuredBuffer<float3> lineBuffer : register(t17, space0);
+RWStructuredBuffer<uint4> compactBuffer[] : register(u15, space0);
+StructuredBuffer<float3> lineBuffer : register(t16, space0);
 // First slot is:
 // x = jobCount y = groupCountX, z = groupCountY, w = groupCountZ, and garbage uint.
-RWStructuredBuffer<meshJob> jobBuffer[] : register(u18, space0);
+RWStructuredBuffer<meshJob> jobBuffer[] : register(u17, space0);
 
 // Texture bindings.
 Texture2D materials[] : register(t0, space1);
@@ -221,7 +222,8 @@ SamplerState accumSampler : register(s2, space1);
 Texture2D reveal : register(t3, space1);
 SamplerState revealSampler : register(s3, space1);
 Texture2D<float> originalZbuffer : register(t4, space1);
-RWTexture2D<float> hzbChain[] : register(u5, space1);
+RWTexture2D<float> prevFrameHzbChain[] : register(u5, space1);
+RWTexture2D<float> currentFrameHzbChain[] : register(u6, space1);
 
 float3 getPostition(uint index, uint offset)
 {
@@ -355,12 +357,12 @@ struct sphereScreenExtent
     float2 ndcBorderV;
 };
 
-sphereScreenExtent calculateSphereScreenExtent(float4 worldSpaceSphere, perDrawData dData)
+sphereScreenExtent calculateSphereScreenExtent(float4 worldSpaceSphere, float4x4 projection, float4x4 view)
 {
     sphereScreenExtent result;
 
     // View space.
-    float4 vsCenter = mul(dData.view, float4(worldSpaceSphere.xyz, 1.0f));
+    float4 vsCenter = mul(view, float4(worldSpaceSphere.xyz, 1.0f));
 
     result.vsCenter = vsCenter.xyz;
 
@@ -381,9 +383,9 @@ sphereScreenExtent calculateSphereScreenExtent(float4 worldSpaceSphere, perDrawD
     float3 vsTangentV = uFromaCamera * (fromCameraLength - cosAlpha * worldSpaceSphere.w) + normalize(cross(uFromaCamera, cross(uFromaCamera, float3(0.0f, 1.0f, 0.0f)))) * heightLength;
 
     // Clip space.
-    float4 clipCenter = mul(dData.projection, vsCenter);
-    float4 clipBorderH = mul(dData.projection, float4(vsTangentH, 1.0f));
-    float4 clipBorderV = mul(dData.projection, float4(vsTangentV, 1.0f));
+    float4 clipCenter = mul(projection, vsCenter);
+    float4 clipBorderH = mul(projection, float4(vsTangentH, 1.0f));
+    float4 clipBorderV = mul(projection, float4(vsTangentV, 1.0f));
 
     // NDC space.
     result.ndcCenter = clipCenter.xy / clipCenter.w;
@@ -393,21 +395,21 @@ sphereScreenExtent calculateSphereScreenExtent(float4 worldSpaceSphere, perDrawD
     return result;
 }
 
-float sphereNdcRadius(float4 worldSpaceSphere, perDrawData dData)
+float sphereNdcRadius(float4 worldSpaceSphere, float4x4 projection, float4x4 view)
 {
-    sphereScreenExtent extent = calculateSphereScreenExtent(worldSpaceSphere, dData);
+    sphereScreenExtent extent = calculateSphereScreenExtent(worldSpaceSphere, projection, view);
 
     return max(length(extent.ndcCenter - extent.ndcBorderH), length(extent.ndcCenter - extent.ndcBorderV));
 }
 
-cullingData calculateCullingData(float4 worldSpaceSphere, perDrawData dData)
+cullingData calculateCullingData(float4 worldSpaceSphere, float4x4 projection, float4x4 view, uint width, uint height)
 {
     cullingData result;
 
-    sphereScreenExtent extent = calculateSphereScreenExtent(worldSpaceSphere, dData);
+    sphereScreenExtent extent = calculateSphereScreenExtent(worldSpaceSphere, projection, view);
 
     float4 vsClosestToCamera = float4(extent.vsCenter.x, extent.vsCenter.y, extent.vsCenter.z + worldSpaceSphere.w, 1.0f);
-    float4 clipClosestToCamera = mul(dData.projection, vsClosestToCamera);
+    float4 clipClosestToCamera = mul(projection, vsClosestToCamera);
 
     result.closestDepth = clipClosestToCamera.z / clipClosestToCamera.w;
 
@@ -415,9 +417,9 @@ cullingData calculateCullingData(float4 worldSpaceSphere, perDrawData dData)
     float2 ndcNormalizedBorderH = ((extent.ndcBorderH + 1.0f) / 2.0f);
     float2 ndcNormalizedBorderV = ((extent.ndcBorderV + 1.0f) / 2.0f);
 
-    uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(dData.width)), uint(ndcNormalizedCenter.y * float(dData.height)));
-    uint2 ndcBorderPixelH = uint2(uint(ndcNormalizedBorderH.x * float(dData.width)), uint(ndcNormalizedBorderH.y * float(dData.height)));
-    uint2 ndcBorderPixelV = uint2(uint(ndcNormalizedBorderV.x * float(dData.width)), uint(ndcNormalizedBorderV.y * float(dData.height)));
+    uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(width)), uint(ndcNormalizedCenter.y * float(height)));
+    uint2 ndcBorderPixelH = uint2(uint(ndcNormalizedBorderH.x * float(width)), uint(ndcNormalizedBorderH.y * float(height)));
+    uint2 ndcBorderPixelV = uint2(uint(ndcNormalizedBorderV.x * float(width)), uint(ndcNormalizedBorderV.y * float(height)));
 
     float pixelLengthH = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixelH));
     float pixelLengthV = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixelV));
@@ -511,7 +513,7 @@ uint selectLodLevel(
     if (length(drawData.cameraPos - worldBs.xyz) <= worldBs.w)
         return 1;
     
-    float ndcRadius = sphereNdcRadius(float4(worldBs.xyz, worldBs.w), drawData);
+    float ndcRadius = sphereNdcRadius(float4(worldBs.xyz, worldBs.w), drawData.projection, drawData.view);
     
     if (ndcRadius >= 0.2f)   // ~10% of screen.
         return 1;
@@ -591,23 +593,6 @@ uint2 unpackUint2(uint packed)
 uint packUint2(uint x, uint y)
 {
     return (x & 0xFFFF) | (y << 16);
-}
-
-bool isVisabilityBitSet(uint word, uint index)
-{
-    return ((word >> (index & 31)) & 1) != 0;
-}
-
-// Uses atomic.
-void writeMeshVisibilityBit(uint bufferIndex, uint index, bool value)
-{
-    uint mask = 1u << (index & 31); 
-    uint word = index >> 5; 
-
-    if (value)
-        InterlockedOr(opaqueMeshVisabilityBuffer[bufferIndex][word], mask);
-    else
-        InterlockedAnd(opaqueMeshVisabilityBuffer[bufferIndex][word], ~mask);
 }
 
 bool isBackface(perDrawData drawData, transform modelTransform, float3 v1, float3 v2, float3 v3)
@@ -759,8 +744,12 @@ float3 pixelToRayDir(float2 pixel, perDrawData dData)
     return normalize(right * (ndc.x * halfW) + up * (ndc.y * halfH) + fwd);
 }
 
-bool isOcluded(cullingData occData, perDrawData dData, uint hzbLength)
+bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, uint height, uint hzbLength)
 {
+    // Sphere center outside the HZB image -> no information, treat as visible.
+    if (any(occData.sphereCenterUV < 0.0f) || any(occData.sphereCenterUV > 1.0f))
+        return false;
+    
     // Floor, because we will sample 2x2 texels for that sphere.
     uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
                     
@@ -768,8 +757,8 @@ bool isOcluded(cullingData occData, perDrawData dData, uint hzbLength)
                     
     // drawData.width >> neededChain => divide by 2 in power of neededChain.
     // drawData.width / 2 because zero mip starts with drawData.width / 2.
-    int mipWidth = max(1, int(dData.width / 2) >> (neededChain));
-    int mipHeight = max(1, int(dData.height / 2) >> (neededChain));
+    int mipWidth = max(1, int(width / 2) >> (neededChain));
+    int mipHeight = max(1, int(height / 2) >> (neededChain));
 
     float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
 

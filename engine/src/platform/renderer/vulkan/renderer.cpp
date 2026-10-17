@@ -325,12 +325,16 @@ namespace engine
 					.horizontalFov = params.horizontalFov,
 					.nearPlane = params.nearPlane,
 					.farPlane = params.farPlane,
+					.prevFrameView = mPrevFrameRenderParams.view,
+					.prevFrameProjection = mPrevFrameRenderParams.projection,
 					.voxelParams = getVoxelSceneParams(),
 				},
 				frameIndex
 				);
 			if (err)
 				return err;
+
+			mPrevFrameRenderParams = params;
 
 			// Register all queued events from submit, get semaphores to wait upon before render.
 			auto waitSema = mVulkanCtx->iSubmit.getCurrentSemaInUse();
@@ -413,7 +417,7 @@ namespace engine
 				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
 			);
 
-			mResourceManager->transitionHzbChainImages(
+			mResourceManager->transitionCurrentFrameHzbChainImages(
 				cmd,
 				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
 				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
@@ -433,11 +437,13 @@ namespace engine
 				err = drawAsRaster(cmd, params, frameIndex);
 				if (err)
 					return err;
+
+				mResourceManager->copyCurrentHzbToPrev(cmd);
 			}
 
 			// Preapre images for UI render, revel and accum already transitioned to needed layoyut.
 			mResourceManager->transitionDepthImage(cmd, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			mResourceManager->transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			mResourceManager->transitionCurrentFrameHzbChainImages(cmd, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -452,7 +458,7 @@ namespace engine
 			// Prepare for next frame.
 			mResourceManager->transitionAccumImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 			mResourceManager->transitionRevealImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-			mResourceManager->transitionHzbChainImages(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			mResourceManager->transitionPrevFrameHzbChainImages(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 			mResourceManager->transitionDepthImage(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 			//transition the draw image and the swapchain image into their correct transfer layouts

@@ -166,8 +166,8 @@ namespace engine
 		if (!nearFar)
 			return nearFar.err();
 
-		renderCall.nearPlane = fov.value().first;
-		renderCall.farPlane = fov.value().second;
+		renderCall.nearPlane = nearFar.value().first;
+		renderCall.farPlane = nearFar.value().second;
 
 		if (isDebugCameraPresent(registry))
 		{
@@ -194,8 +194,8 @@ namespace engine
 			if (!nearFar)
 				return nearFar.err();
 
-			renderCall.nearPlane = fov.value().first;
-			renderCall.farPlane = fov.value().second;
+			renderCall.nearPlane = nearFar.value().first;
+			renderCall.farPlane = nearFar.value().second;
 		}
 
 		mRenderPackage->setRenderParams(renderCall);

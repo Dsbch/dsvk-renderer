@@ -71,7 +71,16 @@ namespace engine
 			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
 		) const;
-		void transitionHzbChainImages(
+		void transitionCurrentFrameHzbChainImages(
+			VkCommandBuffer cmd,
+			VkImageLayout current,
+			VkImageLayout newLayout,
+			VkPipelineStageFlags2 srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+			VkPipelineStageFlags2 dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+			VkAccessFlags2 dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT
+		) const;
+		void transitionPrevFrameHzbChainImages(
 			VkCommandBuffer cmd,
 			VkImageLayout current,
 			VkImageLayout newLayout,
@@ -86,7 +95,8 @@ namespace engine
 		vulkanImage getAccumImage(bool needResolve) const;
 		vulkanImage getRevealImage(bool needResolve) const;
 		vulkanImage getClipMap() const;
-		std::span<vulkanImage> getHZB();
+		std::span<vulkanImage> getPrevFrameHZB();
+		std::span<vulkanImage> getCurrentFrameHZB();
 		const std::map<uint32_t, commandBuffer>& getOpaqueCmdBuffers() const;
 		const commandBuffer* getOpaqueCmdBuffer(uint32_t pixelShaderID) const;
 		const commandBuffer& getAccumilationCmdBuffer() const;
@@ -94,6 +104,7 @@ namespace engine
 		const vulkanBuffer& getJobBuffer(uint32_t frameIndex) const;
 		const vulkanBuffer& getLinebuffer() const;
 		const uint32_t getCompactCapacity() const;
+		void copyCurrentHzbToPrev(VkCommandBuffer cmd) const;
 	private:
 		void destroyViewPortDependantResources();
 		error buildResources(uint32_t width, uint32_t height);
@@ -110,10 +121,10 @@ namespace engine
 		
 		struct descriptorsBindings
 		{
-			uint32_t storageBufferBindings = 18;
+			uint32_t storageBufferBindings = 17;
 			uint32_t uniformBufferBindings = 1;
 			
-			uint32_t storageImageBindings = 2;
+			uint32_t storageImageBindings = 3;
 			uint32_t combinedSampledImageBindings = 4;
 
 			// Buffers bindings.
@@ -124,18 +135,17 @@ namespace engine
 			uint32_t weightBinding = 4;
 			uint32_t cmdOpaqueBufferBinding = 5;
 			uint32_t cmdAccumilationBufferBinding = 6;
-			uint32_t opaqueMeshVisabilityBufferBinding = 7;
-			uint32_t perInstanceBinding = 8;
-			uint32_t indexBinding = 9;
-			uint32_t primitiveBinding = 10;
-			uint32_t meshletBinding = 11;
-			uint32_t meshletAttributesBinding = 12;
-			uint32_t jointsBinding = 13;
-			uint32_t perMeshBinding = 14;
-			uint32_t perDrawBufferUboBinding = 15;
-			uint32_t compactBufferBinding = 16;
-			uint32_t lineBufferBinding = 17;
-			uint32_t jobBufferBinding = 18;
+			uint32_t perInstanceBinding = 7;
+			uint32_t indexBinding = 8;
+			uint32_t primitiveBinding = 9;
+			uint32_t meshletBinding = 10;
+			uint32_t meshletAttributesBinding = 11;
+			uint32_t jointsBinding = 12;
+			uint32_t perMeshBinding = 13;
+			uint32_t perDrawBufferUboBinding = 14;
+			uint32_t compactBufferBinding = 15;
+			uint32_t lineBufferBinding = 16;
+			uint32_t jobBufferBinding = 17;
 
 			// Texture bindings.
 			uint32_t materialArrayBinding = 0;
@@ -143,7 +153,8 @@ namespace engine
 			uint32_t accumBinding = 2;
 			uint32_t revealBinding = 3;
 			uint32_t orignalZBufferBinding = 4;
-			uint32_t hzbBinding = 5;
+			uint32_t prevFrameHzbBinding = 5;
+			uint32_t currentFrameHzbBinding = 6;
 		};
 
 		descriptorsBindings mBindings;
@@ -170,7 +181,6 @@ namespace engine
 		bufferRegistry mJointRegistry;
 		vulkanBuffer mLineBuffer;
 		std::vector<vulkanBuffer> mUboPerDrawBuffer;
-		std::map<uint32_t, std::vector<vulkanBuffer>> mOpaqueMeshVisabilityBuffer;
 		std::vector<vulkanBuffer> mJobBuffer;
 		uint32_t mCompactCapacity;
 		std::vector<vulkanBuffer> mCompactBuffer;
@@ -186,6 +196,7 @@ namespace engine
 		vulkanImage mColorAttachmentResolveImage;
 		vulkanImage mDepthImage;
 		vulkanImage mDepthResolveImage;
-		std::vector<vulkanImage> mHZBImages;
+		std::vector<vulkanImage> mPrevFrameHZB;
+		std::vector<vulkanImage> mCurrentFrameHZB;
 	};
 }

@@ -143,7 +143,7 @@ namespace engine
 
 		mImGuiDescroptorSets.push_back(depthDescriptorSet);
 
-		std::span<vulkanImage> hzbBuf = mResourceManager->getHZB();
+		std::span<vulkanImage> hzbBuf = mResourceManager->getPrevFrameHZB();
 
 		for (auto& h : hzbBuf)
 		{

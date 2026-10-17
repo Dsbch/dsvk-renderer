@@ -28,30 +28,38 @@ bool isMeshletVisible(uint tid, meshJob job)
     // Accumilation runs on entire CMD buffer, no compaction.
     if (hasFlag(push.cullingPassFlagBit, ACCUMILATION_PASS_FLAG_BIT))
     {
-        cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
+        cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.projection, dData.view, dData.width, dData.height);
             
-        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, dData, push.hzbLength);
+        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
     }
     
-    // First opaque pass only frustum test.
+    // First opaque pass.
     if (hasFlag(push.cullingPassFlagBit, FIRST_OPAQUE_PASS_FLAG_BIT))
     {
-        // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
-        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);
+        cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
+        
+        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength);
     }
     
-    // Second pass frustum + oclussion cull.
+    // Second opaque pass.
     if (hasFlag(push.cullingPassFlagBit, SECOND_OPAQUE_PASS_FLAG_BIT))
     {
-        // Cone culling doesn't work for animated meshlets. On CPU cone calculation is wrong.
-        bool visible = isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds);
-        
-        if (!visible)
-            return visible;
-                
-        cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData);
-        
-        return visible && !isOcluded(occData, dData, push.hzbLength);
+        if (!isFrontfaceMeshlet(dData, worldBounds) || !isInFrustum(dData, worldBounds))
+            return false;
+
+        float4 sphere = float4(worldBounds.center, worldBounds.radius);
+
+        if (job.isFirstPassJob)
+        {
+            cullingData prevOcc = calculateCullingData(sphere, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
+
+            if (!isOcluded(prevOcc, prevFrameHzbChain, dData.width, dData.height, push.hzbLength))
+                return false;
+        }
+
+        cullingData occData = calculateCullingData(sphere, dData.projection, dData.view, dData.width, dData.height);
+
+        return !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
     }
     
     return false;
