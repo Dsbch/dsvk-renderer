@@ -4,12 +4,9 @@
 
 
 // Optimizations:
-// 1. Fix UUID collision make uuid 64bit.
-// 2. Add visability buffer for EACH meshlet.
-// 3. Make compact buffer resizable need to figure out GPU readback after culling.
-// 4. Go to TASK shaders and remove computeMeshletCulling shader.
-// 5. Profile it!
-// 6. Fix voxelization.
+// 1. Add contribution culling.
+// 2. Make lod levels dynamic up to 8, with error level and triangle count cutoff. next lod level 60 percent of prev.
+// 3. Profile results.
 
 // Voxelization:
 // 1. Calculate scene bounding box.

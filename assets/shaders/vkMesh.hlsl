@@ -41,15 +41,14 @@ void msmain(
 
     uint triangleID = gtid * 3;
     uint vertexID = gtid * 2;
-    uint packedTriangles[3];
     
     [unroll]
     for (uint i = 0; i < TRIANGLE_LOOPS; i++)
     {
-        if ((triangleID + i)  >= mesh.triangleCount)
+        if ((triangleID + i) >= mesh.triangleCount)
             break;
         
-        packedTriangles[i] = primitiveBuffer[vertexTriangleIndex.y][mesh.triangleBufferOffset + triangleID + i];
+        triangles[triangleID + i] = unpackUint3(primitiveBuffer[vertexTriangleIndex.y][mesh.triangleBufferOffset + triangleID + i]);
     }
             
     [loop]
@@ -76,26 +75,6 @@ void msmain(
         vertices[idx].worldPos = worldPos.xyz;
         vertices[idx].normal = rotate(instanceAttr.modelTransform.rotation, skVertex.normal);
         vertices[idx].tangent = float4(rotate(instanceAttr.modelTransform.rotation, skVertex.tangent.xyz), skVertex.tangent.w);
-    }
-    
-    GroupMemoryBarrierWithGroupSync();
-    
-    [unroll]
-    for (uint d = 0; d < TRIANGLE_LOOPS; d++)
-    {
-        if ((triangleID + d) >= mesh.triangleCount)
-            break;
-        
-        uint3 unpacked = unpackUint3(packedTriangles[d]);
-        
-        triangles[triangleID + d] = unpacked;
-        
-        primitives[triangleID + d].cullPrimitive = isBackface(
-                dData,
-                sharedPositions[unpacked.x],
-                sharedPositions[unpacked.y],
-                sharedPositions[unpacked.z]
-        );
     }
 }
 

@@ -31,7 +31,7 @@ namespace sandbox
 
 	engine::error sandboxSystem::onAttach(std::shared_ptr<engine::registryHandle> registry)
 	{
-#ifdef RELEASE
+#if defined(DIST)
 		auto marble = mCtx->mAmanager->loadModelGLTF(
 			"../assets/marble.glb",
 			mCtx->config.inner.meshlets.maxTriangles,
@@ -127,7 +127,7 @@ namespace sandbox
 		if (keyPressedEvent && keyPressedEvent->getKey() == engine::key::m)
 			mCtx->mApplicationEventQueue->queueEvent(std::make_shared<engine::toggleCursorEvent>());
 
-#ifdef DEBUG
+#if defined(RELEASE) || defined(DEBUG)
 		if (keyPressedEvent)
 		{
 			if (keyPressedEvent->getKey() == engine::key::e)

@@ -32,7 +32,6 @@ void msmain(
      
     uint triangleID = gtid * 3;
     uint vertexID = gtid * 2;
-    uint packedTriangles[3];
     
     [unroll]
     for (uint i = 0; i < TRIANGLE_LOOPS; i++)

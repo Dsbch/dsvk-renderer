@@ -32,7 +32,7 @@ Windows only for now.
     premake5 --mode=sandbox vs2026
    ```
 
-3. Open the generated solution and build in Release.
+3. Open the generated solution and build in Dist.
 
 | Key | Action |
 | --- | --- |
