@@ -29,6 +29,9 @@
 
 #define BLEND_ALPHA_MODE 1
 
+#define MESH_CONTRIBUTION_PIXELS 2.0f
+#define MESHLET_CONTRIBUTION_PIXELS 1.0f
+
 // INPUT START.
 
 struct pushConstant
@@ -386,13 +389,13 @@ sphereScreenExtent calculateSphereScreenExtent(float4 worldSpaceSphere, float4x4
 
     // Clip space.
     float4 clipCenter = mul(projection, vsCenter);
-    float4 clipBorderH = mul(projection, float4(vsTangentH, 1.0f));
-    float4 clipBorderV = mul(projection, float4(vsTangentV, 1.0f));
+    float4 clipTangentPointH = mul(projection, float4(vsTangentH, 1.0f));
+    float4 clipTangentPointV = mul(projection, float4(vsTangentV, 1.0f));
 
     // NDC space.
     result.ndcCenter = clipCenter.xy / clipCenter.w;
-    result.ndcBorderH = clipBorderH.xy / clipBorderH.w;
-    result.ndcBorderV = clipBorderV.xy / clipBorderV.w;
+    result.ndcBorderH = clipTangentPointH.xy / clipTangentPointH.w;
+    result.ndcBorderV = clipTangentPointV.xy / clipTangentPointV.w;
 
     return result;
 }
@@ -419,12 +422,12 @@ cullingData calculateCullingData(float4 worldSpaceSphere, float4x4 projection, f
     float2 ndcNormalizedBorderH = ((extent.ndcBorderH + 1.0f) / 2.0f);
     float2 ndcNormalizedBorderV = ((extent.ndcBorderV + 1.0f) / 2.0f);
 
-    uint2 ndcCenterPixel = uint2(uint(ndcNormalizedCenter.x * float(width)), uint(ndcNormalizedCenter.y * float(height)));
-    uint2 ndcBorderPixelH = uint2(uint(ndcNormalizedBorderH.x * float(width)), uint(ndcNormalizedBorderH.y * float(height)));
-    uint2 ndcBorderPixelV = uint2(uint(ndcNormalizedBorderV.x * float(width)), uint(ndcNormalizedBorderV.y * float(height)));
+    float2 ndcCenterPixel = float2(ndcNormalizedCenter.x * float(width), ndcNormalizedCenter.y * float(height));
+    float2 ndcBorderPixelH = float2(ndcNormalizedBorderH.x * float(width), ndcNormalizedBorderH.y * float(height));
+    float2 ndcBorderPixelV = float2(ndcNormalizedBorderV.x * float(width), ndcNormalizedBorderV.y * float(height));
 
-    float pixelLengthH = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixelH));
-    float pixelLengthV = 2.0f * length(float2(ndcCenterPixel) - float2(ndcBorderPixelV));
+    float pixelLengthH = 2.0f * length(ndcCenterPixel - ndcBorderPixelH);
+    float pixelLengthV = 2.0f * length(ndcCenterPixel - ndcBorderPixelV);
 
     result.pixelLength = max(pixelLengthH, pixelLengthV);
     result.sphereCenterUV = ndcNormalizedCenter.xy;
@@ -527,6 +530,27 @@ uint selectLodLevel(
         return 3;
     
     return 4; // < 2.5% of screen.
+}
+
+bool isTooSmall(perDrawData drawData, float4 worldBs, float pixels = 1.0f)
+{
+    if (dot(worldBs.xyz - drawData.cameraPos, drawData.cameraFront) - worldBs.w < drawData.nearPlane)
+        return false;
+
+    sphereScreenExtent extent = calculateSphereScreenExtent(worldBs, drawData.projection, drawData.view);
+
+    float2 ndcNormalizedCenter = ((extent.ndcCenter + 1.0f) / 2.0f);
+    float2 ndcNormalizedBorderH = ((extent.ndcBorderH + 1.0f) / 2.0f);
+    float2 ndcNormalizedBorderV = ((extent.ndcBorderV + 1.0f) / 2.0f);
+
+    float2 ndcCenterPixel = float2(ndcNormalizedCenter.x * float(drawData.width), ndcNormalizedCenter.y * float(drawData.height));
+    float2 ndcBorderPixelH = float2(ndcNormalizedBorderH.x * float(drawData.width), ndcNormalizedBorderH.y * float(drawData.height));
+    float2 ndcBorderPixelV = float2(ndcNormalizedBorderV.x * float(drawData.width), ndcNormalizedBorderV.y * float(drawData.height));
+
+    float pixelLengthH = 2.0f * length(ndcCenterPixel - ndcBorderPixelH);
+    float pixelLengthV = 2.0f * length(ndcCenterPixel - ndcBorderPixelV);
+    
+    return max(pixelLengthH, pixelLengthV) < pixels;
 }
 
 // Back face cone culling.
@@ -761,7 +785,9 @@ bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, u
     int mipWidth = max(1, int(width / 2) >> (neededChain));
     int mipHeight = max(1, int(height / 2) >> (neededChain));
 
-    float2 mipTexelCoords = occData.sphereCenterUV * float2(mipWidth, mipHeight) - 0.5f;
+    // 2^(neededChain+1).
+    float pixelsPerTexel = float(2u << neededChain);
+    float2 mipTexelCoords = occData.sphereCenterUV * float2(width, height) / pixelsPerTexel - 0.5f;
 
     int2 topLeftTexel = clamp(int2(floor(mipTexelCoords)), int2(0, 0), int2(mipWidth - 2, mipHeight - 2));
 
@@ -792,7 +818,7 @@ bool isMeshletVisible(uint tid, meshJob job)
     {
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.projection, dData.view, dData.width, dData.height);
             
-        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
+        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
     }
     
     // First opaque pass.
@@ -800,7 +826,7 @@ bool isMeshletVisible(uint tid, meshJob job)
     {
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
         
-        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true);
+        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true);
     }
     
     // Second opaque pass.
@@ -821,7 +847,7 @@ bool isMeshletVisible(uint tid, meshJob job)
 
         cullingData occData = calculateCullingData(sphere, dData.projection, dData.view, dData.width, dData.height);
 
-        return !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
+        return !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
     }
     
     return false;

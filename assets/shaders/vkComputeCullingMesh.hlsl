@@ -42,7 +42,7 @@ meshJob cullMesh(uint dtid)
         
         float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
         
-        if (!isInFrustum(dData, worldBs))
+        if (!isInFrustum(dData, worldBs) || isTooSmall(dData, worldBs, MESH_CONTRIBUTION_PIXELS))
             return job;
         
         cullingData occData = calculateCullingData(worldBs, dData.projection, dData.view, dData.width, dData.height);
@@ -73,7 +73,7 @@ meshJob cullMesh(uint dtid)
         
         float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
              
-        if (!isInFrustum(dData, worldBs))
+        if (!isInFrustum(dData, worldBs) || isTooSmall(dData, worldBs, MESH_CONTRIBUTION_PIXELS))
             return job;
         
         cullingData occData = calculateCullingData(worldBs, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
@@ -104,7 +104,7 @@ meshJob cullMesh(uint dtid)
             
         float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), instanceAttr.modelTransform);
         
-        if (!isInFrustum(dData, worldBs))
+        if (!isInFrustum(dData, worldBs) || isTooSmall(dData, worldBs, MESH_CONTRIBUTION_PIXELS))
             return job;
             
         cullingData occData = calculateCullingData(worldBs, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
