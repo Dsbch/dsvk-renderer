@@ -12,6 +12,7 @@
 #define VERTICES_PER_MESHLET 64
 #define VERTEX_LOOPS VERTICES_PER_MESHLET / MESHLET_THREAD_COUNT
 #define TRIANGLE_LOOPS TRIANGLES_PER_MESHLET / MESHLET_THREAD_COUNT
+#define MAX_LOD_LEVELS 8
 
 #define PI 3.14159265359f
 
@@ -116,18 +117,14 @@ struct perInstanceAttr
 
 struct command
 {
-    // 2 bytes meshlet, 2 bytes instance index.
+	// 2 bytes meshlet, 2 bytes instance index.
     uint meshInstanceIndex;
-    
     uint meshOffset;
-    
     uint instanceOffset;
-    
-    uint meshletIndex;
-    uint meshletOffset1;
-    uint meshletOffset2;
-    uint meshletOffset3;
-    uint meshletOffset4;
+
+	// First two bytes meshlet index, last two lod level count.
+    uint meshletIndexLodLevelCount;
+    uint meshletOffsets[8];
     uint meshletEndOffset;
 };
 
@@ -312,6 +309,36 @@ skinnedVertex skinVertex(bool isSkinned, perInstanceAttr perInst, uint index, ui
     return result;
 }
 
+// meshopt stores the triangle offset in bytes since it stores the
+// triangle indices as 3 consecutive bytes. 
+//
+// Since we repacked those 3 bytes to a 32-bit uint, our offset is now
+// aligned to 4 and we can easily grab it as a uint without any 
+// additional offset math.
+uint3 unpackUint3(uint packed)
+{
+    uint3 result;
+    
+    result.x = (packed >> 0) & 0xFF;
+    result.y = (packed >> 8) & 0xFF;
+    result.z = (packed >> 16) & 0xFF;
+    
+    return result;
+}
+
+uint2 unpackUint2(uint packed)
+{
+    uint2 result;
+    result.x = (packed >> 0) & 0xFFFF;
+    result.y = (packed >> 16) & 0xFFFF;
+    return result;
+}
+
+uint packUint2(uint x, uint y)
+{
+    return (x & 0xFFFF) | (y << 16);
+}
+
 float3 rotate(float4 quat, float3 v)
 {
     float3 uv = cross(quat.xyz, v);
@@ -449,50 +476,17 @@ meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTrans
     return result;
 }
 
-uint meshletsInLod(command cmd, uint lodLevel)
+uint meshletsInLod(command cmd, uint lodLevel, uint maxLodLevel)
 {
-    uint result;
+    if (lodLevel == MAX_LOD_LEVELS || lodLevel == maxLodLevel)
+        return cmd.meshletEndOffset - cmd.meshletOffsets[lodLevel - 1];
     
-    switch (lodLevel)
-    {
-        case 2:
-            result = cmd.meshletOffset3 - cmd.meshletOffset2;
-            break;
-        case 3:
-            result = cmd.meshletOffset4 - cmd.meshletOffset3;
-            break;
-        case 4:
-            result = cmd.meshletEndOffset - cmd.meshletOffset4;
-            break;
-        default:
-            result = cmd.meshletOffset2 - cmd.meshletOffset1;
-            break;
-    }
-    
-    return result;
+    return cmd.meshletOffsets[lodLevel] - cmd.meshletOffsets[lodLevel - 1];
 }
 
 uint getMeshletOffset(command cmd, uint lodLevel)
 {
-    uint result;
-    
-    switch (lodLevel)
-    {
-        case 2:
-            result = cmd.meshletOffset2;
-            break;
-        case 3:
-            result = cmd.meshletOffset3;
-            break;
-        case 4:
-            result = cmd.meshletOffset4;
-            break;
-        default:
-            result = cmd.meshletOffset1;
-            break;
-    }
-    
-    return result;
+    return cmd.meshletOffsets[lodLevel - 1];
 }
 
 float4 worldSpaceBS(float4 bs, transform modelTransform)
@@ -510,7 +504,8 @@ float4 worldSpaceBS(float4 bs, transform modelTransform)
 uint selectLodLevel(
     perMeshAttributes meshAttr,
     perDrawData drawData,
-    transform modelTransform
+    transform modelTransform,
+    command cmd
 )
 {
     float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), modelTransform);
@@ -520,16 +515,26 @@ uint selectLodLevel(
     
     float ndcRadius = sphereNdcRadius(float4(worldBs.xyz, worldBs.w), drawData.projection, drawData.view);
     
-    if (ndcRadius >= 0.2f)   // ~10% of screen.
-        return 1;
+    uint maxLodLevels = unpackUint2(cmd.meshletIndexLodLevelCount).y;
     
-    if (ndcRadius >= 0.1f)   // ~5% of screen.
-        return 2;
+    // Select max lod level first.
+    uint result = maxLodLevels;
     
-    if (ndcRadius >= 0.05f)  // ~2.5% of screen.
-        return 3;
+    float targetRadius = 0.2f; // starts from 10% of screen for first lod level.
     
-    return 4; // < 2.5% of screen.
+    [unroll]
+    for (int i = 1; i <= maxLodLevels; i++)
+    {
+        if (ndcRadius >= targetRadius)
+        {
+            result = i;
+            break;
+        }
+        
+        targetRadius /= 2.0f;
+    }
+    
+    return result;
 }
 
 bool isTooSmall(perDrawData drawData, float4 worldBs, float pixels = 1.0f)
@@ -589,36 +594,6 @@ bool isInFrustum(perDrawData drawData, float4 bs)
     bool bottom = dot(bs.w * drawData.cameraFrustum.worldBottomN + bs.xyz, drawData.cameraFrustum.worldBottomN) - drawData.cameraFrustum.bottomDistance > 0;
     
     return front && back && right && left && top && bottom;
-}
-
-// meshopt stores the triangle offset in bytes since it stores the
-// triangle indices as 3 consecutive bytes. 
-//
-// Since we repacked those 3 bytes to a 32-bit uint, our offset is now
-// aligned to 4 and we can easily grab it as a uint without any 
-// additional offset math.
-uint3 unpackUint3(uint packed)
-{
-    uint3 result;
-    
-    result.x = (packed >> 0) & 0xFF;
-    result.y = (packed >> 8) & 0xFF;
-    result.z = (packed >> 16) & 0xFF;
-    
-    return result;
-}
-
-uint2 unpackUint2(uint packed)
-{
-    uint2 result;
-    result.x = (packed >> 0) & 0xFFFF;
-    result.y = (packed >> 16) & 0xFFFF;
-    return result;
-}
-
-uint packUint2(uint x, uint y)
-{
-    return (x & 0xFFFF) | (y << 16);
 }
 
 bool isBackface(perDrawData drawData, transform modelTransform, float3 v1, float3 v2, float3 v3)

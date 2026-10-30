@@ -16,6 +16,7 @@ namespace engine
 #define SECOND_OPAQUE_PASS_FLAG_BIT				(1 << 1)
 #define ACCUMILATION_PASS_FLAG_BIT              (1 << 2)
 #define VOXEL_PASS_FLAG_BIT						(1 << 4)
+#define MAX_LOD_LEVELS 8
 
 	bool hasFlag(uint32_t mask, uint32_t flag);
 
@@ -44,11 +45,9 @@ namespace engine
 
 		uint32_t instanceOffset;
 
-		uint32_t meshletIndex;
-		uint32_t meshletOffset1;
-		uint32_t meshletOffset2;
-		uint32_t meshletOffset3;
-		uint32_t meshletOffset4;
+		// First two bytes meshlet index, last two lod level count.
+		uint32_t meshletIndexLodLevelCount;
+		uint32_t meshletOffsets[MAX_LOD_LEVELS];
 		uint32_t meshletEndOffset;
 	};
 
@@ -110,9 +109,7 @@ namespace engine
 	template<class T>
 	struct dataWithLodLevels
 	{
-		uint32_t second;
-		uint32_t third;
-		uint32_t fourth;
+		uint32_t lodOffsets[MAX_LOD_LEVELS];
 		std::vector<T> data;
 	};
 
@@ -134,27 +131,7 @@ namespace engine
 
 		UID meshHash = 0;
 
-		void generateHashes()
-		{
-			if (meshHash != 0)
-				return;
-
-			UID posHash = crc64(reinterpret_cast<const uint8_t*>(positions.data()), positions.size() * sizeof(glm::vec4) / sizeof(uint8_t));
-			UID normalHash = crc64(reinterpret_cast<const uint8_t*>(normal.data()), normal.size() * sizeof(glm::vec4) / sizeof(uint8_t));
-			UID tangentHash = crc64(reinterpret_cast<const uint8_t*>(tangent.data()), tangent.size() * sizeof(glm::vec4) / sizeof(uint8_t));
-			UID jointsIndicesHash = crc64(reinterpret_cast<const uint8_t*>(jointIndices.data()), jointIndices.size() * sizeof(glm::uvec4) / sizeof(uint8_t));
-			UID weightsHash = crc64(reinterpret_cast<const uint8_t*>(weights.data()), weights.size() * sizeof(glm::vec4) / sizeof(uint8_t));
-
-			UID vertexHash = mergeCrc64({ posHash, normalHash, tangentHash, jointsIndicesHash, weightsHash });
-
-			UID indexHash = crc64(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
-
-			UID primitiveHash = crc64(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
-
-			UID meshletHash = crc64(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.second * sizeof(meshlet) / sizeof(uint8_t));
-
-			meshHash = mergeCrc64({ vertexHash, meshletHash, indexHash, primitiveHash });
-		}
+		void generateHashes();
 	};
 
 	enum class alphaModeType
@@ -179,30 +156,9 @@ namespace engine
 
 		UID hash = 0;
 
-		void generateHash()
-		{
-			if (hash != 0)
-				return;
+		void generateHash();
 
-			std::vector<UID> crcVals;
-			for (const auto& t : textures)
-			{
-				crcVals.push_back(t.albedo->hash());
-				crcVals.push_back(t.normal->hash());
-				crcVals.push_back(t.metallicRoughness->hash());
-			}
-
-			hash = mergeCrc64(crcVals);
-		}
-
-		bool hasBlendMaterials() const
-		{
-			for (auto& matText : textures)
-				if (matText.alphaMode == alphaModeType::blend)
-					return true;
-
-			return false;
-		}
+		bool hasBlendMaterials() const;
 	};
 
 	struct joint
@@ -282,40 +238,7 @@ namespace engine
 			return id < other.id;
 		}
 
-		aabb calculateWorldSpaceAABB() const
-		{
-			auto maxScale = [](const glm::mat4x4& mat) -> float
-				{
-					glm::vec3 basisX = mat * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-					glm::vec3 basisY = mat * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
-					glm::vec3 basisZ = mat * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-
-					return std::max(glm::length(basisX), std::max(glm::length(basisY), glm::length(basisZ)));
-				};
-
-			aabb result{
-				.min = glm::vec3{std::numeric_limits<float>::max()},
-				.max = glm::vec3{std::numeric_limits<float>::lowest()},
-			};
-
-			for (auto& pm : *perMeshData.get())
-			{
-				glm::vec3 sphereCenter{ pm.bsCenter };
-				float sphereRadius{ pm.bsRadius };
-
-				sphereCenter = glm::vec4{ sphereCenter, 1.0f };
-
-				float uniformScale = std::max(instanceAttributes.modelTransform.scale.x, std::max(instanceAttributes.modelTransform.scale.y, instanceAttributes.modelTransform.scale.z));
-
-				sphereCenter = instanceAttributes.modelTransform.translation + (instanceAttributes.modelTransform.rotation * (instanceAttributes.modelTransform.scale * sphereCenter));
-				sphereRadius *= uniformScale;
-
-				result.max = glm::max(result.max, sphereCenter + glm::vec3{ 1.0f, 1.0f, 1.0f } * sphereRadius);
-				result.min = glm::min(result.min, sphereCenter + glm::vec3{ -1.0f, -1.0f, -1.0f } * sphereRadius);
-			}
-
-			return result;
-		}
+		aabb calculateWorldSpaceAABB() const;
 	};
 
 	struct frustum

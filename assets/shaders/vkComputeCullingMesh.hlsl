@@ -19,12 +19,12 @@ meshJob cullMesh(uint dtid)
         perInstanceAttr instanceAttr = perInstanceBuffer[packed.y + push.frameIndex][cmd.instanceOffset];
         perMeshAttributes meshAttr = perMeshBuffer[packed.x][cmd.meshOffset];
         
-        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform, cmd);
         
         job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
-        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, cmd.meshletIndex);
+        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, unpackUint2(cmd.meshletIndexLodLevelCount).x);
         job.instanceOffset = cmd.instanceOffset;
-        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod), 0);
+        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod, unpackUint2(cmd.meshletIndexLodLevelCount).y), 0);
         
         return job;
     }
@@ -50,12 +50,12 @@ meshJob cullMesh(uint dtid)
         if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false))
             return job;
 
-        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform, cmd);
         
         job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
-        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, cmd.meshletIndex);
+        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, unpackUint2(cmd.meshletIndexLodLevelCount).x);
         job.instanceOffset = cmd.instanceOffset;
-        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod), 0);
+        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod, unpackUint2(cmd.meshletIndexLodLevelCount).y), 0);
         
         return job;
     }
@@ -81,12 +81,12 @@ meshJob cullMesh(uint dtid)
         if (isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true))
             return job;
         
-        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform, cmd);
         
         job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
-        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, cmd.meshletIndex);
+        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, unpackUint2(cmd.meshletIndexLodLevelCount).x);
         job.instanceOffset = cmd.instanceOffset;
-        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod), 1);
+        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod, unpackUint2(cmd.meshletIndexLodLevelCount).y), 1);
         
         return job;
     }
@@ -119,12 +119,12 @@ meshJob cullMesh(uint dtid)
         if (isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false))
             return job;
         
-        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform);
+        uint selectedLod = selectLodLevel(meshAttr, dData, instanceAttr.modelTransform, cmd);
         
         job.firstMeshletOffset = getMeshletOffset(cmd, selectedLod);
-        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, cmd.meshletIndex);
+        job.instanceMeshletIndex = packUint2(packed.y + push.frameIndex, unpackUint2(cmd.meshletIndexLodLevelCount).x);
         job.instanceOffset = cmd.instanceOffset;
-        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod), 0);
+        job.meshletsInJobIsFirstPass = packUint2(meshletsInLod(cmd, selectedLod, unpackUint2(cmd.meshletIndexLodLevelCount).y), 0);
                     
         return job;
     }

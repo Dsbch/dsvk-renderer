@@ -449,103 +449,12 @@ namespace engine
 
 	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxTriangles, size_t maxVert, float coneWeight, float errorLevel)
 	{
-		auto addLodLevels = [](
-			mesh& crntMesh,
-			std::vector<meshletData>& meshletLod1,
-			std::vector<meshletData>& meshletLod2,
-			std::vector<meshletData>& meshletLod3,
-			std::vector<uint32_t>& indicesLod1,
-			std::vector<uint32_t>& indicesLod2,
-			std::vector<uint32_t>& indicesLod3,
-			std::vector<uint32_t>& primitivesLod1,
-			std::vector<uint32_t>& primitivesLod2,
-			std::vector<uint32_t>& primitivesLod3
-			)
-			{
-				for (auto& m : meshletLod1)
-				{
-					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
-				}
-
-				crntMesh.indices.second = uint32_t(crntMesh.indices.data.size());
-				crntMesh.primitives.second = uint32_t(crntMesh.primitives.data.size());
-				crntMesh.meshlets.second = uint32_t(crntMesh.meshlets.data.size());
-
-				crntMesh.indices.data.insert(
-					crntMesh.indices.data.end(),
-					std::move_iterator(indicesLod1.begin()),
-					std::move_iterator(indicesLod1.end())
-				);
-
-				crntMesh.primitives.data.insert(
-					crntMesh.primitives.data.end(),
-					std::move_iterator(primitivesLod1.begin()),
-					std::move_iterator(primitivesLod1.end())
-				);
-
-				crntMesh.meshlets.data.insert(
-					crntMesh.meshlets.data.end(),
-					std::move_iterator(meshletLod1.begin()),
-					std::move_iterator(meshletLod1.end())
-				);
-
-				for (auto& m : meshletLod2)
-				{
-					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
-				}
-
-				crntMesh.indices.third = uint32_t(crntMesh.indices.data.size());
-				crntMesh.primitives.third = uint32_t(crntMesh.primitives.data.size());
-				crntMesh.meshlets.third = uint32_t(crntMesh.meshlets.data.size());
-
-				crntMesh.indices.data.insert(
-					crntMesh.indices.data.end(),
-					std::move_iterator(indicesLod2.begin()),
-					std::move_iterator(indicesLod2.end())
-				);
-
-				crntMesh.primitives.data.insert(
-					crntMesh.primitives.data.end(),
-					std::move_iterator(primitivesLod2.begin()),
-					std::move_iterator(primitivesLod2.end())
-				);
-
-				crntMesh.meshlets.data.insert(
-					crntMesh.meshlets.data.end(),
-					std::move_iterator(meshletLod2.begin()),
-					std::move_iterator(meshletLod2.end())
-				);
-
-				for (auto& m : meshletLod3)
-				{
-					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
-				}
-
-				crntMesh.indices.fourth = uint32_t(crntMesh.indices.data.size());
-				crntMesh.primitives.fourth = uint32_t(crntMesh.primitives.data.size());
-				crntMesh.meshlets.fourth = uint32_t(crntMesh.meshlets.data.size());
-
-				crntMesh.indices.data.insert(
-					crntMesh.indices.data.end(),
-					std::move_iterator(indicesLod3.begin()),
-					std::move_iterator(indicesLod3.end())
-				);
-
-				crntMesh.primitives.data.insert(
-					crntMesh.primitives.data.end(),
-					std::move_iterator(primitivesLod3.begin()),
-					std::move_iterator(primitivesLod3.end())
-				);
-
-				crntMesh.meshlets.data.insert(
-					crntMesh.meshlets.data.end(),
-					std::move_iterator(meshletLod3.begin()),
-					std::move_iterator(meshletLod3.end())
-				);
-			};
+		struct lodData
+		{
+			std::vector<uint32_t> indices;
+			std::vector<uint32_t> primitives;
+			std::vector<meshletData> meshlets;
+		};
 
 		std::pair<std::vector<mesh>, std::vector<perMeshAttributes>> result{};
 		std::unordered_map<cgltf_skin*, std::pair<uint32_t, uint32_t>> skinOffsets{};
@@ -577,18 +486,8 @@ namespace engine
 				}
 			}
 
-			// For lod levels.
-			std::vector<meshletData> meshletLod1{};
-			std::vector<uint32_t> indicesLod1{};
-			std::vector<uint32_t> primitivesLod1{};
-
-			std::vector<meshletData> meshletLod2{};
-			std::vector<uint32_t> indicesLod2{};
-			std::vector<uint32_t> primitivesLod2{};
-
-			std::vector<meshletData> meshletLod3{};
-			std::vector<uint32_t> indicesLod3{};
-			std::vector<uint32_t> primitivesLod3{};
+			// 1, 32, 64, 128, 256, 512, 1024, 2056.
+			std::array<lodData, MAX_LOD_LEVELS > lods{};
 
 			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
 			{
@@ -652,8 +551,8 @@ namespace engine
 
 				for (auto& m : meshlets)
 				{
-					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
-					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+					m.m.indexBufferOffset += uint32_t(lods[0].indices.size());
+					m.m.triangleBufferOffset += uint32_t(lods[0].primitives.size());
 				}
 
 				size_t vertexBase = crntMesh.positions.size();
@@ -661,23 +560,75 @@ namespace engine
 				for (auto& i : indices)
 					i += uint32_t(vertexBase);
 
-				crntMesh.indices.data.insert(
-					crntMesh.indices.data.end(),
+				// First lod level.
+				lods[0].indices.insert(
+					lods[0].indices.end(),
 					std::move_iterator(indices.begin()),
 					std::move_iterator(indices.end())
 				);
 
-				crntMesh.primitives.data.insert(
-					crntMesh.primitives.data.end(),
+				lods[0].primitives.insert(
+					lods[0].primitives.end(),
 					std::move_iterator(repackedPrimitives.begin()),
 					std::move_iterator(repackedPrimitives.end())
 				);
 
-				crntMesh.meshlets.data.insert(
-					crntMesh.meshlets.data.end(),
+				lods[0].meshlets.insert(
+					lods[0].meshlets.end(),
 					std::move_iterator(meshlets.begin()),
 					std::move_iterator(meshlets.end())
 				);
+
+				for (uint32_t i = 1; i < MAX_LOD_LEVELS; i++)
+				{
+					std::vector<meshletData> meshlets{};
+					std::vector<uint32_t> indices{};
+					std::vector<uint32_t> primitives{};
+
+					err = generateLodLevel(
+						crntPrimitive.value().positions,
+						crntPrimitive.value().indicies,
+						meshlets,
+						indices,
+						primitives,
+						crntPrimitive.value().indicies.size() / size_t(std::pow(2, i)),
+						maxVert,
+						maxTriangles,
+						coneWeight,
+						errorLevel * i,
+						primitiveMaterialOffset,
+						alphaMode
+					);
+					if (err)
+						return err;
+
+					for (auto& m : meshlets)
+					{
+						m.m.indexBufferOffset += uint32_t(lods[i].indices.size());
+						m.m.triangleBufferOffset += uint32_t(lods[i].primitives.size());
+					}
+
+					for (auto& idx : indices)
+						idx += uint32_t(vertexBase);
+
+					lods[i].indices.insert(
+						lods[i].indices.end(),
+						std::move_iterator(indices.begin()),
+						std::move_iterator(indices.end())
+					);
+
+					lods[i].primitives.insert(
+						lods[i].primitives.end(),
+						std::move_iterator(primitives.begin()),
+						std::move_iterator(primitives.end())
+					);
+
+					lods[i].meshlets.insert(
+						lods[i].meshlets.end(),
+						std::move_iterator(meshlets.begin()),
+						std::move_iterator(meshlets.end())
+					);
+				}
 
 				crntMesh.positions.insert(
 					crntMesh.positions.end(),
@@ -711,60 +662,6 @@ namespace engine
 						std::move_iterator(crntPrimitive.value().jointIndices.end())
 					);
 				}
-
-				std::vector<uint32_t> crntLodIndices{};
-
-				// LOD1
-				size_t meshletLod1Before = meshletLod1.size();
-				size_t indexLod1Before = indicesLod1.size();
-				size_t primLod1Before = primitivesLod1.size();
-
-				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod1, crntLodIndices, primitivesLod1, crntPrimitive.value().indicies.size() / 2, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
-				if (err) return err;
-
-				for (size_t m = meshletLod1Before; m < meshletLod1.size(); m++)
-				{
-					meshletLod1[m].m.indexBufferOffset += uint32_t(indexLod1Before);
-					meshletLod1[m].m.triangleBufferOffset += uint32_t(primLod1Before);
-				}
-				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
-				indicesLod1.insert(indicesLod1.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
-				crntLodIndices.clear();
-
-				// LOD2
-				size_t meshletLod2Before = meshletLod2.size();
-				size_t indexLod2Before = indicesLod2.size();
-				size_t primLod2Before = primitivesLod2.size();
-
-				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod2, crntLodIndices, primitivesLod2, crntPrimitive.value().indicies.size() / 8, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
-				if (err) return err;
-
-				for (size_t m = meshletLod2Before; m < meshletLod2.size(); m++)
-				{
-					meshletLod2[m].m.indexBufferOffset += uint32_t(indexLod2Before);
-					meshletLod2[m].m.triangleBufferOffset += uint32_t(primLod2Before);
-				}
-				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
-				indicesLod2.insert(indicesLod2.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
-				crntLodIndices.clear();
-
-				// LOD3
-				size_t meshletLod3Before = meshletLod3.size();
-				size_t indexLod3Before = indicesLod3.size();
-				size_t primLod3Before = primitivesLod3.size();
-
-				err = generateLodLevel(crntPrimitive.value().positions, crntPrimitive.value().indicies, meshletLod3, crntLodIndices, primitivesLod3, crntPrimitive.value().indicies.size() / 64, maxVert, maxTriangles, coneWeight, errorLevel, primitiveMaterialOffset, alphaMode);
-				if (err) return err;
-
-				for (size_t m = meshletLod3Before; m < meshletLod3.size(); m++)
-				{
-					meshletLod3[m].m.indexBufferOffset += uint32_t(indexLod3Before);
-					meshletLod3[m].m.triangleBufferOffset += uint32_t(primLod3Before);
-				}
-
-				for (auto& i : crntLodIndices) i += uint32_t(vertexBase);
-				indicesLod3.insert(indicesLod3.end(), std::move_iterator(crntLodIndices.begin()), std::move_iterator(crntLodIndices.end()));
-				crntLodIndices.clear();
 			}
 
 			auto [center, radius] = calculateBoundingSphere(crntMesh.positions);
@@ -772,7 +669,47 @@ namespace engine
 			crntMeshAttrs.bsCenter = center;
 			crntMeshAttrs.bsRadius = radius;
 
-			addLodLevels(crntMesh, meshletLod1, meshletLod2, meshletLod3, indicesLod1, indicesLod2, indicesLod3, primitivesLod1, primitivesLod2, primitivesLod3);
+			for (uint32_t i = 0; i < lods.size(); i++)
+			{
+				lodData& lod = lods[i];
+
+				if (i != 0 && float(lods[i].meshlets.size()) / float(lods[i - 1].meshlets.size()) >= 0.85f)
+				{
+					crntMesh.indices.lodOffsets[i] = std::numeric_limits<uint32_t>::max();
+					crntMesh.primitives.lodOffsets[i] = std::numeric_limits<uint32_t>::max();
+					crntMesh.meshlets.lodOffsets[i] = std::numeric_limits<uint32_t>::max();
+
+					continue;
+				}
+
+				crntMesh.indices.lodOffsets[i] = uint32_t(crntMesh.indices.data.size());
+				crntMesh.primitives.lodOffsets[i] = uint32_t(crntMesh.primitives.data.size());
+				crntMesh.meshlets.lodOffsets[i] = uint32_t(crntMesh.meshlets.data.size());
+
+				for (auto& m : lod.meshlets)
+				{
+					m.m.indexBufferOffset += uint32_t(crntMesh.indices.data.size());
+					m.m.triangleBufferOffset += uint32_t(crntMesh.primitives.data.size());
+				}
+
+				crntMesh.indices.data.insert(
+					crntMesh.indices.data.end(),
+					std::move_iterator(lod.indices.begin()),
+					std::move_iterator(lod.indices.end())
+				);
+
+				crntMesh.primitives.data.insert(
+					crntMesh.primitives.data.end(),
+					std::move_iterator(lod.primitives.begin()),
+					std::move_iterator(lod.primitives.end())
+				);
+
+				crntMesh.meshlets.data.insert(
+					crntMesh.meshlets.data.end(),
+					std::move_iterator(lod.meshlets.begin()),
+					std::move_iterator(lod.meshlets.end())
+				);
+			}
 
 			// Need to bake node world transform into bounds for mesh and meshlets for skinned meshes.
 			if (isSkinned)

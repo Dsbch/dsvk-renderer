@@ -107,4 +107,86 @@ namespace engine
 	{
 		return (x & 0xFFFF) | (y << 16);
 	}
+
+	void mesh::generateHashes()
+	{
+		if (meshHash != 0)
+			return;
+
+		UID posHash = crc64(reinterpret_cast<const uint8_t*>(positions.data()), positions.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+		UID normalHash = crc64(reinterpret_cast<const uint8_t*>(normal.data()), normal.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+		UID tangentHash = crc64(reinterpret_cast<const uint8_t*>(tangent.data()), tangent.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+		UID jointsIndicesHash = crc64(reinterpret_cast<const uint8_t*>(jointIndices.data()), jointIndices.size() * sizeof(glm::uvec4) / sizeof(uint8_t));
+		UID weightsHash = crc64(reinterpret_cast<const uint8_t*>(weights.data()), weights.size() * sizeof(glm::vec4) / sizeof(uint8_t));
+
+		UID vertexHash = mergeCrc64({ posHash, normalHash, tangentHash, jointsIndicesHash, weightsHash });
+
+		UID indexHash = crc64(reinterpret_cast<const uint8_t*>(indices.data.data()), indices.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
+
+		UID primitiveHash = crc64(reinterpret_cast<const uint8_t*>(primitives.data.data()), primitives.data.size() * sizeof(uint32_t) / sizeof(uint8_t));
+
+		UID meshletHash = crc64(reinterpret_cast<const uint8_t*>(meshlets.data.data()), meshlets.data.size() * sizeof(meshlet) / sizeof(uint8_t));
+
+		meshHash = mergeCrc64({ vertexHash, meshletHash, indexHash, primitiveHash });
+	}
+
+	void materials::generateHash()
+	{
+		if (hash != 0)
+			return;
+
+		std::vector<UID> crcVals;
+		for (const auto& t : textures)
+		{
+			crcVals.push_back(t.albedo->hash());
+			crcVals.push_back(t.normal->hash());
+			crcVals.push_back(t.metallicRoughness->hash());
+		}
+
+		hash = mergeCrc64(crcVals);
+	}
+
+	bool materials::hasBlendMaterials() const
+	{
+		for (auto& matText : textures)
+			if (matText.alphaMode == alphaModeType::blend)
+				return true;
+
+		return false;
+	}
+
+	aabb model::calculateWorldSpaceAABB() const
+	{
+		auto maxScale = [](const glm::mat4x4& mat) -> float
+			{
+				glm::vec3 basisX = mat * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+				glm::vec3 basisY = mat * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
+				glm::vec3 basisZ = mat * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+
+				return std::max(glm::length(basisX), std::max(glm::length(basisY), glm::length(basisZ)));
+			};
+
+		aabb result{
+			.min = glm::vec3{std::numeric_limits<float>::max()},
+			.max = glm::vec3{std::numeric_limits<float>::lowest()},
+		};
+
+		for (auto& pm : *perMeshData.get())
+		{
+			glm::vec3 sphereCenter{ pm.bsCenter };
+			float sphereRadius{ pm.bsRadius };
+
+			sphereCenter = glm::vec4{ sphereCenter, 1.0f };
+
+			float uniformScale = std::max(instanceAttributes.modelTransform.scale.x, std::max(instanceAttributes.modelTransform.scale.y, instanceAttributes.modelTransform.scale.z));
+
+			sphereCenter = instanceAttributes.modelTransform.translation + (instanceAttributes.modelTransform.rotation * (instanceAttributes.modelTransform.scale * sphereCenter));
+			sphereRadius *= uniformScale;
+
+			result.max = glm::max(result.max, sphereCenter + glm::vec3{ 1.0f, 1.0f, 1.0f } *sphereRadius);
+			result.min = glm::min(result.min, sphereCenter + glm::vec3{ -1.0f, -1.0f, -1.0f } *sphereRadius);
+		}
+
+		return result;
+	}
 }

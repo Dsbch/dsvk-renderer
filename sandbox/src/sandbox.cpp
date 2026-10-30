@@ -273,7 +273,7 @@ namespace sandbox
 			if (keyPressedEvent->getKey() == engine::key::c)
 			{
 				auto loadedModel = mCtx->mAmanager->loadModelGLTF(
-					"../assets/cube.glb",
+					"../assets/marble.glb",
 					mCtx->config.inner.meshlets.maxTriangles,
 					mCtx->config.inner.meshlets.maxVert,
 					mCtx->config.inner.meshlets.coneWieght,

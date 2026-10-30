@@ -7,6 +7,7 @@
 // 1. Add contribution culling.
 // 2. Make lod levels dynamic up to 8, with error level and triangle count cutoff. next lod level 60 percent of prev.
 // 3. Profile results.
+// 4. Figure out why in sudden scene change performance drops.
 
 // Voxelization:
 // 1. Calculate scene bounding box.

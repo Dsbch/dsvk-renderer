@@ -56,23 +56,30 @@ namespace engine
 			for (auto& m : params.meshesData)
 			{
 				mMeshCount[params.frameIndex][m.meshID]++;
-				mJobCount[params.frameIndex][m.meshID] += uint32_t(m.meshlets.second) / mCtx->config.inner.render.cullingThreadCount + 1;
+				mJobCount[params.frameIndex][m.meshID] += uint32_t(m.meshlets.lodOffsets[0]) / mCtx->config.inner.render.cullingThreadCount + 1;
 
 				uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
 
-				mEntitiesToAdd[params.frameIndex][params.instanceID].push_back(
-					meshletShaderCMD{
-						.meshInstanceIndex = packUint2(m.meshHandle.bufferIndex, params.perInstanceHandle.bufferIndex),
-						.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
-						.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
-						.meshletIndex = m.meshletHandle.bufferIndex,
-						.meshletOffset1 = baseOffset,
-						.meshletOffset2 = baseOffset + m.meshlets.second,
-						.meshletOffset3 = baseOffset + m.meshlets.third,
-						.meshletOffset4 = baseOffset + m.meshlets.fourth,
-						.meshletEndOffset = baseOffset + uint32_t(m.meshlets.data.size()),
-					}
-				);
+				uint32_t maxLodLevels = 0;
+				for (auto l : m.meshlets.lodOffsets)
+					if (l != std::numeric_limits<uint32_t>::max())
+						maxLodLevels++;
+
+				meshletShaderCMD cmd = {
+					.meshInstanceIndex = packUint2(m.meshHandle.bufferIndex, params.perInstanceHandle.bufferIndex),
+					.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
+					.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
+					.meshletIndexLodLevelCount = packUint2(m.meshletHandle.bufferIndex, maxLodLevels),
+					.meshletEndOffset = baseOffset + uint32_t(m.meshlets.data.size()),
+				};
+
+				std::memcpy(cmd.meshletOffsets, m.meshlets.lodOffsets, MAX_LOD_LEVELS * sizeof(uint32_t));
+
+				for (auto& offset : cmd.meshletOffsets)
+					if (offset != std::numeric_limits<uint32_t>::max())
+						offset += baseOffset;
+
+				mEntitiesToAdd[params.frameIndex][params.instanceID].push_back(cmd);
 			}
 		}
 
@@ -95,7 +102,7 @@ namespace engine
 				found->second--;
 
 			if (auto found = mJobCount[params.frameIndex].find(mesh.meshID); found != mJobCount[params.frameIndex].end() && found->second != 0)
-				found->second -= uint32_t(mesh.meshlets.second) / mCtx->config.inner.render.cullingThreadCount + 1;
+				found->second -= uint32_t(mesh.meshlets.lodOffsets[0]) / mCtx->config.inner.render.cullingThreadCount + 1;
 		}
 	}
 

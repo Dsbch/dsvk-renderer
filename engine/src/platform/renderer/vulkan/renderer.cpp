@@ -622,9 +622,9 @@ namespace engine
 
 			for (auto& mesh : *m.meshData.get())
 			{
-				mProfInfo.sceneInfo.maxLodMeshlets -= mesh.meshlets.second;
+				mProfInfo.sceneInfo.maxLodMeshlets -= mesh.meshlets.lodOffsets[0];
 
-				for (uint32_t i = 0; i < mesh.meshlets.second; i++)
+				for (uint32_t i = 0; i < mesh.meshlets.lodOffsets[0]; i++)
 					mProfInfo.sceneInfo.maxLodTriangles -= mesh.meshlets.data[i].m.triangleCount;
 			}
 
@@ -639,9 +639,9 @@ namespace engine
 
 			for (auto& mesh : *m.meshData.get())
 			{
-				mProfInfo.sceneInfo.maxLodMeshlets += mesh.meshlets.second;
+				mProfInfo.sceneInfo.maxLodMeshlets += mesh.meshlets.lodOffsets[0];
 
-				for (uint32_t i = 0; i < mesh.meshlets.second; i++)
+				for (uint32_t i = 0; i < mesh.meshlets.lodOffsets[0]; i++)
 					mProfInfo.sceneInfo.maxLodTriangles += mesh.meshlets.data[i].m.triangleCount;
 			}
 
