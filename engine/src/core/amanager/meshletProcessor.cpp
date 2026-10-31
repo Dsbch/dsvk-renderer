@@ -289,7 +289,8 @@ namespace engine
 		float errorLevel,
 		size_t targetIndexCount,
 		uint32_t materialOffset,
-		alphaModeType alphaType
+		alphaModeType alphaType,
+		float* resultError
 	)
 	{
 		mOut.clear();
@@ -309,7 +310,9 @@ namespace engine
 			positions.size(),
 			sizeof(glm::vec4),
 			targetIndexCount,
-			errorLevel
+			errorLevel,
+			0,
+			resultError
 		);
 
 		simplyfiedIndexBuf.resize(actualSize);
@@ -400,7 +403,8 @@ namespace engine
 		float coneWeight,
 		float errorLevel,
 		uint32_t materialOffset,
-		alphaModeType alphaMode
+		alphaModeType alphaMode,
+		float* resultError
 	)
 	{
 		std::vector<meshletData> meshlets;
@@ -419,7 +423,8 @@ namespace engine
 			errorLevel,
 			targetIndexCount,
 			materialOffset,
-			alphaMode
+			alphaMode,
+			resultError
 		);
 		if (err)
 			return err;
@@ -454,6 +459,7 @@ namespace engine
 			std::vector<uint32_t> indices;
 			std::vector<uint32_t> primitives;
 			std::vector<meshletData> meshlets;
+			float errorLevel = 0.0f;
 		};
 
 		std::pair<std::vector<mesh>, std::vector<perMeshAttributes>> result{};
@@ -578,12 +584,16 @@ namespace engine
 					std::move_iterator(meshlets.end())
 				);
 				
+				float scale = meshopt_simplifyScale(&crntPrimitive.value().positions[0].x, crntPrimitive.value().positions.size(), sizeof(glm::vec4));
+
 				constexpr std::array<uint32_t, MAX_LOD_LEVELS> lodLevelTriangleCount{1, 2, 8, 16, 32, 128, 256, 1024};
 				for (uint32_t i = 1; i < MAX_LOD_LEVELS; i++)
 				{
 					std::vector<meshletData> meshlets{};
 					std::vector<uint32_t> indices{};
 					std::vector<uint32_t> primitives{};
+
+					float resultError = 0.0f;
 
 					err = generateLodLevel(
 						crntPrimitive.value().positions,
@@ -595,12 +605,15 @@ namespace engine
 						maxVert,
 						maxTriangles,
 						coneWeight,
-						errorLevel * i,
+						errorLevel,
 						primitiveMaterialOffset,
-						alphaMode
+						alphaMode,
+						&resultError
 					);
 					if (err)
 						return err;
+
+					lods[i].errorLevel = std::max(lods[i].errorLevel, resultError * scale);
 
 					for (auto& m : meshlets)
 					{
@@ -688,6 +701,7 @@ namespace engine
 				crntMesh.indices.lodOffsets[i] = uint32_t(crntMesh.indices.data.size());
 				crntMesh.primitives.lodOffsets[i] = uint32_t(crntMesh.primitives.data.size());
 				crntMesh.meshlets.lodOffsets[i] = uint32_t(crntMesh.meshlets.data.size());
+				crntMesh.meshlets.lodErrors[i] = lod.errorLevel;
 
 				for (auto& m : lod.meshlets)
 				{
@@ -733,6 +747,9 @@ namespace engine
 
 				crntMeshAttrs.bsCenter = glm::vec3{ M * glm::vec4{crntMeshAttrs.bsCenter, 1.0f} };
 				crntMeshAttrs.bsRadius *= s;
+
+				for (auto& e : crntMesh.meshlets.lodErrors)
+					e *= s;
 			}
 
 			crntMesh.generateHashes();

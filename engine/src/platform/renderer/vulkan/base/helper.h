@@ -386,6 +386,15 @@ namespace engine
 		return VK_RESOLVE_MODE_AVERAGE_BIT;
 	}
 
+	inline VkResolveModeFlagBits getDepthResolveMode(uint32_t sampleCount)
+	{
+		if (sampleCount <= 1)
+			return VK_RESOLVE_MODE_NONE;
+
+		// Reversed depth: min is the farthest sample, so the HZB never hides a visible sample.
+		return VK_RESOLVE_MODE_MIN_BIT;
+	}
+
 	inline void pipelineImageBarrier(
 		VkCommandBuffer cmd,
 		VkImage image,

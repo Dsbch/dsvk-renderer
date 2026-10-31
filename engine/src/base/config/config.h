@@ -10,7 +10,7 @@ namespace engine
 		uint32_t maxVert = 64;
 		uint32_t maxTriangles = 96;
 		float coneWieght = 0.25f;
-		float errorLevel = 0.01f;
+		float errorLevel = 0.1f;
 	};
 
 	struct renderCfg

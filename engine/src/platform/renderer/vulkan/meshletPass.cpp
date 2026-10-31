@@ -127,7 +127,7 @@ namespace engine
 				auto [pipeline, pipelineLayout] = it->second.getPipeline();
 
 				uint32_t cmdBufSize = uint32_t(cmdBuffer.getCmdBuffer(frameIndex).getLoadedBytes());
-				uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
+				uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshShaderCMD));
 
 				// Has to render.
 				if (cmdBufferCount > 0)
@@ -224,7 +224,7 @@ namespace engine
 						VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 							mResourceManager->getDepthImage(false).img.view,
 							mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-							getResolveMode(mVulkanCtx->preset.msaa),
+							getDepthResolveMode(mVulkanCtx->preset.msaa),
 							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 							false
 						);
@@ -411,7 +411,7 @@ namespace engine
 						VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 							mResourceManager->getDepthImage(false).img.view,
 							mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-							getResolveMode(mVulkanCtx->preset.msaa),
+							getDepthResolveMode(mVulkanCtx->preset.msaa),
 							VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 							false
 						);
@@ -501,7 +501,7 @@ namespace engine
 		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 			mResourceManager->getDepthImage(false).img.view,
 			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-			getResolveMode(mVulkanCtx->preset.msaa),
+			getDepthResolveMode(mVulkanCtx->preset.msaa),
 			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			false
 		);
@@ -516,7 +516,7 @@ namespace engine
 
 		VkBuffer cmdBuf = mResourceManager->getAccumilationCmdBuffer().getCmdBuffer(frameIndex).getBuffer().buffer;
 		uint32_t cmdBufSize = uint32_t(mResourceManager->getAccumilationCmdBuffer().getCmdBuffer(frameIndex).getLoadedBytes());
-		uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
+		uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshShaderCMD));
 
 		// Nothing to render.
 		if (cmdBufferCount == 0)

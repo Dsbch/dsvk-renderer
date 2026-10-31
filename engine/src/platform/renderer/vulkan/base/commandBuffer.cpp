@@ -58,26 +58,11 @@ namespace engine
 				mMeshCount[params.frameIndex][m.meshID]++;
 				mJobCount[params.frameIndex][m.meshID] += uint32_t(m.meshlets.getFirstLodLevelCount()) / mCtx->config.inner.render.cullingThreadCount + 1;
 
-				uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
-
-				uint32_t maxLodLevels = 0;
-				for (auto l : m.meshlets.lodOffsets)
-					if (l != std::numeric_limits<uint32_t>::max())
-						maxLodLevels++;
-
-				meshletShaderCMD cmd = {
+				meshShaderCMD cmd = {
 					.meshInstanceIndex = packUint2(m.meshHandle.bufferIndex, params.perInstanceHandle.bufferIndex),
 					.meshOffset = m.meshHandle.offset / uint32_t(sizeof(perMeshAttributes)),
 					.instanceOffset = params.perInstanceHandle.offset / uint32_t(sizeof(perInstanceAttr)),
-					.meshletIndexLodLevelCount = packUint2(m.meshletHandle.bufferIndex, maxLodLevels),
-					.meshletEndOffset = baseOffset + uint32_t(m.meshlets.data.size()),
 				};
-
-				std::memcpy(cmd.meshletOffsets, m.meshlets.lodOffsets, MAX_LOD_LEVELS * sizeof(uint32_t));
-
-				for (auto& offset : cmd.meshletOffsets)
-					if (offset != std::numeric_limits<uint32_t>::max())
-						offset += baseOffset;
 
 				mEntitiesToAdd[params.frameIndex][params.instanceID].push_back(cmd);
 			}
@@ -122,13 +107,13 @@ namespace engine
 			mEntitiesToDelete[params.frameIndex].erase(id);
 		}
 
-		std::vector<meshletShaderCMD> cmdToAdd{};
+		std::vector<meshShaderCMD> cmdToAdd{};
 
 		for (auto& [k, v] : mEntitiesToAdd[params.frameIndex])
 		{
 			if (!mUploadedEntities[params.frameIndex].contains(k))
 			{
-				size_t indexOffset = mCmdBuffer[params.frameIndex].getLoadedBytes() / sizeof(meshletShaderCMD) + cmdToAdd.size();
+				size_t indexOffset = mCmdBuffer[params.frameIndex].getLoadedBytes() / sizeof(meshShaderCMD) + cmdToAdd.size();
 
 				for (auto& c : v)
 					cmdToAdd.push_back(c);
@@ -138,13 +123,13 @@ namespace engine
 		}
 
 		// Upload command buffer data.
-		error err = mCmdBuffer[params.frameIndex].updateBuffer(params.is, cmdToAdd.data(), cmdToAdd.size() * sizeof(meshletShaderCMD), mCmdBuffer[params.frameIndex].getLoadedBytes());
+		error err = mCmdBuffer[params.frameIndex].updateBuffer(params.is, cmdToAdd.data(), cmdToAdd.size() * sizeof(meshShaderCMD), mCmdBuffer[params.frameIndex].getLoadedBytes());
 		if (err && err.is(errCodeBufferOverFlow))
 		{
 			mNeedDescriptorUpdate = true;
 
 			mCmdBufferSize = uint32_t(float(mCmdBufferSize) * 1.5f);
-			uint32_t minSize = uint32_t(cmdToAdd.size() * sizeof(meshletShaderCMD) + mCmdBuffer[params.frameIndex].getLoadedBytes());
+			uint32_t minSize = uint32_t(cmdToAdd.size() * sizeof(meshShaderCMD) + mCmdBuffer[params.frameIndex].getLoadedBytes());
 
 			if (mCmdBufferSize < minSize)
 				mCmdBufferSize = minSize;
@@ -156,7 +141,7 @@ namespace engine
 			if (err)
 				return err;
 
-			err = newBuf.updateBuffer(params.is, cmdToAdd.data(), cmdToAdd.size() * sizeof(meshletShaderCMD), mCmdBuffer[params.frameIndex].getLoadedBytes());
+			err = newBuf.updateBuffer(params.is, cmdToAdd.data(), cmdToAdd.size() * sizeof(meshShaderCMD), mCmdBuffer[params.frameIndex].getLoadedBytes());
 			if (err)
 				return err;
 
@@ -173,9 +158,9 @@ namespace engine
 
 			if (uploadedEnity != mUploadedEntities[params.frameIndex].end())
 			{
-				if (mCmdBuffer[params.frameIndex].getLoadedBytes() / sizeof(meshletShaderCMD) != uploadedEnity->second.second)
+				if (mCmdBuffer[params.frameIndex].getLoadedBytes() / sizeof(meshShaderCMD) != uploadedEnity->second.second)
 				{
-					error err = mCmdBuffer[params.frameIndex].shiftData(params.is, uploadedEnity->second.first * sizeof(meshletShaderCMD), uploadedEnity->second.second * sizeof(meshletShaderCMD));
+					error err = mCmdBuffer[params.frameIndex].shiftData(params.is, uploadedEnity->second.first * sizeof(meshShaderCMD), uploadedEnity->second.second * sizeof(meshShaderCMD));
 					if (err)
 						return err;
 				}
@@ -183,7 +168,7 @@ namespace engine
 				{
 					size_t deletedElements = uploadedEnity->second.second - uploadedEnity->second.first;
 
-					mCmdBuffer[params.frameIndex].markBytesAsDead(deletedElements * sizeof(meshletShaderCMD));
+					mCmdBuffer[params.frameIndex].markBytesAsDead(deletedElements * sizeof(meshShaderCMD));
 				}
 
 				size_t deletedSize = uploadedEnity->second.second - uploadedEnity->second.first;

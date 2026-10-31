@@ -37,7 +37,6 @@ namespace engine
 			UID instanceID;
 			bufferHandle perInstanceHandle;
 			std::vector<meshes>& meshesData;
-			bool isBlendGeometry;
 			uint32_t frameIndex;
 		};
 
@@ -80,7 +79,7 @@ namespace engine
 		std::vector<vulkanBuffer> mCmdBuffer;
 		
 		std::vector<std::set<UID>> mEntitiesToDelete;
-		std::vector<std::map<UID, std::vector<meshletShaderCMD>>> mEntitiesToAdd;
+		std::vector<std::map<UID, std::vector<meshShaderCMD>>> mEntitiesToAdd;
 		std::vector<std::map<UID, std::pair<size_t, size_t>>> mUploadedEntities;
 		std::vector<std::map<UID, uint32_t>> mMeshCount;
 		std::vector<std::map<UID, uint32_t>> mJobCount;

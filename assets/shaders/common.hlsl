@@ -121,17 +121,18 @@ struct command
     uint meshInstanceIndex;
     uint meshOffset;
     uint instanceOffset;
-
-	// First two bytes meshlet index, last two lod level count.
-    uint meshletIndexLodLevelCount;
-    uint meshletOffsets[8];
-    uint meshletEndOffset;
 };
 
 struct perMeshAttributes
 {
     float bsRadius;
     float3 bsCenter;
+	
+    // First two bytes meshlet index, last two lod level count.
+    uint meshletIndexLodLevelCount;
+    uint meshletOffsets[8];
+    float lodErrors[MAX_LOD_LEVELS];
+    uint meshletEndOffset;
 };
 
 // UBO START.
@@ -476,17 +477,17 @@ meshletBounds worldSpaceMeshletBounds(meshletBounds bounds, transform modelTrans
     return result;
 }
 
-uint meshletsInLod(command cmd, uint lodLevel, uint maxLodLevel)
+uint meshletsInLod(perMeshAttributes attrs, uint lodLevel, uint maxLodLevel)
 {
     if (lodLevel == MAX_LOD_LEVELS || lodLevel == maxLodLevel)
-        return cmd.meshletEndOffset - cmd.meshletOffsets[lodLevel - 1];
+        return attrs.meshletEndOffset - attrs.meshletOffsets[lodLevel - 1];
     
-    return cmd.meshletOffsets[lodLevel] - cmd.meshletOffsets[lodLevel - 1];
+    return attrs.meshletOffsets[lodLevel] - attrs.meshletOffsets[lodLevel - 1];
 }
 
-uint getMeshletOffset(command cmd, uint lodLevel)
+uint getMeshletOffset(perMeshAttributes attrs, uint lodLevel)
 {
-    return cmd.meshletOffsets[lodLevel - 1];
+    return attrs.meshletOffsets[lodLevel - 1];
 }
 
 float4 worldSpaceBS(float4 bs, transform modelTransform)
@@ -501,39 +502,45 @@ float4 worldSpaceBS(float4 bs, transform modelTransform)
     return result;
 }
 
-uint selectLodLevel(
+// Choose lod level based on error levels and not the distance.
+// If model is far away that we can't notice errors for that lod level pick it.
+// Was stolen from niagara renderer.
+uint chooseLodLevel(
     perMeshAttributes meshAttr,
     perDrawData drawData,
-    transform modelTransform,
-    command cmd
+    transform modelTransform
 )
 {
     float4 worldBs = worldSpaceBS(float4(meshAttr.bsCenter.xyz, meshAttr.bsRadius), modelTransform);
+    uint maxLodLevels = unpackUint2(meshAttr.meshletIndexLodLevelCount).y;
+
+    float sphereDistance = max(length(drawData.cameraPos - worldBs.xyz) - worldBs.w, 0.0f);
+
+    // glTF uses meters, 1.0f is one meter. lodErrors are in meters, before the instance scale.
+
+    // Height of the wall that fills the screen at sphereDistance.
+    // Right triangle with one leg length = sphereDistance, angle = verticalFov / 2,
+    // opposite leg = sphereDistance * tan(angle).
+    // * 2.0f because two triangles, top half and bottom half of the screen.
+    // visibleHeight in METERS.
+    float visibleHeight = sphereDistance * 2.0f * tan(radians(drawData.verticalFov * 0.5f));
+
+    // Meters of world space inside one pixel at sphereDistance.
+    float metersInPixel = visibleHeight / float(drawData.height);
+
+    float uniformScale = max(modelTransform.scale.x, max(modelTransform.scale.y, modelTransform.scale.z));
+
+    // The instance scale makes errors larger, we devide to make treshold lower for larger meshes and bigger for small meshes.
+    float threshold = metersInPixel / uniformScale;
+
+    // Select first lod level.
+    uint result = 1;
     
-    if (length(drawData.cameraPos - worldBs.xyz) <= worldBs.w)
-        return 1;
-    
-    float ndcRadius = sphereNdcRadius(float4(worldBs.xyz, worldBs.w), drawData.projection, drawData.view);
-    
-    uint maxLodLevels = unpackUint2(cmd.meshletIndexLodLevelCount).y;
-    
-    // Select max lod level first.
-    uint result = maxLodLevels;
-    
-    float targetRadius = 0.2f; // starts from 10% of screen for first lod level.
-    
-    [unroll]
-    for (int i = 1; i <= maxLodLevels; i++)
-    {
-        if (ndcRadius >= targetRadius)
-        {
-            result = i;
-            break;
-        }
-        
-        targetRadius *= 0.77f;
-    }
-    
+    for (uint i = 1; i < maxLodLevels; i++)
+        // Example: lod error 0.02 m, threshold 0.1 m -> the error covers 1/5 of the allowed pixels, so we cannot see it.
+        if (meshAttr.lodErrors[i] < threshold)
+            result = i + 1;
+
     return result;
 }
 
@@ -745,14 +752,14 @@ float3 pixelToRayDir(float2 pixel, perDrawData dData)
     return normalize(right * (ndc.x * halfW) + up * (ndc.y * halfH) + fwd);
 }
 
-bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, uint height, uint hzbLength, bool offscreenIsOccluded)
+bool isOcluded(cullingData occData, RWTexture2D<float> hzbChain[], uint width, uint height, uint hzbLength)
 {
-    if (any(occData.sphereCenterUV < 0.0f) || any(occData.sphereCenterUV > 1.0f))
-        return offscreenIsOccluded;
-    
     // Floor, because we will sample 2x2 texels for that sphere.
     uint neededChain = uint(floor(log2(max(1.0f, occData.pixelLength))));
-                    
+ 
+    if (neededChain > hzbLength - 1)
+        return false;
+    
     neededChain = min(hzbLength - 1, neededChain);
                     
     // drawData.width >> neededChain => divide by 2 in power of neededChain.
@@ -793,7 +800,7 @@ bool isMeshletVisible(uint tid, meshJob job)
     {
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.projection, dData.view, dData.width, dData.height);
             
-        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
+        return attrs.alphaType == BLEND_ALPHA_MODE && isInFrustum(dData, worldBounds) && !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
     }
     
     // First opaque pass.
@@ -801,7 +808,7 @@ bool isMeshletVisible(uint tid, meshJob job)
     {
         cullingData occData = calculateCullingData(float4(worldBounds.center, worldBounds.radius), dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
         
-        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true);
+        return isFrontfaceMeshlet(dData, worldBounds) && isInFrustum(dData, worldBounds) && !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, prevFrameHzbChain, dData.width, dData.height, push.hzbLength);
     }
     
     // Second opaque pass.
@@ -816,13 +823,13 @@ bool isMeshletVisible(uint tid, meshJob job)
         {
             cullingData prevOcc = calculateCullingData(sphere, dData.prevFrameProjection, dData.prevFrameView, dData.width, dData.height);
 
-            if (!isOcluded(prevOcc, prevFrameHzbChain, dData.width, dData.height, push.hzbLength, true))
+            if (!isOcluded(prevOcc, prevFrameHzbChain, dData.width, dData.height, push.hzbLength))
                 return false;
         }
 
         cullingData occData = calculateCullingData(sphere, dData.projection, dData.view, dData.width, dData.height);
 
-        return !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength, false);
+        return !isTooSmall(dData, float4(worldBounds.center, worldBounds.radius), MESHLET_CONTRIBUTION_PIXELS) && !isOcluded(occData, currentFrameHzbChain, dData.width, dData.height, push.hzbLength);
     }
     
     return false;

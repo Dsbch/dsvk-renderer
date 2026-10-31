@@ -38,7 +38,7 @@ namespace engine
 		VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(
 			mResourceManager->getDepthImage(false).img.view,
 			mVulkanCtx->preset.msaa <= 1 ? nullptr : mResourceManager->getDepthImage(true).img.view,
-			getResolveMode(mVulkanCtx->preset.msaa),
+			getDepthResolveMode(mVulkanCtx->preset.msaa),
 			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
 		);
 

@@ -116,7 +116,7 @@ namespace engine
 		{
 			VkBuffer cmdBuf = v.getCmdBuffer(frameIndex).getBuffer().buffer;
 			uint32_t cmdBufSize = uint32_t(v.getCmdBuffer(frameIndex).getLoadedBytes());
-			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshletShaderCMD));
+			uint32_t cmdBufferCount = uint32_t(cmdBufSize / sizeof(meshShaderCMD));
 
 			// Has to render.  
 			if (cmdBufferCount > 0)

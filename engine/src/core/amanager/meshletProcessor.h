@@ -34,7 +34,8 @@ namespace engine
 		float errorLevel,
 		size_t targetIndexCount,
 		uint32_t materialOffset,
-		alphaModeType alphaType
+		alphaModeType alphaType,
+		float* resultError = nullptr
 	);
 
 	error generateLodLevel(
@@ -49,7 +50,8 @@ namespace engine
 		float coneWeight,
 		float errorLevel,
 		uint32_t materialOffset,
-		alphaModeType alphaMode
+		alphaModeType alphaMode,
+		float* resultError = nullptr
 	);
 
 	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxTriangles, size_t maxVert,float coneWeight, float errorLevel);

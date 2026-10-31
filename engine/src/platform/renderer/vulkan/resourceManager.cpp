@@ -377,15 +377,6 @@ namespace engine
 				weightHandle = handle.value();
 			}
 
-			auto perMeshHandle = mPerMeshRegistry.addBlock(
-				crntMesh.meshHash,
-				&crntMeshAttrs,
-				sizeof(perMeshAttributes),
-				mVulkanCtx->iSubmit
-			);
-			if (!perMeshHandle)
-				return perMeshHandle.err();
-
 			std::vector<meshlet> meshlets{};
 			std::vector<meshletAttributes> meshletAttrs{};
 
@@ -404,7 +395,7 @@ namespace engine
 				crntMesh.indices.data.size() * sizeof(uint32_t),
 				mVulkanCtx->iSubmit
 			);
-			if (!handle)
+			if (!indexHandle)
 				return handle.err();
 
 			auto primitivesHandle = mPrimitiveRegistry.addBlock(
@@ -413,7 +404,7 @@ namespace engine
 				crntMesh.primitives.data.size() * sizeof(uint32_t),
 				mVulkanCtx->iSubmit
 			);
-			if (!handle)
+			if (!primitivesHandle)
 				return handle.err();
 
 			for (auto& m : meshlets)
@@ -444,6 +435,33 @@ namespace engine
 			);
 			if (!handle)
 				return handle.err();
+
+			// Set perMeshAttributes.
+			std::memcpy(crntMeshAttrs.meshletOffsets, crntMesh.meshlets.lodOffsets, MAX_LOD_LEVELS * sizeof(uint32_t));
+			std::memcpy(crntMeshAttrs.lodErrors, crntMesh.meshlets.lodErrors, MAX_LOD_LEVELS * sizeof(float));
+
+			uint32_t baseMeshletOffset = handle.value().offset / sizeof(meshlet);
+
+			for (auto& offset : crntMeshAttrs.meshletOffsets)
+				if (offset != std::numeric_limits<uint32_t>::max())
+					offset += baseMeshletOffset;
+
+			uint32_t maxLodLevels = 0;
+			for (auto offset : crntMesh.meshlets.lodOffsets)
+				if (offset != std::numeric_limits<uint32_t>::max())
+					maxLodLevels++;
+
+			crntMeshAttrs.meshletEndOffset = baseMeshletOffset + uint32_t(crntMesh.meshlets.data.size());
+			crntMeshAttrs.meshletIndexLodLevelCount = packUint2(handle.value().bufferIndex, maxLodLevels);
+
+			auto perMeshHandle = mPerMeshRegistry.addBlock(
+				crntMesh.meshHash,
+				&crntMeshAttrs,
+				sizeof(perMeshAttributes),
+				mVulkanCtx->iSubmit
+			);
+			if (!perMeshHandle)
+				return perMeshHandle.err();
 
 			addParams.meshesData.push_back(
 				commandBuffer::meshes{

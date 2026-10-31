@@ -10,19 +10,14 @@
 
 groupshared float3 sharedPositions[VERTICES_PER_MESHLET];
 
-struct meshletPrimitiveOut
-{
-    bool cullPrimitive : SV_CULLPRIMITIVE;
-};
-
 [outputtopology("triangle")]
 [numthreads(MESHLET_THREAD_COUNT, 1, 1)]
 void msmain(
                  uint gtid : SV_GroupThreadID,
                  uint gid : SV_GroupID,
     out indices uint3 triangles[TRIANGLES_PER_MESHLET],
-    out vertices meshOutput vertices[VERTICES_PER_MESHLET],
-    out primitives meshletPrimitiveOut primitives[TRIANGLES_PER_MESHLET])
+    out vertices meshOutput vertices[VERTICES_PER_MESHLET]
+)
 {
     uint3 asData = compactBuffer[push.frameIndex][gid + 1];
     
@@ -65,8 +60,6 @@ void msmain(
         skinnedVertex skVertex = skinVertex(indexWeightIndex.y != MAX_UINT16, instanceAttr, vertexTriangleIndex.x, vertexOffset, weightOffset, indexWeightIndex.y);
         
         float4 worldPos = float4(transformPoint(instanceAttr.modelTransform, skVertex.position), 1.0f);
-        
-        sharedPositions[idx] = worldPos.xyz;
         
         vertices[idx].position = mul(dData.useDebugCamera ? dData.debugViewProjection : dData.viewProjection, worldPos);
         

@@ -35,20 +35,14 @@ namespace engine
 		glm::vec3 max;
 	};
 
-	// Task/Amplification shader cmd buffer.
-	struct meshletShaderCMD
+	// Connects meshes with instance attributes.
+	struct meshShaderCMD
 	{
 		// 2 bytes meshlet, 2 bytes instance index.
 		uint32_t meshInstanceIndex;
 
 		uint32_t meshOffset;
-
 		uint32_t instanceOffset;
-
-		// First two bytes meshlet index, last two lod level count.
-		uint32_t meshletIndexLodLevelCount;
-		uint32_t meshletOffsets[MAX_LOD_LEVELS];
-		uint32_t meshletEndOffset;
 	};
 
 	uint32_t packUint2(uint32_t x, uint32_t y);
@@ -109,6 +103,7 @@ namespace engine
 	template<class T>
 	struct dataWithLodLevels
 	{
+		float lodErrors[MAX_LOD_LEVELS];
 		uint32_t lodOffsets[MAX_LOD_LEVELS];
 		std::vector<T> data;
 
@@ -217,6 +212,12 @@ namespace engine
 	{
 		float	  bsRadius;
 		glm::vec3 bsCenter;
+
+		// First two bytes meshlet index, last two lod level count.
+		uint32_t meshletIndexLodLevelCount;
+		uint32_t meshletOffsets[MAX_LOD_LEVELS];
+		float lodErrors[MAX_LOD_LEVELS];
+		uint32_t meshletEndOffset;
 	};
 
 	struct animations
@@ -341,7 +342,7 @@ namespace engine
 
 static_assert(std::is_trivially_constructible_v<engine::perInstanceAttr>&& std::is_standard_layout_v<engine::perInstanceAttr>);
 static_assert(std::is_trivially_constructible_v<engine::transform>&& std::is_standard_layout_v<engine::transform>);
-static_assert(std::is_trivially_constructible_v<engine::meshletShaderCMD>&& std::is_standard_layout_v<engine::meshletShaderCMD>);
+static_assert(std::is_trivially_constructible_v<engine::meshShaderCMD>&& std::is_standard_layout_v<engine::meshShaderCMD>);
 static_assert(std::is_trivially_constructible_v<engine::meshlet>&& std::is_standard_layout_v<engine::meshlet>);
 static_assert(std::is_trivially_constructible_v<engine::meshletBounds>&& std::is_standard_layout_v<engine::meshletBounds>);
 static_assert(std::is_trivially_constructible_v<engine::perMeshAttributes>&& std::is_standard_layout_v<engine::perMeshAttributes>);
