@@ -111,6 +111,8 @@ namespace engine
 	{
 		uint32_t lodOffsets[MAX_LOD_LEVELS];
 		std::vector<T> data;
+
+		uint32_t getFirstLodLevelCount() const;
 	};
 
 	struct mesh
@@ -326,6 +328,15 @@ namespace engine
 		glm::vec3 p1;
 		glm::vec3 p2;
 	};
+
+	template<class T>
+	inline uint32_t dataWithLodLevels<T>::getFirstLodLevelCount() const
+	{
+		if (lodOffsets[1] != std::numeric_limits<uint32_t>::max())
+			return lodOffsets[1];
+
+		return uint32_t(data.size());
+	}
 }
 
 static_assert(std::is_trivially_constructible_v<engine::perInstanceAttr>&& std::is_standard_layout_v<engine::perInstanceAttr>);

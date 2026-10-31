@@ -531,7 +531,7 @@ uint selectLodLevel(
             break;
         }
         
-        targetRadius /= 2.0f;
+        targetRadius *= 0.77f;
     }
     
     return result;

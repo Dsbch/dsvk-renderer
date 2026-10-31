@@ -15,6 +15,7 @@
 #include <set>
 #include <variant>
 #include <filesystem>
+#include <span>
 
 // Concurrency.
 #include <co/all.h>

@@ -25,8 +25,8 @@ namespace engine
 	error remapMesh(primitive& prim, bool isSkinned);
 
 	error generateMeshlets(
-		const std::vector<glm::vec4>& positions,
-		const std::vector<uint32_t>& indicies,
+		std::span<const glm::vec4> positions,
+		std::span<const uint32_t> indicies,
 		std::vector<meshletData>& mOut,
 		std::vector<uint8_t>& pOut,
 		std::vector<uint32_t>& iOut,
@@ -38,8 +38,8 @@ namespace engine
 	);
 
 	error generateLodLevel(
-		const std::vector<glm::vec4>& positions,
-		const std::vector<uint32_t> i,
+		std::span<const glm::vec4> positions,
+		std::span<const uint32_t> i,
 		std::vector<meshletData>& meshletsOut,
 		std::vector<uint32_t>& indicesOut,
 		std::vector<uint32_t>& repackedPrimitivesOut,

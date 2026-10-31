@@ -56,7 +56,7 @@ namespace engine
 			for (auto& m : params.meshesData)
 			{
 				mMeshCount[params.frameIndex][m.meshID]++;
-				mJobCount[params.frameIndex][m.meshID] += uint32_t(m.meshlets.lodOffsets[0]) / mCtx->config.inner.render.cullingThreadCount + 1;
+				mJobCount[params.frameIndex][m.meshID] += uint32_t(m.meshlets.getFirstLodLevelCount()) / mCtx->config.inner.render.cullingThreadCount + 1;
 
 				uint32_t baseOffset = m.meshletHandle.offset / uint32_t(sizeof(meshlet));
 
@@ -102,7 +102,7 @@ namespace engine
 				found->second--;
 
 			if (auto found = mJobCount[params.frameIndex].find(mesh.meshID); found != mJobCount[params.frameIndex].end() && found->second != 0)
-				found->second -= uint32_t(mesh.meshlets.lodOffsets[0]) / mCtx->config.inner.render.cullingThreadCount + 1;
+				found->second -= uint32_t(mesh.meshlets.getFirstLodLevelCount()) / mCtx->config.inner.render.cullingThreadCount + 1;
 		}
 	}
 

@@ -280,8 +280,8 @@ namespace engine
 	}
 
 	error generateMeshlets(
-		const std::vector<glm::vec4>& positions,
-		const std::vector<uint32_t>& indicies,
+		std::span<const glm::vec4> positions,
+		std::span<const uint32_t> indicies,
 		std::vector<meshletData>& mOut,
 		std::vector<uint8_t>& pOut,
 		std::vector<uint32_t>& iOut,
@@ -296,7 +296,7 @@ namespace engine
 		pOut.clear();
 		iOut.clear();
 
-		iOut = indicies;
+		iOut = { indicies.begin(), indicies.end() };
 
 		std::vector<uint32_t> simplyfiedIndexBuf;
 		simplyfiedIndexBuf.resize(indicies.size());
@@ -389,8 +389,8 @@ namespace engine
 	}
 
 	error generateLodLevel(
-		const std::vector<glm::vec4>& positions,
-		const std::vector<uint32_t> i,
+		std::span<const glm::vec4> positions,
+		std::span<const uint32_t> i,
 		std::vector<meshletData>& meshletsOut,
 		std::vector<uint32_t>& indicesOut,
 		std::vector<uint32_t>& repackedPrimitivesOut,
@@ -486,7 +486,6 @@ namespace engine
 				}
 			}
 
-			// 1, 32, 64, 128, 256, 512, 1024, 2056.
 			std::array<lodData, MAX_LOD_LEVELS > lods{};
 
 			for (size_t pri = 0; pri < gtlfMesh.primitives_count; ++pri)
@@ -578,7 +577,8 @@ namespace engine
 					std::move_iterator(meshlets.begin()),
 					std::move_iterator(meshlets.end())
 				);
-
+				
+				constexpr std::array<uint32_t, MAX_LOD_LEVELS> lodLevelTriangleCount{1, 2, 8, 16, 32, 128, 256, 1024};
 				for (uint32_t i = 1; i < MAX_LOD_LEVELS; i++)
 				{
 					std::vector<meshletData> meshlets{};
@@ -591,7 +591,7 @@ namespace engine
 						meshlets,
 						indices,
 						primitives,
-						crntPrimitive.value().indicies.size() / size_t(std::pow(2, i)),
+						crntPrimitive.value().indicies.size() / size_t(lodLevelTriangleCount[i]),
 						maxVert,
 						maxTriangles,
 						coneWeight,
@@ -669,15 +669,18 @@ namespace engine
 			crntMeshAttrs.bsCenter = center;
 			crntMeshAttrs.bsRadius = radius;
 
+			bool lodIsSkipped{};
 			for (uint32_t i = 0; i < lods.size(); i++)
 			{
 				lodData& lod = lods[i];
 
-				if (i != 0 && float(lods[i].meshlets.size()) / float(lods[i - 1].meshlets.size()) >= 0.85f)
+				if ((i != 0 && float(lods[i].meshlets.size()) / float(lods[i - 1].meshlets.size()) >= 0.85f) || lodIsSkipped)
 				{
 					crntMesh.indices.lodOffsets[i] = std::numeric_limits<uint32_t>::max();
 					crntMesh.primitives.lodOffsets[i] = std::numeric_limits<uint32_t>::max();
 					crntMesh.meshlets.lodOffsets[i] = std::numeric_limits<uint32_t>::max();
+
+					lodIsSkipped = true;
 
 					continue;
 				}
