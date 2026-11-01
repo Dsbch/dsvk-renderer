@@ -43,9 +43,9 @@ Windows only for now.
 ## TODO
 
 **In progress**
+- Add tile forward shading (forward++) https://www.3dgep.com/volume-tiled-forward-shading/
+- Add shadowmaps (need to do research to figure out best approach).
 - Global illumination and reflections with Voxel cone tracing.
-- Voxelize a scene with clipmap. 
-- Build simple raymarching to visualize voxelized scene.
 
 **Planned**
 - Hard and soft shadows.

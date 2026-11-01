@@ -2,8 +2,12 @@
 #include <co/all.h>
 #include "sandbox.h"
 
-// Optimizations done for now.
-
+// Lightning:
+// https://www.3dgep.com/volume-tiled-forward-shading/
+// 
+// Shadow maps:
+// Do research.
+// 
 // Voxelization:
 // 1. Calculate scene bounding box.
 // 2. Write new voxel renderer, that will voxelize a scene (depth test off, culling off, ortho projection) into 3D texture.
