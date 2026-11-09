@@ -81,7 +81,7 @@ namespace engine
 
 		auto inst_ret = builder
 			.set_app_name(mCtx->config.inner.app.name.c_str())
-#ifdef DEBUG
+#if defined(RELEASE) || defined(DEBUG)
 			.request_validation_layers(true)
 			.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT)
 			// enable printf in shaders.
