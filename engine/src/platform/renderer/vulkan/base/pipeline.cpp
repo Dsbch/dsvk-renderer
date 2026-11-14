@@ -265,8 +265,6 @@ namespace engine
 	void graphicsPipeline::setMultisampling(VkSampleCountFlagBits sampleCount)
 	{
 		mMultisampling.sampleShadingEnable = VK_FALSE;
-		if (sampleCount != VK_SAMPLE_COUNT_1_BIT)
-			mMultisampling.sampleShadingEnable = VK_TRUE;
 
 		// multisampling defaulted to no multisampling (1 sample per pixel)
 		mMultisampling.rasterizationSamples = sampleCount;

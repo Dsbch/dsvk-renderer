@@ -22,6 +22,11 @@ namespace engine
 		void reset(VkCommandBuffer cmd, uint32_t frameIndex);
 
 		std::map<std::string, float> getAllSlots(uint32_t frameIndex);
+
+		error beginStatistics(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex);
+		void endStatistics(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex);
+
+		std::map<std::string, uint64_t> getAllStatistics(uint32_t frameIndex);
 	private:
 		VkDevice mDevice;
 		std::vector<VkQueryPool> mQueryPool;
@@ -30,5 +35,11 @@ namespace engine
 		deviceLimits mDeviceLimits;
 
 		std::vector<std::map<std::string, std::pair<uint32_t, uint32_t>>> mUsedSlots;
+
+		std::vector<VkQueryPool> mStatsQueryPool;
+		uint32_t mStatsPoolCount;
+		uint32_t mCurrentStatsSlot;
+
+		std::vector<std::map<std::string, uint32_t>> mUsedStatsSlots;
 	};
 }

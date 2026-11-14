@@ -32,6 +32,9 @@ namespace engine
 		sceneMetrics sceneInfo;
 		globalMetrics globalInfo;
 		std::map<std::string, float> passInfo;
+
+		std::map<std::string, uint64_t> fragmentInvocations;
+		uint64_t fullScreenShadedSamples = 0;
 	};
 
 	struct graphicsPreset

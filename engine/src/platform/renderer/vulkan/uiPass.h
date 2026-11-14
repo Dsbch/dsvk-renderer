@@ -31,7 +31,7 @@ namespace engine
 		};
 		std::map<std::string, passHistory> mPassHistories;
 		int mGlobalOffset;
-		
+
 		void renderProfilingInfo(const profilingInfo& profInfo);
 		void renderAccumAndRevealImages();
 		void renderHzbImages();

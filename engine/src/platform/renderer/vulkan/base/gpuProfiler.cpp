@@ -15,6 +15,13 @@ namespace engine
 
 		mUsedSlots.resize(framesInFlight);
 		mQueryPool.resize(framesInFlight);
+
+		mStatsQueryPool = {};
+		mStatsPoolCount = 64;
+		mCurrentStatsSlot = 0;
+
+		mUsedStatsSlots.resize(framesInFlight);
+		mStatsQueryPool.resize(framesInFlight);
 	}
 
 	error gpuProfiler::createProfiling(submit& is)
@@ -39,12 +46,36 @@ namespace engine
 				return err;
 		}
 
+		for (uint32_t i = 0; i < mStatsQueryPool.size(); i++)
+		{
+			VkQueryPoolCreateInfo poolInfo{};
+			poolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+			poolInfo.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS;
+			poolInfo.queryCount = mStatsPoolCount;
+			poolInfo.pipelineStatistics = VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT;
+
+			VkResult res = vkCreateQueryPool(mDevice, &poolInfo, nullptr, &mStatsQueryPool[i]);
+			if (res != VK_SUCCESS)
+				return { vkResultToStr(res) };
+
+			error err = is.immediate([pool = mStatsQueryPool[i], poolCount = mStatsPoolCount](VkCommandBuffer cmd)
+				{
+					vkCmdResetQueryPool(cmd, pool, 0, poolCount);
+				}
+			);
+			if (err)
+				return err;
+		}
+
 		return {};
 	}
 
 	void gpuProfiler::destroy()
 	{
 		for (auto& pool : mQueryPool)
+			vkDestroyQueryPool(mDevice, pool, nullptr);
+
+		for (auto& pool : mStatsQueryPool)
 			vkDestroyQueryPool(mDevice, pool, nullptr);
 	}
 
@@ -82,6 +113,69 @@ namespace engine
 		mUsedSlots[frameIndex].clear();
 
 		vkCmdResetQueryPool(cmd, mQueryPool[frameIndex], 0, mPoolCount);
+
+		mCurrentStatsSlot = 0;
+
+		mUsedStatsSlots[frameIndex].clear();
+
+		vkCmdResetQueryPool(cmd, mStatsQueryPool[frameIndex], 0, mStatsPoolCount);
+	}
+
+	error gpuProfiler::beginStatistics(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex)
+	{
+		if (mUsedStatsSlots[frameIndex].find(slotName) != mUsedStatsSlots[frameIndex].end())
+			return { "statistics slot with that name already exists" };
+
+		if (mCurrentStatsSlot >= mStatsPoolCount)
+			return { "statistics slot count is reached" };
+
+		vkCmdBeginQuery(cmd, mStatsQueryPool[frameIndex], mCurrentStatsSlot, 0);
+
+		mUsedStatsSlots[frameIndex][slotName] = mCurrentStatsSlot;
+
+		mCurrentStatsSlot++;
+
+		return {};
+	}
+
+	void gpuProfiler::endStatistics(VkCommandBuffer cmd, const std::string& slotName, uint32_t frameIndex)
+	{
+		if (auto it = mUsedStatsSlots[frameIndex].find(slotName); it != mUsedStatsSlots[frameIndex].end())
+			vkCmdEndQuery(cmd, mStatsQueryPool[frameIndex], it->second);
+	}
+
+	std::map<std::string, uint64_t> gpuProfiler::getAllStatistics(uint32_t frameIndex)
+	{
+		std::map<std::string, uint64_t> result{};
+
+		if (mUsedStatsSlots[frameIndex].empty())
+			return result;
+
+		struct statisticsResult {
+			uint64_t fragmentInvocations;
+			uint64_t isAvailable;
+		};
+
+		std::vector<statisticsResult> results{};
+		results.resize(mStatsPoolCount);
+
+		VkResult queryRes = vkGetQueryPoolResults(
+			mDevice, mStatsQueryPool[frameIndex], 0, mStatsPoolCount,
+			results.size() * sizeof(statisticsResult),
+			results.data(),
+			sizeof(statisticsResult),
+			VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT
+		);
+		if (queryRes != VK_SUCCESS && queryRes != VK_NOT_READY)
+			return result;
+
+		for (auto& [name, slot] : mUsedStatsSlots[frameIndex])
+		{
+			if (results[slot].isAvailable != 0)
+				result[name] = results[slot].fragmentInvocations;
+		}
+
+		return result;
 	}
 
 	std::map<std::string, float> gpuProfiler::getAllSlots(uint32_t frameIndex)

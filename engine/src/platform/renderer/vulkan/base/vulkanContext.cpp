@@ -155,6 +155,8 @@ namespace engine
 		deviceFeatures.shaderStorageImageMultisample = VK_TRUE;
 		deviceFeatures.independentBlend = VK_TRUE;
 		deviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
+		// Needed for VK_QUERY_TYPE_PIPELINE_STATISTICS (fragment shader invocations -> overdraw).
+		deviceFeatures.pipelineStatisticsQuery = VK_TRUE;
 
 		//use vkbootstrap to select a gpu. 
 		//We want a gpu that can write to the SDL surface and supports vulkan 1.3 with the correct features.

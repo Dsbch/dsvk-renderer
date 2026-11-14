@@ -611,6 +611,11 @@ namespace engine
 		mProfInfo.globalInfo.deltaTime = deltaTime;
 
 		mProfInfo.passInfo = mVulkanCtx->profiler.getAllSlots(frameIndex);
+
+		mProfInfo.fragmentInvocations = mVulkanCtx->profiler.getAllStatistics(frameIndex);
+
+		VkExtent3D extent = mResourceManager->getColorAttachmentImage(false).img.extent;
+		mProfInfo.fullScreenShadedSamples = uint64_t(extent.width) * uint64_t(extent.height);
 	}
 
 	void vulkanRenderer::registerSceneMetrics(const model& m, bool isDeleted)

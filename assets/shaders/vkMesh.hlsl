@@ -78,85 +78,85 @@ void msmain(
 // All calculations are made in tangent space.
 float4 psmain(meshOutput input) : SV_TARGET
 {
-    float4 albedo = materials[input.materialBase].Sample(materialsSampler[input.materialBase], input.uv);
+        float4 albedo = materials[input.materialBase].Sample(materialsSampler[input.materialBase], input.uv);
     
-    // Discard non solid geometry, in case for cutoff.
-    if (albedo.a < 0.99f)
-        discard;
+        // Discard non solid geometry, in case for cutoff.
+        if (albedo.a < 0.99f)
+            discard;
     
-    // Model rotation is already baked into tangent and normal.
-    float3x3 TBN = calculateTBN(float4(0, 0, 0, 1), input.tangent, input.normal);
-    perDrawData dData = drawData[push.frameIndex];
+        // Model rotation is already baked into tangent and normal.
+        float3x3 TBN = calculateTBN(float4(0, 0, 0, 1), input.tangent, input.normal);
+        perDrawData dData = drawData[push.frameIndex];
     
-    float3 cameraPos = mul(dData.cameraPos, TBN);
-    float3 worldPos = mul(input.worldPos, TBN);
-    float3 cameraFront = normalize(mul(dData.cameraFront, TBN));
+        float3 cameraPos = mul(dData.cameraPos, TBN);
+        float3 worldPos = mul(input.worldPos, TBN);
+        float3 cameraFront = normalize(mul(dData.cameraFront, TBN));
     
-    float4 metalicRoughnes = materials[input.materialBase + 2].Sample(materialsSampler[input.materialBase + 2], input.uv);
+        float4 metalicRoughnes = materials[input.materialBase + 2].Sample(materialsSampler[input.materialBase + 2], input.uv);
     
-    float4 normalTexture = materials[input.materialBase + 1].Sample(materialsSampler[input.materialBase + 1], input.uv);
-    float3 normal = normalTexture.rgb * 2.0f - 1.0f;
-    float metalic = metalicRoughnes.b;
-    float roughnes = metalicRoughnes.g;
+        float4 normalTexture = materials[input.materialBase + 1].Sample(materialsSampler[input.materialBase + 1], input.uv);
+        float3 normal = normalTexture.rgb * 2.0f - 1.0f;
+        float metalic = metalicRoughnes.b;
+        float roughnes = metalicRoughnes.g;
     
-    normal = normalize(normal);
+        normal = normalize(normal);
 
-    albedo = float4(toRGB(albedo.rgb), albedo.a);
+        albedo = float4(toRGB(albedo.rgb), albedo.a);
     
-    // render equation.
-    float3 V = normalize(cameraPos - worldPos);
-    float3 l0 = float3(0.0f, 0.0f, 0.0f);
-    for (int i = 0; i < 1; ++i)
-    {
-        float3 lightPos = cameraPos + cameraFront / 4.0f;
-        float3 lightColor = float3(3.0f, 3.0f, 3.0f);
+        // render equation.
+        float3 V = normalize(cameraPos - worldPos);
+        float3 l0 = float3(0.0f, 0.0f, 0.0f);
+        for (int i = 0; i < 1; ++i)
+        {
+            float3 lightPos = cameraPos + cameraFront / 4.0f;
+            float3 lightColor = float3(3.0f, 3.0f, 3.0f);
 
-        float3 L = normalize(lightPos - worldPos);
-        float3 H = normalize(L + V);
+            float3 L = normalize(lightPos - worldPos);
+            float3 H = normalize(L + V);
 
-        // radiance per per light source.
-        float3 radiance = lightRadiance(lightColor, length(lightPos - worldPos));
+            // radiance per per light source.
+            float3 radiance = lightRadiance(lightColor, length(lightPos - worldPos));
 
-        // Cook-Torrance BRDF
-        float d = distributionGGX(normal, H, roughnes);
-        float g = geometrySmith(normal, V, L, roughnes);
-        float3 f = fresnelSchlick(max(dot(H, V), 0.0), baseReflectivity(albedo.rgb, metalic));
+            // Cook-Torrance BRDF
+            float d = distributionGGX(normal, H, roughnes);
+            float g = geometrySmith(normal, V, L, roughnes);
+            float3 f = fresnelSchlick(max(dot(H, V), 0.0), baseReflectivity(albedo.rgb, metalic));
 
-        float3 numerator = d * f * g;
-        float denominator = 4.0 * max(dot(normal, V), 0.0) * max(dot(normal, L), 0.0) + 0.0001;
-        // + 0.0001 to prevent divide by zero
-        float3 specular = numerator / denominator;
+            float3 numerator = d * f * g;
+            float denominator = 4.0 * max(dot(normal, V), 0.0) * max(dot(normal, L), 0.0) + 0.0001;
+            // + 0.0001 to prevent divide by zero
+            float3 specular = numerator / denominator;
 
-        // kS is equal to Fresnel
-        float3 kS = f;
-        // for energy conservation, the diffuse and specular light can't
-        // be above 1.0 (unless the surface emits light); to preserve this
-        // relationship the diffuse component (kD) should equal 1.0 - kS.
-        float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;
+            // kS is equal to Fresnel
+            float3 kS = f;
+            // for energy conservation, the diffuse and specular light can't
+            // be above 1.0 (unless the surface emits light); to preserve this
+            // relationship the diffuse component (kD) should equal 1.0 - kS.
+            float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;
         
-        // multiply kD by the inverse metalness such that only non-metals 
-        // have diffuse lighting, or a linear blend if partly metal (pure metals
-        // have no diffuse light).
-        kD *= 1.0 - metalic;
+            // multiply kD by the inverse metalness such that only non-metals 
+            // have diffuse lighting, or a linear blend if partly metal (pure metals
+            // have no diffuse light).
+            kD *= 1.0 - metalic;
 
-        // scale light by nDotL
-        float nDotL = max(dot(normal, L), 0.0f);
+            // scale light by nDotL
+            float nDotL = max(dot(normal, L), 0.0f);
         
-        // add to outgoing radiance Lo
-        l0 += (kD * albedo.rgb / PI + specular) * radiance * nDotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
-    }
+            // add to outgoing radiance Lo
+            l0 += (kD * albedo.rgb / PI + specular) * radiance * nDotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+        }
 
-     // Add simple ambient lighting (constant 0.03 should be replaced with IBL or VCT)
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo.rgb * normalTexture.a;
+         // Add simple ambient lighting (constant 0.03 should be replaced with IBL or VCT)
+        float3 ambient = float3(0.03, 0.03, 0.03) * albedo.rgb * normalTexture.a;
     
-    float3 color = ambient + l0;
+        float3 color = ambient + l0;
 
-    // HDR tonemapping
-    color = color / (color + float3(1.0f, 1.0f, 1.0f));
+        // HDR tonemapping
+        color = color / (color + float3(1.0f, 1.0f, 1.0f));
     
-    color = toSRGB(color);
+        color = toSRGB(color);
     
-    return float4(color, albedo.a);
+        return float4(color, albedo.a);
 }
 
 // PIXEL SHADER END.

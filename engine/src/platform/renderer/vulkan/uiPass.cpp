@@ -172,7 +172,7 @@ namespace engine
 		snprintf(title, sizeof(title), "Profiler [%.2f fps]###profiler", profInfo.globalInfo.fps);
 
 		ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(550, 300), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(550, 325), ImGuiCond_Once);
 
 		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
 
@@ -292,6 +292,33 @@ namespace engine
 			ImGui::EndChild();
 		}
 
+		// Statistic data.
+		{
+			uint64_t totalInvocations = 0;
+
+			for (auto const& [name, invocations] : profInfo.fragmentInvocations)
+			{
+				totalInvocations += invocations;
+
+				double overdraw = profInfo.fullScreenShadedSamples > 0 ? double(invocations) / double(profInfo.fullScreenShadedSamples) : 0.0;
+
+				ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%-18s", name.c_str());
+				ImGui::SameLine();
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%12llu PS runs  %.2fx screen", (unsigned long long)invocations, overdraw);
+			}
+
+			if (!profInfo.fragmentInvocations.empty())
+			{
+				double totalOverdraw = profInfo.fullScreenShadedSamples > 0 ? double(totalInvocations) / double(profInfo.fullScreenShadedSamples) : 0.0;
+
+				ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%-18s", "Total");
+				ImGui::SameLine();
+				ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "%12llu PS runs  %.2fx screen", (unsigned long long)totalInvocations, totalOverdraw);
+			}
+
+			ImGui::Separator();
+		}
+
 		// Scene metrics.
 		{
 			auto formatNumber = [](uint32_t n, char* buf, size_t bufSize) {
@@ -352,7 +379,7 @@ namespace engine
 		char title[64];
 		snprintf(title, sizeof(title), "Color/depth attachments");
 
-		ImGui::SetNextWindowPos(ImVec2(0, 300), ImGuiCond_Once);
+		ImGui::SetNextWindowPos(ImVec2(0, 325), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(550, 300), ImGuiCond_Once);
 
 		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
@@ -416,7 +443,7 @@ namespace engine
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 6));
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
 
-		ImGui::SetNextWindowPos(ImVec2(0, 600), ImGuiCond_Once);
+		ImGui::SetNextWindowPos(ImVec2(0, 625), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(550, 300), ImGuiCond_Once);
 
 		ImGui::Begin("HZB chain", nullptr, ImGuiWindowFlags_HorizontalScrollbar);

@@ -5,6 +5,12 @@
 // Lightning:
 // https://www.3dgep.com/volume-tiled-forward-shading/
 // 
+// 1. Can't implement volume tiled forward shading. Need depth prepass and I do not plan to use depth pre pass in my engine at all.
+//    SSAO will not be used (I will use VCT).
+//	  Also the cost of depth pre pass is too hight right now. Only geometry for 4 billion triangles takes 0.8ms pixel shader takes 1.2ms with 2X overdraw.
+// 2. I will simply divide world space into cells each cell can have up to N lights. In two compute passes I need to put each light into a cell.
+// 3. Render.
+// 
 // Shadow maps:
 // Do research.
 // 

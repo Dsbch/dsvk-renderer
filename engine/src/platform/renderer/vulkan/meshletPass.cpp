@@ -237,6 +237,10 @@ namespace engine
 							&depthAttachment
 						);
 
+						err = mVulkanCtx->profiler.beginStatistics(cmd, "First opaque pass", frameIndex);
+						if (err)
+							return err;
+
 						vkCmdBeginRendering(cmd, &renderInfo);
 
 						vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -267,6 +271,8 @@ namespace engine
 						);
 
 						vkCmdEndRendering(cmd);
+
+						mVulkanCtx->profiler.endStatistics(cmd, "First opaque pass", frameIndex);
 					}
 
 					// SECOND PASS.
@@ -420,6 +426,10 @@ namespace engine
 
 						VkRenderingInfo renderInfo = renderingInfo(mResourceManager->getColorAttachmentImage(false).img.extent, colorAttachments, &depthAttachment);
 
+						err = mVulkanCtx->profiler.beginStatistics(cmd, "Second opaque pass", frameIndex);
+						if (err)
+							return err;
+
 						vkCmdBeginRendering(cmd, &renderInfo);
 
 						vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -450,6 +460,8 @@ namespace engine
 						);
 
 						vkCmdEndRendering(cmd);
+
+						mVulkanCtx->profiler.endStatistics(cmd, "Second opaque pass", frameIndex);
 					}
 				}
 
