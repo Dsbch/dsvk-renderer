@@ -163,13 +163,13 @@ namespace engine
 
 						// Wait for compute call to finish it writes into job buffer.
 						pipelineBufferBarier(
-							cmd, 
+							cmd,
 							mResourceManager->getJobBuffer(frameIndex).getBuffer().buffer,
-							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+							VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_SHADER_WRITE_BIT,
 							VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 							VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT,
-							uint32_t(mResourceManager->getJobBuffer(frameIndex).getSize()), 
+							uint32_t(mResourceManager->getJobBuffer(frameIndex).getSize()),
 							0
 						);
 
@@ -252,6 +252,7 @@ namespace engine
 								.meshCount = cmdBufferCount,
 								.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 								.compactCapacity = mResourceManager->getCompactCapacity(),
+								.pointLightsInAScene = mResourceManager->getPointLightCount(frameIndex),
 						};
 
 						vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -441,6 +442,7 @@ namespace engine
 							.meshCount = cmdBufferCount,
 							.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 							.compactCapacity = mResourceManager->getCompactCapacity(),
+							.pointLightsInAScene = mResourceManager->getPointLightCount(frameIndex),
 						};
 
 						vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);
@@ -689,6 +691,7 @@ namespace engine
 			.meshCount = cmdBufferCount,
 			.hzbLength = uint32_t(mResourceManager->getCurrentFrameHZB().size()),
 			.compactCapacity = mResourceManager->getCompactCapacity(),
+			.pointLightsInAScene = mResourceManager->getPointLightCount(frameIndex),
 		};
 
 		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(pushConstants), &pc);

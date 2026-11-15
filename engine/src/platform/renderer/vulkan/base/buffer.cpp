@@ -347,9 +347,30 @@ namespace engine
 					copy.srcOffset = srcOffset;
 					copy.size = mLoadedBytes - srcOffset;
 
+					// In case if buffer was resized in the same frame we need to wait for resize.
+					pipelineBufferBarier(
+						cmd,
+						mBuffer.buffer,
+						VK_PIPELINE_STAGE_2_TRANSFER_BIT, 
+						VK_ACCESS_2_TRANSFER_WRITE_BIT,
+						VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+						VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT,
+						uint32_t(mLoadedBytes),
+						0
+					);
+
 					vkCmdCopyBuffer(cmd, mBuffer.buffer, stagingBuffer.value().buffer, 1, &copy);
 
-					pipelineBufferBarier(cmd, stagingBuffer.value().buffer, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, uint32_t(copy.size), 0);
+					pipelineBufferBarier(
+						cmd, 
+						stagingBuffer.value().buffer, 
+						VK_PIPELINE_STAGE_2_TRANSFER_BIT, 
+						VK_ACCESS_2_TRANSFER_WRITE_BIT, 
+						VK_PIPELINE_STAGE_2_TRANSFER_BIT, 
+						VK_ACCESS_2_TRANSFER_READ_BIT, 
+						uint32_t(copy.size), 
+						0
+					);
 
 					copy.dstOffset = dstOffset;
 					copy.srcOffset = 0;

@@ -117,7 +117,7 @@ namespace engine
 				.height = mCtx->config.inner.graphics.clipMapResolution,
 				.depth = 1,
 			}
-		);
+			);
 
 		error err = mVulkanCtx->profiler.beginTimeStamp(cmd, "voxelizeScene", frameIndex);
 		if (err)
@@ -290,23 +290,39 @@ namespace engine
 
 			uint32_t frameIndex = mVulkanCtx->sChain.getCurrentFrameIndex();
 
-			const renderer::sceneState& renderState = mPackage->getStateToRender(frameIndex);
+			const renderer::sceneModelState& renderModelState = mPackage->getModelStateToRender(frameIndex);
+			const renderer::sceneLightState& renderLightState = mPackage->getLightStateToRender(frameIndex);
 
-			// Prepare to render, add/update entities.
+			// Prepare to render, add/update then delete entities.
 			{
-				err = addToRender(renderState.addedEntities, frameIndex);
+				err = addToRender(renderModelState.addedEntities, frameIndex);
 				if (err)
 					return err;
 
-				err = updateAnimations(renderState.updateAnimations, frameIndex);
+				err = updateAnimations(renderModelState.updateAnimations, frameIndex);
 				if (err)
 					return err;
 
-				err = updateInstance(renderState.updateInstanceAttributes, frameIndex);
+				err = updateInstance(renderModelState.updateInstanceAttributes, frameIndex);
 				if (err)
 					return err;
 
-				removeFromRender(renderState.deletedEntities, frameIndex);
+				removeFromRender(renderModelState.deletedEntities, frameIndex);
+			}
+
+			// Add/update then delete lights.
+			{
+				err = updateLights(renderLightState.updateLights, frameIndex);
+				if (err)
+					return err;
+
+				err = addLights(renderLightState.addedLights, frameIndex);
+				if (err)
+					return err;
+
+				err = removeLights(renderLightState.deletedLights, frameIndex);
+				if (err)
+					return err;
 			}
 
 			renderer::renderParams params = mPackage->getRenderParams();
@@ -656,6 +672,38 @@ namespace engine
 		}
 	}
 
+	void vulkanRenderer::registerSceneMetrics(const light& m, bool isDeleted)
+	{
+		if (isDeleted)
+		{
+			if (!mProfInfo.inScene.contains(m.id))
+				return;
+
+			switch (m.type)
+			{
+			case lightType::point:
+				mProfInfo.sceneInfo.pointLights--;
+				break;
+			}
+
+			mProfInfo.inScene.erase(m.id);
+		}
+		else
+		{
+			if (mProfInfo.inScene.contains(m.id))
+				return;
+
+			switch (m.type)
+			{
+			case lightType::point:
+				mProfInfo.sceneInfo.pointLights++;
+				break;
+			}
+
+			mProfInfo.inScene.insert(m.id);
+		}
+	}
+
 	void vulkanRenderer::visualizeNormals(const model& m)
 	{
 		for (int y = 0; y < m.meshData->size(); y++)
@@ -820,6 +868,46 @@ namespace engine
 
 			mResourceManager->removeFromRender(m, frameIndex);
 		}
+	}
+
+	error vulkanRenderer::addLights(const std::set<light>& addedLights, uint32_t frameIndex)
+	{
+		for (auto& m : addedLights)
+		{
+			registerSceneMetrics(m, false);
+
+			error err = mResourceManager->addLight(m, frameIndex);
+			if (err)
+				return err;
+		}
+
+		return {};
+	}
+
+	error vulkanRenderer::updateLights(const std::set<light>& updatedLights, uint32_t frameIndex)
+	{
+		for (auto& m : updatedLights)
+		{
+			error err = mResourceManager->updateLight(m, frameIndex);
+			if (err)
+				return err;
+		}
+
+		return {};
+	}
+
+	error vulkanRenderer::removeLights(const std::set<light>& removedLights, uint32_t frameIndex)
+	{
+		for (auto& m : removedLights)
+		{
+			registerSceneMetrics(m, true);
+
+			error err = mResourceManager->removeLight(m, frameIndex);
+			if (err)
+				return err;
+		}
+
+		return {};
 	}
 
 	voxelDrawParams vulkanRenderer::getVoxelSceneParams() const

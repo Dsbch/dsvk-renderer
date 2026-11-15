@@ -109,16 +109,21 @@ PSOutput psmain(meshOutput input)
     // render equation.
     float3 V = normalize(cameraPos - worldPos);
     float3 l0 = float3(0.0f, 0.0f, 0.0f);
-    for (int i = 0; i < 1; ++i)
+    
+    // Point lights.
+    [loop]
+    for (int i = 0; i < push.pointLightsInAScene; ++i)
     {
-        float3 lightPos = cameraPos + cameraFront / 4.0f;
-        float3 lightColor = float3(3.0f, 3.0f, 3.0f);
+        pointLight pl = pointLights[push.frameIndex][i];
+        
+        float3 lightPos = pl.light.xyz;
+        float3 lightColor = pl.color;
 
         float3 L = normalize(lightPos - worldPos);
         float3 H = normalize(L + V);
 
         // radiance per per light source.
-        float3 radiance = lightRadiance(lightColor, length(lightPos - worldPos));
+        float3 radiance = lightRadiance(lightColor, length(lightPos - worldPos), pl.light.w);
 
         // Cook-Torrance BRDF
         float d = distributionGGX(normal, H, roughnes);

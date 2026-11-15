@@ -66,6 +66,10 @@ namespace engine
 				if (it->cmdBuf)
 					it->cmdBuf->destroy();
 				break;
+			case handleType::seqBuf:
+				if (it->seqBuf)
+					it->seqBuf->destroy();
+				break;
 			default:
 				LOGERROR("deletionQueue.cpp unkown deletionType");
 			}

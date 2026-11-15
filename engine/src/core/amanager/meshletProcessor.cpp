@@ -317,6 +317,9 @@ namespace engine
 
 		simplyfiedIndexBuf.resize(actualSize);
 
+		if (simplyfiedIndexBuf.empty())
+			return error{ errCodeEmptyLod, "lod level is empty" };
+
 		const size_t maxMeshlets = meshopt_buildMeshletsBound(iOut.size(), maxVert, maxTriangles);
 		if (maxMeshlets == 0)
 			return error{ "maxMeshlets is zero" };
@@ -426,6 +429,9 @@ namespace engine
 			alphaMode,
 			resultError
 		);
+		if (err && err.is(errCodeEmptyLod))
+			return {};
+
 		if (err)
 			return err;
 

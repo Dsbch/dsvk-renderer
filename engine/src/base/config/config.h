@@ -31,9 +31,13 @@ namespace engine
 		uint32_t msaa = 4;
 		uint32_t anisotropicFiltering = 16;
 		uint32_t framesInFlight = 2;
+
 		uint32_t clipMapResolution = 128;
 		uint32_t voxelSceneExtent = 8;
 		bool useRayMarching = false;
+	
+		float lightCellSize = 4.0f;
+		float lightGridExtent = 256.0f;
 	};
 
 	struct gameLoopCfg

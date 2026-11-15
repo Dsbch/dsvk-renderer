@@ -24,7 +24,7 @@ namespace engine
 			uint32_t compactCapacity;
 			vulkanBuffer dispatchBuffer;
 		};
-
+		  
 		error cullMeshes(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params, uint32_t frameIndex);
 		error cullMeshlets(VkCommandBuffer cmd, renderer::renderParams in, cullMeshletsParams params, uint32_t frameIndex);
 	private:

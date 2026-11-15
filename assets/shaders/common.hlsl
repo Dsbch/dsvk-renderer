@@ -46,6 +46,7 @@ struct pushConstant
     uint meshCount;
     uint hzbLength;
     uint compactCapacity;
+	uint pointLightsInAScene;
 };
 
 DEFINE_AS_PUSH_CONSTANT
@@ -133,6 +134,13 @@ struct perMeshAttributes
     uint meshletOffsets[8];
     float lodErrors[MAX_LOD_LEVELS];
     uint meshletEndOffset;
+};
+
+struct pointLight
+{
+    float3 color;
+	// Position + radius.
+    float4 light;
 };
 
 // UBO START.
@@ -231,6 +239,7 @@ StructuredBuffer<float3> lineBuffer : register(t16, space0);
 // First slot is:
 // x = jobCount y = groupCountX, z = groupCountY, w = groupCountZ, and garbage uint.
 RWStructuredBuffer<meshJob> jobBuffer[] : register(u17, space0);
+StructuredBuffer<pointLight> pointLights[] : register(t18, space0);
 
 // Texture bindings.
 Texture2D materials[] : register(t0, space1);
@@ -570,13 +579,13 @@ bool isFrontfaceMeshlet(perDrawData drawData, meshletBounds bounds)
 {
     if (bounds.coneAxis.x == 0 && bounds.coneAxis.y == 0 && bounds.coneAxis.z == 0)
         return true;
-    
+
     if (bounds.coneCutoff == 1.0f)
         return true;
-    
-    float3 viewDir = normalize(bounds.center - drawData.cameraPos);
-    
-    return dot(viewDir, bounds.coneAxis) < bounds.coneCutoff;
+
+    float3 toCenter = bounds.center - drawData.cameraPos;
+
+    return dot(toCenter, bounds.coneAxis) < bounds.coneCutoff * length(toCenter) + bounds.radius;
 }
 
 bool isInFrustum(perDrawData drawData, meshletBounds bounds)
@@ -635,6 +644,20 @@ float3x3 calculateTBN(float4 quat, float4 tangent, float3 normal)
     float3 B = tangent.w * cross(N, T);
     
     return transpose(float3x3(T, B, N));
+}
+
+// For smooth fallof over the radius.
+float3 lightRadiance(float3 lightColor, float distance, float radius)
+{
+    float x = distance / radius;
+    float x2 = x * x;
+
+    float window = saturate(1.0f - x2 * x2);
+    window *= window;
+
+    float attenuation = window / max(distance * distance, 1.0f);
+
+    return lightColor * attenuation;
 }
 
 // it's just approxiamtion the formula itself quite complex and using radiant flux that we do not have.

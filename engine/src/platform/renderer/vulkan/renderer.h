@@ -39,6 +39,7 @@ namespace engine
 
 		void updateProfInfo(float deltaTime, uint32_t frameIndex);
 		void registerSceneMetrics(const model& m, bool isDeleted = false);
+		void registerSceneMetrics(const light& m, bool isDeleted = false);
 		void visualizeNormals(const model& m);
 		void visualizeAABB(const model& m);
 		void visualizeAABB(const aabb& box);
@@ -48,6 +49,10 @@ namespace engine
 		error updateInstance(const std::set<model>& updatedEntities, uint32_t frameIndex);
 		error updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex);
 		void removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex);
+
+		error addLights(const std::set<light>& addedLights, uint32_t frameIndex);
+		error updateLights(const std::set<light>& updatedLights, uint32_t frameIndex);
+		error removeLights(const std::set<light>& removedLights, uint32_t frameIndex);
 
 		voxelDrawParams getVoxelSceneParams() const;
 

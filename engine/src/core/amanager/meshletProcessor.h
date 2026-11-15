@@ -24,6 +24,8 @@ namespace engine
 
 	error remapMesh(primitive& prim, bool isSkinned);
 
+	inline constexpr uint32_t errCodeEmptyLod = 1;
+
 	error generateMeshlets(
 		std::span<const glm::vec4> positions,
 		std::span<const uint32_t> indicies,

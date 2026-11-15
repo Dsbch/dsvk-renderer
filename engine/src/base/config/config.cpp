@@ -130,6 +130,8 @@ namespace engine
 		j.at("clipMapResolution").get_to(p.clipMapResolution);
 		j.at("voxelSceneExtent").get_to(p.voxelSceneExtent);
 		j.at("useRayMarching").get_to(p.useRayMarching);
+		j.at("lightCellSize").get_to(p.lightCellSize);
+		j.at("lightGridExtent").get_to(p.lightGridExtent);
 	}
 
 	void to_json(nlohmann::json& j, const graphicsCfg& p)
@@ -141,6 +143,8 @@ namespace engine
 			{"clipMapResolution", p.clipMapResolution},
 			{"voxelSceneExtent", p.voxelSceneExtent},
 			{"useRayMarching", p.useRayMarching},
+			{"lightCellSize", p.lightCellSize},
+			{"lightGridExtent", p.lightGridExtent},
 		};
 	}
 

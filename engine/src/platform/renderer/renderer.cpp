@@ -20,7 +20,7 @@ namespace engine
 
 	renderer::renderPackage::renderPackage(uint32_t framesInFlight)
 		:
-		mCurrentSceneState(framesInFlight), mRenderCallParams({})
+		mCurrentSceneModelState(framesInFlight), mCurrentSceneLightState(framesInFlight), mRenderCallParams({})
 	{}
 
 	void renderer::renderPackage::setRenderParams(renderParams params)
@@ -34,7 +34,7 @@ namespace engine
 	{
 		co::mutex_guard l{ mMu };
 
-		for (auto& v : mCurrentSceneState)
+		for (auto& v : mCurrentSceneModelState)
 			v.addedEntities.insert(m);
 	}
 
@@ -42,7 +42,7 @@ namespace engine
 	{
 		co::mutex_guard l{ mMu };
 
-		for (auto& v : mCurrentSceneState)
+		for (auto& v : mCurrentSceneModelState)
 		{
 			auto same = [&](const model& x) { return x.id == m.id; };
 			std::erase_if(v.updateAnimations, same);
@@ -56,7 +56,7 @@ namespace engine
 	{
 		co::mutex_guard l{ mMu };
 
-		for (auto& v : mCurrentSceneState)
+		for (auto& v : mCurrentSceneModelState)
 		{
 			v.updateInstanceAttributes.erase(m);
 			v.updateInstanceAttributes.insert(m);
@@ -67,22 +67,77 @@ namespace engine
 	{
 		co::mutex_guard l{ mMu };
 
-		for (auto& v : mCurrentSceneState)
+		for (auto& v : mCurrentSceneModelState)
 		{
 			v.updateAnimations.erase(m);
 			v.updateAnimations.insert(m);
 		}
 	}
 
-	renderer::sceneState renderer::renderPackage::getStateToRender(uint32_t frame)
+	void renderer::renderPackage::addLight(const light& m)
+	{
+		co::mutex_guard l{ mMu };
+
+		for (auto& v : mCurrentSceneLightState)
+			v.addedLights.insert(m);
+	}
+
+	void renderer::renderPackage::deleteLight(const light & m)
+	{
+		co::mutex_guard l{ mMu };
+
+		for (auto& v : mCurrentSceneLightState)
+		{
+			auto same = [&](const light& x) { return x.id == m.id; };
+
+			std::erase_if(v.updateLights, same);
+			std::erase_if(v.addedLights, same);
+			
+			v.deletedLights.insert(m);
+		}
+	}
+
+	void renderer::renderPackage::updateLight(const light & m)
+	{
+		co::mutex_guard l{ mMu };
+
+		for (auto& v : mCurrentSceneLightState)
+		{
+			if (v.addedLights.contains(m))
+			{
+				v.addedLights.erase(m);
+				v.addedLights.insert(m);
+			}
+			else
+			{
+				v.updateLights.erase(m);
+				v.updateLights.insert(m);
+			}
+		}
+	}
+
+	renderer::sceneLightState renderer::renderPackage::getLightStateToRender(uint32_t frame)
 	{
 		co::mutex_guard l{ mMu };
 
 		using std::swap;
 
-		sceneState sState = {};
+		sceneLightState sState = {};
 
-		swap(sState, mCurrentSceneState[frame]);
+		swap(sState, mCurrentSceneLightState[frame]);
+
+		return sState;
+	}
+
+	renderer::sceneModelState renderer::renderPackage::getModelStateToRender(uint32_t frame)
+	{
+		co::mutex_guard l{ mMu };
+
+		using std::swap;
+
+		sceneModelState sState = {};
+
+		swap(sState, mCurrentSceneModelState[frame]);
 
 		return sState;
 	}

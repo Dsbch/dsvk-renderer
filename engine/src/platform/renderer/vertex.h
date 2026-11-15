@@ -10,6 +10,7 @@
 #include "shader.h"
 #include "texture.h"
 
+// Below are only GPU buffers layouts and push constants.
 namespace engine
 {
 #define FIRST_OPAQUE_PASS_FLAG_BIT				(1 << 0)
@@ -18,34 +19,12 @@ namespace engine
 #define VOXEL_PASS_FLAG_BIT						(1 << 4)
 #define MAX_LOD_LEVELS 8
 
-	bool hasFlag(uint32_t mask, uint32_t flag);
-
 	struct transform
 	{
 		glm::vec3 translation;
 		glm::vec3 scale;
 		glm::quat rotation;
 	};
-
-	glm::mat4 toMat4(const transform& trs);
-
-	struct aabb
-	{
-		glm::vec3 min;
-		glm::vec3 max;
-	};
-
-	// Connects meshes with instance attributes.
-	struct meshShaderCMD
-	{
-		// 2 bytes meshlet, 2 bytes instance index.
-		uint32_t meshInstanceIndex;
-
-		uint32_t meshOffset;
-		uint32_t instanceOffset;
-	};
-
-	uint32_t packUint2(uint32_t x, uint32_t y);
 
 	struct perInstanceAttr
 	{
@@ -94,11 +73,149 @@ namespace engine
 		uint32_t weightBufferOffset;
 	};
 
-	struct meshletData
+	// Connects meshes with instance attributes.
+	struct meshShaderCMD
 	{
-		meshlet m;
-		meshletAttributes attributes;
+		// 2 bytes meshlet, 2 bytes instance index.
+		uint32_t meshInstanceIndex;
+
+		uint32_t meshOffset;
+		uint32_t instanceOffset;
 	};
+
+	struct perMeshAttributes
+	{
+		float	  bsRadius;
+		glm::vec3 bsCenter;
+
+		// First two bytes meshlet index, last two lod level count.
+		uint32_t meshletIndexLodLevelCount;
+		uint32_t meshletOffsets[MAX_LOD_LEVELS];
+		float lodErrors[MAX_LOD_LEVELS];
+		uint32_t meshletEndOffset;
+	};
+
+	struct frustum
+	{
+		glm::vec3 worldFrontN;
+		float frontDistance;
+		glm::vec3 worldBackN;
+		float backDistance;
+		glm::vec3 worldRightN;
+		float rightDistance;
+		glm::vec3 worldLeftN;
+		float leftDistance;
+		glm::vec3 worldTopN;
+		float topDistance;
+		glm::vec3 worldBottomN;
+		float bottomDistance;
+	};
+
+	struct voxelDrawParams
+	{
+		uint32_t clipMapResolution;
+		uint32_t voxelSceneExtent;
+		glm::mat4 viewVoxel;
+		glm::mat4 projectionVoxel;
+		glm::mat4 viewProjectionVoxel;
+	};
+
+	struct perDrawData
+	{
+		glm::mat4 debugViewProjection;
+
+		uint32_t useDebugCamera;
+
+		glm::vec3 cameraFront;
+		glm::vec3 cameraPos;
+		glm::vec3 cameraUp;
+		glm::mat4 view;
+
+		glm::mat4 projection;
+		glm::mat4 viewProjection;
+
+		frustum cameraFrustum;
+		float deltaTime;
+
+		uint32_t width;
+		uint32_t height;
+
+		float verticalFov;
+		float horizontalFov;
+		float nearPlane;
+		float farPlane;
+
+		glm::mat4 prevFrameView;
+		glm::mat4 prevFrameProjection;
+
+		voxelDrawParams voxelParams;
+	};
+
+	struct pushConstants
+	{
+		uint32_t frameIndex;
+		uint32_t hzbMipLevel;
+		uint32_t mipWidth;
+		uint32_t mipHeight;
+		uint32_t cullingPassFlagBit;
+		uint32_t cmdOpaqueBufferIndex;
+		uint32_t meshCount;
+		uint32_t hzbLength;
+		uint32_t compactCapacity;
+	
+		// Only for test porpuses.
+		// Will remove after light culling.
+		uint32_t pointLightsInAScene;
+	};
+
+	// Meshes that survived culling.
+	// Need that buffer to fan out meshes -> meshlets. (found that approach in Niagara renderer https://github.com/zeux/niagara).
+	struct meshJob
+	{
+		uint32_t instanceMeshletIndex;
+		uint32_t instanceOffset;
+		uint32_t firstMeshletOffset;
+		// meshlets in jobs first 2 second 2 isFirstJob.
+		uint32_t meshletsInJobIsFirstPass;
+	};
+
+	struct line
+	{
+		glm::vec3 p1;
+		glm::vec3 p2;
+	};
+
+	struct pointLight
+	{
+		glm::vec3 color;
+		// Position + radius.
+		glm::vec4 light;
+	};
+}
+
+static_assert(std::is_trivially_constructible_v<engine::perInstanceAttr>&& std::is_standard_layout_v<engine::perInstanceAttr>);
+static_assert(std::is_trivially_constructible_v<engine::transform>&& std::is_standard_layout_v<engine::transform>);
+static_assert(std::is_trivially_constructible_v<engine::meshShaderCMD>&& std::is_standard_layout_v<engine::meshShaderCMD>);
+static_assert(std::is_trivially_constructible_v<engine::meshlet>&& std::is_standard_layout_v<engine::meshlet>);
+static_assert(std::is_trivially_constructible_v<engine::meshletBounds>&& std::is_standard_layout_v<engine::meshletBounds>);
+static_assert(std::is_trivially_constructible_v<engine::perMeshAttributes>&& std::is_standard_layout_v<engine::perMeshAttributes>);
+static_assert(std::is_trivially_constructible_v<engine::pointLight>&& std::is_standard_layout_v<engine::pointLight>);
+static_assert(sizeof(engine::meshlet) == sizeof(engine::meshletAttributes));
+
+// Below are structs that renderer operates with.
+namespace engine
+{
+	bool hasFlag(uint32_t mask, uint32_t flag);
+
+	glm::mat4 toMat4(const transform& trs);
+
+	struct aabb
+	{
+		glm::vec3 min;
+		glm::vec3 max;
+	};
+
+	uint32_t packUint2(uint32_t x, uint32_t y);
 
 	template<class T>
 	struct dataWithLodLevels
@@ -108,6 +225,12 @@ namespace engine
 		std::vector<T> data;
 
 		uint32_t getFirstLodLevelCount() const;
+	};
+
+	struct meshletData
+	{
+		meshlet m;
+		meshletAttributes attributes;
 	};
 
 	struct mesh
@@ -208,18 +331,6 @@ namespace engine
 		void update(float deltaTime, std::vector<skin>& skins);
 	};
 
-	struct perMeshAttributes
-	{
-		float	  bsRadius;
-		glm::vec3 bsCenter;
-
-		// First two bytes meshlet index, last two lod level count.
-		uint32_t meshletIndexLodLevelCount;
-		uint32_t meshletOffsets[MAX_LOD_LEVELS];
-		float lodErrors[MAX_LOD_LEVELS];
-		uint32_t meshletEndOffset;
-	};
-
 	struct animations
 	{
 		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
@@ -244,92 +355,6 @@ namespace engine
 		aabb calculateWorldSpaceAABB() const;
 	};
 
-	struct frustum
-	{
-		glm::vec3 worldFrontN;
-		float frontDistance;
-		glm::vec3 worldBackN;
-		float backDistance;
-		glm::vec3 worldRightN;
-		float rightDistance;
-		glm::vec3 worldLeftN;
-		float leftDistance;
-		glm::vec3 worldTopN;
-		float topDistance;
-		glm::vec3 worldBottomN;
-		float bottomDistance;
-	};
-
-	struct voxelDrawParams
-	{
-		uint32_t clipMapResolution;
-		uint32_t voxelSceneExtent;
-		glm::mat4 viewVoxel;
-		glm::mat4 projectionVoxel;
-		glm::mat4 viewProjectionVoxel;
-	};
-
-	struct perDrawData
-	{
-		glm::mat4 debugViewProjection;
-
-		uint32_t useDebugCamera;
-
-		glm::vec3 cameraFront;
-		glm::vec3 cameraPos;
-		glm::vec3 cameraUp;
-		glm::mat4 view;
-
-		glm::mat4 projection;
-		glm::mat4 viewProjection;
-
-		frustum cameraFrustum;
-		float deltaTime;
-
-		uint32_t width;
-		uint32_t height;
-
-		float verticalFov;
-		float horizontalFov;
-		float nearPlane;
-		float farPlane;
-
-		glm::mat4 prevFrameView;
-		glm::mat4 prevFrameProjection;
-
-		voxelDrawParams voxelParams;
-	};
-
-	struct pushConstants
-	{
-		uint32_t frameIndex;
-		uint32_t hzbMipLevel;
-		uint32_t mipWidth;
-		uint32_t mipHeight;
-		uint32_t cullingPassFlagBit;
-		uint32_t cmdOpaqueBufferIndex;
-		uint32_t meshCount;
-		uint32_t hzbLength;
-		uint32_t compactCapacity;
-	};
-
-	// Meshes that survived culling.
-	// Need that buffer to fan out meshes -> meshlets. (found that approach in Niagara renderer https://github.com/zeux/niagara).
-	struct meshJob
-	{
-		uint32_t instanceMeshletIndex;
-		uint32_t instanceOffset;
-		uint32_t firstMeshletOffset;
-		// meshlets in jobs first 2 second 2 isFirstJob.
-		uint32_t meshletsInJobIsFirstPass;
-	};
-
-	struct line
-	{
-		glm::vec3 p1;
-		glm::vec3 p2;
-	};
-
 	template<class T>
 	inline uint32_t dataWithLodLevels<T>::getFirstLodLevelCount() const
 	{
@@ -338,12 +363,23 @@ namespace engine
 
 		return uint32_t(data.size());
 	}
-}
 
-static_assert(std::is_trivially_constructible_v<engine::perInstanceAttr>&& std::is_standard_layout_v<engine::perInstanceAttr>);
-static_assert(std::is_trivially_constructible_v<engine::transform>&& std::is_standard_layout_v<engine::transform>);
-static_assert(std::is_trivially_constructible_v<engine::meshShaderCMD>&& std::is_standard_layout_v<engine::meshShaderCMD>);
-static_assert(std::is_trivially_constructible_v<engine::meshlet>&& std::is_standard_layout_v<engine::meshlet>);
-static_assert(std::is_trivially_constructible_v<engine::meshletBounds>&& std::is_standard_layout_v<engine::meshletBounds>);
-static_assert(std::is_trivially_constructible_v<engine::perMeshAttributes>&& std::is_standard_layout_v<engine::perMeshAttributes>);
-static_assert(sizeof(engine::meshlet) == sizeof(engine::meshletAttributes));
+	enum class lightType
+	{
+		point,
+	};
+
+	struct light
+	{
+		UID id;
+		lightType type;
+		glm::vec3 color;
+
+		glm::vec4 pointLight;
+
+		bool operator<(const light& other) const
+		{
+			return id < other.id;
+		}
+	};
+}

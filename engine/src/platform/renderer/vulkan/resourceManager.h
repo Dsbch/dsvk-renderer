@@ -24,10 +24,17 @@ namespace engine
 		// Will update descriptors for all managed resources.
 		error updateDescriptors(uint32_t frameIndex);
 		
+		// For models.
 		error addToRender(const model& m, uint32_t frameIndex);
 		error updateInstance(const model& m, uint32_t frameIndex);
 		error updateAnimations(const model& m, uint32_t frameIndex);
 		void removeFromRender(const model& m, uint32_t frameIndex);
+
+		// For lights.
+		error addLight(const light& l, uint32_t frameIndex);
+		error updateLight(const light& l, uint32_t frameIndex);
+		error removeLight(const light& l, uint32_t frameIndex);
+
 		error changeViewPort(uint32_t width, uint32_t height);
 
 		error addLine(line l);
@@ -105,6 +112,7 @@ namespace engine
 		const vulkanBuffer& getLinebuffer() const;
 		const uint32_t getCompactCapacity() const;
 		void copyCurrentHzbToPrev(VkCommandBuffer cmd) const;
+		const uint32_t getPointLightCount(uint32_t frameIndex) const;
 	private:
 		void destroyViewPortDependantResources();
 		error buildResources(uint32_t width, uint32_t height);
@@ -121,7 +129,7 @@ namespace engine
 		
 		struct descriptorsBindings
 		{
-			uint32_t storageBufferBindings = 17;
+			uint32_t storageBufferBindings = 18;
 			uint32_t uniformBufferBindings = 1;
 			
 			uint32_t storageImageBindings = 3;
@@ -146,6 +154,7 @@ namespace engine
 			uint32_t compactBufferBinding = 15;
 			uint32_t lineBufferBinding = 16;
 			uint32_t jobBufferBinding = 17;
+			uint32_t pointLightBinding = 18;
 
 			// Texture bindings.
 			uint32_t materialArrayBinding = 0;
@@ -184,6 +193,7 @@ namespace engine
 		std::vector<vulkanBuffer> mJobBuffer;
 		uint32_t mCompactCapacity;
 		std::vector<vulkanBuffer> mCompactBuffer;
+		sequentialBuffer mPointLightBuffer;
 
 		// Texture buffers.
 		materialRegistry mMaterialRegistry;

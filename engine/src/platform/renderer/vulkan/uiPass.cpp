@@ -172,7 +172,7 @@ namespace engine
 		snprintf(title, sizeof(title), "Profiler [%.2f fps]###profiler", profInfo.globalInfo.fps);
 
 		ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(550, 325), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(550, 340), ImGuiCond_Once);
 
 		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
 
@@ -339,10 +339,11 @@ namespace engine
 				}
 				};
 
-			char entitiesBuf[32], trianglesBuf[32], meshletsBuf[32];
+			char entitiesBuf[32], trianglesBuf[32], meshletsBuf[32], pointLightsBuf[32];
 			formatNumber(profInfo.sceneInfo.entities, entitiesBuf, sizeof(entitiesBuf));
 			formatNumber(profInfo.sceneInfo.maxLodTriangles, trianglesBuf, sizeof(trianglesBuf));
 			formatNumber(profInfo.sceneInfo.maxLodMeshlets, meshletsBuf, sizeof(meshletsBuf));
+			formatNumber(profInfo.sceneInfo.pointLights, pointLightsBuf, sizeof(pointLightsBuf));
 
 			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Entities  ");
 			ImGui::SameLine();
@@ -355,6 +356,10 @@ namespace engine
 			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Meshlets  ");
 			ImGui::SameLine();
 			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", meshletsBuf);
+
+			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Point lights  ");
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", pointLightsBuf);
 
 			ImGui::Separator();
 		}
@@ -379,7 +384,7 @@ namespace engine
 		char title[64];
 		snprintf(title, sizeof(title), "Color/depth attachments");
 
-		ImGui::SetNextWindowPos(ImVec2(0, 325), ImGuiCond_Once);
+		ImGui::SetNextWindowPos(ImVec2(0, 340), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(550, 300), ImGuiCond_Once);
 
 		ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoScrollbar);
@@ -443,7 +448,7 @@ namespace engine
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 6));
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
 
-		ImGui::SetNextWindowPos(ImVec2(0, 625), ImGuiCond_Once);
+		ImGui::SetNextWindowPos(ImVec2(0, 640), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(550, 300), ImGuiCond_Once);
 
 		ImGui::Begin("HZB chain", nullptr, ImGuiWindowFlags_HorizontalScrollbar);

@@ -97,7 +97,23 @@ namespace sandbox
 		alphaTestEnt.addComponent<engine::materialComponent>(alphaTest.value()->mat);
 		alphaTestEnt.addComponent<engine::meshComponent>(alphaTest.value()->meshData, alphaTest.value()->perMeshData);
 		alphaTestEnt.addComponent<engine::newEntityComponent>();
-#endif // RELEASE
+
+		const std::vector<std::pair<glm::vec3, glm::vec4>> lights{
+			{ glm::vec3{ 10.0f, 9.0f, 8.0f }, glm::vec4{ 0.0f, 3.0f, -2.0f, 10.0f } },
+			{ glm::vec3{ 6.0f, 8.0f, 10.0f }, glm::vec4{ 0.0f, 4.0f, -10.0f, 10.0f } },
+			{ glm::vec3{ 10.0f, 2.0f, 2.0f }, glm::vec4{ -4.0f, 0.0f, -10.0f, 8.0f } },
+			{ glm::vec3{ 2.0f, 10.0f, 4.0f }, glm::vec4{ 4.0f, 0.0f, -10.0f, 8.0f } },
+			{ glm::vec3{ 8.0f, 3.0f, 10.0f }, glm::vec4{ 0.0f, 0.0f, -15.0f, 8.0f } },
+		};
+
+		for (const auto& [color, pointLight] : lights)
+		{
+			engine::entity light{ mCtx, registry };
+
+			light.addComponent<engine::lightComponent>(color, pointLight);
+			light.addComponent<engine::newEntityComponent>();
+		}
+#endif // DIST
 
 		return {};
 	}
@@ -126,6 +142,8 @@ namespace sandbox
 
 		if (keyPressedEvent && keyPressedEvent->getKey() == engine::key::m)
 			mCtx->mApplicationEventQueue->queueEvent(std::make_shared<engine::toggleCursorEvent>());
+
+		auto keyDown = tryCastToEventType<engine::keyDownEvent>(e, engine::eventType::keyDown);
 
 #if defined(RELEASE) || defined(DEBUG)
 		if (keyPressedEvent)
@@ -198,8 +216,6 @@ namespace sandbox
 				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
 				e.addComponent<engine::newEntityComponent>();
 			}
-
-			
 
 			if (keyPressedEvent->getKey() == engine::key::h)
 			{
@@ -370,10 +386,25 @@ namespace sandbox
 				if (entity)
 					entity.addOrReplaceComponent<engine::deleteComponent>();
 			}
-		}
-#endif // DEBUG
 
-		auto keyDown = tryCastToEventType<engine::keyDownEvent>(e, engine::eventType::keyDown);
+			if (keyPressedEvent && keyPressedEvent->getKey() == engine::key::j)
+				removeRandomLight(registry);
+
+			if (keyPressedEvent && keyPressedEvent->getKey() == engine::key::p)
+				recolorRandomLight(registry);
+
+			if (keyPressedEvent && keyPressedEvent->getKey() == engine::key::l)
+				spawnRandomLight(registry);
+		}
+		
+		if (keyDown)
+		{
+			auto keyDown = tryCastToEventType<engine::keyDownEvent>(e, engine::eventType::keyDown);
+
+			if (keyDown->getKey() == engine::key::p)
+				orbitLight(registry);
+		}
+#endif // RELEASE || DEBUG
 
 		if (keyDown)
 		{
@@ -404,5 +435,114 @@ namespace sandbox
 		}
 
 		return {};
+	}
+
+	glm::vec3 sandboxSystem::randomLightColor()
+	{
+		std::uniform_real_distribution<float> channel{ 0.0f, 1.0f };
+
+		return glm::vec3{ channel(mRng), channel(mRng), channel(mRng) } * 10.0f;
+	}
+
+	void sandboxSystem::spawnRandomLight(std::shared_ptr<engine::registryHandle> registry)
+	{
+		glm::vec3 cameraPos{};
+
+		registry->forEach<engine::fpsCameraComponent, engine::activeCameraComponent>(
+			[&](entt::entity, engine::fpsCameraComponent& camera)
+			{
+				cameraPos = camera.camera->getPosition();
+			}
+		);
+
+		std::uniform_real_distribution<float> offset{ -5.0f, 5.0f };
+
+		glm::vec3 position = cameraPos + glm::vec3{ offset(mRng), offset(mRng), offset(mRng) };
+
+		engine::entity light{ mCtx, registry };
+
+		light.addComponent<engine::lightComponent>(randomLightColor(), glm::vec4{ position, 10.0f });
+		light.addComponent<engine::newEntityComponent>();
+	}
+
+	void sandboxSystem::removeRandomLight(std::shared_ptr<engine::registryHandle> registry)
+	{
+		std::vector<entt::entity> lights{};
+
+		registry->forEach<engine::lightComponent>(
+			entt::exclude<engine::deleteComponent>,
+			[&](entt::entity ent, engine::lightComponent&)
+			{
+				lights.push_back(ent);
+			}
+		);
+
+		if (lights.empty())
+			return;
+
+		std::uniform_int_distribution<size_t> index{ 0, lights.size() - 1 };
+
+		entt::entity toDelete = lights[index(mRng)];
+
+		if (toDelete == mOrbitLight)
+			mOrbitLight = entt::null;
+
+		engine::entity light{ mCtx, toDelete, registry };
+
+		light.addOrReplaceComponent<engine::deleteComponent>();
+	}
+
+	void sandboxSystem::recolorRandomLight(std::shared_ptr<engine::registryHandle> registry)
+	{
+		std::vector<std::pair<entt::entity, engine::lightComponent>> lights{};
+
+		registry->forEach<engine::lightComponent>(
+			entt::exclude<engine::deleteComponent>,
+			[&](entt::entity ent, engine::lightComponent& l)
+			{
+				lights.push_back({ ent, l });
+			}
+		);
+
+		if (lights.empty())
+			return;
+
+		std::uniform_int_distribution<size_t> index{ 0, lights.size() - 1 };
+
+		auto [ent, l] = lights[index(mRng)];
+
+		mOrbitLight = ent;
+		mOrbitCenter = glm::vec3{ l.pointLight } - glm::vec3{ 2.0f, 0.0f, 0.0f };
+		mOrbitAngle = 0.0f;
+
+		engine::entity light{ mCtx, ent, registry };
+
+		light.addOrReplaceComponent<engine::lightComponent>(randomLightColor(), l.pointLight);
+		light.addOrReplaceComponent<engine::updateLightComponent>();
+	}
+
+	void sandboxSystem::orbitLight(std::shared_ptr<engine::registryHandle> registry)
+	{
+		if (mOrbitLight == entt::null)
+			return;
+
+		engine::entity light{ mCtx, mOrbitLight, registry };
+
+		engine::lightComponent* l = light.tryGetComponent<engine::lightComponent>();
+		if (!l)
+		{
+			mOrbitLight = entt::null;
+			return;
+		}
+
+		glm::vec3 color = l->color;
+		float radius = l->pointLight.w;
+
+		mOrbitAngle += 0.05f;
+
+		glm::vec3 position = mOrbitCenter + 2.0f * glm::vec3{ std::cos(mOrbitAngle), 0.0f, std::sin(mOrbitAngle) };
+
+		light.addOrReplaceComponent<engine::lightComponent>(color, glm::vec4{ position, radius });
+		light.addOrReplaceComponent<engine::updateLightComponent>();
 	}
 }

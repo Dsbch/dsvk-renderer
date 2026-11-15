@@ -7,6 +7,7 @@
 #include "core/scene/systems/spawnSystem.h"
 #include "core/scene/systems/cameraSystem.h"
 #include "core/scene/systems/movementSystem.h"
+#include "core/scene/systems/lightSystem.h"
 
 namespace engine
 {
@@ -23,6 +24,7 @@ namespace engine
 		addCoreSystem(std::make_unique<spawnSystem>(mCtx, package));
 		addCoreSystem(std::make_unique<cameraSystem>(mCtx, package));
 		addCoreSystem(std::make_unique<movementSystem>(mCtx, package));
+		addCoreSystem(std::make_unique<lightSystem>(mCtx, package));
 	}
 
 	scene::~scene()
@@ -103,14 +105,18 @@ namespace engine
 
 	void scene::addUserSystem(std::unique_ptr<userSystem>&& s)
 	{
-		s->onAttach(mSceneRegistry);
+		error err = s->onAttach(mSceneRegistry);
+		if (err)
+			LOGERROR("[scene::addCoreSystem onAttach] {}", err.err());
 
 		mUserSystems.push_back(std::move(s));
 	}
 	
 	void scene::addCoreSystem(std::unique_ptr<coreSystem>&& s)
 	{
-		s->onAttach(mSceneRegistry);
+		error err = s->onAttach(mSceneRegistry);
+		if (err)
+			LOGERROR("[scene::addCoreSystem onAttach] {}", err.err());
 
 		mCoreSystems.push_back(std::move(s));
 	}

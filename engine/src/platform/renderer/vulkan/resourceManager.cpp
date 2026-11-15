@@ -219,6 +219,15 @@ namespace engine
 			mPerMeshRegistry.setUpdated();
 		}
 
+		if (mPointLightBuffer.needDescriptorUpdate())
+		{
+			auto info = mPointLightBuffer.getBufferInfo();
+			auto writeInfo = descriptorSet::getWriteInfo(mBindings.pointLightBinding, info);
+
+			mBufferDescriptorSet.updateWrite(writeInfo);
+			mPointLightBuffer.setUpdated();
+		}
+
 		// Update materials.
 		if (mMaterialRegistry.needDescriptorUpdate())
 		{
@@ -411,7 +420,7 @@ namespace engine
 			{
 				m.vertexBufferOffset = vertexHandle.offset / sizeof(glm::vec4);
 				m.weightBufferOffset = weightHandle.offset / sizeof(glm::vec4);
-				m.triangleBufferOffset += primitivesHandle.value().offset / uint32_t(sizeof(uint32_t));				
+				m.triangleBufferOffset += primitivesHandle.value().offset / uint32_t(sizeof(uint32_t));
 				m.indexBufferOffset += indexHandle.value().offset / uint32_t(sizeof(uint32_t));
 
 				m.vertexTriangleIndex = packUint2(vertexHandle.bufferIndex, primitivesHandle.value().bufferIndex);
@@ -617,6 +626,49 @@ namespace engine
 				mPerMeshRegistry.scheduleDeleteBlock(crntMesh.meshHash, frameIndex);
 			}
 		}
+	}
+
+	error resourceManager::addLight(const light& l, uint32_t frameIndex)
+	{
+		switch (l.type)
+		{
+		case lightType::point:
+		{
+			pointLight d{ .color = l.color, .light = l.pointLight };
+		
+			error err = mPointLightBuffer.addBlock(l.id, &d, sizeof(pointLight), mVulkanCtx->iSubmit, frameIndex);
+			if (err)
+				return err;
+
+			break;
+		}
+		}
+
+		return {};
+	}
+
+	error resourceManager::updateLight(const light& l, uint32_t frameIndex)
+	{
+		switch (l.type)
+		{
+		case lightType::point:
+		{
+			pointLight d{ .color = l.color, .light = l.pointLight };
+
+			error err = mPointLightBuffer.updateBlock(l.id, &d, sizeof(pointLight), mVulkanCtx->iSubmit, frameIndex);
+			if (err)
+				return err;
+
+			break;
+		}
+		}
+
+		return {};
+	}
+
+	error resourceManager::removeLight(const light& l, uint32_t frameIndex)
+	{
+		return mPointLightBuffer.deleteBlock(l.id, mVulkanCtx->iSubmit, frameIndex);
 	}
 
 	void resourceManager::bindDescriptorSets(VkCommandBuffer cmd, VkPipelineBindPoint bindPoint, VkPipelineLayout layout)
@@ -957,8 +1009,13 @@ namespace engine
 		mJointRegistry.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false }, mCtx->config.inner.graphics.framesInFlight);
 		mAccumilationCommandBuffer.init(mCtx, mVulkanCtx->device, mVulkanCtx->allocator, mVulkanCtx->iSubmit, mCtx->config.inner.graphics.framesInFlight);
 		mLineBuffer.init(mVulkanCtx->device, mVulkanCtx->allocator, { true, false });
+		mPointLightBuffer.init(mCtx, mVulkanCtx->device, mVulkanCtx->allocator, mCtx->config.inner.graphics.framesInFlight, (2 << 13) * sizeof(pointLight));
 
-		error err = mAccumilationCommandBuffer.build(mVulkanCtx->iSubmit);
+		error err = mPointLightBuffer.build(mVulkanCtx->iSubmit);
+		if (err)
+			return err;
+
+		err = mAccumilationCommandBuffer.build(mVulkanCtx->iSubmit);
 		if (err)
 			return err;
 
@@ -980,6 +1037,7 @@ namespace engine
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::buffRegistry, .buffRegistry = &mPerMeshRegistry });
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::cmdBuf, .cmdBuf = &mAccumilationCommandBuffer });
 		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::vulkanBuf, .vulkanBuf = &mLineBuffer });
+		mVulkanCtx->delQueue.addDestroyTask(destroyTask{ .type = handleType::seqBuf, .seqBuf = &mPointLightBuffer });
 
 		// Init visability buffers.
 		constexpr glm::uvec3 visDispatch{ 0, 1, 1 };
@@ -1323,6 +1381,12 @@ namespace engine
 			)
 		);
 
+		mBufferDescriptorSet.addBinding(
+			descriptorSet::getLayoutBindingInfo(
+				mBindings.pointLightBinding, mVulkanCtx->deviceLimits.maxStorageBuffers / mBindings.storageBufferBindings, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+			)
+		);
+
 		// Texture bindings.
 		mTextureDescriptorSet.addBinding(
 			descriptorSet::getLayoutBindingInfo(
@@ -1508,24 +1572,24 @@ namespace engine
 			const allocatedImage& dst = mPrevFrameHZB[l].img;
 
 			pipelineImageBarrier(
-				cmd, 
-				src.image, 
-				src.format, 
+				cmd,
+				src.image,
+				src.format,
 				VK_IMAGE_LAYOUT_GENERAL,
-				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_COPY_BIT, 
+				VK_PIPELINE_STAGE_2_COPY_BIT,
 				VK_ACCESS_2_TRANSFER_READ_BIT
 			);
 
 			pipelineImageBarrier(
-				cmd, 
-				dst.image, 
-				dst.format, 
+				cmd,
+				dst.image,
+				dst.format,
 				VK_IMAGE_LAYOUT_GENERAL,
-				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
 				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
-				VK_PIPELINE_STAGE_2_COPY_BIT, 
+				VK_PIPELINE_STAGE_2_COPY_BIT,
 				VK_ACCESS_2_TRANSFER_WRITE_BIT
 			);
 
@@ -1547,5 +1611,10 @@ namespace engine
 				VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT
 			);
 		}
+	}
+
+	const uint32_t resourceManager::getPointLightCount(uint32_t frameIndex) const
+	{
+		return mPointLightBuffer.getBufferLoadedSize(frameIndex) / sizeof(pointLight);
 	}
 }

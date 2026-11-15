@@ -13,6 +13,7 @@
 #include "registry.h"
 #include "texture.h"
 #include "commandBuffer.h"
+#include "sequentialBuffer.h"
 
 namespace engine
 {
@@ -31,6 +32,7 @@ namespace engine
 		gpuProf,
 		matReg,
 		cmdBuf,
+		seqBuf,
 	};
 
 	struct destroyTask
@@ -50,6 +52,7 @@ namespace engine
 			materialRegistry* matReg;
 			commandBuffer* cmdBuf;
 			vulkanImage* img;
+			sequentialBuffer* seqBuf;
 		};
 	};
 

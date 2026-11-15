@@ -17,6 +17,7 @@ namespace engine
 		uint32_t maxLodTriangles;
 		uint32_t maxLodMeshlets;
 		uint32_t entities;
+		uint32_t pointLights;
 	};
 
 	struct globalMetrics
@@ -65,12 +66,19 @@ namespace engine
 			float farPlane;
 		};
 
-		struct sceneState
+		struct sceneModelState
 		{
 			std::set<model> addedEntities;
 			std::set<model> deletedEntities;
 			std::set<model> updateInstanceAttributes;
 			std::set<model> updateAnimations;
+		};
+
+		struct sceneLightState
+		{
+			std::set<light> addedLights;
+			std::set<light> deletedLights;
+			std::set<light> updateLights;
 		};
 
 		struct renderPackage
@@ -84,12 +92,18 @@ namespace engine
 			void updateAnimations(const model& m);
 			void swapSceneState();
 
-			sceneState getStateToRender(uint32_t frame);
+			void addLight(const light& m);
+			void deleteLight(const light& m);
+			void updateLight(const light& m);
+
+			sceneLightState getLightStateToRender(uint32_t frame);
+			sceneModelState getModelStateToRender(uint32_t frame);
 			renderParams getRenderParams();
 		private:
 			co::mutex mMu;
 			renderParams mRenderCallParams;
-			std::vector<sceneState> mCurrentSceneState;
+			std::vector<sceneModelState> mCurrentSceneModelState;
+			std::vector<sceneLightState> mCurrentSceneLightState;
 		};
 
 		renderer(std::shared_ptr<context> ctx, std::shared_ptr<window> window) : 

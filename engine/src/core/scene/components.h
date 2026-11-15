@@ -8,13 +8,17 @@
 
 namespace engine
 {
+	struct deleteComponent {};
+	struct updateInstanceComponent {};
+	struct updateLightComponent {};
+	struct newEntityComponent {};
+
 	struct uidComponent
 	{
 		UID uid;
 
 		uidComponent()
-			: uid(genUID()) {
-		}
+			: uid(genUID()) {}
 	};
 
 	struct tagComponent
@@ -22,12 +26,8 @@ namespace engine
 		std::string tag;
 
 		tagComponent(const std::string& tag)
-			: tag(tag) {
-		}
+			: tag(tag) {}
 	};
-
-	struct deleteComponent {};
-	struct updateInstanceComponent {};
 
 	struct transformComponent
 	{
@@ -65,8 +65,7 @@ namespace engine
 		std::shared_ptr<const std::vector<perMeshAttributes>> meshAttributes;
 
 		meshComponent(std::shared_ptr<const std::vector<mesh>> meshData, std::shared_ptr<const std::vector<perMeshAttributes>> meshAttributes)
-			: meshData(meshData), meshAttributes(meshAttributes), uid(genUID()) {
-		}
+			: meshData(meshData), meshAttributes(meshAttributes), uid(genUID()) {}
 	};
 
 	struct materialComponent
@@ -76,13 +75,11 @@ namespace engine
 		materialComponent(materials mat)
 			:
 			mat(mat)
-		{
-		}
+		{}
 	};
 
 	struct animationComponent
 	{
-		UID uid;
 		std::shared_ptr<std::vector<animation>> animations;
 		std::shared_ptr<std::vector<skin>> skins;
 		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
@@ -91,8 +88,8 @@ namespace engine
 
 		// Copy all animations as it changes every frame.
 		animationComponent(std::shared_ptr<std::vector<animation>> aPtr, std::shared_ptr<std::vector<skin>> sPtr)
-			: uid(genUID()), 
-			jointMatrices(std::make_shared<std::vector<glm::mat4>>()), 
+			:
+			jointMatrices(std::make_shared<std::vector<glm::mat4>>()),
 			animations(std::make_shared<std::vector<animation>>(*aPtr.get())),
 			skins(std::make_shared<std::vector<skin>>(*sPtr.get()))
 		{
@@ -106,7 +103,15 @@ namespace engine
 		}
 	};
 
-	struct newEntityComponent {};
+	struct lightComponent
+	{
+		lightType type;
+		glm::vec3 color;
+		glm::vec4 pointLight;
+
+		lightComponent() = default;
+		lightComponent(glm::vec3 c, glm::vec4 pl) : type(lightType::point), color(c), pointLight(pl) {};
+	};
 }
 
 namespace std {
