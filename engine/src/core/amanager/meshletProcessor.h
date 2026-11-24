@@ -57,8 +57,20 @@ namespace engine
 	);
 
 	withError<std::pair<std::vector<mesh>, std::vector<perMeshAttributes>>> proccessMeshes(const cgltf_data* data, size_t maxTriangles, size_t maxVert,float coneWeight, float errorLevel);
-	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data);
+	
+	struct proccessedAnimation
+	{
+		std::shared_ptr<std::vector<skin>> skinData;
+		std::shared_ptr<std::vector<joint>> jointData;
+		std::shared_ptr<std::vector<uint32_t>> jointOrder;
+		std::shared_ptr<std::vector<animation>> animationData;
+	};
+	proccessedAnimation proccessAnimations(const cgltf_data* data);
 
 	// Need to calculate conservative meshlet bounds and cones for animated meshes.
-	void recalculateMeshletBounds(mesh& m, perMeshAttributes& attrs, std::vector<animation> anims, std::vector<skin> skins);
+	void recalculateMeshletBounds(
+		mesh& m, 
+		perMeshAttributes& attrs, 
+		animationAsset animAsset
+	);
 }

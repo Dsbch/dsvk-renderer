@@ -27,7 +27,7 @@ namespace engine
 		// For models.
 		error addToRender(const model& m, uint32_t frameIndex);
 		error updateInstance(const model& m, uint32_t frameIndex);
-		error updateAnimations(const model& m, uint32_t frameIndex);
+		error updateAnimations(const UID uid, const std::vector<glm::mat4>& toUpd, uint32_t frameIndex);
 		void removeFromRender(const model& m, uint32_t frameIndex);
 
 		// For lights.

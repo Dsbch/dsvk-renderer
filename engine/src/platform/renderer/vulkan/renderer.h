@@ -47,7 +47,7 @@ namespace engine
 		error handleEvents();
 		error addToRender(const std::set<model>& addedEntities, uint32_t frameIndex);
 		error updateInstance(const std::set<model>& updatedEntities, uint32_t frameIndex);
-		error updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex);
+		error updateAnimations(const std::unordered_map<UID, std::vector<glm::mat4>>&, uint32_t frameIndex);
 		void removeFromRender(const std::set<model>& deletedEntities, uint32_t frameIndex);
 
 		error addLights(const std::set<light>& addedLights, uint32_t frameIndex);

@@ -38,31 +38,11 @@ namespace engine
 						if (!workChan.done())
 							break;
 
-						std::shared_ptr<std::vector<animation>> anims = work.anim.animations;
-						std::shared_ptr<std::vector<skin>> skins = work.anim.skins;
-						std::shared_ptr<std::vector<glm::mat4>> animMatrices = work.anim.jointMatrices;
+						std::vector <glm::mat4> jointMatrices{};
 
-						for (int i = 0; i < anims->size(); i++)
-						{
-							anims->operator[](i).update(work.deltaTime, skins);
-						}
+						playActiveAnimations(work.deltaTime, work.anim.animAsset, *work.anim.states.get(), jointMatrices);
 
-						size_t offset = 0;
-						for (int i = 0; i < skins->size(); i++)
-						{
-							auto j = skins->operator[](i).getJointMatrices();
-
-							std::move(j.begin(), j.end(), animMatrices->begin() + offset);
-
-							offset += j.size();
-						}
-
-						resultChan << model{
-							.id = work.uid.uid,
-							.anims = animations{
-								.jointMatrices = animMatrices,
-							}
-						};
+						resultChan << std::pair<UID, std::vector<glm::mat4>>{ work.uid.uid, std::move(jointMatrices) };
 
 						if (!resultChan.done())
 							break;
@@ -91,6 +71,10 @@ namespace engine
 	{
 		error err{};
 
+		err = handleAnimationSwitch(registry);
+		if (err)
+			return err;
+
 		err = handleTransformedEntities(registry);
 		if (err)
 			return err;
@@ -109,6 +93,44 @@ namespace engine
 
 	error movementSystem::checkError()
 	{
+		return {};
+	}
+
+	error movementSystem::handleAnimationSwitch(std::shared_ptr<registryHandle> registry)
+	{
+		std::vector<entity> enabledAnimations{};
+		std::vector<entity> disabledAnimations{};
+
+		registry->forEach<uidComponent, meshComponent, materialComponent, animationComponent, enableAnimationComponent>(
+			entt::exclude<deleteComponent>,
+			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, animationComponent& animComp, enableAnimationComponent eac)
+			{
+				for (auto& state : *animComp.states.get())
+					if (state.animationIndex == eac.animationIndex)
+						state.weight = eac.weight;
+
+				enabledAnimations.push_back({ mCtx, e, registry });
+			}
+		);
+
+		registry->forEach<uidComponent, meshComponent, materialComponent, animationComponent, disableAnimationComponent>(
+			entt::exclude<deleteComponent>,
+			[&](entt::entity e, uidComponent& uid, meshComponent& mesh, materialComponent& material, animationComponent& animComp, disableAnimationComponent dac)
+			{
+				for (auto& state : *animComp.states.get())
+					if (state.animationIndex == dac.animationIndex)
+						state.weight = 0.0f;
+
+				disabledAnimations.push_back({ mCtx, e, registry });
+			}
+		);
+
+		for (auto& e : enabledAnimations)
+			e.removeComponent<enableAnimationComponent>();
+
+		for (auto& e : disabledAnimations)
+			e.removeComponent<disableAnimationComponent>();
+
 		return {};
 	}
 
@@ -171,7 +193,7 @@ namespace engine
 		if (needAnimUpd.empty())
 			return {};
 
-		auto toUpdateAnim = std::vector<model>{};
+		auto toUpdateAnim = std::vector<std::pair<UID, std::vector<glm::mat4>>>{};
 		toUpdateAnim.reserve(needAnimUpd.size());
 
 		for (auto& e : needAnimUpd)
@@ -184,14 +206,14 @@ namespace engine
 
 		while (toUpdateAnim.size() != needAnimUpd.size())
 		{
-			model m{};
+			std::pair<UID, std::vector<glm::mat4>> m{};
 
 			mAnimResultChan >> m;
 
 			if (!mAnimResultChan.done())
 				return error{ "[movementSystem::handleAnimatedEntities] mAnimResultChan is closed" };
 
-			toUpdateAnim.push_back(m);
+			toUpdateAnim.push_back(std::move(m));
 		}
 
 		// Load upadted animations to GPU.

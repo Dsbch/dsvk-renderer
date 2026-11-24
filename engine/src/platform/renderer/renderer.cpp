@@ -45,7 +45,7 @@ namespace engine
 		for (auto& v : mCurrentSceneModelState)
 		{
 			auto same = [&](const model& x) { return x.id == m.id; };
-			std::erase_if(v.updateAnimations, same);
+			v.updateAnimations.erase(m.id);
 			std::erase_if(v.updateInstanceAttributes, same);
 			std::erase_if(v.addedEntities, same);
 			v.deletedEntities.insert(m);
@@ -63,14 +63,14 @@ namespace engine
 		}
 	}
 
-	void renderer::renderPackage::updateAnimations(const model& m)
+	void renderer::renderPackage::updateAnimations(const std::pair<UID, std::vector<glm::mat4>>& toUpd)
 	{
 		co::mutex_guard l{ mMu };
 
 		for (auto& v : mCurrentSceneModelState)
 		{
-			v.updateAnimations.erase(m);
-			v.updateAnimations.insert(m);
+			v.updateAnimations.erase(toUpd.first);
+			v.updateAnimations[toUpd.first] = toUpd.second;
 		}
 	}
 

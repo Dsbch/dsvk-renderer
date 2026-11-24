@@ -60,12 +60,11 @@ namespace engine
 
 	struct meshComponent
 	{
-		UID uid;
 		std::shared_ptr<const std::vector<mesh>> meshData;
 		std::shared_ptr<const std::vector<perMeshAttributes>> meshAttributes;
 
 		meshComponent(std::shared_ptr<const std::vector<mesh>> meshData, std::shared_ptr<const std::vector<perMeshAttributes>> meshAttributes)
-			: meshData(meshData), meshAttributes(meshAttributes), uid(genUID()) {}
+			: meshData(meshData), meshAttributes(meshAttributes) {}
 	};
 
 	struct materialComponent
@@ -78,29 +77,53 @@ namespace engine
 		{}
 	};
 
+	// PerInstance animation state data besides jointArray.
 	struct animationComponent
 	{
-		std::shared_ptr<std::vector<animation>> animations;
-		std::shared_ptr<std::vector<skin>> skins;
-		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
+		animationAsset animAsset;
+
+		// State of each animation that plays NOW.
+		std::shared_ptr<std::vector<animationState>> states;
 
 		animationComponent() = default;
 
-		// Copy all animations as it changes every frame.
-		animationComponent(std::shared_ptr<std::vector<animation>> aPtr, std::shared_ptr<std::vector<skin>> sPtr)
-			:
-			jointMatrices(std::make_shared<std::vector<glm::mat4>>()),
-			animations(std::make_shared<std::vector<animation>>(*aPtr.get())),
-			skins(std::make_shared<std::vector<skin>>(*sPtr.get()))
+		// All animations are disabled by default.
+		animationComponent(animationAsset animAsset)
+			: animAsset(animAsset),
+			states(std::make_shared<std::vector<animationState>>())
 		{
-			// Load bind pose.
-			for (auto& sn : *this->skins.get())
-			{
-				auto j = sn.getJointMatrices();
+			states->resize(animAsset.animationData->size());
 
-				this->jointMatrices->insert(this->jointMatrices->begin(), std::move_iterator(j.begin()), std::move_iterator(j.end()));
+			for (uint32_t i = 0; i < animAsset.animationData->size(); i++)
+			{
+				states->push_back(
+					animationState{
+						.animationIndex = i,
+						.time = 0.0f,
+						.weight = 0.0f,
+					}
+				);
 			}
 		}
+	};
+
+	struct enableAnimationComponent 
+	{
+		enableAnimationComponent() = default;
+
+		enableAnimationComponent(uint32_t animationIndex, float weight) : animationIndex(animationIndex), weight(weight) {};
+
+		uint32_t animationIndex;
+		float weight;
+	};
+
+	struct disableAnimationComponent
+	{
+		disableAnimationComponent() = default;
+
+		disableAnimationComponent(uint32_t animationIndex) : animationIndex(animationIndex) {};
+
+		uint32_t animationIndex;
 	};
 
 	struct lightComponent

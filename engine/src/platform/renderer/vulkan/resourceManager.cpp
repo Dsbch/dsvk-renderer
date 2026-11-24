@@ -287,12 +287,19 @@ namespace engine
 		attr.jointOffset = std::numeric_limits<uint32_t>::max();
 
 		// Upload animation data.
-		if (m.anims.jointMatrices && m.anims.jointMatrices->size() != 0)
+		if (m.animAsset.animationData && m.animAsset.animationData->size() != 0 && m.animAsset.jointData->size() != 0 && m.animAsset.skinData->size() != 0)
 		{
+			std::vector<glm::mat4> jointMatrices{};
+
+			// Rest pose. 
+			// Will get updated by ECS on the next frame with correct matrices.
+			std::vector<animationState> states{};
+			playActiveAnimations(0.0f, m.animAsset, states, jointMatrices);
+
 			auto jointHandle = mJointRegistry.addBlock(
 				m.id,
-				m.anims.jointMatrices->data(),
-				m.anims.jointMatrices->size() * sizeof(glm::mat4),
+				jointMatrices.data(),
+				jointMatrices.size() * sizeof(glm::mat4),
 				mVulkanCtx->iSubmit
 			);
 			if (!jointHandle)
@@ -523,12 +530,12 @@ namespace engine
 		return mPerInstanceRegistry.updateBlock(m.id, &attr, sizeof(perInstanceAttr), mVulkanCtx->iSubmit, frameIndex);
 	}
 
-	error resourceManager::updateAnimations(const model& m, uint32_t frameIndex)
+	error resourceManager::updateAnimations(const UID uid, const std::vector<glm::mat4>& toUpd, uint32_t frameIndex)
 	{
 		return mJointRegistry.updateBlock(
-			m.id,
-			m.anims.jointMatrices->data(),
-			m.anims.jointMatrices->size() * sizeof(glm::mat4),
+			uid,
+			toUpd.data(),
+			toUpd.size() * sizeof(glm::mat4),
 			mVulkanCtx->iSubmit,
 			frameIndex
 		);

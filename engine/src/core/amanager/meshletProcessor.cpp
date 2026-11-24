@@ -469,7 +469,15 @@ namespace engine
 		};
 
 		std::pair<std::vector<mesh>, std::vector<perMeshAttributes>> result{};
-		std::unordered_map<cgltf_skin*, std::pair<uint32_t, uint32_t>> skinOffsets{};
+		std::vector<uint32_t> skinOffsets{};
+		skinOffsets.resize(data->skins_count);
+
+		uint32_t sum = 0;
+		for (size_t s = 0; s < data->skins_count; s++)
+		{
+			skinOffsets[s] = sum;
+			sum += uint32_t(data->skins[s].joints_count);
+		}
 
 		for (size_t ni = 0; ni < data->nodes_count; ++ni)
 		{
@@ -484,19 +492,7 @@ namespace engine
 			perMeshAttributes crntMeshAttrs = {};
 			bool isSkinned = uint32_t(node->skin != nullptr);
 
-			uint32_t jointOffset = 0;
-			if (isSkinned && skinOffsets.size() != 0)
-			{
-				if (auto found = skinOffsets.find(node->skin); found != skinOffsets.end())
-				{
-					jointOffset = found->second.first;
-				}
-				else
-				{
-					for (auto [_, v] : skinOffsets)
-						jointOffset += v.second;
-				}
-			}
+			uint32_t jointOffset = isSkinned ? skinOffsets[node->skin - data->skins] : 0;
 
 			std::array<lodData, MAX_LOD_LEVELS > lods{};
 
@@ -589,10 +585,10 @@ namespace engine
 					std::move_iterator(meshlets.begin()),
 					std::move_iterator(meshlets.end())
 				);
-				
+
 				float scale = meshopt_simplifyScale(&crntPrimitive.value().positions[0].x, crntPrimitive.value().positions.size(), sizeof(glm::vec4));
 
-				constexpr std::array<uint32_t, MAX_LOD_LEVELS> lodLevelTriangleCount{1, 2, 8, 16, 32, 128, 256, 1024};
+				constexpr std::array<uint32_t, MAX_LOD_LEVELS> lodLevelTriangleCount{ 1, 2, 8, 16, 32, 128, 256, 1024 };
 				for (uint32_t i = 1; i < MAX_LOD_LEVELS; i++)
 				{
 					std::vector<meshletData> meshlets{};
@@ -762,28 +758,25 @@ namespace engine
 
 			result.first.push_back(std::move(crntMesh));
 			result.second.push_back(std::move(crntMeshAttrs));
-
-			if (isSkinned)
-				skinOffsets[node->skin] = { jointOffset, uint32_t(node->skin->joints_count) };
 		}
 
 		return result;
 	}
 
-	std::pair<std::vector<animation>, std::vector<skin>> proccessAnimations(const cgltf_data* data)
+	proccessedAnimation proccessAnimations(const cgltf_data* data)
 	{
 		auto animType = [](cgltf_animation_path_type type) -> animationType
 			{
 				switch (type)
 				{
 				case cgltf_animation_path_type_translation:
-					return tr;
+					return animationType::tr;
 				case cgltf_animation_path_type_rotation:
-					return rt;
+					return animationType::rt;
 				case cgltf_animation_path_type_scale:
-					return sc;
+					return animationType::sc;
 				default:
-					return sc;
+					return animationType::sc;
 				}
 			};
 
@@ -792,104 +785,55 @@ namespace engine
 				switch (type)
 				{
 				case cgltf_interpolation_type_linear:
-					return linear;
+					return interpolationType::linear;
 				case cgltf_interpolation_type_cubic_spline:
-					return cubicspline;
+					return interpolationType::cubicspline;
 				case cgltf_interpolation_type_step:
-					return step;
+					return interpolationType::step;
 				default:
-					return linear;
+					return interpolationType::linear;
 				}
 			};
 
-		auto getInverseBindForNode = [](const cgltf_skin* skin, const cgltf_node* node) -> glm::mat4
+		std::function<void(const cgltf_skin* s, const cgltf_data* data, skin& result)> processSkinNode;
+		processSkinNode = [&](const cgltf_skin* s, const cgltf_data* data, skin& result)
 			{
-				glm::mat4 inverseMat{ 1.0f };
+				result.skinJoints.resize(s->joints_count);
+				result.inverseBinds.resize(s->joints_count, glm::mat4{ 1.0f });
 
-				for (int i = 0; i < skin->joints_count; i++)
+				for (uint32_t i = 0; i < s->joints_count; i++)
 				{
-					if (skin->joints[i] == node)
-					{
-						cgltf_accessor_read_float(skin->inverse_bind_matrices, i, glm::value_ptr(inverseMat), 16);
-						break;
-					}
+					result.skinJoints[i] = uint32_t(s->joints[i] - data->nodes);
+
+					if (s->inverse_bind_matrices)
+						cgltf_accessor_read_float(s->inverse_bind_matrices, i, glm::value_ptr(result.inverseBinds[i]), 16);
 				}
-
-				return inverseMat;
 			};
 
-		std::function<void(const cgltf_node* root, const cgltf_skin* s, const cgltf_data* data, skin& result, int parentIdx, std::map<const cgltf_node*, std::pair<size_t, size_t>>& nodeToJoint)> processSkinNode;
-		processSkinNode = [&](const cgltf_node* root, const cgltf_skin* s, const cgltf_data* data, skin& result, int parentIdx, std::map<const cgltf_node*, std::pair<size_t, size_t>>& nodeToJoint)
-			{
-				joint j{};
-
-				j.localTransform = getNodeLocalTransform(root);
-				j.inverseBind = getInverseBindForNode(s, root);
-				j.isSkinJoint = std::any_of(s->joints, s->joints + s->joints_count,
-					[root](const cgltf_node* n) { return n == root; });
-
-				size_t jointIdx = result.skinJoints.size();
-				nodeToJoint[root] = { s - data->skins, jointIdx };
-				result.skinJoints.push_back(j);
-
-				if (parentIdx >= 0)
-					result.skinJoints[jointIdx].parentIdx = parentIdx;
-				else
-					result.skinJoints[jointIdx].parentIdx = -1;
-
-				for (size_t i = 0; i < root->children_count; i++)
-					processSkinNode(root->children[i], s, data, result, int(jointIdx), nodeToJoint);
-			};
-
-		std::pair<std::vector<animation>, std::vector<skin>> result{};
+		proccessedAnimation result{
+			.skinData = std::make_shared<std::vector<skin>>(),
+			.jointData = std::make_shared<std::vector<joint>>(),
+			.jointOrder = std::make_shared<std::vector<uint32_t>>(),
+			.animationData = std::make_shared<std::vector<animation>>(),
+		};
 
 		if (data->skins_count == 0)
 			return result;
 
-		std::map<const cgltf_node*, std::pair<size_t, size_t>> nodeToJoint{};
-
+		// Process skins.
+		result.skinData->resize(data->skins_count);
 		for (int i = 0; i < data->skins_count; i++)
 		{
-			const cgltf_skin* sk = &data->skins[i];
-
-			std::map<const cgltf_node*, const cgltf_node*> childToParent{};
-			for (int i = 0; i < sk->joints_count; i++)
-			{
-				for (int c = 0; c < sk->joints[i]->children_count; c++)
-				{
-					childToParent[sk->joints[i]->children[c]] = sk->joints[i];
-				}
-			}
-
-			cgltf_node* root = nullptr;
-
-			for (auto& [k, v] : childToParent)
-			{
-				if (childToParent.find(v) == childToParent.end())
-				{
-					root = const_cast<cgltf_node*>(v);
-					break;
-				}
-			}
-
-			if (root)
-			{
-				skin crntSkin{};
-
-				processSkinNode(root, sk, data, crntSkin, -1, nodeToJoint);
-
-				crntSkin.rootParentWorld = root->parent
-					? getNodeWorldTransformMat4(root->parent)
-					: glm::mat4(1.0f);
-
-				result.second.push_back(crntSkin);
-			}
+			if (data->skins[i].joints_count != 0)
+				processSkinNode(&data->skins[i], data, result.skinData->operator[](i));
 		}
 
+		// Process animations.
+		result.animationData->reserve(data->animations_count);
 		for (int i = 0; i < data->animations_count; i++)
 		{
 			animation crntAnim{
-				.name = std::string(data->animations[i].name),
+				.name = data->animations[i].name ? std::string(data->animations[i].name) : std::string{},
 			};
 
 			for (int c = 0; c < data->animations[i].channels_count; c++)
@@ -897,16 +841,21 @@ namespace engine
 				cgltf_animation_sampler* sampler = data->animations[i].channels[c].sampler;
 				cgltf_animation_channel ch = data->animations[i].channels[c];
 
-				auto it = nodeToJoint.find(ch.target_node);
-				if (it == nodeToJoint.end())
+				if (!ch.target_node)
+					continue;
+
+				const bool supported =
+					ch.target_path == cgltf_animation_path_type_translation ||
+					ch.target_path == cgltf_animation_path_type_rotation ||
+					ch.target_path == cgltf_animation_path_type_scale;
+
+				if (!supported)
 					continue;
 
 				channel ac{
 					.aType = animType(ch.target_path),
-					.iType = interpolationType(sampler->interpolation),
-					.currentTimeStamp = 0.0f,
-					.skinIndex = it->second.first,
-					.jointIndex = it->second.second,
+					.iType = interType(sampler->interpolation),
+					.jointIndex = uint32_t(ch.target_node - data->nodes),
 				};
 
 				std::vector<float> ts{};
@@ -918,6 +867,9 @@ namespace engine
 				for (size_t k = 0; k < frameCount; k++)
 					cgltf_accessor_read_float(sampler->input, k, &ts[k], 1);
 
+				if (!ts.empty())
+					crntAnim.duration = std::max(crntAnim.duration, ts.back());
+
 				trs.resize(frameCount);
 
 				for (size_t k = 0; k < frameCount; k++)
@@ -927,17 +879,17 @@ namespace engine
 					};
 
 					float val[4];
-					if (ac.aType == rt)
+					if (ac.aType == animationType::rt)
 					{
 						cgltf_accessor_read_float(sampler->output, k, val, 4);
 						keyframe.rotation = glm::quat(val[3], val[0], val[1], val[2]);
 					}
-					else if (ac.aType == tr)
+					else if (ac.aType == animationType::tr)
 					{
 						cgltf_accessor_read_float(sampler->output, k, val, 3);
 						keyframe.translation = glm::make_vec3(val);
 					}
-					else if (ac.aType == sc)
+					else if (ac.aType == animationType::sc)
 					{
 						cgltf_accessor_read_float(sampler->output, k, val, 3);
 						keyframe.scale = glm::make_vec3(val);
@@ -952,13 +904,42 @@ namespace engine
 				crntAnim.channels.push_back(std::move(ac));
 			}
 
-			result.first.push_back(std::move(crntAnim));
+			result.animationData->push_back(std::move(crntAnim));
+		}
+
+		// Process joints.
+		result.jointData->reserve(data->nodes_count);
+		result.jointOrder->reserve(data->nodes_count);
+
+		for (int i = 0; i < data->nodes_count; i++)
+		{
+			if (!data->nodes[i].parent)
+				result.jointOrder->push_back(uint32_t(i));
+
+			result.jointData->push_back(
+				joint{
+					.restPose = getNodeLocalTransform(&data->nodes[i]),
+					.parentIdx = int(data->nodes[i].parent ? data->nodes[i].parent - data->nodes : -1),
+				}
+			);
+		}
+
+		for (size_t k = 0; k < result.jointOrder->size(); k++)
+		{
+			const cgltf_node& node = data->nodes[result.jointOrder->operator[](k)];
+
+			for (cgltf_size c = 0; c < node.children_count; c++)
+				result.jointOrder->push_back(uint32_t(node.children[c] - data->nodes));
 		}
 
 		return result;
 	}
 
-	void recalculateMeshletBounds(mesh& m, perMeshAttributes& attrs, std::vector<animation> anims, std::vector<skin> skins)
+	void recalculateMeshletBounds(
+		mesh& m,
+		perMeshAttributes& attrs,
+		animationAsset animAsset
+	)
 	{
 		auto skinMesh =
 			[](
@@ -988,20 +969,6 @@ namespace engine
 					sPosition[v].first = glm::min(sPosition[v].first, glm::vec3{ skinnedPos });
 					sPosition[v].second = glm::max(sPosition[v].second, glm::vec3{ skinnedPos });
 				}
-			};
-
-		auto calculateJointMatrices = [](const std::vector<skin>& skins) -> std::vector<glm::mat4>
-			{
-				std::vector<glm::mat4> result{};
-
-				for (auto& s : skins)
-				{
-					auto mat = s.getJointMatrices();
-
-					result.insert(result.end(), std::move_iterator(mat.begin()), std::move_iterator(mat.end()));
-				}
-
-				return result;
 			};
 
 		auto mergeSpheres = [](const std::vector<glm::vec4>& spheres) -> glm::vec4
@@ -1071,28 +1038,28 @@ namespace engine
 				return { axis, coneCutoff };
 			};
 
-		std::vector<glm::mat4> jointMatrices = calculateJointMatrices(skins);
-		std::vector<std::pair<glm::vec3, glm::vec3>> skinnedPositions{ m.positions.size() };
+		// Create animation states that will play all animations at once.
+		std::vector<animationState> states{};
+	
+		std::vector<glm::mat4> jointMatrices{};
+		std::vector<std::pair<glm::vec3, glm::vec3>> skinnedPositions(
+			m.positions.size(),
+			{ glm::vec3{ std::numeric_limits<float>::max() }, glm::vec3{ std::numeric_limits<float>::lowest() } }
+		);
 
-		for (auto& sp : skinnedPositions)
+		// Play rest position.
+		playActiveAnimations(0.0f, animAsset, states, jointMatrices);
+		skinMesh(m, jointMatrices, skinnedPositions);
+
+		// Play all animations at full weight.
+		const float step = 1.0f / 30.0f;
+		for (uint32_t i = 0; i < animAsset.animationData->size(); i++)
 		{
-			sp.first = glm::vec3{ std::numeric_limits<float>::max() };
-			sp.second = glm::vec3{ std::numeric_limits<float>::lowest() };
-		}
+			states = { animationState{.animationIndex = i, .time = 0.0f, .weight = 1.0f } };
 
-		float longestAnim = 0.0f;
-		float deltaTime = 0.033f;
-
-		for (auto& a : anims)
-			for (auto& c : a.channels)
-				longestAnim = std::max(c.timestamps->back(), longestAnim);
-
-		for (auto& a : anims)
-		{
-			for (float currentFrame = 0.0f; currentFrame < longestAnim; currentFrame += deltaTime)
+			for (float t = 0.0f; t <= animAsset.animationData->operator[](i).duration; t += step)
 			{
-				a.update(deltaTime, skins);
-				jointMatrices = calculateJointMatrices(skins);
+				playActiveAnimations(t, animAsset, states, jointMatrices);
 				skinMesh(m, jointMatrices, skinnedPositions);
 			}
 		}

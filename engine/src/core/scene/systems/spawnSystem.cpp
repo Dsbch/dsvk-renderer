@@ -76,22 +76,22 @@ namespace engine
 				if (err)
 					return;
 
-				newModels.push_back({
-					.id = uid.uid,
-					.instanceAttributes = perInstanceAttr{
-						.modelTransform = transform{
-							.translation = trs.translation,
-							.scale = trs.scale,
-							.rotation = trs.rotation,
+				newModels.push_back(
+					model{
+						.id = uid.uid,
+						.instanceAttributes = perInstanceAttr{
+							.modelTransform = transform{
+								.translation = trs.translation,
+								.scale = trs.scale,
+								.rotation = trs.rotation,
+							},
 						},
-					},
-					.meshData = mesh.meshData,
-					.perMeshData = mesh.meshAttributes,
-					.mat = material.mat,
-					.anims = animations{
-						.jointMatrices = anim.jointMatrices,
-					},
-					});
+						.meshData = mesh.meshData,
+						.perMeshData = mesh.meshAttributes,
+						.mat = material.mat,
+						.animAsset = anim.animAsset,
+					}
+				);
 
 				newEntites.push_back({ mCtx, e, registry });
 			}

@@ -167,7 +167,8 @@ namespace sandbox
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.1f }, tr.rotation);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animAsset);
+				e.addComponent<engine::enableAnimationComponent>(0, 1.0f);
 				e.addComponent<engine::newEntityComponent>();
 			}
 
@@ -190,7 +191,8 @@ namespace sandbox
 				e.addComponent<engine::transformComponent>(tr.translation, tr.scale, tr.rotation);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animAsset);
+				e.addComponent<engine::enableAnimationComponent>(0, 1.0f);
 				e.addComponent<engine::newEntityComponent>();
 			}
 
@@ -213,7 +215,8 @@ namespace sandbox
 				e.addComponent<engine::transformComponent>(tr.translation, glm::vec3{ 0.1f }, tr.rotation);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
-				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
+				e.addComponent<engine::animationComponent>(loadedModel.value()->animAsset);
+				e.addComponent<engine::enableAnimationComponent>(0, 1.0f);
 				e.addComponent<engine::newEntityComponent>();
 			}
 
@@ -347,7 +350,6 @@ namespace sandbox
 				e.addComponent<engine::materialComponent>(loadedModel.value()->mat);
 				e.addComponent<engine::meshComponent>(loadedModel.value()->meshData, loadedModel.value()->perMeshData);
 				e.addComponent<engine::newEntityComponent>();
-				e.addComponent<engine::animationComponent>(loadedModel.value()->anims.animations, loadedModel.value()->anims.skins);
 			}
 
 			if (keyPressedEvent->getKey() == engine::key::y)

@@ -50,6 +50,7 @@ namespace engine
 
 		error checkError();
 	private:
+		error handleAnimationSwitch(std::shared_ptr<registryHandle> registry);
 		error handleTransformedEntities(std::shared_ptr<registryHandle> registry);
 		error handleAnimatedEntities(std::shared_ptr<registryHandle> registry, float deltaTime);
 
@@ -62,6 +63,6 @@ namespace engine
 
 		co::wait_group mWg;
 		co::chan<animationWork> mAnimWorkChan;
-		co::chan<model> mAnimResultChan;
+		co::chan<std::pair<UID, std::vector<glm::mat4>>> mAnimResultChan;
 	};
 }

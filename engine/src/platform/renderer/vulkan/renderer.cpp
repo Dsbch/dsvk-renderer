@@ -847,12 +847,12 @@ namespace engine
 		return err;
 	}
 
-	error vulkanRenderer::updateAnimations(const std::set<model>& animationUpdatedEntities, uint32_t frameIndex)
+	error vulkanRenderer::updateAnimations(const std::unordered_map<UID, std::vector<glm::mat4>>& animationUpdatedEntities, uint32_t frameIndex)
 	{
 		error err = {};
 		for (auto& m : animationUpdatedEntities)
 		{
-			err = mResourceManager->updateAnimations(m, frameIndex);
+			err = mResourceManager->updateAnimations(m.first, m.second, frameIndex);
 			if (err)
 				return err;
 		}

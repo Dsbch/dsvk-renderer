@@ -14,7 +14,7 @@ See the todo.
 - Two-phase HZB occlusion culling runs in compute.
 - Order-independent transparency
 - PBR metallic-roughness material workflow.
-- Skeletal animation with per-meshlet culling for animated geometry (has bugs, see TODO).
+- Skeletal animation with per-meshlet culling. Animations are interpolated if several animations are playing at the same time.
 - ECS architecture The scene is built on an ECS (EnTT).
 
 ## Used libraries

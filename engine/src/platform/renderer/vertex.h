@@ -283,27 +283,29 @@ namespace engine
 
 	struct joint
 	{
-		glm::mat4 inverseBind;
-		transform localTransform;
-		bool isSkinJoint;
-		int parentIdx;
+		// Only local transform here, we do not store current state for each animation.
+		transform restPose;
+		int parentIdx; // -1 for the root.
 	};
 
 	struct skin
 	{
-		std::vector<joint> skinJoints;
-		std::vector<glm::mat4> getJointMatrices() const;
-		glm::mat4 rootParentWorld;
+		// Indices into instance joints array.
+		std::vector<uint32_t> skinJoints;
+		// Inverse bind matrices for each joint in the skin.
+		std::vector<glm::mat4> inverseBinds;
+		// Calculate final joint matrices after all animations were run and blended.
+		void calculateJointMatrices(const std::vector<glm::mat4>& world, std::vector<glm::mat4>& out, uint32_t writeOffset) const;
 	};
 
-	enum animationType
+	enum class animationType
 	{
 		tr,
 		rt,
 		sc,
 	};
 
-	enum interpolationType
+	enum class interpolationType
 	{
 		linear,
 		cubicspline,
@@ -314,9 +316,9 @@ namespace engine
 	{
 		animationType aType;
 		interpolationType iType;
-		float currentTimeStamp;
-		size_t skinIndex;
-		size_t jointIndex;
+
+		// Index to a perInstance joints array.
+		uint32_t jointIndex;
 
 		std::shared_ptr<const std::vector<float>> timestamps;
 		std::shared_ptr<const std::vector<transform>> keyframes;
@@ -325,17 +327,28 @@ namespace engine
 	struct animation
 	{
 		std::string name;
+		// Total animation duration.
+		float duration;
 		std::vector<channel> channels;
 
-		void update(float deltaTime, std::shared_ptr<std::vector<skin>> skins);
-		void update(float deltaTime, std::vector<skin>& skins);
+		// Here t is animation sample time. Pose is a copy of a perIsntance joint array.
+		// After the call pose will hold final posses for each joint for that animation.
+		void sample(float t, std::vector<transform>& pose) const;
 	};
 
-	struct animations
+	struct animationAsset
 	{
-		std::shared_ptr<std::vector<glm::mat4>> jointMatrices;
-		std::shared_ptr<std::vector<skin>> skins;
-		std::shared_ptr<std::vector<animation>> animations;
+		std::shared_ptr<const std::vector<skin>> skinData;
+		std::shared_ptr<const std::vector<joint>> jointData;
+		std::shared_ptr<const std::vector<uint32_t>> jointOrder;
+		std::shared_ptr<const std::vector<animation>> animationData;
+	};
+
+	struct animationState
+	{
+		uint32_t animationIndex;
+		float    time;
+		float    weight;
 	};
 
 	struct model
@@ -345,7 +358,8 @@ namespace engine
 		std::shared_ptr<const std::vector<mesh>> meshData;
 		std::shared_ptr<const std::vector<perMeshAttributes>> perMeshData;
 		materials mat;
-		animations anims;
+
+		animationAsset animAsset;
 
 		bool operator<(const model& other) const
 		{
@@ -382,4 +396,11 @@ namespace engine
 			return id < other.id;
 		}
 	};
+
+	void playActiveAnimations(
+		float deltaTime,
+		animationAsset animAsset,
+		std::vector<animationState>& states,
+		std::vector<glm::mat4>& out
+	);
 }

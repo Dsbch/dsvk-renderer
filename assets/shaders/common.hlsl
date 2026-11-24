@@ -118,7 +118,7 @@ struct perInstanceAttr
 
 struct command
 {
-	// 2 bytes meshlet, 2 bytes instance index.
+	// 2 bytes mesh, 2 bytes instance index.
     uint meshInstanceIndex;
     uint meshOffset;
     uint instanceOffset;

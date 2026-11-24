@@ -8,94 +8,6 @@ namespace engine
 		return (mask & flag) != 0;
 	}
 
-	std::vector<glm::mat4> skin::getJointMatrices() const
-	{
-		std::vector<glm::mat4> worldMats;
-		worldMats.resize(skinJoints.size());
-
-		std::vector<glm::mat4> result;
-		result.reserve(skinJoints.size());
-
-		for (size_t i = 0; i < skinJoints.size(); i++)
-		{
-			const joint& j = skinJoints[i];
-			glm::mat4 local = toMat4(j.localTransform);
-
-			worldMats[i] = (j.parentIdx < 0)
-				? local
-				: worldMats[j.parentIdx] * local;
-
-			if (j.isSkinJoint)
-				result.push_back(rootParentWorld * worldMats[i] * j.inverseBind);
-		}
-
-		return result;
-	}
-
-	void animation::update(float deltaTime, std::shared_ptr<std::vector<skin>> skins)
-	{
-		std::vector<skin>& s = *skins.get();
-
-		update(deltaTime, s);
-	}
-
-	void animation::update(float deltaTime, std::vector<skin>& skins)
-	{
-		for (auto& c : channels)
-		{
-			if (c.timestamps->empty() || c.timestamps->size() == 1)
-				continue;
-
-			float time = c.currentTimeStamp + deltaTime;
-
-			if (time >= c.timestamps->back())
-			{
-				time = 0.0f;
-			}
-
-			auto it = std::upper_bound(c.timestamps->begin(), c.timestamps->end(), time);
-
-			size_t frame1 = it - c.timestamps->begin();
-			if (frame1 == 0)
-				continue;
-
-			size_t frame0 = frame1 - 1;
-
-			float t0 = c.timestamps->operator[](frame0);
-			float t1 = c.timestamps->operator[](frame1);
-			float alpha = (time - t0) / (t1 - t0);
-			alpha = glm::clamp(alpha, 0.0f, 1.0f);
-
-			if (c.aType == tr)
-			{
-				glm::vec3 result = (c.iType == step)
-					? c.keyframes->operator[](frame0).translation
-					: glm::mix(c.keyframes->operator[](frame0).translation, c.keyframes->operator[](frame1).translation, alpha);
-
-
-				skins[c.skinIndex].skinJoints[c.jointIndex].localTransform.translation = result;
-			}
-			else if (c.aType == rt)
-			{
-				glm::quat result = (c.iType == step)
-					? c.keyframes->operator[](frame0).rotation
-					: glm::slerp(c.keyframes->operator[](frame0).rotation, c.keyframes->operator[](frame1).rotation, alpha);
-
-				skins[c.skinIndex].skinJoints[c.jointIndex].localTransform.rotation = result;
-			}
-			else if (c.aType == sc)
-			{
-				glm::vec3 result = (c.iType == step)
-					? c.keyframes->operator[](frame0).scale
-					: glm::mix(c.keyframes->operator[](frame0).scale, c.keyframes->operator[](frame1).scale, alpha);
-
-				skins[c.skinIndex].skinJoints[c.jointIndex].localTransform.scale = result;
-			}
-
-			c.currentTimeStamp = time;
-		}
-	}
-
 	glm::mat4 toMat4(const transform& trs)
 	{
 		return glm::translate(glm::mat4(1.0f), trs.translation)
@@ -106,6 +18,74 @@ namespace engine
 	uint32_t packUint2(uint32_t x, uint32_t y)
 	{
 		return (x & 0xFFFF) | (y << 16);
+	}
+
+	void playActiveAnimations(float deltaTime, animationAsset animAsset, std::vector<animationState>& states, std::vector<glm::mat4>& out)
+	{
+		std::vector<transform> localPose{};
+		std::vector<glm::mat4> globalPose{};
+		std::vector<transform> currentAnimationPose{};
+
+
+		localPose.resize(animAsset.jointData->size());
+		globalPose.resize(animAsset.jointData->size());
+
+		for (uint32_t i = 0; i < animAsset.jointData->size(); i++)
+			localPose[i] = animAsset.jointData->operator[](i).restPose;
+
+		currentAnimationPose.resize(animAsset.jointData->size());
+
+		float totalWeight = 0.0f;
+
+		for (auto& state : states)
+		{
+			if (state.weight <= 0.0f)
+				continue;
+
+			auto& anim = animAsset.animationData->operator[](state.animationIndex);
+
+			state.time += deltaTime;
+
+			if (state.time >= anim.duration)
+				state.time = std::fmod(state.time, anim.duration);
+
+			totalWeight += state.weight;
+
+			for (uint32_t i = 0; i < animAsset.jointData->size(); i++)
+				currentAnimationPose[i] = animAsset.jointData->operator[](i).restPose;
+
+			anim.sample(state.time, currentAnimationPose);
+
+			float alpha = state.weight / totalWeight;
+
+			for (uint32_t i = 0; i < animAsset.jointData->size(); i++)
+			{
+				localPose[i].translation = glm::mix(localPose[i].translation, currentAnimationPose[i].translation, alpha);
+				localPose[i].rotation = glm::slerp(localPose[i].rotation, currentAnimationPose[i].rotation, alpha);
+				localPose[i].scale = glm::mix(localPose[i].scale, currentAnimationPose[i].scale, alpha);
+			}
+		}
+
+		for (auto i : *animAsset.jointOrder.get())
+		{
+			const joint& j = animAsset.jointData->operator[](i);
+
+			if (j.parentIdx != -1)
+				globalPose[i] = globalPose[j.parentIdx] * toMat4(localPose[i]);
+			else
+				globalPose[i] = toMat4(localPose[i]);
+		}
+
+		out.clear();
+
+		for (auto& sk : *animAsset.skinData.get())
+		{
+			auto skinJointSize = sk.skinJoints.size();
+
+			out.resize(out.size() + skinJointSize);
+
+			sk.calculateJointMatrices(globalPose, out, uint32_t(out.size() - skinJointSize));
+		}
 	}
 
 	void mesh::generateHashes()
@@ -188,5 +168,63 @@ namespace engine
 		}
 
 		return result;
+	}
+
+	void skin::calculateJointMatrices(const std::vector<glm::mat4>& world, std::vector<glm::mat4>& out, uint32_t writeOffset) const
+	{
+		for (size_t i = 0; i < skinJoints.size(); i++)
+			out[i + writeOffset] = world[skinJoints[i]] * inverseBinds[i];
+
+		return;
+	}
+
+	void animation::sample(float t, std::vector<transform>& pose) const
+	{
+		for (auto& c : channels)
+		{
+			if (c.timestamps->empty())
+				continue;
+
+			float time = t;
+
+			auto it = std::upper_bound(c.timestamps->begin(), c.timestamps->end(), time);
+
+			size_t frame1 = it - c.timestamps->begin();
+			size_t frame0 = (frame1 == 0) ? 0 : frame1 - 1;
+
+			if (frame1 >= c.timestamps->size())
+				frame1 = c.timestamps->size() - 1;
+
+			float t0 = c.timestamps->operator[](frame0);
+			float t1 = c.timestamps->operator[](frame1);
+
+			float alpha = (frame0 == frame1) ? 0.0f : glm::clamp((t - t0) / (t1 - t0), 0.0f, 1.0f);
+
+			if (c.aType == animationType::tr)
+			{
+				glm::vec3 result = (c.iType == interpolationType::step)
+					? c.keyframes->operator[](frame0).translation
+					: glm::mix(c.keyframes->operator[](frame0).translation, c.keyframes->operator[](frame1).translation, alpha);
+
+
+				pose[c.jointIndex].translation = result;
+			}
+			else if (c.aType == animationType::rt)
+			{
+				glm::quat result = (c.iType == interpolationType::step)
+					? c.keyframes->operator[](frame0).rotation
+					: glm::slerp(c.keyframes->operator[](frame0).rotation, c.keyframes->operator[](frame1).rotation, alpha);
+
+				pose[c.jointIndex].rotation = result;
+			}
+			else if (c.aType == animationType::sc)
+			{
+				glm::vec3 result = (c.iType == interpolationType::step)
+					? c.keyframes->operator[](frame0).scale
+					: glm::mix(c.keyframes->operator[](frame0).scale, c.keyframes->operator[](frame1).scale, alpha);
+
+				pose[c.jointIndex].scale = result;
+			}
+		}
 	}
 }

@@ -71,7 +71,7 @@ namespace engine
 			std::set<model> addedEntities;
 			std::set<model> deletedEntities;
 			std::set<model> updateInstanceAttributes;
-			std::set<model> updateAnimations;
+			std::unordered_map<UID, std::vector<glm::mat4>> updateAnimations;
 		};
 
 		struct sceneLightState
@@ -89,7 +89,7 @@ namespace engine
 			void addEntity(const model& m);
 			void deleteEntity(const model& m);
 			void updateInstanceAttributes(const model& m);
-			void updateAnimations(const model& m);
+			void updateAnimations(const std::pair<UID, std::vector<glm::mat4>>& toUpd);
 			void swapSceneState();
 
 			void addLight(const light& m);
